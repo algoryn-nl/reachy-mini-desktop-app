@@ -211,11 +211,32 @@ if [ -n "$TAURI_SIGNING_KEY_PASSWORD" ]; then
 else
     # Essayer sans mot de passe (pour clés générées avec --ci)
     echo -e "${YELLOW}   Attempting to sign without password...${NC}"
-    SIGN_OUTPUT=$(yarn tauri signer sign -f "$PRIVATE_KEY" "$BUNDLE_FILE" 2>&1)
+    
+    # Vérifier que la clé privée existe et est lisible
+    if [ ! -r "$PRIVATE_KEY" ]; then
+        echo -e "${RED}❌ Clé privée non lisible: ${PRIVATE_KEY}${NC}"
+        exit 1
+    fi
+    
+    # Vérifier que le fichier à signer existe
+    if [ ! -f "$BUNDLE_FILE" ]; then
+        echo -e "${RED}❌ Fichier à signer non trouvé: ${BUNDLE_FILE}${NC}"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}   Private key: ${PRIVATE_KEY}${NC}"
+    echo -e "${BLUE}   File to sign: ${BUNDLE_FILE}${NC}"
+    echo -e "${BLUE}   Signature will be: ${SIGNATURE_FILE}${NC}"
+    
+    # Essayer avec verbose pour voir plus de détails
+    SIGN_OUTPUT=$(yarn tauri signer sign -v -f "$PRIVATE_KEY" "$BUNDLE_FILE" 2>&1)
     SIGN_EXIT_CODE=$?
     
     if [ $SIGN_EXIT_CODE -eq 0 ]; then
         echo -e "${GREEN}✅ Signature réussie avec tauri signer${NC}"
+        if [ -n "$SIGN_OUTPUT" ]; then
+            echo "$SIGN_OUTPUT"
+        fi
     else
         echo -e "${YELLOW}⚠️  tauri signer output:${NC}"
         echo "$SIGN_OUTPUT"
