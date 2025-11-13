@@ -89,14 +89,38 @@ echo -e "${BLUE}📦 Platform: ${PLATFORM}${NC}"
 # 1. Builder l'application
 echo ""
 echo -e "${BLUE}🔨 Step 1: Building application...${NC}"
+
+# Use TARGET_TRIPLET from environment if provided (for cross-compilation)
+TARGET_ARG=""
+if [ -n "$TARGET_TRIPLET" ]; then
+    TARGET_ARG="--target $TARGET_TRIPLET"
+    echo -e "${BLUE}   Target: ${TARGET_TRIPLET}${NC}"
+fi
+
 if [ "$ENV" = "dev" ]; then
     echo -e "${YELLOW}   Building in debug mode...${NC}"
-    yarn tauri build --debug
+    if [ -n "$TARGET_ARG" ]; then
+        yarn tauri build --debug $TARGET_ARG
+    else
+        yarn tauri build --debug
+    fi
     BUNDLE_DIR="src-tauri/target/debug/bundle"
 else
     echo -e "${YELLOW}   Building in release mode...${NC}"
-    yarn tauri build
+    if [ -n "$TARGET_ARG" ]; then
+        yarn tauri build $TARGET_ARG
+    else
+        yarn tauri build
+    fi
     BUNDLE_DIR="src-tauri/target/release/bundle"
+fi
+
+# Adjust BUNDLE_DIR if target was specified
+if [ -n "$TARGET_TRIPLET" ]; then
+    BUNDLE_DIR="src-tauri/target/$TARGET_TRIPLET/release/bundle"
+    if [ "$ENV" = "dev" ]; then
+        BUNDLE_DIR="src-tauri/target/$TARGET_TRIPLET/debug/bundle"
+    fi
 fi
 
 # 2. Trouver le fichier bundle selon la plateforme

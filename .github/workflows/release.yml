@@ -118,8 +118,10 @@ jobs:
       - name: Build and sign update
         env:
           RELEASE_URL_BASE: ${{ secrets.RELEASE_URL_BASE || 'https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v' }}
+          TARGET_TRIPLET: ${{ matrix.target }}
         run: |
           export RELEASE_URL_BASE
+          export TARGET_TRIPLET
           bash ./scripts/build-update.sh prod "${{ steps.version.outputs.version }}"
 
       - name: Upload release artifacts
