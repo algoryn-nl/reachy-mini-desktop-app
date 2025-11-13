@@ -233,7 +233,14 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: Release v${{ steps.version.outputs.version }}
           files: |
-            release-artifacts/**/*
+            release-artifacts/**/*.msi
+            release-artifacts/**/*.msi.sig
+            release-artifacts/**/*.app.tar.gz
+            release-artifacts/**/*.app.tar.gz.sig
+            release-artifacts/**/*.AppImage
+            release-artifacts/**/*.AppImage.sig
+            release-artifacts/**/update.json
+            release-artifacts/latest.json
           draft: false
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
         env:
