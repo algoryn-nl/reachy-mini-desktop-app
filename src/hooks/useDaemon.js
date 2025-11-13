@@ -24,6 +24,13 @@ export const useDaemon = () => {
     // Ne pas checker si déjà détecté comme crashé
     if (isDaemonCrashed) return;
     
+    // ⚠️ SKIP pendant installations (daemon peut être surchargé par pip install)
+    const { isInstalling } = useAppStore.getState();
+    if (isInstalling) {
+      console.log('⏭️ Skipping status check (installation in progress)');
+      return;
+    }
+    
     try {
       const response = await fetchWithTimeout(
         buildApiUrl(DAEMON_CONFIG.ENDPOINTS.STATE_FULL),
@@ -35,12 +42,21 @@ export const useDaemon = () => {
       setIsActive(isRunning);
       // ✅ Pas de incrementTimeouts() ici, géré par useDaemonHealthCheck
     } catch (error) {
-      setIsActive(false);
+      // ✅ Ne pas mettre isActive à false immédiatement en cas d'erreur
+      // Laisser le health check gérer la détection de crash avec son compteur de timeouts
+      // Cela évite de mettre isActive à false lors de timeouts temporaires (ex: après arrêt d'app)
+      // Le health check détectera un vrai crash après 3 timeouts consécutifs
       // ✅ Pas de incrementTimeouts() ici, géré par useDaemonHealthCheck
     }
   }, [setIsActive, isDaemonCrashed]);
 
   const fetchDaemonVersion = useCallback(async () => {
+    // ⚠️ SKIP pendant installations (daemon peut être surchargé par pip install)
+    const { isInstalling } = useAppStore.getState();
+    if (isInstalling) {
+      return; // Skip silencieusement
+    }
+    
     try {
       const response = await fetchWithTimeout(
         buildApiUrl(DAEMON_CONFIG.ENDPOINTS.DAEMON_STATUS),
@@ -61,14 +77,14 @@ export const useDaemon = () => {
   }, [setDaemonVersion]);
 
   const startDaemon = useCallback(async () => {
-    setIsStarting(true);
+    // D'abord reset les erreurs mais ne pas encore changer de vue
     setStartupError(null);
     setHardwareError(null);
     
-    // ⚡ Pas de setTimeout ici ! La transition sera déclenchée par le onScanComplete
-    // On vérifie juste que le daemon démarre bien
-    
     console.log('🚀 Starting daemon (transition will be triggered by scan completion)');
+    
+    // Attendre un petit instant pour que React render le spinner
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     try {
       // Check if daemon already running
@@ -80,17 +96,30 @@ export const useDaemon = () => {
           { label: 'Check existing daemon' }
         );
         if (response.ok) {
-          console.log('✅ Daemon already running, scan will trigger transition');
-          // Pas de setTimeout, le scan va déclencher la transition via onScanComplete
+          console.log('✅ Daemon already running, showing scan view');
+          // Attendre 500ms pour voir le spinner dans le bouton
+          await new Promise(resolve => setTimeout(resolve, 500));
+          setIsStarting(true);
           return;
         }
       } catch (e) {
         console.log('No daemon detected, starting new one');
       }
 
-      // Launch new daemon
-      await invoke('start_daemon');
-      console.log('✅ Daemon started, scan will trigger transition');
+      // Launch new daemon (non-bloquant - on ne l'attend pas)
+      invoke('start_daemon').then(() => {
+        console.log('✅ Daemon started, scan will trigger transition');
+      }).catch((e) => {
+        console.error('❌ Daemon startup error:', e);
+        setStartupError(e.message || 'Error starting the daemon');
+        setIsStarting(false);
+      });
+      
+      // Attendre 500ms pour voir le spinner dans le bouton, puis passer à la vue scan
+      console.log('⏱️ Waiting 500ms before showing scan view...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('✅ Switching to scan view');
+      setIsStarting(true);
       
       // Vérifier périodiquement que le daemon est bien démarré (mais pas bloquer)
       const checkInterval = setInterval(async () => {

@@ -5,7 +5,7 @@ import AudioVisualizer from './AudioVisualizer';
  * Composant CameraFeed - Affiche un flux caméra
  * Pour l'instant, affiche un placeholder
  */
-export default function CameraFeed({ width = 240, height = 180, onSwap, isLarge = false }) {
+export default function CameraFeed({ width = 240, height = 180, isLarge = false }) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const containerRef = useRef(null);
@@ -99,41 +99,7 @@ export default function CameraFeed({ width = 240, height = 180, onSwap, isLarge 
         />
       </div>
 
-      {/* Bouton swap (seulement en mode petit) */}
-      {!isLarge && (
-        <button
-          onClick={onSwap}
-          style={{
-            position: 'absolute',
-            top: '6px',
-            right: '6px',
-            width: '20px',
-            height: '20px',
-            border: 'none',
-            borderRadius: '0',
-            background: 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '14px',
-            transition: 'all 0.2s ease',
-            padding: 0,
-            color: 'white',
-            textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)',
-            lineHeight: '1',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
-          title="Swap video and 3D view"
-        >
-          ⇄
-        </button>
-      )}
+      {/* Note: Swap button is now handled by ViewportSwapper */}
     </div>
   );
 }

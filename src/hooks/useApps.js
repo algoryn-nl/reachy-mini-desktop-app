@@ -12,7 +12,7 @@ export function useApps(isActive) {
   const [availableApps, setAvailableApps] = useState([]);
   const [installedApps, setInstalledApps] = useState([]);
   const [currentApp, setCurrentApp] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // ✅ Initialiser à true pour afficher le spinner au début
   const [error, setError] = useState(null);
   
   // Jobs en cours (installations/désinstallations)
@@ -24,6 +24,7 @@ export function useApps(isActive) {
    */
   const fetchAvailableApps = useCallback(async () => {
     try {
+      setIsLoading(true);
       const response = await fetchWithTimeout(
         buildApiUrl('/api/apps/list-available'),
         {},
@@ -59,10 +60,12 @@ export function useApps(isActive) {
       setInstalledApps(enrichedInstalled);
       
       console.log('📦 Apps fetched:', apps.length, 'available,', enrichedInstalled.length, 'installed');
+      setIsLoading(false);
       return apps;
     } catch (err) {
       console.error('❌ Failed to fetch apps:', err);
       setError(err.message);
+      setIsLoading(false);
       return [];
     }
   }, []);

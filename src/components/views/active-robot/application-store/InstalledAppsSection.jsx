@@ -101,7 +101,8 @@ export default function InstalledAppsSection({
                   borderRadius: '14px',
                   bgcolor: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'white',
                   border: `1px solid ${isExpanded ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)')}`,
-                  transition: 'all 0.25s ease',
+                  // ✅ Pas de transition sur bgcolor/border pour éviter l'animation lors du changement de dark mode
+                  transition: 'transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, filter 0.25s ease',
                   overflow: 'hidden',
                   boxShadow: isExpanded ? (darkMode ? '0 4px 12px rgba(0, 0, 0, 0.3)' : '0 4px 12px rgba(0, 0, 0, 0.08)') : 'none',
                   opacity: isRemoving ? 0.5 : (isBusy && !isCurrentlyRunning ? 0.4 : 1),
@@ -124,7 +125,8 @@ export default function InstalledAppsSection({
                     bgcolor: isExpanded 
                       ? (darkMode ? 'rgba(255, 149, 0, 0.05)' : 'rgba(255, 149, 0, 0.03)') 
                       : 'transparent',
-                    transition: 'all 0.25s ease',
+                    // ✅ Pas de transition sur bgcolor pour éviter l'animation lors du changement de dark mode
+                    transition: 'box-shadow 0.25s ease',
                     '&:hover': {
                       bgcolor: isExpanded
                         ? (darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)')
@@ -239,7 +241,7 @@ export default function InstalledAppsSection({
                       sx={{
                         width: 32,
                         height: 32,
-                        transition: 'all 0.3s ease',
+                        transition: 'transform 0.3s ease',
                         transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                       }}
                     >

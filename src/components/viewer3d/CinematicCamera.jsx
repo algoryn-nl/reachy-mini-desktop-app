@@ -130,46 +130,32 @@ export default function CinematicCamera({
       return;
     }
 
-    // 🎬 MODE NORMAL : Animation en arc
+    // 🎬 MODE NORMAL : Rotation lente en plan large
     // ⚡ Initialiser le timer au premier frame (quand le scan démarre vraiment)
     if (startTimeRef.current === null) {
       startTimeRef.current = Date.now();
-      console.log('🎥 Camera animation started');
+      console.log('🎥 Camera animation started - slow rotation');
     }
     
     const elapsed = (Date.now() - startTimeRef.current) / 1000;
-    const progress = Math.min(elapsed / animationDuration, 1.0);
 
-    // Easing très doux (ease-in-out cubique)
-    const eased = progress < 0.5
-      ? 4 * progress * progress * progress
-      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-    // ✅ Mouvement en ARC : rotation circulaire + descente progressive
-    const startRadius = 0.45; // Commence plus loin
-    const endRadius = 0.25;   // Termine proche de la vue normale
-    const radius = startRadius + (eased * (endRadius - startRadius));
+    // ✅ PLAN LARGE : Position fixe à bonne distance pour voir le robot entier
+    const radius = 0.35; // Distance fixe, zoom sur le robot
+    const height = 0.15;  // Hauteur fixe, centré sur le robot avec antennes repliées
     
-    const startAngle = Math.PI * 0.25; // Commence plus à droite (45°)
-    const endAngle = 0;  // Termine face (0°) pour correspondre à la vue normale
-    const angle = startAngle + (eased * (endAngle - startAngle));
+    // ✅ ROTATION LENTE : Tour complet sur la durée du scan
+    // De 0° à 360° sur la durée totale
+    const rotationSpeed = (2 * Math.PI) / animationDuration; // Radians par seconde
+    const angle = elapsed * rotationSpeed;
     
-    // Position circulaire (X et Z)
+    // Position circulaire (X et Z) - tourne dans le sens horaire
     const x = Math.sin(angle) * radius;
     const z = Math.cos(angle) * radius;
-    
-    // Descente progressive (Y) - termine à 0.25 pour correspondre à la vue normale
-    const startY = 0.32; // Commence haut
-    const endY = 0.25;   // Termine à la hauteur de la vue normale
-    const y = startY + (eased * (endY - startY));
 
-    cameraRef.current.position.set(x, y, z);
+    cameraRef.current.position.set(x, height, z);
 
-    // Regarder vers le centre du robot - se rapprochant de la target normale (0, 0.2, 0)
-    const startTargetY = target[1];  // 0.12
-    const endTargetY = 0.2;           // Target de la vue normale
-    const targetY = startTargetY + (eased * (endTargetY - startTargetY));
-    const targetVec = new THREE.Vector3(target[0], targetY, target[2]);
+    // Toujours regarder vers le centre du robot
+    const targetVec = new THREE.Vector3(target[0], target[1], target[2]);
     cameraRef.current.lookAt(targetVec);
   });
 

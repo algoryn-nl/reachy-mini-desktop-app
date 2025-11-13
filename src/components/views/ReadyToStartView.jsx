@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import reachyBusteSvg from '../../assets/reachy-buste.svg';
@@ -34,11 +34,20 @@ const START_MESSAGES = [
 export default function ReadyToStartView({ startDaemon, isStarting, usbPortName }) {
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
   const { darkMode } = useAppStore();
+  const [isButtonLoading, setIsButtonLoading] = useState(false);
   
   // Choisir un message aléatoire (mémorisé - ne change jamais)
   const randomMessage = useMemo(() => {
     return START_MESSAGES[Math.floor(Math.random() * START_MESSAGES.length)];
   }, []);
+  
+  const handleStartClick = () => {
+    setIsButtonLoading(true);
+    // Laisser React faire un render du spinner avant de lancer le daemon
+    setTimeout(() => {
+      startDaemon();
+    }, 0); // 100ms pour que React ait le temps de render
+  };
 
   return (
     <Box
@@ -139,11 +148,11 @@ export default function ReadyToStartView({ startDaemon, isStarting, usbPortName 
           </Typography>
 
           <Button
-            onClick={startDaemon}
-            disabled={isStarting}
+            onClick={handleStartClick}
+            disabled={isButtonLoading || isStarting}
             variant="contained"
             color="primary"
-            startIcon={isStarting ? (
+            startIcon={(isButtonLoading || isStarting) ? (
               <CircularProgress size={14} thickness={3} sx={{ color: 'rgba(255, 255, 255, 0.8)' }} />
             ) : null}
             sx={{
@@ -174,17 +183,17 @@ export default function ReadyToStartView({ startDaemon, isStarting, usbPortName 
                 transition: 'opacity 0.3s ease',
               },
               '&:hover::before': {
-                opacity: !isStarting ? 1 : 0,
+                opacity: !(isButtonLoading || isStarting) ? 1 : 0,
               },
               '&:hover': {
-                bgcolor: !isStarting ? (darkMode ? '#f5f5f5' : '#1a1a1a') : (darkMode ? '#fff' : '#000'),
-                transform: !isStarting ? 'translateY(-1px)' : 'none',
-                boxShadow: !isStarting 
+                bgcolor: !(isButtonLoading || isStarting) ? (darkMode ? '#f5f5f5' : '#1a1a1a') : (darkMode ? '#fff' : '#000'),
+                transform: !(isButtonLoading || isStarting) ? 'translateY(-1px)' : 'none',
+                boxShadow: !(isButtonLoading || isStarting) 
                   ? '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08), inset 0 -1px 1px rgba(255, 255, 255, 0.2)'
                   : '0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 -1px 1px rgba(255, 255, 255, 0.15)',
               },
               '&:active': {
-                transform: !isStarting ? 'translateY(0px)' : 'none',
+                transform: !(isButtonLoading || isStarting) ? 'translateY(0px)' : 'none',
                 boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
               },
               '&:disabled': {
@@ -194,7 +203,7 @@ export default function ReadyToStartView({ startDaemon, isStarting, usbPortName 
               },
             }}
           >
-            {isStarting ? 'Starting...' : 'Start'}
+            {(isButtonLoading || isStarting) ? 'Starting...' : 'Start'}
           </Button>
         </Box>
 

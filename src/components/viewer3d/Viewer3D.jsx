@@ -10,7 +10,6 @@ import CircleIcon from '@mui/icons-material/Circle';
 import { Leva } from 'leva';
 import * as THREE from 'three';
 import Scene from './Scene';
-import CameraFeed from '../camera/CameraFeed';
 import useRobotWebSocket from './hooks/useRobotWebSocket';
 
 /**
@@ -52,14 +51,18 @@ export default function RobotViewer3D({
   useHeadFollowCamera = false, // Caméra qui suit la tête du robot
   showCameraToggle = false, // Affiche le toggle pour basculer entre Follow et Free
   errorFocusMesh = null, // Mesh à focus en cas d'erreur
+  backgroundColor = '#fdfcfa', // Couleur de fond du canvas
+  // Props du robot
+  antennas = null, // Position des antennes [left, right] (null = position par défaut)
+  headPose = null, // Position de la tête (null = position par défaut)
+  yawBody = null, // Rotation du corps (null = position par défaut)
   // Props pour le status tag
   showStatusTag = false, // Affiche le tag de statut en bas à droite
   isOn = null, // État des moteurs
   isMoving = false, // Robot en mouvement
-  isCommandRunning = false, // Robot occupé (quick action / app / installation)
-  // Props pour le swap
-  onSwap = null, // Callback pour swap entre video et 3D
-  hideCameraFeed = false, // Cache le flux vidéo (pour mode petit)
+  robotStatus = null, // ✨ État principal de la state machine
+  busyReason = null, // ✨ Raison si busy
+  // Props pour les effets
   hideEffects = false, // Cache les effets de particules (pour le petit viewer)
 }) {
   // ✅ Récupérer la config de caméra
@@ -67,7 +70,14 @@ export default function RobotViewer3D({
     ? CAMERA_PRESETS[cameraPreset] 
     : { ...CAMERA_PRESETS.normal, ...cameraPreset };
   // Hook custom pour la connexion WebSocket au daemon
-  const robotState = useRobotWebSocket(isActive);
+  // ✅ Permettre la connexion WebSocket si isActive OU forceLoad (pour que le robot bouge même si isActive est temporairement false)
+  const robotState = useRobotWebSocket(isActive || forceLoad);
+  
+  // ✅ Utiliser les props fournies ou celles du robotState WebSocket
+  // Si antennas n'est pas fourni et robotState.antennas est null, utiliser [0, 0] (replié)
+  const finalAntennas = antennas !== null ? antennas : (robotState.antennas || [0, 0]);
+  const finalHeadPose = headPose !== null ? headPose : robotState.headPose;
+  const finalYawBody = yawBody !== null ? yawBody : robotState.yawBody;
   
   const [isTransparent, setIsTransparent] = useState(initialMode === 'xray');
   const [showLevaControls, setShowLevaControls] = useState(forceLevaOpen);
@@ -86,13 +96,57 @@ export default function RobotViewer3D({
   const useHeadFollow = cameraMode === 'locked';
   const lockToOrientation = cameraMode === 'locked';
   
-  // Déterminer le statut du robot pour le tag
+  // ✨ Déterminer le statut du robot pour le tag (avec state machine)
   const getStatusTag = () => {
+    // Si robotStatus fourni, utiliser la state machine (NOUVEAU)
+    if (robotStatus) {
+      switch (robotStatus) {
+        case 'disconnected':
+          return { label: 'Offline', color: '#999' };
+        
+        case 'ready-to-start':
+          return { label: 'Ready to Start', color: '#3b82f6' };
+        
+        case 'starting':
+          return { label: 'Starting', color: '#3b82f6', animated: true };
+        
+        case 'ready':
+          // Si motors on → Ready, si off → Standby
+          if (isOn === true) {
+            return { label: 'Ready', color: '#22c55e' };
+          } else if (isOn === false) {
+            return { label: 'Standby', color: '#FF9500' };
+          }
+          return { label: 'Connected', color: '#3b82f6' };
+        
+        case 'busy':
+          // Labels spécifiques selon la raison
+          const busyLabels = {
+            'moving': { label: 'Moving', color: '#a855f7' },
+            'command': { label: 'Executing', color: '#a855f7' },
+            'app-running': { label: 'App Running', color: '#f59e0b' },
+            'installing': { label: 'Installing', color: '#3b82f6' },
+          };
+          const busyInfo = busyLabels[busyReason] || { label: 'Busy', color: '#a855f7' };
+          return { ...busyInfo, animated: true };
+        
+        case 'stopping':
+          return { label: 'Stopping', color: '#ef4444', animated: true };
+        
+        case 'crashed':
+          return { label: 'Crashed', color: '#ef4444' };
+        
+        default:
+          return { label: 'Unknown', color: '#999' };
+      }
+    }
+    
+    // Fallback legacy (si robotStatus pas fourni)
     if (!isActive) {
       return { label: 'Offline', color: '#999' };
     }
     
-    if (isMoving || isCommandRunning) {
+    if (isMoving) {
       return { label: 'Moving', color: '#a855f7', animated: true };
     }
     
@@ -113,7 +167,7 @@ export default function RobotViewer3D({
     <div style={{ 
       width: '100%', 
       height: '100%', 
-      background: '#fdfcfa',
+      background: backgroundColor,
       position: 'relative',
       overflow: 'visible',
     }}>
@@ -135,16 +189,16 @@ export default function RobotViewer3D({
           width: '100%', 
           height: '100%', 
           display: 'block', 
-          background: '#fdfcfa',
+          background: backgroundColor,
           border: hideBorder ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
           borderRadius: hideBorder ? '0' : '16px',
         }}
       >
-        <color attach="background" args={['#fdfcfa']} />
+        <color attach="background" args={[backgroundColor]} />
                <Scene 
-                headPose={robotState.headPose}
-                yawBody={robotState.yawBody}
-                antennas={robotState.antennas} 
+                headPose={finalHeadPose}
+                yawBody={finalYawBody}
+                antennas={finalAntennas} 
                 isActive={isActive} 
                 isTransparent={isTransparent}
                 showLevaControls={enableDebug && showLevaControls}
@@ -163,26 +217,7 @@ export default function RobotViewer3D({
       </Canvas>
       
       
-      {/* Camera Feed */}
-      {!hideCameraFeed && !hideControls && onSwap && (
-        <div style={{
-          position: 'absolute',
-          bottom: -25,
-          right: 24,
-          width: '120px',
-          height: '90px',
-          zIndex: 10,
-          transformOrigin: 'bottom right',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}>
-          <CameraFeed 
-            width={120}
-            height={90}
-            onSwap={onSwap}
-            isLarge={false}
-          />
-        </div>
-      )}
+      {/* Note: Camera Feed swap is now handled by ViewportSwapper component */}
       
       {/* Top Right Controls */}
       {!hideControls && (
@@ -311,7 +346,7 @@ export default function RobotViewer3D({
         </Box>
       )}
       
-      {/* Status Tag - Bottom Left */}
+      {/* Status Tag - Bottom Left (🤖 State Machine) */}
       {!hideControls && showStatusTag && (
         <Box
           sx={{
@@ -327,12 +362,18 @@ export default function RobotViewer3D({
             bgcolor: status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.12)' : 
                      status.color === '#FF9500' ? 'rgba(255, 149, 0, 0.12)' :
                      status.color === '#3b82f6' ? 'rgba(59, 130, 246, 0.12)' :
-                     status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.12)' : 'rgba(0, 0, 0, 0.06)',
+                     status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.12)' :
+                     status.color === '#f59e0b' ? 'rgba(245, 158, 11, 0.12)' :
+                     status.color === '#ef4444' ? 'rgba(239, 68, 68, 0.12)' :
+                     status.color === '#999' ? 'rgba(153, 153, 153, 0.12)' : 'rgba(0, 0, 0, 0.06)',
             border: `1.5px solid ${
               status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.3)' : 
               status.color === '#FF9500' ? 'rgba(255, 149, 0, 0.3)' :
               status.color === '#3b82f6' ? 'rgba(59, 130, 246, 0.3)' :
-              status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.35)' : 'rgba(0, 0, 0, 0.12)'
+              status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.35)' :
+              status.color === '#f59e0b' ? 'rgba(245, 158, 11, 0.35)' :
+              status.color === '#ef4444' ? 'rgba(239, 68, 68, 0.4)' :
+              status.color === '#999' ? 'rgba(153, 153, 153, 0.25)' : 'rgba(0, 0, 0, 0.12)'
             }`,
             backdropFilter: 'blur(10px)',
             transition: 'all 0.3s ease',

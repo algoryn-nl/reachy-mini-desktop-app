@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Box, Typography } from '@mui/material';
-import useAppStore from '../store/useAppStore';
+import useAppStore from '../../../store/useAppStore';
 
 export default function LogConsole({ logs, darkMode = false }) {
   const scrollRef = useRef(null);
@@ -47,7 +47,8 @@ export default function LogConsole({ logs, darkMode = false }) {
         py: .5,
         fontFamily: 'SF Mono, Monaco, Menlo, monospace',
         fontSize: 10,
-        transition: 'all 0.3s ease',
+        // ✅ Pas de transition sur bgcolor/border pour éviter l'animation lors du changement de dark mode
+        transition: 'box-shadow 0.3s ease',
         '&::-webkit-scrollbar': {
           width: '4px',
         },

@@ -401,10 +401,32 @@ export default function URDFRobot({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, forceLoad, onMeshesReady]); // ✅ Charger quand isActive ou forceLoad change
 
+  // ✅ Appliquer les antennes au chargement initial et quand elles changent (même si isActive=false)
+  useEffect(() => {
+    if (!robot) return;
+    
+    // Forcer les antennes à la position (repliées par défaut si pas de valeur)
+    const leftPos = antennas?.[0] !== undefined ? antennas[0] : 0;
+    const rightPos = antennas?.[1] !== undefined ? antennas[1] : 0;
+    
+    if (robot.joints['left_antenna']) {
+      robot.setJointValue('left_antenna', leftPos);
+    }
+    if (robot.joints['right_antenna']) {
+      robot.setJointValue('right_antenna', rightPos);
+    }
+    
+    console.log('🤖 Antennes set to:', [leftPos, rightPos]);
+  }, [robot, antennas]); // Se déclenche au chargement ET quand antennas change
+  
   // ✅ Animation loop synchronisée avec le render de Three.js (60 FPS)
   // useFrame est plus performant que useEffect pour les mises à jour Three.js
   useFrame(() => {
-    if (!robot || !isActive) return;
+    if (!robot) return;
+    
+    // ✅ Permettre les animations si le robot est chargé (isActive OU forceLoad)
+    // Si forceLoad est true, on veut que le robot bouge même si isActive est temporairement false
+    if (!isActive && !forceLoad) return;
 
     // ÉTAPE 1 : Appliquer yaw_body (rotation du corps)
     if (yawBody !== undefined && robot.joints['yaw_body']) {

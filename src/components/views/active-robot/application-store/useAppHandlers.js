@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import useAppStore from '../../store/useAppStore';
+import useAppStore from '../../../../store/useAppStore';
 
 /**
  * Hook pour gérer toutes les actions sur les apps
@@ -63,13 +63,45 @@ export function useAppHandlers({
     };
   }, []);
 
+  // ✅ Vérifier si tous les jobs sont terminés pour déverrouiller immédiatement
+  useEffect(() => {
+    const state = useAppStore.getState();
+    const installingAppName = state.installingAppName;
+    
+    // Si pas d'installation en cours mais qu'il y a encore des jobs, ne rien faire
+    if (!installingAppName) {
+      // ✅ Si pas d'installation mais qu'il y avait un job, s'assurer que tout est nettoyé
+      if (activeJobs.size === 0 && installStartTime.current) {
+        console.log('🧹 Cleaning up install state (no active jobs)');
+        installStartTime.current = null;
+        installJobType.current = null;
+      }
+      return;
+    }
+    
+    // ✅ Vérifier si tous les jobs d'installation sont terminés
+    const hasActiveInstallJobs = Array.from(activeJobs.values()).some(
+      job => job.appName === installingAppName && 
+             job.status !== 'completed' && 
+             job.status !== 'failed'
+    );
+    
+    // Si plus de jobs actifs pour cette app, le job est terminé (même si pas encore nettoyé)
+    if (!hasActiveInstallJobs && installStartTime.current) {
+      console.log('✅ All install jobs completed for', installingAppName);
+      // Le cleanup sera fait par l'autre useEffect qui gère l'overlay
+    }
+  }, [activeJobs]);
+  
   // ✅ Écouter les jobs actifs et gérer le cycle de vie de l'overlay
   // Délai minimum de 4s pour désinstallations + affichage résultat 2s
   useEffect(() => {
     const installingAppName = useAppStore.getState().installingAppName;
     
     // Si pas d'installation en cours, rien à faire
-    if (!installingAppName) return;
+    if (!installingAppName) {
+      return;
+    }
     
     // Vérifier si le job de l'app en cours est terminé
     let jobFound = null;
@@ -81,8 +113,11 @@ export function useAppHandlers({
     }
     
     // Si le job n'existe plus OU s'il est marqué completed/failed
-    if (!jobFound || jobFound.status === 'completed' || jobFound.status === 'failed') {
+    // ✅ Vérifier aussi si le job a été supprimé (signe qu'il est terminé)
+    const jobWasRemoved = !jobFound && installStartTime.current !== null;
+    if (jobWasRemoved || (jobFound && (jobFound.status === 'completed' || jobFound.status === 'failed'))) {
       console.log('📦 [RESULT] Job found:', !!jobFound);
+      console.log('📦 [RESULT] Job was removed:', jobWasRemoved);
       console.log('📦 [RESULT] Job status:', jobFound?.status);
       console.log('📦 [RESULT] Job logs:', jobFound?.logs);
       
@@ -133,6 +168,11 @@ export function useAppHandlers({
         // 1️⃣ Afficher le résultat dans l'overlay
         setInstallResult(wasCompleted ? 'success' : 'failed');
         
+        // ✅ Déverrouiller IMMÉDIATEMENT pour permettre les health checks de reprendre
+        // (mais garder l'overlay ouvert pour l'affichage du résultat)
+        console.log('🔓 Unlocking install immediately (job completed)');
+        unlockInstall();
+        
         // 2️⃣ Attendre 2s puis fermer et afficher toast
         const toastTimeout = setTimeout(() => {
           installStartTime.current = null;
@@ -143,8 +183,6 @@ export function useAppHandlers({
             console.log('🔄 Refreshing apps list after overlay close');
             refreshApps();
           }
-          
-          unlockInstall();
           
           // Toast de résultat
           if (showToast) {

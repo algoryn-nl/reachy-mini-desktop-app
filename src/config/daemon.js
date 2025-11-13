@@ -5,7 +5,7 @@
 export const DAEMON_CONFIG = {
   // Timeouts API (en millisecondes)
   TIMEOUTS: {
-    HEALTHCHECK: 2000,      // Ping rapide pour détecter crash vite
+    HEALTHCHECK: 1333,      // Ping toutes les ~1.33s pour détecter crash en 4s (3 timeouts)
     STATE_FULL: 5000,       // Lecture état complet avec tous les moteurs
     COMMAND: 10000,         // Commandes de mouvement (peuvent être longues)
     STARTUP_CHECK: 2000,    // Par tentative de démarrage
@@ -33,7 +33,7 @@ export const DAEMON_CONFIG = {
   
   // Détection de crash
   CRASH_DETECTION: {
-    MAX_TIMEOUTS: 3,           // Crash après 3 timeouts (au lieu de 5)
+    MAX_TIMEOUTS: 3,           // Crash après 3 timeouts sur 4 secondes (~1.33s × 3)
     STARTUP_MAX_ATTEMPTS: 15,  // 15 tentatives de 1s = 15s max au démarrage
     STARTUP_RETRY_DELAY: 1000, // Attendre 1s entre chaque tentative
     JOB_MAX_FAILS: 20,         // 20 échecs de polling = job failed
@@ -45,7 +45,7 @@ export const DAEMON_CONFIG = {
     MODEL_LOAD_TIME: 1000,       // ⚡ Temps de chargement du modèle 3D (marge)
     SCAN_DURATION: 8000,         // Durée du scan 3D des meshes (+2s de marge)
     SCAN_INTERNAL_DELAYS: 250,   // Délai retour X-ray du dernier mesh
-    SCAN_COMPLETE_PAUSE: 800,    // ⚡ Pause pour VOIR la barre à 100% avant transition
+    SCAN_COMPLETE_PAUSE: 1800,   // ⚡ Pause pour VOIR le succès du scan avant transition
     TRANSITION_DURATION: 800,    // Durée de la TransitionView (resize + spinner visible)
     VIEW_FADE_DELAY: 100,        // Délai entre hide StartingView et show TransitionView
     SLEEP_DURATION: 4000,        // Durée du goto_sleep avant kill

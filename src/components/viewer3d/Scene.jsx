@@ -81,6 +81,128 @@ export default function Scene({
     return grid;
   }, []);
 
+  // ✅ Trouver tous les meshes de la caméra quand une erreur est détectée
+  const errorMeshes = useMemo(() => {
+    if (!errorFocusMesh || !robotRef || !outlineMeshes.length) {
+      console.log('⚠️ ErrorHighlight: Missing prerequisites', {
+        hasErrorMesh: !!errorFocusMesh,
+        hasRobotRef: !!robotRef,
+        meshesCount: outlineMeshes.length
+      });
+      return null;
+    }
+
+    console.log('🔍 Analyzing error mesh:', {
+      name: errorFocusMesh.name,
+      parent: errorFocusMesh.parent?.name,
+      availableLinks: Object.keys(robotRef.links || {})
+    });
+
+    // Fonction helper pour trouver le link parent d'un mesh
+    const findParentLink = (mesh) => {
+      let current = mesh;
+      let depth = 0;
+      while (current && current.parent && depth < 10) {
+        const parentName = current.parent.name || '';
+        // Vérifier si le parent est un link (les links URDF ont souvent des noms spécifiques)
+        if (robotRef.links && Object.keys(robotRef.links).some(linkName => 
+          parentName === linkName || parentName.includes(linkName)
+        )) {
+          return current.parent;
+        }
+        // Vérifier aussi par nom
+        if (parentName.toLowerCase().includes('camera')) {
+          return current.parent;
+        }
+        current = current.parent;
+        depth++;
+      }
+      return null;
+    };
+
+    // Fonction helper pour collecter tous les meshes enfants d'un objet
+    const collectMeshesFromObject = (obj, meshes = []) => {
+      if (obj.isMesh && !obj.userData.isOutline) {
+        meshes.push(obj);
+      }
+      if (obj.children) {
+        obj.children.forEach(child => {
+          collectMeshesFromObject(child, meshes);
+        });
+      }
+      return meshes;
+    };
+
+    // Vérifier si le mesh en erreur fait partie de la caméra
+    let isCameraMesh = false;
+    let cameraLink = null;
+    
+    // Méthode 1: Vérifier via le link camera directement
+    if (robotRef.links?.['camera']) {
+      cameraLink = robotRef.links['camera'];
+      const cameraMeshes = collectMeshesFromObject(cameraLink, []);
+      isCameraMesh = cameraMeshes.includes(errorFocusMesh);
+      
+      if (isCameraMesh) {
+        console.log(`📷 Error mesh is part of camera link, found ${cameraMeshes.length} total camera meshes`);
+        return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
+      }
+    }
+
+    // Méthode 2: Remonter la hiérarchie pour trouver un parent "camera"
+    let current = errorFocusMesh;
+    let depth = 0;
+    while (current && current.parent && depth < 10) {
+      const parentName = (current.parent.name || '').toLowerCase();
+      const currentName = (current.name || '').toLowerCase();
+      
+      if (parentName.includes('camera') || currentName.includes('camera')) {
+        isCameraMesh = true;
+        console.log('📷 Found camera in hierarchy:', {
+          parentName: current.parent.name,
+          currentName: current.name
+        });
+        break;
+      }
+      current = current.parent;
+      depth++;
+    }
+
+    // Si c'est un mesh de la caméra, trouver TOUS les meshes de la caméra
+    if (isCameraMesh) {
+      // Si on a le link camera, utiliser ses meshes
+      if (cameraLink) {
+        const cameraMeshes = collectMeshesFromObject(cameraLink, []);
+        console.log(`📷 Found ${cameraMeshes.length} camera mesh(es) via link traversal`);
+        return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
+      }
+      
+      // Sinon, chercher tous les meshes qui ont "camera" dans leur hiérarchie
+      const cameraMeshes = [];
+      outlineMeshes.forEach((mesh) => {
+        let current = mesh;
+        let depth = 0;
+        while (current && current.parent && depth < 10) {
+          const parentName = (current.parent.name || '').toLowerCase();
+          const currentName = (current.name || '').toLowerCase();
+          if (parentName.includes('camera') || currentName.includes('camera')) {
+            cameraMeshes.push(mesh);
+            break;
+          }
+          current = current.parent;
+          depth++;
+        }
+      });
+
+      console.log(`📷 Found ${cameraMeshes.length} camera mesh(es) via name matching`);
+      return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
+    }
+
+    // Sinon, retourner juste le mesh en erreur
+    console.log('⚠️ Error mesh is not part of camera, highlighting only the error mesh');
+    return [errorFocusMesh];
+  }, [errorFocusMesh, robotRef, outlineMeshes]);
+
   return (
     <>
       {/* Fog for fade out effect */}
@@ -117,7 +239,7 @@ export default function Scene({
       <URDFRobot 
         headPose={headPose} 
         yawBody={yawBody} 
-        antennas={antennas} 
+        antennas={antennas}
         isActive={isActive} 
         isTransparent={isTransparent}
         cellShading={cellShading}
@@ -142,6 +264,7 @@ export default function Scene({
       {errorFocusMesh && (
         <ErrorHighlight 
           errorMesh={errorFocusMesh}
+          errorMeshes={errorMeshes}
           allMeshes={outlineMeshes}
           errorColor="#ff0000"
           enabled={true}

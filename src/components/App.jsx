@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
+import { Box } from '@mui/material';
 import { RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView } from './views';
 import useAppStore from '../store/useAppStore';
 import { useDaemon } from '../hooks/useDaemon';
@@ -14,7 +15,7 @@ function App() {
   useEffect(() => {
     setAppStoreInstance(useAppStore);
   }, []);
-  const { daemonVersion, hardwareError, isTransitioning, setHardwareError } = useAppStore();
+  const { daemonVersion, hardwareError, isTransitioning, setIsTransitioning, setHardwareError } = useAppStore();
   const { isActive, isStarting, isStopping, startupError, checkStatus, startDaemon, stopDaemon, fetchDaemonVersion } = useDaemon();
   const { isUsbConnected, usbPortName, checkUsbRobot } = useUsbDetection();
   const { sendCommand, playRecordedMove, isCommandRunning } = useRobotCommands();
@@ -22,6 +23,14 @@ function App() {
   
   // 🏥 Health check centralisé (UN SEUL endroit pour crash detection)
   useDaemonHealthCheck();
+  
+  // 🤖 Debug : Afficher les transitions de state machine
+  const robotStatus = useAppStore(state => state.robotStatus);
+  const busyReason = useAppStore(state => state.busyReason);
+  useEffect(() => {
+    const label = useAppStore.getState().getRobotStatusLabel();
+    console.log(`🤖 [STATE MACHINE] Status: ${robotStatus}${busyReason ? ` (${busyReason})` : ''} → "${label}"`);
+  }, [robotStatus, busyReason]);
   
   // ⚡ Cleanup est géré côté Rust dans lib.rs :
   // - Signal handler (SIGTERM/SIGINT) → cleanup_system_daemons()
@@ -77,6 +86,15 @@ function App() {
     }
   }, [isUsbConnected, isActive, stopDaemon]);
 
+  // ✅ Callback pour fermer TransitionView quand les apps sont chargées
+  // ⚠️ IMPORTANT : Tous les hooks doivent être appelés avant les retours conditionnels
+  const handleAppsReady = useCallback(() => {
+    if (isTransitioning) {
+      console.log('✅ Apps loaded, closing TransitionView');
+      setIsTransitioning(false);
+    }
+  }, [isTransitioning, setIsTransitioning]);
+
   // Vue conditionnelle : Robot non connecté
   if (!isUsbConnected) {
     return <RobotNotDetectedView />;
@@ -89,8 +107,30 @@ function App() {
   }
 
   // Intermediate view: Transition après scan - simple spinner pendant resize
+  // ✅ Rendre ActiveRobotView en arrière-plan pour charger les apps, mais afficher TransitionView par-dessus
   if (isTransitioning) {
-    return <TransitionView />;
+    return (
+      <>
+        {/* ActiveRobotView caché pour charger les apps en arrière-plan */}
+        <Box sx={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
+          <ActiveRobotView 
+            isActive={isActive}
+            isStarting={isStarting}
+            isStopping={isStopping}
+            stopDaemon={stopDaemon}
+            sendCommand={sendCommand}
+            playRecordedMove={playRecordedMove}
+            isCommandRunning={isCommandRunning}
+            logs={logs}
+            daemonVersion={daemonVersion}
+            usbPortName={usbPortName}
+            onAppsReady={handleAppsReady}
+          />
+        </Box>
+        {/* TransitionView visible par-dessus */}
+        <TransitionView />
+      </>
+    );
   }
 
   // Intermediate view: Stopping daemon - show spinner
@@ -125,6 +165,7 @@ function App() {
       logs={logs}
       daemonVersion={daemonVersion}
       usbPortName={usbPortName}
+      onAppsReady={handleAppsReady}
     />
   );
 }

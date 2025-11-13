@@ -70,7 +70,8 @@ export default function DiscoverAppsSection({
           borderRadius: '10px',
           bgcolor: darkMode ? '#262626' : 'white',
           border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.12)',
-          transition: 'all 0.2s ease',
+          // ✅ Pas de transition sur bgcolor/border pour éviter l'animation lors du changement de dark mode
+          transition: 'box-shadow 0.2s ease',
           '&:focus-within': {
             borderColor: '#FF9500',
             boxShadow: '0 0 0 3px rgba(255, 149, 0, 0.08)',
@@ -159,7 +160,8 @@ export default function DiscoverAppsSection({
                 border: installFailed ? '1.5px solid #ef4444' :
                         isInstalling ? `1.5px solid rgba(255, 149, 0, 0.3)` :
                         `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-                transition: 'all 0.25s ease',
+                // ✅ Pas de transition sur bgcolor/border pour éviter l'animation lors du changement de dark mode
+                transition: 'transform 0.25s ease, box-shadow 0.25s ease',
                 position: 'relative',
                 overflow: 'hidden',
                 '&:hover': {
@@ -219,6 +221,9 @@ export default function DiscoverAppsSection({
                           color: darkMode ? '#f5f5f5' : '#333',
                           lineHeight: 1.3,
                           mb: 0.3,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {app.name}

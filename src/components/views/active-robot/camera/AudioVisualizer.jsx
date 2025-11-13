@@ -14,8 +14,8 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
   const canvasHeight = 48;
   
   // Tailles d'affichage selon le mode
-  const displayWidth = isLarge ? 60 : 30;
-  const displayHeight = isLarge ? 38 : 14;
+  const displayWidth = isLarge ? 60 : 24;
+  const displayHeight = isLarge ? 38 : 10;
 
   useEffect(() => {
     const canvas = canvasRef.current;

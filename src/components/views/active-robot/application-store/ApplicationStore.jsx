@@ -1,13 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import useAppStore from '../../store/useAppStore';
-import { useApps } from '../../hooks/useApps';
+import useAppStore from '../../../../store/useAppStore';
+import { useApps } from '../../../../hooks/useApps';
 import { useAppHandlers } from './useAppHandlers';
 import InstalledAppsSection from './InstalledAppsSection';
 import DiscoverAppsSection from './DiscoverAppsSection';
-import InstallOverlay from '../InstallOverlay';
+import InstallOverlay from './InstallOverlay';
 
 /**
  * Application Store for Reachy Mini
@@ -15,7 +15,7 @@ import InstallOverlay from '../InstallOverlay';
  * @param {Function} showToast - Function to show toasts (message, severity)
  */
 
-export default function ApplicationStore({ showToast }) {
+export default function ApplicationStore({ showToast, onLoadingChange }) {
   const { darkMode, toggleDarkMode } = useAppStore();
   const isActive = useAppStore(state => state.isActive);
   const isBusy = useAppStore(state => state.isBusy());
@@ -34,7 +34,15 @@ export default function ApplicationStore({ showToast }) {
     startApp,
     stopCurrentApp,
     fetchAvailableApps,
+    isLoading,
   } = useApps(isActive);
+  
+  // ✅ Notifier le parent quand le chargement change
+  useEffect(() => {
+    if (onLoadingChange) {
+      onLoadingChange(isLoading);
+    }
+  }, [isLoading, onLoadingChange]);
   
   // Hook pour gérer les handlers et la logique
   const {

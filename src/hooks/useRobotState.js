@@ -9,7 +9,7 @@ import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '../config/daemon';
  * ⚠️ NE gère PAS la détection de crash (délégué à useDaemonHealthCheck)
  */
 export function useRobotState(isActive) {
-  const { isDaemonCrashed } = useAppStore();
+  const { isDaemonCrashed, isInstalling } = useAppStore();
   const [robotState, setRobotState] = useState({
     isOn: null,           // Moteurs allumés (control_mode === 'enabled')
     isMoving: false,      // Moteurs en mouvement (détecté)
@@ -21,6 +21,12 @@ export function useRobotState(isActive) {
   useEffect(() => {
     if (!isActive) {
       setRobotState({ isOn: null, isMoving: false });
+      return;
+    }
+
+    // ✅ Ne pas poller pendant l'installation (le daemon peut être lent/non disponible)
+    if (isInstalling) {
+      console.log('⏭️ Skipping robot state polling (installation in progress)');
       return;
     }
 
@@ -122,7 +128,7 @@ export function useRobotState(isActive) {
         clearTimeout(movementTimeoutRef.current);
       }
     };
-  }, [isActive, isDaemonCrashed]);
+  }, [isActive, isDaemonCrashed, isInstalling]);
 
   return robotState;
 }

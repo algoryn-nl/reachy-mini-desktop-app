@@ -74,59 +74,131 @@ export default function ScanEffect({
           onScanMesh(mesh, index + 1, scannableMeshes.length);
         }
         
-        // FLASH avec couleur : passer temporairement en opaque avec la couleur du scan
         const originalState = originalStates.get(mesh);
         
-        // ✅ Compatible avec MeshBasicMaterial (X-ray)
-        if (mesh.material.color) {
-          mesh.material.color.set(scanColor);
-        }
+        // ✨ ANIMATION SMOOTH avec fade
+        const highlightDuration = 400; // Durée totale du highlight en ms
+        const startTime = Date.now();
         
-        // Si le matériau supporte emissive (MeshBasicMaterial peut avoir emissive)
-        if (mesh.material.emissive !== undefined) {
-          mesh.material.emissive = new THREE.Color(scanColor);
-          if (mesh.material.emissiveIntensity !== undefined) {
-            mesh.material.emissiveIntensity = 1.5;
-          }
-        }
-        
-        mesh.material.transparent = false;
-        mesh.material.opacity = 1.0;
-        mesh.material.depthWrite = true;
-        mesh.material.side = THREE.FrontSide;
-        mesh.material.needsUpdate = true;
-        
-        // Après 250ms, retour en X-ray
-        const returnToXrayTimeout = setTimeout(() => {
-          // Restaurer l'état X-ray
-          if (originalState.color && mesh.material.color) {
-            mesh.material.color.copy(originalState.color);
-          }
+        // Animation frame pour un effet fluide
+        const animate = () => {
+          if (!mesh.material) return;
           
-          // Retirer l'émissive si présent
-          if (mesh.material.emissive !== undefined) {
-            mesh.material.emissive.set(0x000000);
-            if (mesh.material.emissiveIntensity !== undefined) {
-              mesh.material.emissiveIntensity = 0;
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / highlightDuration, 1.0);
+          
+          // ✨ Pulse: augmente puis diminue (forme de cloche)
+          const pulse = Math.sin(progress * Math.PI); // 0 -> 1 -> 0
+          
+          // ✨ OPACITÉ: Fade in puis fade out
+          if (progress < 0.3) {
+            // Fade in rapide (0-30% du temps)
+            const fadeInProgress = progress / 0.3;
+            mesh.material.transparent = false;
+            mesh.material.opacity = 0.3 + (fadeInProgress * 0.7);
+            mesh.material.depthWrite = true;
+            mesh.material.side = THREE.FrontSide;
+            
+            if (mesh.material.color) {
+              mesh.material.color.set(scanColor);
+            }
+          } else {
+            // Fade out progressif (30-100% du temps)
+            const fadeOutProgress = (progress - 0.3) / 0.7;
+            const targetOpacity = originalState.opacity || 0.15;
+            mesh.material.opacity = 1.0 - (fadeOutProgress * (1.0 - targetOpacity));
+            
+            // Transition couleur vers X-ray
+            if (mesh.material.color && originalState.color) {
+              mesh.material.color.lerpColors(
+                new THREE.Color(scanColor),
+                originalState.color,
+                fadeOutProgress
+              );
+            }
+            
+            // Restaurer progressivement les états X-ray
+            if (fadeOutProgress > 0.8) {
+              mesh.material.transparent = originalState.transparent;
+              mesh.material.depthWrite = originalState.depthWrite;
+              mesh.material.side = originalState.side;
             }
           }
           
-          mesh.material.transparent = originalState.transparent;
-          mesh.material.opacity = originalState.opacity;
-          mesh.material.depthWrite = originalState.depthWrite;
-          mesh.material.side = originalState.side;
+          // ✨ EMISSIVE: Pulse lumineux
+          if (mesh.material.emissive !== undefined) {
+            const emissiveIntensity = pulse * 2.0; // 0 -> 2 -> 0
+            mesh.material.emissive = new THREE.Color(scanColor);
+            if (mesh.material.emissiveIntensity !== undefined) {
+              mesh.material.emissiveIntensity = emissiveIntensity;
+            }
+          }
+          
           mesh.material.needsUpdate = true;
           
-          mesh.userData.scanned = true;
-          
-          // Vérifier si tous les meshes scannables sont scannés
-          scannedCount++;
-          if (scannedCount === scannableMeshes.length && onComplete) {
-            onComplete(); // ⚡ Appel immédiat quand scan visuellement terminé
+          // Continuer l'animation ou terminer
+          if (progress < 1.0) {
+            const frameId = requestAnimationFrame(animate);
+            timeouts.push(() => cancelAnimationFrame(frameId));
+          } else {
+            // ✅ Animation terminée - restaurer état final
+            if (originalState.color && mesh.material.color) {
+              mesh.material.color.copy(originalState.color);
+            }
+            
+            if (mesh.material.emissive !== undefined) {
+              mesh.material.emissive.set(0x000000);
+              if (mesh.material.emissiveIntensity !== undefined) {
+                mesh.material.emissiveIntensity = 0;
+              }
+            }
+            
+            mesh.material.transparent = originalState.transparent;
+            mesh.material.opacity = originalState.opacity;
+            mesh.material.depthWrite = originalState.depthWrite;
+            mesh.material.side = originalState.side;
+            mesh.material.needsUpdate = true;
+            
+            mesh.userData.scanned = true;
+            
+            // Vérifier si tous les meshes scannables sont scannés
+            scannedCount++;
+            if (scannedCount === scannableMeshes.length) {
+              // ✅ Tous les meshes sont scannés - forcer la restauration finale
+              console.log('✅ All meshes scanned, forcing final restoration');
+              
+              // Petit délai pour s'assurer que toutes les animations sont terminées
+              setTimeout(() => {
+                scannableMeshes.forEach((m) => {
+                  const state = originalStates.get(m);
+                  if (state && m.material) {
+                    if (state.color && m.material.color) {
+                      m.material.color.copy(state.color);
+                    }
+                    if (m.material.emissive !== undefined) {
+                      m.material.emissive.set(0x000000);
+                      if (m.material.emissiveIntensity !== undefined) {
+                        m.material.emissiveIntensity = 0;
+                      }
+                    }
+                    m.material.transparent = state.transparent;
+                    m.material.opacity = state.opacity;
+                    m.material.depthWrite = state.depthWrite;
+                    m.material.side = state.side;
+                    m.material.needsUpdate = true;
+                  }
+                });
+              }, 100);
+              
+              if (onComplete) {
+                onComplete();
+              }
+            }
           }
-        }, 250);
+        };
         
-        timeouts.push(returnToXrayTimeout);
+        // Démarrer l'animation
+        animate();
       }, delay); // ⚡ Délai fixe
       
       timeouts.push(scanTimeout);
@@ -135,6 +207,27 @@ export default function ScanEffect({
     // Cleanup au démontage
     return () => {
       timeouts.forEach(timeout => clearTimeout(timeout) || clearInterval(timeout));
+      
+      // Restaurer tous les états au cleanup
+      meshes.forEach((mesh) => {
+        const state = originalStates.get(mesh);
+        if (state && mesh.material) {
+          if (state.color && mesh.material.color) {
+            mesh.material.color.copy(state.color);
+          }
+          if (mesh.material.emissive !== undefined) {
+            mesh.material.emissive.set(0x000000);
+            if (mesh.material.emissiveIntensity !== undefined) {
+              mesh.material.emissiveIntensity = 0;
+            }
+          }
+          mesh.material.transparent = state.transparent;
+          mesh.material.opacity = state.opacity;
+          mesh.material.depthWrite = state.depthWrite;
+          mesh.material.side = state.side;
+          mesh.material.needsUpdate = true;
+        }
+      });
     };
   }, [enabled, meshes, scanColor, onComplete, onScanMesh]);
 

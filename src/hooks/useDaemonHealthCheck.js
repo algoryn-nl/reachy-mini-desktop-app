@@ -64,7 +64,7 @@ export function useDaemonHealthCheck() {
     // Premier check immédiat
     checkHealth();
     
-    // ✅ Health check toutes les 2s
+    // ✅ Health check toutes les ~1.33s pour détecter crash en 4s (3 timeouts)
     const interval = setInterval(checkHealth, DAEMON_CONFIG.TIMEOUTS.HEALTHCHECK);
     
     return () => clearInterval(interval);

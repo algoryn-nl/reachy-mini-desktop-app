@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 
 /**
  * Overlay fullscreen pour l'installation d'une app
@@ -274,40 +275,66 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
               </Box>
             </Box>
 
-            {/* Temps écoulé */}
+            {/* Temps écoulé + Steps - Deux tags côte à côte */}
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1,
-                px: 2,
-                py: 1,
                 mt: 1.5,
-                borderRadius: '10px',
-                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
-                border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
               }}
             >
-              <CircularProgress size={14} thickness={5} sx={{ color: '#FF9500' }} />
-              <Typography
+              {/* Tag Temps écoulé */}
+              <Box
                 sx={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#FF9500',
-                  fontFamily: 'monospace',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 2,
+                  py: 1,
+                  borderRadius: '10px',
+                  bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
+                  border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
                 }}
               >
-                {formatTime(elapsedTime)}
-              </Typography>
-              <Typography
+                <CircularProgress size={14} thickness={5} sx={{ color: '#FF9500' }} />
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#FF9500',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {formatTime(elapsedTime)}
+                </Typography>
+              </Box>
+              
+              {/* Tag Steps */}
+              <Box
                 sx={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: darkMode ? '#999' : '#666',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: '10px',
+                  bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
+                  border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
                 }}
               >
-                • {progress} steps
-              </Typography>
+                <PlaylistAddCheckIcon sx={{ fontSize: 14, color: '#FF9500' }} />
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#FF9500',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  step {progress}
+                </Typography>
+              </Box>
             </Box>
 
             {/* Logs récents */}
@@ -328,9 +355,15 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                 '&::-webkit-scrollbar': {
                   width: '5px',
                 },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'transparent',
+                },
                 '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.25)',
+                  backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                   borderRadius: '2.5px',
+                  '&:hover': {
+                    backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                  },
                 },
               }}
             >

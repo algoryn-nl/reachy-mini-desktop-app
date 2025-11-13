@@ -1,9 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import CheckIcon from '@mui/icons-material/Check';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
-import RobotViewer3D from '../viewer3d/RobotViewer3D';
+import Viewer3D from '../viewer3d';
 import { getShortComponentName } from '../../utils/componentNames';
 import useAppStore from '../../store/useAppStore';
 import { DAEMON_CONFIG } from '../../config/daemon';
@@ -21,6 +23,16 @@ function StartingView({ startupError }) {
   const [scanError, setScanError] = useState(null);
   const [errorMesh, setErrorMesh] = useState(null); // Le mesh en erreur pour focus camera
   const [isRetrying, setIsRetrying] = useState(false);
+  const [scannedComponents, setScannedComponents] = useState([]); // Liste des composants scannés
+  const [scanComplete, setScanComplete] = useState(false); // Scan terminé avec succès
+  const logBoxRef = useRef(null);
+  
+  // Auto-scroll vers le bas à chaque ajout de composant
+  useEffect(() => {
+    if (logBoxRef.current) {
+      logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
+    }
+  }, [scannedComponents]);
   
   const handleRetry = useCallback(async () => {
     console.log('🔄 Retrying scan...');
@@ -39,6 +51,8 @@ function StartingView({ startupError }) {
       setErrorMesh(null);
       setScanProgress({ current: 0, total: 0 });
       setCurrentComponent(null);
+      setScannedComponents([]);
+      setScanComplete(false);
       setHardwareError(null);
       
       // 4. Reload pour relancer un scan complet
@@ -56,22 +70,22 @@ function StartingView({ startupError }) {
     // Forcer la progression à 100%
     setScanProgress(prev => ({ ...prev, current: prev.total }));
     setCurrentComponent(null);
+    setScanComplete(true); // ✅ Afficher le succès
     
-    // ⚡ ATTENDRE la pause pour voir la barre à 100%, puis lancer la transition
+    // ⚡ ATTENDRE la pause pour voir le succès, puis lancer la transition
     console.log(`⏱️ Waiting ${DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE}ms before transition...`);
     setTimeout(() => {
       console.log('🚀 Triggering transition to ActiveView');
       // Déclencher la transition via le store
       const { setIsStarting, setIsTransitioning, setIsActive } = useAppStore.getState();
       
-      // Transition immédiate (pas de délai, la pause de 800ms est déjà passée)
+      // ✅ Transition : garder TransitionView affichée jusqu'à ce que les apps soient chargées
+      // (le callback onAppsReady dans ActiveRobotView fermera TransitionView)
       setIsStarting(false);
       setIsTransitioning(true);
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-        setIsActive(true);
-      }, DAEMON_CONFIG.ANIMATIONS.TRANSITION_DURATION);
+      setIsActive(true);
+      // ✅ Ne plus fermer TransitionView automatiquement après TRANSITION_DURATION
+      // Elle sera fermée par onAppsReady quand les apps seront chargées
     }, DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE);
   }, []);
   
@@ -85,12 +99,17 @@ function StartingView({ startupError }) {
       total: total
     }));
     
+    // Ajouter le composant à la liste des scannés après un délai
+    // pour synchroniser avec l'animation visuelle (qui prend ~200ms pour être bien visible)
+    setTimeout(() => {
+      setScannedComponents(prev => [...prev, componentName]);
+    }, 200);
+    
     // ========================================================================
     // ⚠️ SIMULATION D'ERREUR HARDWARE - Pour tester l'UI d'erreur
     // ========================================================================
     // 
-    // Pour activer la simulation d'erreur pendant le scan, décommenter le bloc ci-dessous.
-    // Cela permet de tester :
+    // Simulation d'erreur pendant le scan pour tester :
     // - L'arrêt du scan au mesh spécifié
     // - Le focus de la caméra sur le composant en erreur
     // - Le changement de couleur du composant en rouge
@@ -103,20 +122,18 @@ function StartingView({ startupError }) {
     // 
     // ========================================================================
     
-    /*
-    if (index === 50) {
-      const errorData = {
-        code: "Camera Error - Communication timeout (0x03)",
-        action: "Check the camera cable connection and restart",
-        component: componentName,
-      };
-      console.log('⚠️ Hardware error detected on mesh:', mesh);
-      console.log('⚠️ Component:', componentName);
-      setScanError(errorData);
-      setErrorMesh(mesh); // Stocker le mesh pour focus caméra
-      setHardwareError(errorData.code); // Bloquer la transition
-    }
-    */
+    // if (index === 50) {
+    //   const errorData = {
+    //     code: "Camera Error - Communication timeout (0x03)",
+    //     action: "Check the camera cable connection and restart",
+    //     component: componentName,
+    //   };
+    //   console.log('⚠️ Hardware error detected on mesh:', mesh);
+    //   console.log('⚠️ Component:', componentName);
+    //   setScanError(errorData);
+    //   setErrorMesh(mesh); // Stocker le mesh pour focus caméra
+    //   setHardwareError(errorData.code); // Bloquer la transition
+    // }
   }, [setHardwareError]);
 
   return (
@@ -181,16 +198,11 @@ function StartingView({ startupError }) {
               width: '100%',
               height: '360px',
               position: 'relative',
-              borderRadius: '20px',
-              overflow: 'hidden',
-              border: darkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
-              boxShadow: darkMode 
-                ? '0 20px 60px rgba(0, 0, 0, 0.4)'
-                : '0 20px 60px rgba(0, 0, 0, 0.1)',
             }}
           >
-            <RobotViewer3D 
-              isActive={false} 
+            <Viewer3D 
+              isActive={true}
+              antennas={[-10, -10]}
               initialMode="xray" 
               hideControls={true}
               forceLoad={true}
@@ -202,6 +214,7 @@ function StartingView({ startupError }) {
               cameraPreset="scan"
               useCinematicCamera={true}
               errorFocusMesh={errorMesh}
+              backgroundColor="transparent"
             />
           </Box>
         </Box>
@@ -230,6 +243,7 @@ function StartingView({ startupError }) {
                 minHeight: '90px', // Même hauteur que le mode scan
               }}
             >
+              
               {/* Titre compact */}
               <Typography
                 sx={{
@@ -314,94 +328,122 @@ function StartingView({ startupError }) {
               </Button>
             </Box>
           ) : (
-            // 🔄 En cours de scan - Design épuré
+            // 🔄 En cours de scan - Design épuré avec logs
             <Box
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: 2,
+                gap: 1.5,
                 width: '100%',
               }}
             >
-              {/* Titre + spinner */}
+              {/* Titre + spinner/checkmark + compteur discret */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <CircularProgress 
-                  size={16} 
-                  thickness={4} 
-                  sx={{ 
-                    color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
-                  }} 
-                />
+                {scanComplete ? (
+                  // ✅ Checkmark de succès (outlined)
+                  <CheckCircleOutlinedIcon
+                    sx={{
+                      fontSize: 18,
+                      color: darkMode ? '#22c55e' : '#16a34a',
+                    }}
+                  />
+                ) : (
+                  // 🔄 Spinner en cours
+                  <CircularProgress 
+                    size={16} 
+                    thickness={4} 
+                    sx={{ 
+                      color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
+                    }} 
+                  />
+                )}
                 <Typography
                   sx={{
                     fontSize: 13,
                     fontWeight: 600,
-                    color: darkMode ? '#f5f5f5' : '#333',
+                    color: scanComplete 
+                      ? (darkMode ? '#22c55e' : '#16a34a')
+                      : (darkMode ? '#f5f5f5' : '#333'),
                     letterSpacing: '0.2px',
+                    transition: 'color 0.3s ease',
                   }}
                 >
-                  Scanning hardware
+                  {scanComplete ? 'Scan complete' : 'Scanning hardware'}
                 </Typography>
+                {!scanComplete && (
+                  <Typography
+                    sx={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: darkMode ? '#666' : '#999',
+                      fontFamily: 'monospace',
+                      ml: 0.5,
+                    }}
+                  >
+                    {scanProgress.current}/{scanProgress.total}
+                  </Typography>
+                )}
               </Box>
               
-              {/* Barre de progression simple */}
+              {/* Boîte de logs - 3 lignes max, scrollée vers le bas */}
               <Box
+                ref={logBoxRef}
                 sx={{
-                  position: 'relative',
-                  width: '60%',
-                  height: 2,
-                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-                  borderRadius: '1px',
-                  overflow: 'hidden',
+                  width: '80%',
+                  maxWidth: '320px',
+                  height: '57px', // Environ 3 lignes
+                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                  border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}`,
+                  borderRadius: '8px',
+                  px: 1.5,
+                  py: 0.75,
+                  overflow: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.25,
+                  opacity: 0.5,
+                  '&::-webkit-scrollbar': {
+                    width: '4px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: 'transparent',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                    borderRadius: '2px',
+                  },
                 }}
               >
-                <Box
-                  sx={{
-                    width: `${scanProgress.total > 0 ? Math.min(100, (scanProgress.current / scanProgress.total) * 100) : 0}%`,
-                    height: '100%',
-                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)',
-                    transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                />
-              </Box>
-              
-              {/* Compteur + composant */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography
-                  sx={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: darkMode ? '#666' : '#999',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  {scanProgress.current}/{scanProgress.total}
-                </Typography>
-                
-                {currentComponent && (
-                  <>
-                    <Box 
-                      sx={{ 
-                        width: 2, 
-                        height: 2, 
-                        borderRadius: '50%',
-                        bgcolor: darkMode ? '#444' : '#ccc',
-                      }} 
+                {scannedComponents.map((component, idx) => (
+                  <Box 
+                    key={idx}
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 0.75,
+                      minHeight: '16px',
+                    }}
+                  >
+                    <CheckIcon
+                      sx={{
+                        fontSize: 10,
+                        color: darkMode ? '#22c55e' : '#16a34a',
+                      }}
                     />
                     <Typography
                       sx={{
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: 500,
-                        color: darkMode ? '#666' : '#999',
+                        color: darkMode ? '#888' : '#666',
                         fontFamily: 'monospace',
-                        transition: 'opacity 0.2s ease',
+                        lineHeight: 1,
                       }}
                     >
-                      {currentComponent}
+                      {component}
                     </Typography>
-                  </>
-                )}
+                  </Box>
+                ))}
               </Box>
             </Box>
           )}

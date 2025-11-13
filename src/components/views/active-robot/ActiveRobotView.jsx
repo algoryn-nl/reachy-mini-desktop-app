@@ -3,14 +3,15 @@ import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert,
 import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOutlined';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-shell';
-import RobotViewer3D from '../viewer3d/RobotViewer3D';
-import CameraFeed from '../camera/CameraFeed';
-import LogConsole from '../LogConsole';
-import ApplicationStore from '../application-store';
-import RobotHeader from '../RobotHeader';
-import { useRobotState } from '../../hooks/useRobotState';
-import useAppStore from '../../store/useAppStore';
-import { CHOREOGRAPHY_DATASETS, DANCES } from '../../constants/choreographies';
+import Viewer3D from '../../viewer3d';
+import CameraFeed from './camera/CameraFeed';
+import ViewportSwapper from './ViewportSwapper';
+import LogConsole from './LogConsole';
+import ApplicationStore from './application-store';
+import RobotHeader from './RobotHeader';
+import { useRobotState } from '../../../hooks/useRobotState';
+import useAppStore from '../../../store/useAppStore';
+import { CHOREOGRAPHY_DATASETS, DANCES } from '../../../constants/choreographies';
 
 function ActiveRobotView({ 
   isActive, 
@@ -22,7 +23,8 @@ function ActiveRobotView({
   isCommandRunning,
   logs,
   daemonVersion,
-  usbPortName 
+  usbPortName,
+  onAppsReady, // ✅ Callback pour notifier quand les apps sont chargées
 }) {
   // Use mock if available, otherwise the real API
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
@@ -37,16 +39,36 @@ function ActiveRobotView({
   const isBusy = useAppStore(state => state.isBusy());
   const isReady = useAppStore(state => state.isReady());
   
+  // ✨ State machine
+  const robotStatus = useAppStore(state => state.robotStatus);
+  const busyReason = useAppStore(state => state.busyReason);
+  
   // Toast notifications
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [toastProgress, setToastProgress] = useState(100);
   
-  // Swap state pour échanger video et 3D viewer
-  const [isSwapped, setIsSwapped] = useState(false);
+  // ✅ État de chargement des apps : notifier le parent quand c'est prêt
+  const [appsLoading, setAppsLoading] = useState(true);
   
-  const handleSwap = useCallback(() => {
-    setIsSwapped(prev => !prev);
-  }, []);
+  // ✅ Callback pour recevoir l'état de chargement des apps
+  const handleAppsLoadingChange = useCallback((loading) => {
+    setAppsLoading(loading);
+    
+    // ✅ Notifier le parent quand les apps sont chargées pour fermer TransitionView
+    if (!loading && onAppsReady) {
+      // Attendre un court délai pour que le rendu soit complet
+      setTimeout(() => {
+        onAppsReady();
+      }, 300);
+    }
+  }, [onAppsReady]);
+  
+  // ✅ Réinitialiser l'état quand on arrive sur la vue
+  useEffect(() => {
+    if (isActive) {
+      setAppsLoading(true);
+    }
+  }, [isActive]);
   
   const showToast = useCallback((message, severity = 'info') => {
     setToast({ open: true, message, severity });
@@ -322,118 +344,30 @@ function ActiveRobotView({
             overflow: 'visible',
           }}
         >
-          {/* RobotViewer3D - toujours monté */}
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              borderRadius: '16px',
-              overflow: 'visible',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              opacity: isSwapped ? 0 : 1,
-              pointerEvents: isSwapped ? 'none' : 'auto',
-              transition: 'opacity 0.3s ease',
-            }}
-          >
-            <RobotViewer3D 
-              isActive={isActive} 
-              useHeadFollowCamera={true}
-              showCameraToggle={true}
-              showStatusTag={true}
-              isOn={isOn}
-              isMoving={isMoving}
-              isCommandRunning={isBusy}
-              onSwap={handleSwap}
-              hideCameraFeed={false}
-            />
-          </Box>
-          
-          {/* CameraFeed grand - toujours monté */}
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              opacity: isSwapped ? 1 : 0,
-              pointerEvents: isSwapped ? 'auto' : 'none',
-              transition: 'opacity 0.3s ease',
-            }}
-          >
-            <CameraFeed 
-              width={640}
-              height={480}
-              isLarge={true}
-            />
-          </Box>
-          
-          {/* Petit RobotViewer3D qui apparaît quand le flux vidéo est en grand */}
-          {isSwapped && (
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: -45,
-                right: 0,
-                width: 120,
-                height: 90,
-                overflow: 'visible',
-              }}
-            >
-              <Box
-                sx={{
-                  width: '100%',
-                  height: '100%',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                }}
-              >
-                <RobotViewer3D 
-                  isActive={isActive}
-                  hideControls={true}
-                  hideBorder={true}
-                  showStatusTag={false}
-                  useHeadFollowCamera={true}
-                  showCameraToggle={false}
-                  hideCameraFeed={true}
-                  hideEffects={true}
-                  onSwap={handleSwap}
-                />
-              </Box>
-              
-              {/* Bouton swap sur le petit viewer 3D */}
-              <IconButton
-                onClick={handleSwap}
-                sx={{
-                  position: 'absolute',
-                  top: 6,
-                  right: 6,
-                  width: 20,
-                  height: 20,
-                  minWidth: 20,
-                  bgcolor: 'rgba(0, 0, 0, 0.3)',
-                  backdropFilter: 'blur(4px)',
-                  color: '#fff',
-                  fontSize: '14px',
-                  padding: 0,
-                  zIndex: 10,
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.5)',
-                    transform: 'scale(1.2)',
-                  },
-                }}
-                title="Swap video and 3D view"
-              >
-                ⇄
-              </IconButton>
-            </Box>
-          )}
+          {/* ViewportSwapper : gère le swap entre 3D et Caméra avec Portals */}
+          <ViewportSwapper
+            view3D={
+              <Viewer3D 
+                isActive={isActive} 
+                forceLoad={true}
+                useHeadFollowCamera={true}
+                showCameraToggle={true}
+                showStatusTag={true}
+                isOn={isOn}
+                isMoving={isMoving}
+                robotStatus={robotStatus}
+                busyReason={busyReason}
+                hideCameraFeed={true}
+              />
+            }
+            viewCamera={
+              <CameraFeed 
+                width={640}
+                height={480}
+                isLarge={true}
+              />
+            }
+          />
           
           {/* Power Button - top left corner */}
           <IconButton
@@ -601,6 +535,7 @@ function ActiveRobotView({
         >
           <ApplicationStore 
             showToast={showToast}
+            onLoadingChange={handleAppsLoadingChange}
           />
         </Box>
       </Box>

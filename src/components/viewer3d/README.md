@@ -88,9 +88,9 @@ Connexion : `ws://localhost:8000/api/state/ws/full`
 ## 🚀 Usage
 
 ```jsx
-import RobotViewer3D from './viewer3d';
+import Viewer3D from './viewer3d';
 
-<RobotViewer3D 
+<Viewer3D 
   isActive={daemonActive}
   enableDebug={false}
   forceLevaOpen={false}
