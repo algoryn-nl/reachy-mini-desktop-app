@@ -67,6 +67,7 @@ jobs:
 
       - name: Extract version
         id: version
+        shell: bash
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           if [ "$VERSION" = "$GITHUB_REF" ]; then
@@ -148,6 +149,7 @@ jobs:
 
       - name: Extract version
         id: version
+        shell: bash
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           if [ "$VERSION" = "$GITHUB_REF" ]; then
