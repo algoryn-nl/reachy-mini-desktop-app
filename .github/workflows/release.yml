@@ -82,6 +82,7 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Setup signing key
+        shell: bash
         env:
           TAURI_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
           TAURI_PUBLIC_KEY: ${{ secrets.TAURI_PUBLIC_KEY }}
