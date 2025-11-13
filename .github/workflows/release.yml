@@ -83,11 +83,33 @@ jobs:
       - name: Setup signing key
         env:
           TAURI_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          TAURI_PUBLIC_KEY: ${{ secrets.TAURI_PUBLIC_KEY }}
         run: |
           mkdir -p ~/.tauri
           if [ -n "$TAURI_SIGNING_KEY" ]; then
             echo "$TAURI_SIGNING_KEY" > ~/.tauri/reachy-mini.key
             chmod 600 ~/.tauri/reachy-mini.key
+            # Use public key from secret if provided, otherwise extract from tauri.conf.json
+            if [ -n "$TAURI_PUBLIC_KEY" ]; then
+              echo "$TAURI_PUBLIC_KEY" > ~/.tauri/reachy-mini.key.pub
+              echo "✅ Public key loaded from secret"
+            else
+              # Extract public key from tauri.conf.json (it's already there in base64 format)
+              PUBKEY=$(grep -o '"pubkey": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
+              if [ -n "$PUBKEY" ]; then
+                # The public key in tauri.conf.json is base64 encoded, write it to the .pub file
+                echo "$PUBKEY" > ~/.tauri/reachy-mini.key.pub
+                echo "✅ Public key extracted from tauri.conf.json"
+              else
+                echo "⚠️ Could not find public key in tauri.conf.json"
+                echo "⚠️ Attempting to generate public key..."
+                # Try to generate both keys (this will overwrite the private key, so only do this if we have no other option)
+                yarn tauri signer generate -w ~/.tauri/reachy-mini.key --ci 2>/dev/null || {
+                  echo "❌ Could not generate public key. Please add TAURI_PUBLIC_KEY to GitHub secrets."
+                  exit 1
+                }
+              fi
+            fi
           else
             echo "⚠️ No signing key provided, generating temporary key..."
             yarn tauri signer generate -w ~/.tauri/reachy-mini.key --ci || true
