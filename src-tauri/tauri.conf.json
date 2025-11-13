@@ -47,7 +47,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://releases.reachymini.com/{{target}}/{{current_version}}/update.json"
+        "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/latest/download/latest.json"
       ],
       "dangerousInsecureTransportProtocol": false,
       "dangerousAllowDowngrades": false,

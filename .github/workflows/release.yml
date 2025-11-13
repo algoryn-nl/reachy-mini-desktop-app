@@ -46,9 +46,16 @@ jobs:
         run: |
           yarn install
 
-      - name: Build sidecar
+      - name: Build sidecar (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
           yarn build:sidecar-macos || echo "Sidecar build skipped for this platform"
+      
+      - name: Build sidecar (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          pwsh -File ./build_sidecar_windows.ps1 || echo "Sidecar build skipped for this platform"
 
       - name: Build application
         run: |
@@ -88,7 +95,7 @@ jobs:
 
       - name: Build and sign update
         env:
-          RELEASE_URL_BASE: ${{ secrets.RELEASE_URL_BASE || 'https://github.com/${{ github.repository }}/releases/download/v' }}
+          RELEASE_URL_BASE: ${{ secrets.RELEASE_URL_BASE || 'https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v' }}
         run: |
           export RELEASE_URL_BASE
           bash ./scripts/build-update.sh prod "${{ steps.version.outputs.version }}"
@@ -132,6 +139,47 @@ jobs:
           pattern: release-*
           merge-multiple: true
           path: release-artifacts
+
+      - name: Merge update.json files into latest.json
+        run: |
+          # Install jq for JSON manipulation
+          sudo apt-get update && sudo apt-get install -y jq
+          
+          # Find all update.json files
+          UPDATE_FILES=$(find release-artifacts -name "update.json" -type f)
+          
+          if [ -z "$UPDATE_FILES" ]; then
+            echo "⚠️ No update.json files found"
+            exit 0
+          fi
+          
+          # Initialize merged JSON with first file structure
+          FIRST_FILE=$(echo "$UPDATE_FILES" | head -n1)
+          VERSION=$(jq -r '.version' "$FIRST_FILE")
+          NOTES=$(jq -r '.notes' "$FIRST_FILE")
+          PUB_DATE=$(jq -r '.pub_date' "$FIRST_FILE")
+          
+          # Start with empty platforms object
+          MERGED_PLATFORMS="{}"
+          
+          # Merge all platforms from all files
+          for FILE in $UPDATE_FILES; do
+            PLATFORM_DATA=$(jq -c '.platforms' "$FILE")
+            MERGED_PLATFORMS=$(echo "$MERGED_PLATFORMS" | jq --argjson platforms "$PLATFORM_DATA" '. + $platforms')
+          done
+          
+          # Create final merged JSON
+          MERGED_JSON=$(jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$PUB_DATE" \
+            --argjson platforms "$MERGED_PLATFORMS" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}')
+          
+          # Write merged JSON to latest.json
+          echo "$MERGED_JSON" > release-artifacts/latest.json
+          echo "✅ Created latest.json with all platforms"
+          cat release-artifacts/latest.json
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
