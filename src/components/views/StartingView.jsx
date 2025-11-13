@@ -11,9 +11,9 @@ import useAppStore from '../../store/useAppStore';
 import { DAEMON_CONFIG } from '../../config/daemon';
 
 /**
- * Vue affichée pendant le démarrage du daemon
- * Affiche le robot en mode X-ray avec un effet de scan
- * Affiche les erreurs si le démarrage échoue
+ * View displayed during daemon startup
+ * Shows the robot in X-ray mode with a scan effect
+ * Displays errors if startup fails
  */
 function StartingView({ startupError }) {
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
@@ -21,13 +21,13 @@ function StartingView({ startupError }) {
   const [currentComponent, setCurrentComponent] = useState(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [scanError, setScanError] = useState(null);
-  const [errorMesh, setErrorMesh] = useState(null); // Le mesh en erreur pour focus camera
+  const [errorMesh, setErrorMesh] = useState(null); // The mesh in error for camera focus
   const [isRetrying, setIsRetrying] = useState(false);
-  const [scannedComponents, setScannedComponents] = useState([]); // Liste des composants scannés
-  const [scanComplete, setScanComplete] = useState(false); // Scan terminé avec succès
+  const [scannedComponents, setScannedComponents] = useState([]); // List of scanned components
+  const [scanComplete, setScanComplete] = useState(false); // Scan completed successfully
   const logBoxRef = useRef(null);
   
-  // Auto-scroll vers le bas à chaque ajout de composant
+  // Auto-scroll to bottom on each component addition
   useEffect(() => {
     if (logBoxRef.current) {
       logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
@@ -39,14 +39,14 @@ function StartingView({ startupError }) {
     setIsRetrying(true);
     
     try {
-      // 1. Arrêter le daemon (sans le goto_sleep)
+      // 1. Stop the daemon (without goto_sleep)
       console.log('🛑 Stopping daemon...');
       await invoke('stop_daemon');
       
-      // 2. Attendre que le daemon soit bien arrêté
+      // 2. Wait for the daemon to be fully stopped
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // 3. Reset tous les états
+      // 3. Reset all states
       setScanError(null);
       setErrorMesh(null);
       setScanProgress({ current: 0, total: 0 });
@@ -55,70 +55,70 @@ function StartingView({ startupError }) {
       setScanComplete(false);
       setHardwareError(null);
       
-      // 4. Reload pour relancer un scan complet
+      // 4. Reload to restart a complete scan
       console.log('🔄 Reloading app...');
       window.location.reload();
     } catch (err) {
       console.error('Failed to stop daemon:', err);
-      // Reload quand même
+      // Reload anyway
       window.location.reload();
     }
   }, [setHardwareError]);
   
   const handleScanComplete = useCallback(() => {
     console.log('✅ Scan 3D completed (visually finished)');
-    // Forcer la progression à 100%
+    // Force progression to 100%
     setScanProgress(prev => ({ ...prev, current: prev.total }));
     setCurrentComponent(null);
-    setScanComplete(true); // ✅ Afficher le succès
+    setScanComplete(true); // ✅ Display success
     
-    // ⚡ ATTENDRE la pause pour voir le succès, puis lancer la transition
+    // ⚡ WAIT for pause to see success, then trigger transition
     console.log(`⏱️ Waiting ${DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE}ms before transition...`);
     setTimeout(() => {
       console.log('🚀 Triggering transition to ActiveView');
-      // Déclencher la transition via le store
+      // Trigger transition via store
       const { setIsStarting, setIsTransitioning, setIsActive } = useAppStore.getState();
       
-      // ✅ Transition : garder TransitionView affichée jusqu'à ce que les apps soient chargées
-      // (le callback onAppsReady dans ActiveRobotView fermera TransitionView)
+      // ✅ Transition: keep TransitionView displayed until apps are loaded
+      // (the onAppsReady callback in ActiveRobotView will close TransitionView)
       setIsStarting(false);
       setIsTransitioning(true);
       setIsActive(true);
-      // ✅ Ne plus fermer TransitionView automatiquement après TRANSITION_DURATION
-      // Elle sera fermée par onAppsReady quand les apps seront chargées
+      // ✅ No longer close TransitionView automatically after TRANSITION_DURATION
+      // It will be closed by onAppsReady when apps are loaded
     }, DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE);
   }, []);
   
   const handleScanMesh = useCallback((mesh, index, total) => {
     const componentName = getShortComponentName(mesh, index, total);
     setCurrentComponent(componentName);
-    // index vient de ScanEffect qui compte de 1 à total (pas de 0 à total-1)
-    // Ne jamais régresser : si current > index, garder current
+    // index comes from ScanEffect which counts from 1 to total (not 0 to total-1)
+    // Never regress: if current > index, keep current
     setScanProgress(prev => ({
       current: Math.max(prev.current, index),
       total: total
     }));
     
-    // Ajouter le composant à la liste des scannés après un délai
-    // pour synchroniser avec l'animation visuelle (qui prend ~200ms pour être bien visible)
+    // Add component to scanned list after a delay
+    // to synchronize with visual animation (which takes ~200ms to be clearly visible)
     setTimeout(() => {
       setScannedComponents(prev => [...prev, componentName]);
     }, 200);
     
     // ========================================================================
-    // ⚠️ SIMULATION D'ERREUR HARDWARE - Pour tester l'UI d'erreur
+    // ⚠️ HARDWARE ERROR SIMULATION - To test error UI
     // ========================================================================
     // 
-    // Simulation d'erreur pendant le scan pour tester :
-    // - L'arrêt du scan au mesh spécifié
-    // - Le focus de la caméra sur le composant en erreur
-    // - Le changement de couleur du composant en rouge
-    // - L'affichage du message d'erreur avec instructions
-    // - Le bouton Retry qui relance le daemon
-    // - Le blocage de la transition vers ActiveRobotView
+    // Error simulation during scan to test:
+    // - Stopping scan at specified mesh
+    // - Camera focus on error component
+    // - Component color change to red
+    // - Error message display with instructions
+    // - Retry button that restarts daemon
+    // - Blocking transition to ActiveRobotView
     //
-    // Pour la production, ce code doit être remplacé par un vrai polling
-    // de l'API daemon pour détecter les erreurs hardware réelles.
+    // For production, this code must be replaced with real polling
+    // of the daemon API to detect real hardware errors.
     // 
     // ========================================================================
     
@@ -131,8 +131,8 @@ function StartingView({ startupError }) {
     //   console.log('⚠️ Hardware error detected on mesh:', mesh);
     //   console.log('⚠️ Component:', componentName);
     //   setScanError(errorData);
-    //   setErrorMesh(mesh); // Stocker le mesh pour focus caméra
-    //   setHardwareError(errorData.code); // Bloquer la transition
+    //   setErrorMesh(mesh); // Store mesh for camera focus
+    //   setHardwareError(errorData.code); // Block transition
     // }
   }, [setHardwareError]);
 
@@ -168,11 +168,11 @@ function StartingView({ startupError }) {
         }}
       >
         <Box sx={{ width: 12, height: 12 }} />
-        <Box sx={{ height: 20 }} /> {/* Espace pour le drag */}
+        <Box sx={{ height: 20 }} /> {/* Space for drag */}
         <Box sx={{ width: 20, height: 20 }} />
       </Box>
 
-      {/* Content centré */}
+      {/* Centered content */}
       <Box
         sx={{
           display: 'flex',
@@ -184,7 +184,7 @@ function StartingView({ startupError }) {
           gap: 1.5,
         }}
       >
-        {/* Robot Viewer 3D - Design épuré */}
+        {/* Robot Viewer 3D - Clean design */}
         <Box
           sx={{
             width: '100%',
@@ -219,7 +219,7 @@ function StartingView({ startupError }) {
           </Box>
         </Box>
 
-        {/* Status - Design minimaliste */}
+        {/* Status - Minimalist design */}
         <Box
           sx={{
             display: 'flex',
@@ -231,7 +231,7 @@ function StartingView({ startupError }) {
           }}
         >
           {(startupError || scanError) ? (
-            // ❌ Erreur - Design moderne avec instruction en avant
+            // ❌ Error - Modern design with instruction upfront
             <Box
               sx={{
                 display: 'flex',
@@ -240,11 +240,11 @@ function StartingView({ startupError }) {
                 gap: 1,
                 py: 0.5,
                 maxWidth: '360px',
-                minHeight: '90px', // Même hauteur que le mode scan
+                minHeight: '90px', // Same height as scan mode
               }}
             >
               
-              {/* Titre compact */}
+              {/* Compact title */}
               <Typography
                 sx={{
                   fontSize: 11,
@@ -257,7 +257,7 @@ function StartingView({ startupError }) {
                 Hardware Error
               </Typography>
               
-              {/* Instruction principale - Plus grande avec mots en gras */}
+              {/* Main instruction - Larger with bold words */}
               <Box sx={{ textAlign: 'center' }}>
                 <Typography
                   component="span"
@@ -280,7 +280,7 @@ function StartingView({ startupError }) {
                 </Typography>
               </Box>
               
-              {/* Code d'erreur technique - Plus petit, secondaire */}
+              {/* Technical error code - Smaller, secondary */}
               {scanError?.code && (
                 <Typography
                   sx={{
@@ -299,7 +299,7 @@ function StartingView({ startupError }) {
                 </Typography>
               )}
               
-              {/* Bouton Retry */}
+              {/* Retry button */}
               <Button
                 variant="outlined"
                 startIcon={isRetrying ? <CircularProgress size={15} sx={{ color: '#ef4444' }} /> : <RefreshIcon sx={{ fontSize: 15 }} />}
@@ -328,7 +328,7 @@ function StartingView({ startupError }) {
               </Button>
             </Box>
           ) : (
-            // 🔄 En cours de scan - Design épuré avec logs
+            // 🔄 Scanning in progress - Clean design with logs
             <Box
               sx={{
                 display: 'flex',
@@ -338,10 +338,10 @@ function StartingView({ startupError }) {
                 width: '100%',
               }}
             >
-              {/* Titre + spinner/checkmark + compteur discret */}
+              {/* Title + spinner/checkmark + discrete counter */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 {scanComplete ? (
-                  // ✅ Checkmark de succès (outlined)
+                  // ✅ Success checkmark (outlined)
                   <CheckCircleOutlinedIcon
                     sx={{
                       fontSize: 18,
@@ -349,7 +349,7 @@ function StartingView({ startupError }) {
                     }}
                   />
                 ) : (
-                  // 🔄 Spinner en cours
+                  // 🔄 Spinner in progress
                   <CircularProgress 
                     size={16} 
                     thickness={4} 
@@ -386,7 +386,7 @@ function StartingView({ startupError }) {
                 )}
               </Box>
               
-              {/* Boîte de logs - 3 lignes max, scrollée vers le bas */}
+              {/* Log box - Max 3 lines, scrolled to bottom */}
               <Box
                 ref={logBoxRef}
                 sx={{

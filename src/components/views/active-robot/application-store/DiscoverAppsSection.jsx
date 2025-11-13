@@ -6,7 +6,7 @@ import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import { open } from '@tauri-apps/plugin-shell';
 
 /**
- * Section affichant les apps disponibles (Discover from Hugging Face)
+ * Section displaying available apps (Discover from Hugging Face)
  */
 export default function DiscoverAppsSection({
   filteredApps,
@@ -70,7 +70,7 @@ export default function DiscoverAppsSection({
           borderRadius: '10px',
           bgcolor: darkMode ? '#262626' : 'white',
           border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.12)',
-          // ✅ Pas de transition sur bgcolor/border pour éviter l'animation lors du changement de dark mode
+          // ✅ No transition on bgcolor/border to avoid animation on dark mode change
           transition: 'box-shadow 0.2s ease',
           '&:focus-within': {
             borderColor: '#FF9500',
@@ -160,7 +160,7 @@ export default function DiscoverAppsSection({
                 border: installFailed ? '1.5px solid #ef4444' :
                         isInstalling ? `1.5px solid rgba(255, 149, 0, 0.3)` :
                         `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-                // ✅ Pas de transition sur bgcolor/border pour éviter l'animation lors du changement de dark mode
+                // ✅ No transition on bgcolor/border to avoid animation on dark mode change
                 transition: 'transform 0.25s ease, box-shadow 0.25s ease',
                 position: 'relative',
                 overflow: 'hidden',
@@ -254,7 +254,7 @@ export default function DiscoverAppsSection({
                       size="small"
                       disabled={isBusy}
                       onClick={() => handleInstall(app)}
-                      startIcon={isInstalling ? <CircularProgress size={12} sx={{ color: '#FF9500' }} /> : <DownloadOutlinedIcon sx={{ fontSize: 13 }} />}
+                      endIcon={isInstalling ? <CircularProgress size={12} sx={{ color: '#FF9500' }} /> : <DownloadOutlinedIcon sx={{ fontSize: 13 }} />}
                       sx={{
                         minWidth: 'auto',
                         px: 1.75,

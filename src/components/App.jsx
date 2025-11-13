@@ -12,7 +12,7 @@ import { useUpdater } from '../hooks/useUpdater';
 import { DAEMON_CONFIG, setAppStoreInstance } from '../config/daemon';
 
 function App() {
-  // Initialiser le store dans daemon.js pour le logging centralisé
+  // Initialize the store in daemon.js for centralized logging
   useEffect(() => {
     setAppStoreInstance(useAppStore);
   }, []);
@@ -22,7 +22,7 @@ function App() {
   const { sendCommand, playRecordedMove, isCommandRunning } = useRobotCommands();
   const { logs, fetchLogs } = useLogs();
   
-  // 🔄 Système de mise à jour automatique
+  // 🔄 Automatic update system
   const {
     updateAvailable,
     isChecking,
@@ -34,14 +34,14 @@ function App() {
     dismissUpdate,
   } = useUpdater({
     autoCheck: true,
-    checkInterval: 3600000, // Vérifier toutes les heures
+    checkInterval: 3600000, // Check every hour
     silent: false,
   });
   
-  // 🏥 Health check centralisé (UN SEUL endroit pour crash detection)
+  // 🏥 Centralized health check (SINGLE place for crash detection)
   useDaemonHealthCheck();
   
-  // 🤖 Debug : Afficher les transitions de state machine
+  // 🤖 Debug: Display state machine transitions
   const robotStatus = useAppStore(state => state.robotStatus);
   const busyReason = useAppStore(state => state.busyReason);
   useEffect(() => {
@@ -49,33 +49,33 @@ function App() {
     console.log(`🤖 [STATE MACHINE] Status: ${robotStatus}${busyReason ? ` (${busyReason})` : ''} → "${label}"`);
   }, [robotStatus, busyReason]);
   
-  // ⚡ Cleanup est géré côté Rust dans lib.rs :
+  // ⚡ Cleanup is handled on Rust side in lib.rs:
   // - Signal handler (SIGTERM/SIGINT) → cleanup_system_daemons()
   // - on_window_event(CloseRequested) → kill_daemon()
   // - on_window_event(Destroyed) → cleanup_system_daemons()
-  // → Pas besoin de handler JS (évite la redondance)
+  // → No need for JS handler (avoids redundancy)
 
-  // Déterminer la vue actuelle pour le resize automatique
+  // Determine current view for automatic resize
   const currentView = useMemo(() => {
-    // Vue compact : ClosingView (en train de s'arrêter)
+    // Compact view: ClosingView (stopping)
     if (isStopping) {
       console.log('📐 App - Switching to COMPACT view (stopping daemon)');
       return 'compact';
     }
     
-    // ⚡ Vue expanded : daemon actif OU en transition (mais JAMAIS pendant StartingView)
-    // BLOQUE le resize tant que isStarting = true (scan en cours)
+    // ⚡ Expanded view: daemon active OR transitioning (but NEVER during StartingView)
+    // BLOCK resize as long as isStarting = true (scan in progress)
     if (!isStarting && (isActive || isTransitioning) && !hardwareError) {
       console.log('📐 App - Switching to EXPANDED view (isActive or TransitionView visible)');
       return 'expanded';
     }
     
-    // Vue compact : toutes les autres (RobotNotDetected, Starting, ReadyToStart)
+    // Compact view: all others (RobotNotDetected, Starting, ReadyToStart)
     console.log(`📐 App - COMPACT view (isActive=${isActive}, isTransitioning=${isTransitioning}, isStarting=${isStarting})`);
     return 'compact';
   }, [isActive, hardwareError, isStopping, isTransitioning, isStarting]);
 
-  // Hook pour redimensionner automatiquement la fenêtre
+  // Hook to automatically resize the window
   useWindowResize(currentView);
 
   useEffect(() => {
@@ -103,8 +103,8 @@ function App() {
     }
   }, [isUsbConnected, isActive, stopDaemon]);
 
-  // ✅ Callback pour fermer TransitionView quand les apps sont chargées
-  // ⚠️ IMPORTANT : Tous les hooks doivent être appelés avant les retours conditionnels
+  // ✅ Callback to close TransitionView when apps are loaded
+  // ⚠️ IMPORTANT: All hooks must be called before conditional returns
   const handleAppsReady = useCallback(() => {
     if (isTransitioning) {
       console.log('✅ Apps loaded, closing TransitionView');
@@ -112,23 +112,23 @@ function App() {
     }
   }, [isTransitioning, setIsTransitioning]);
 
-  // Vue conditionnelle : Robot non connecté
+  // Conditional view: Robot not connected
   if (!isUsbConnected) {
     return <RobotNotDetectedView />;
   }
 
-  // ⚡ PRIORITÉ : Starting daemon (scan visuel)
-  // Doit rester visible même si isTransitioning devient true
+  // ⚡ PRIORITY: Starting daemon (visual scan)
+  // Must remain visible even if isTransitioning becomes true
   if (isStarting) {
     return <StartingView startupError={startupError} />;
   }
 
-  // Intermediate view: Transition après scan - simple spinner pendant resize
-  // ✅ Rendre ActiveRobotView en arrière-plan pour charger les apps, mais afficher TransitionView par-dessus
+  // Intermediate view: Transition after scan - simple spinner during resize
+  // ✅ Render ActiveRobotView in background to load apps, but display TransitionView on top
   if (isTransitioning) {
     return (
       <>
-        {/* ActiveRobotView caché pour charger les apps en arrière-plan */}
+        {/* ActiveRobotView hidden to load apps in background */}
         <Box sx={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
           <ActiveRobotView 
             isActive={isActive}
@@ -144,7 +144,7 @@ function App() {
             onAppsReady={handleAppsReady}
           />
         </Box>
-        {/* TransitionView visible par-dessus */}
+        {/* TransitionView visible on top */}
         <TransitionView />
       </>
     );
@@ -157,7 +157,7 @@ function App() {
 
   // Main view: Robot connected but daemon not active - show start screen
   if (isUsbConnected && !isActive && !isStarting) {
-    // Reset hardware error si on revient à cette vue
+    // Reset hardware error if returning to this view
     if (hardwareError) {
       setHardwareError(null);
     }
@@ -178,7 +178,7 @@ function App() {
     );
   }
 
-  // ⚠️ Si erreur hardware détectée, rester bloqué sur StartingView
+  // ⚠️ If hardware error detected, stay blocked on StartingView
   if (hardwareError) {
     return <StartingView startupError={hardwareError} />;
   }

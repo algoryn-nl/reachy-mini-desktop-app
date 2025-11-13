@@ -3,20 +3,20 @@ import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
 /**
- * Hook pour gérer les mises à jour automatiques de l'application
- * Version améliorée avec retry logic et gestion d'erreurs robuste
+ * Hook to manage automatic application updates
+ * Enhanced version with retry logic and robust error handling
  * 
- * @param {object} options - Options de configuration
- * @param {boolean} options.autoCheck - Vérifier automatiquement au démarrage (défaut: true)
- * @param {number} options.checkInterval - Intervalle de vérification en ms (défaut: 3600000 = 1h)
- * @param {boolean} options.silent - Mode silencieux (pas de notification si pas de mise à jour)
- * @param {number} options.maxRetries - Nombre max de tentatives en cas d'erreur (défaut: 3)
- * @param {number} options.retryDelay - Délai initial entre les tentatives en ms (défaut: 1000)
- * @returns {object} État et fonctions de mise à jour
+ * @param {object} options - Configuration options
+ * @param {boolean} options.autoCheck - Automatically check on startup (default: true)
+ * @param {number} options.checkInterval - Check interval in ms (default: 3600000 = 1h)
+ * @param {boolean} options.silent - Silent mode (no notification if no update)
+ * @param {number} options.maxRetries - Maximum number of retries on error (default: 3)
+ * @param {number} options.retryDelay - Initial delay between retries in ms (default: 1000)
+ * @returns {object} State and update functions
  */
 export const useUpdater = ({
   autoCheck = true,
-  checkInterval = 3600000, // 1 heure par défaut
+  checkInterval = 3600000, // 1 hour by default
   silent = false,
   maxRetries = 3,
   retryDelay = 1000,
@@ -30,14 +30,14 @@ export const useUpdater = ({
   const lastCheckTimeRef = useRef(null);
 
   /**
-   * Détecte si une erreur est récupérable (réseau, timeout)
+   * Detects if an error is recoverable (network, timeout)
    */
   const isRecoverableError = useCallback((err) => {
     if (!err) return false;
     const errorMsg = err.message?.toLowerCase() || '';
     const errorName = err.name?.toLowerCase() || '';
     
-    // Erreurs récupérables : réseau, timeout, connexion
+    // Recoverable errors: network, timeout, connection
     const recoverablePatterns = [
       'network',
       'timeout',
@@ -54,14 +54,14 @@ export const useUpdater = ({
   }, []);
 
   /**
-   * Retry avec exponential backoff
+   * Retry with exponential backoff
    */
   const sleep = useCallback((ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
   }, []);
 
   /**
-   * Vérifie si une mise à jour est disponible avec retry automatique
+   * Checks if an update is available with automatic retry
    */
   const checkForUpdates = useCallback(async (retryCount = 0) => {
     setIsChecking(true);
@@ -91,7 +91,7 @@ export const useUpdater = ({
       console.error(`❌ Error checking for updates (attempt ${retryCount + 1}/${maxRetries}):`, err);
       console.error('❌ Error details:', err.message, err.stack);
       
-      // Retry automatique pour erreurs récupérables
+      // Automatic retry for recoverable errors
       if (isRecoverableError(err) && retryCount < maxRetries) {
         const delay = retryDelay * Math.pow(2, retryCount); // Exponential backoff
         console.log(`🔄 Retrying in ${delay}ms...`);
@@ -101,7 +101,7 @@ export const useUpdater = ({
         return checkForUpdates(retryCount + 1);
       }
       
-      // Erreur non récupérable ou max retries atteint
+      // Non-recoverable error or max retries reached
       const errorMessage = isRecoverableError(err)
         ? `Network error while checking for updates (${retryCount + 1}/${maxRetries} attempts)`
         : err.message || 'Error checking for updates';
@@ -114,11 +114,11 @@ export const useUpdater = ({
   }, [silent, maxRetries, retryDelay, isRecoverableError, sleep]);
 
   /**
-   * Télécharge et installe la mise à jour avec gestion d'erreurs robuste
+   * Downloads and installs the update with robust error handling
    */
   const downloadAndInstall = useCallback(async (update, retryCount = 0) => {
     if (!update) {
-      console.warn('⚠️ Aucune mise à jour disponible');
+      console.warn('⚠️ No update available');
       return;
     }
 
@@ -134,10 +134,10 @@ export const useUpdater = ({
       let targetProgress = 0;
       let currentDisplayProgress = 0;
 
-      // Animation function pour interpolation fluide
+      // Animation function for smooth interpolation
       const animateProgress = () => {
         if (currentDisplayProgress < targetProgress) {
-          // Interpolation linéaire pour animation fluide
+          // Linear interpolation for smooth animation
           const increment = Math.max(0.5, (targetProgress - currentDisplayProgress) * 0.1);
           currentDisplayProgress = Math.min(targetProgress, currentDisplayProgress + increment);
           setDownloadProgress(Math.round(currentDisplayProgress));
@@ -166,13 +166,13 @@ export const useUpdater = ({
               ? Math.round((chunkLength / contentLength) * 100)
               : 0;
             
-            // Toujours mettre à jour la cible, même pour de petits changements
+            // Always update target, even for small changes
             targetProgress = progress;
             
-            // Mettre à jour immédiatement si changement significatif ou si c'est la première fois
+            // Update immediately if significant change or if it's the first time
             const timeSinceLastUpdate = Date.now() - lastUpdateTime;
             if (Math.abs(progress - lastProgress) >= 0.5 || timeSinceLastUpdate > 100 || progress === 100) {
-              // Arrêter l'animation si on a atteint la cible
+              // Stop animation if target reached
               if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
@@ -182,7 +182,7 @@ export const useUpdater = ({
               lastProgress = progress;
               lastUpdateTime = Date.now();
             } else {
-              // Démarrer l'animation pour interpolation fluide
+              // Start animation for smooth interpolation
               if (!animationFrameId) {
                 animationFrameId = requestAnimationFrame(animateProgress);
               }
@@ -196,7 +196,7 @@ export const useUpdater = ({
               }, 30000);
             }
             
-            // Log seulement pour les changements significatifs
+            // Log only for significant changes
             if (Math.abs(progress - lastProgress) >= 5 || progress === 100) {
               console.log(`📥 Download: ${progress}%`);
             }
@@ -204,7 +204,7 @@ export const useUpdater = ({
           
           case 'Finished':
             console.log('✅ Download finished');
-            // Arrêter l'animation
+            // Stop animation
             if (animationFrameId) {
               cancelAnimationFrame(animationFrameId);
               animationFrameId = null;
@@ -260,7 +260,7 @@ export const useUpdater = ({
         errorMessage = 'Server error. Please try again later.';
       }
       
-      // Retry automatique pour erreurs récupérables pendant le téléchargement
+      // Automatic retry for recoverable errors during download
       if (isRecoverableError(err) && retryCount < maxRetries) {
         const delay = retryDelay * Math.pow(2, retryCount);
         console.log(`🔄 Retrying download in ${delay}ms...`);
@@ -269,7 +269,7 @@ export const useUpdater = ({
         return downloadAndInstall(update, retryCount + 1);
       }
       
-      // Erreur non récupérable ou max retries atteint
+      // Non-recoverable error or max retries reached
       if (isRecoverableError(err)) {
         errorMessage = `Network error while downloading update (${retryCount + 1}/${maxRetries} attempts). Please try again later.`;
       }
@@ -277,7 +277,7 @@ export const useUpdater = ({
           setError(errorMessage);
           setIsDownloading(false);
           setDownloadProgress(0);
-          // Nettoyer l'animation en cas d'erreur
+          // Clean up animation on error
           if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
             animationFrameId = null;
@@ -301,24 +301,24 @@ export const useUpdater = ({
     setUpdateAvailable(null);
   }, []);
 
-  // Vérification automatique au démarrage (avec délai pour éviter de bloquer le démarrage)
+  // Automatic check on startup (with delay to avoid blocking startup)
   useEffect(() => {
     if (autoCheck) {
-      // Attendre que l'app soit complètement chargée avant de vérifier
+      // Wait for app to be fully loaded before checking
       const timeout = setTimeout(() => {
         checkForUpdates();
-      }, 2000); // 2 secondes après le démarrage
+      }, 2000); // 2 seconds after startup
       
       return () => clearTimeout(timeout);
     }
   }, [autoCheck, checkForUpdates]);
 
-  // Vérification périodique (seulement si pas de check récent)
+  // Periodic check (only if no recent check)
   useEffect(() => {
     if (!autoCheck || checkInterval <= 0) return;
 
     const interval = setInterval(() => {
-      // Ne pas vérifier si un check a été fait récemment (< 5 min)
+      // Don't check if a check was done recently (< 5 min)
       const timeSinceLastCheck = lastCheckTimeRef.current 
         ? Date.now() - lastCheckTimeRef.current 
         : Infinity;

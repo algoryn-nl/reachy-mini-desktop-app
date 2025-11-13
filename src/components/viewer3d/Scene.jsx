@@ -23,45 +23,45 @@ export default function Scene({
   showLevaControls, 
   forceLoad = false, 
   hideGrid = false,
-  showScanEffect = false, // Affiche l'effet de scan
-  onScanComplete = null, // Callback quand le scan est terminé
-  onScanMesh = null, // Callback pour chaque mesh scanné
-  cameraConfig = {}, // Config de caméra (target, minDistance, maxDistance)
-  useCinematicCamera = false, // Utilise une caméra animée au lieu d'OrbitControls
-  useHeadFollowCamera = false, // Caméra attachée à la tête qui suit ses mouvements
-  lockCameraToHead = false, // Lock la caméra à l'orientation de la tête
-  errorFocusMesh = null, // Mesh à focus en cas d'erreur
-  hideEffects = false, // Cache les effets de particules
+  showScanEffect = false, // Display the scan effect
+  onScanComplete = null, // Callback when scan is complete
+  onScanMesh = null, // Callback for each scanned mesh
+  cameraConfig = {}, // Camera config (target, minDistance, maxDistance)
+  useCinematicCamera = false, // Use animated camera instead of OrbitControls
+  useHeadFollowCamera = false, // Camera attached to head that follows its movements
+  lockCameraToHead = false, // Lock camera to head orientation
+  errorFocusMesh = null, // Mesh to focus on in case of error
+  hideEffects = false, // Hide particle effects
 }) {
-  // State pour stocker les meshes à outliner
+  // State to store meshes to outline
   const [outlineMeshes, setOutlineMeshes] = useState([]);
-  const [robotRef, setRobotRef] = useState(null); // Référence au robot pour HeadFollowCamera
+  const [robotRef, setRobotRef] = useState(null); // Reference to robot for HeadFollowCamera
   
-  // ⚡ Durée du scan lue depuis la config centrale
+  // ⚡ Scan duration read from central config
   const scanDuration = DAEMON_CONFIG.ANIMATIONS.SCAN_DURATION / 1000;
 
-  // Récupérer l'effet actif depuis le store
+  // Get active effect from store
   const { activeEffect } = useAppStore();
 
-  // Contrôles Leva centralisés
+  // Centralized Leva controls
   const { cellShading, lighting, ssao, xraySettings, scene } = useLevaControls(showLevaControls);
 
-  // Calculer la position de la tête de Reachy en temps réel
-  // Utilise useMemo pour ne recalculer que quand l'effet change (optimisation)
+  // Calculate Reachy's head position in real-time
+  // Use useMemo to recalculate only when effect changes (optimization)
   const headPosition = useMemo(() => {
-    if (!robotRef) return [0, 0.18, 0.02]; // Position par défaut
+    if (!robotRef) return [0, 0.18, 0.02]; // Default position
     
-    // Trouver le link de la caméra (qui est au niveau de la tête)
+    // Find camera link (at head level)
     const cameraLink = robotRef.links?.['camera'];
     if (cameraLink) {
       const worldPosition = new THREE.Vector3();
       cameraLink.getWorldPosition(worldPosition);
       
-      // Ajouter un offset pour que les particules apparaissent au-dessus et devant la tête
+      // Add offset so particles appear above and in front of head
       return [worldPosition.x, worldPosition.y + 0.03, worldPosition.z + 0.02];
     }
     
-    // Fallback sur xl_330 si camera n'est pas disponible
+    // Fallback to xl_330 if camera is not available
     const headLink = robotRef.links?.['xl_330'];
     if (headLink) {
       const worldPosition = new THREE.Vector3();
@@ -69,19 +69,19 @@ export default function Scene({
       return [worldPosition.x, worldPosition.y + 0.03, worldPosition.z + 0.02];
     }
     
-    return [0, 0.18, 0.02]; // Fallback si aucun link trouvé
-  }, [robotRef, activeEffect]); // ✅ Recalculer seulement quand un nouvel effet démarre
+    return [0, 0.18, 0.02]; // Fallback if no link found
+  }, [robotRef, activeEffect]); // ✅ Recalculate only when a new effect starts
 
-  // Créer la grille une seule fois avec useMemo
+  // Create grid only once with useMemo
   const gridHelper = useMemo(() => {
     const grid = new THREE.GridHelper(2, 20, '#999999', '#cccccc');
     grid.material.opacity = 0.5;
     grid.material.transparent = true;
-    grid.material.fog = true; // Active le fog sur la grille
+    grid.material.fog = true; // Enable fog on grid
     return grid;
   }, []);
 
-  // ✅ Trouver tous les meshes de la caméra quand une erreur est détectée
+  // ✅ Find all camera meshes when an error is detected
   const errorMeshes = useMemo(() => {
     if (!errorFocusMesh || !robotRef || !outlineMeshes.length) {
       console.log('⚠️ ErrorHighlight: Missing prerequisites', {
@@ -98,19 +98,19 @@ export default function Scene({
       availableLinks: Object.keys(robotRef.links || {})
     });
 
-    // Fonction helper pour trouver le link parent d'un mesh
+    // Helper function to find the parent link of a mesh
     const findParentLink = (mesh) => {
       let current = mesh;
       let depth = 0;
       while (current && current.parent && depth < 10) {
         const parentName = current.parent.name || '';
-        // Vérifier si le parent est un link (les links URDF ont souvent des noms spécifiques)
+        // Check if parent is a link (URDF links often have specific names)
         if (robotRef.links && Object.keys(robotRef.links).some(linkName => 
           parentName === linkName || parentName.includes(linkName)
         )) {
           return current.parent;
         }
-        // Vérifier aussi par nom
+        // Also check by name
         if (parentName.toLowerCase().includes('camera')) {
           return current.parent;
         }
@@ -120,7 +120,7 @@ export default function Scene({
       return null;
     };
 
-    // Fonction helper pour collecter tous les meshes enfants d'un objet
+    // Helper function to collect all child meshes from an object
     const collectMeshesFromObject = (obj, meshes = []) => {
       if (obj.isMesh && !obj.userData.isOutline) {
         meshes.push(obj);
@@ -133,11 +133,11 @@ export default function Scene({
       return meshes;
     };
 
-    // Vérifier si le mesh en erreur fait partie de la caméra
+    // Check if the error mesh is part of the camera
     let isCameraMesh = false;
     let cameraLink = null;
     
-    // Méthode 1: Vérifier via le link camera directement
+    // Method 1: Check via camera link directly
     if (robotRef.links?.['camera']) {
       cameraLink = robotRef.links['camera'];
       const cameraMeshes = collectMeshesFromObject(cameraLink, []);
@@ -149,7 +149,7 @@ export default function Scene({
       }
     }
 
-    // Méthode 2: Remonter la hiérarchie pour trouver un parent "camera"
+    // Method 2: Traverse hierarchy to find a "camera" parent
     let current = errorFocusMesh;
     let depth = 0;
     while (current && current.parent && depth < 10) {
@@ -168,16 +168,16 @@ export default function Scene({
       depth++;
     }
 
-    // Si c'est un mesh de la caméra, trouver TOUS les meshes de la caméra
+    // If it's a camera mesh, find ALL camera meshes
     if (isCameraMesh) {
-      // Si on a le link camera, utiliser ses meshes
+      // If we have the camera link, use its meshes
       if (cameraLink) {
         const cameraMeshes = collectMeshesFromObject(cameraLink, []);
         console.log(`📷 Found ${cameraMeshes.length} camera mesh(es) via link traversal`);
         return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
       }
       
-      // Sinon, chercher tous les meshes qui ont "camera" dans leur hiérarchie
+      // Otherwise, search for all meshes with "camera" in their hierarchy
       const cameraMeshes = [];
       outlineMeshes.forEach((mesh) => {
         let current = mesh;
@@ -211,7 +211,7 @@ export default function Scene({
       {/* Three-point lighting setup */}
       <ambientLight intensity={lighting.ambient} />
       
-      {/* Key Light - Lumière principale (avant-droite, en hauteur) */}
+      {/* Key Light - Main light (front-right, elevated) */}
       <directionalLight 
         position={[2, 4, 2]} 
         intensity={lighting.keyIntensity} 
@@ -220,13 +220,13 @@ export default function Scene({
         shadow-mapSize-height={1024}
       />
       
-      {/* Fill Light - Lumière de remplissage (avant-gauche, plus douce) */}
+      {/* Fill Light - Fill light (front-left, softer) */}
       <directionalLight 
         position={[-2, 2, 1.5]} 
         intensity={lighting.fillIntensity}
       />
       
-      {/* Back/Rim Light - Lumière arrière (pour la séparation) */}
+      {/* Back/Rim Light - Back light (for separation) */}
       <directionalLight 
         position={[0, 3, -2]} 
         intensity={lighting.rimIntensity}
@@ -249,7 +249,7 @@ export default function Scene({
         forceLoad={forceLoad}
       />
       
-      {/* Effet de scan pendant le chargement */}
+      {/* Scan effect during loading */}
       {showScanEffect && (
         <ScanEffect 
           meshes={outlineMeshes}
@@ -260,7 +260,7 @@ export default function Scene({
         />
       )}
       
-      {/* Effet de mise en évidence en cas d'erreur */}
+      {/* Highlight effect in case of error */}
       {errorFocusMesh && (
         <ErrorHighlight 
           errorMesh={errorFocusMesh}
@@ -271,10 +271,10 @@ export default function Scene({
         />
       )}
       
-      {/* Caméra : 3 modes possibles */}
+      {/* Camera: 3 possible modes */}
       {useHeadFollowCamera ? (
         <>
-          {/* Mode 1 : Caméra qui suit la tête (ActiveRobotView) */}
+          {/* Mode 1: Camera following head (ActiveRobotView) */}
           <HeadFollowCamera
             robot={robotRef}
             offset={[0, 0, 0.25]}
@@ -284,21 +284,21 @@ export default function Scene({
             lockToOrientation={lockCameraToHead}
           />
           
-          {/* OrbitControls uniquement en mode unlocked */}
+          {/* OrbitControls only in unlocked mode */}
           {!lockCameraToHead && (
             <OrbitControls 
               enablePan={false}
               enableRotate={true}
-              enableZoom={false} // ✅ Désactiver le zoom
+              enableZoom={false} // ✅ Disable zoom
               enableDamping={true}
               dampingFactor={0.05}
               target={cameraConfig.target || [0, 0.2, 0]}
-              // ✅ Pas de contraintes d'angle = rotation libre à 360°
+              // ✅ No angle constraints = free 360° rotation
             />
           )}
         </>
       ) : useCinematicCamera ? (
-        // Mode 2 : Caméra animée verticalement (StartingView scan)
+        // Mode 2: Vertically animated camera (StartingView scan)
         <CinematicCamera
           initialPosition={cameraConfig.position || [0, 0.22, 0.35]}
           target={cameraConfig.target || [0, 0.12, 0]}
@@ -307,19 +307,19 @@ export default function Scene({
           errorFocusMesh={errorFocusMesh}
         />
       ) : (
-        // Mode 3 : OrbitControls manuel (défaut) - Rotation libre sans zoom
+        // Mode 3: Manual OrbitControls (default) - Free rotation without zoom
         <OrbitControls 
           enablePan={false}
           enableRotate={true}
-          enableZoom={false} // ✅ Désactiver le zoom
+          enableZoom={false} // ✅ Disable zoom
           enableDamping={true}
           dampingFactor={0.05}
           target={cameraConfig.target || [0, 0.2, 0]}
-          // ✅ Pas de contraintes d'angle = rotation libre à 360°
+          // ✅ No angle constraints = free 360° rotation
         />
       )}
       
-      {/* Effets visuels de particules (sleep, love, etc.) */}
+      {/* Visual particle effects (sleep, love, etc.) */}
       {!hideEffects && activeEffect && (
         <ParticleEffect
           type={activeEffect}

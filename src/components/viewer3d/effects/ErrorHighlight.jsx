@@ -2,18 +2,18 @@ import { useEffect } from 'react';
 import * as THREE from 'three';
 
 /**
- * Effet de mise en évidence d'un ou plusieurs meshes en erreur
- * Change la couleur des meshes en rouge avec une animation pulsante
+ * Effect to highlight one or more error meshes
+ * Changes mesh color to red with pulsating animation
  */
 export default function ErrorHighlight({ 
-  errorMesh = null, // Mesh unique en erreur (legacy)
-  errorMeshes = null, // Liste de meshes en erreur (nouveau)
+  errorMesh = null, // Single error mesh (legacy)
+  errorMeshes = null, // List of error meshes (new)
   allMeshes = [],
   errorColor = '#ff0000',
   enabled = true,
 }) {
   useEffect(() => {
-    // Déterminer la liste des meshes en erreur
+    // Determine the list of error meshes
     const errorMeshesList = errorMeshes || (errorMesh ? [errorMesh] : []);
     
     if (!enabled) {
@@ -34,10 +34,10 @@ export default function ErrorHighlight({
     console.log(`🔴 ErrorHighlight: Highlighting ${errorMeshesList.length} error mesh(es) out of ${allMeshes.length} total meshes`);
     console.log('🔴 Error meshes:', errorMeshesList.map(m => ({ name: m.name, uuid: m.uuid })));
 
-    // Sauvegarder les états originaux de TOUS les meshes
+    // Save original states of ALL meshes
     const originalStates = new Map();
 
-    // Créer un Set des UUIDs des meshes en erreur pour une comparaison plus fiable
+    // Create a Set of UUIDs for error meshes for more reliable comparison
     const errorMeshUuids = new Set(errorMeshesList.map(m => m.uuid));
     let highlightedCount = 0;
     
@@ -47,7 +47,7 @@ export default function ErrorHighlight({
         return;
       }
       
-      // Vérifier si le matériau a les propriétés nécessaires
+      // Check if material has required properties
       const hasEmissive = mesh.material.emissive !== undefined;
       
       originalStates.set(mesh, {
@@ -61,11 +61,11 @@ export default function ErrorHighlight({
         gradientMap: mesh.material.gradientMap,
       });
 
-      // Vérifier si ce mesh est en erreur (par référence OU par UUID)
+      // Check if this mesh is an error mesh (by reference OR by UUID)
       const isErrorMesh = errorMeshesList.includes(mesh) || errorMeshUuids.has(mesh.uuid);
       
       if (isErrorMesh) {
-        // ✅ MESH EN ERREUR : Rouge vif opaque
+        // ✅ ERROR MESH: Bright red opaque
         highlightedCount++;
         mesh.userData.isErrorMesh = true;
         if (mesh.material.color) {
@@ -82,7 +82,7 @@ export default function ErrorHighlight({
         mesh.material.gradientMap = null;
         console.log(`🔴 Highlighted error mesh: ${mesh.name || mesh.uuid}`);
       } else {
-        // ⚪ AUTRES MESHES : Très transparents (presque invisibles)
+        // ⚪ OTHER MESHES: Very transparent (almost invisible)
         mesh.material.transparent = true;
         mesh.material.opacity = 0.05;
         mesh.material.depthWrite = false;
@@ -98,7 +98,7 @@ export default function ErrorHighlight({
 
     console.log(`🔴 ErrorHighlight complete: ${highlightedCount} mesh(es) highlighted, ${allMeshes.length - highlightedCount} dimmed to 5% opacity`);
 
-    // Cleanup : restaurer les états originaux de TOUS les meshes
+    // Cleanup: restore original states of ALL meshes
     return () => {
       allMeshes.forEach((mesh) => {
         const state = originalStates.get(mesh);
@@ -117,7 +117,7 @@ export default function ErrorHighlight({
           mesh.material.gradientMap = state.gradientMap;
           mesh.material.needsUpdate = true;
           
-          // Retirer le flag d'erreur
+          // Remove error flag
           if (mesh.userData.isErrorMesh) {
             delete mesh.userData.isErrorMesh;
           }
@@ -127,6 +127,6 @@ export default function ErrorHighlight({
     };
   }, [enabled, errorMesh, errorMeshes, allMeshes, errorColor]);
 
-  return null; // Pas de rendu visuel, juste la logique
+  return null; // No visual rendering, just logic
 }
 

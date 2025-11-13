@@ -1,53 +1,53 @@
 import { create } from 'zustand';
 
-// Détecter la préférence système
+// Detect system preference
 const getSystemPreference = () => {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 };
 
-// Lire la préférence stockée
+// Read stored preference
 const getStoredPreference = () => {
   if (typeof window === 'undefined') return null;
   const stored = localStorage.getItem('darkMode');
   return stored ? JSON.parse(stored) : null;
 };
 
-// Déterminer le dark mode initial
+// Determine initial dark mode
 const getInitialDarkMode = () => {
   const storedPreference = getStoredPreference();
-  // Si l'utilisateur a une préférence stockée, l'utiliser
+  // If user has stored preference, use it
   if (storedPreference !== null) {
     console.log('🎨 Using stored dark mode preference:', storedPreference);
     return storedPreference;
   }
-  // Sinon, utiliser la préférence système
+  // Otherwise, use system preference
   const systemPreference = getSystemPreference();
   console.log('🎨 Using system dark mode preference:', systemPreference);
   return systemPreference;
 };
 
 const useAppStore = create((set) => ({
-  // ✨ État principal du robot (State Machine)
-  // États possibles : 'disconnected', 'ready-to-start', 'starting', 'ready', 'busy', 'stopping', 'crashed'
+  // ✨ Main robot state (State Machine)
+  // Possible states: 'disconnected', 'ready-to-start', 'starting', 'ready', 'busy', 'stopping', 'crashed'
   robotStatus: 'disconnected',
   
-  // ✨ Raison si status === 'busy'
-  // Valeurs possibles : null, 'moving', 'command', 'app-running', 'installing'
+  // ✨ Reason if status === 'busy'
+  // Possible values: null, 'moving', 'command', 'app-running', 'installing'
   busyReason: null,
   
-  // États legacy (pour compatibilité backwards, mais seront dérivés)
+  // Legacy states (for backwards compatibility, but will be derived)
   isActive: false,
   isStarting: false,
   isStopping: false,
-  isTransitioning: false, // Transition entre scan et vue active (resize fenêtre)
+  isTransitioning: false, // Transition between scan and active view (window resize)
   
   // Daemon metadata
   daemonVersion: null,
-  startupError: null, // Erreur pendant le démarrage
-  hardwareError: null, // Erreur hardware détectée pendant le scan
-  isDaemonCrashed: false, // Daemon crashé/bloqué détecté
-  consecutiveTimeouts: 0, // Compteur de timeouts consécutifs
+  startupError: null, // Error during startup
+  hardwareError: null, // Hardware error detected during scan
+  isDaemonCrashed: false, // Daemon crashed/stuck detected
+  consecutiveTimeouts: 0, // Counter of consecutive timeouts
   
   // Robot state
   isUsbConnected: false,
@@ -58,31 +58,31 @@ const useAppStore = create((set) => ({
   logs: [],
   frontendLogs: [],
   
-  // Activity Lock - Verrouillage global pour toutes les actions
-  // isCommandRunning : quick actions en cours
-  // isAppRunning : app en cours d'exécution
-  // isInstalling : installation/désinstallation en cours
-  // isBusy : helper computed (quick action OU app en cours OU installation)
+  // Activity Lock - Global lock for all actions
+  // isCommandRunning: quick actions in progress
+  // isAppRunning: app running
+  // isInstalling: installation/uninstallation in progress
+  // isBusy: computed helper (quick action OR app running OR installing)
   isCommandRunning: false,
   isAppRunning: false,
   isInstalling: false,
-  currentAppName: null, // Nom de l'app en cours
-  installingAppName: null, // Nom de l'app en cours d'installation
-  installJobType: null, // Type de job : 'install' ou 'remove'
-  installResult: null, // Résultat de l'installation : 'success', 'failed', null
+  currentAppName: null, // Name of currently running app
+  installingAppName: null, // Name of app being installed
+  installJobType: null, // Job type: 'install' or 'remove'
+  installResult: null, // Installation result: 'success', 'failed', null
   
-  // Visual Effects (particules 3D)
-  activeEffect: null, // Type d'effet actif ('sleep', 'love', etc.)
-  effectTimestamp: 0, // Timestamp pour forcer le re-render
+  // Visual Effects (3D particles)
+  activeEffect: null, // Active effect type ('sleep', 'love', etc.)
+  effectTimestamp: 0, // Timestamp to force re-render
   
-  // Theme (initialisé avec préférence système ou stockée)
+  // Theme (initialized with system or stored preference)
   darkMode: getInitialDarkMode(),
   
-  // Actions - Setter générique DRY
+  // Actions - Generic DRY setter
   update: (updates) => set(updates),
   
-  // ✨ Actions de transition (State Machine)
-  // Mettent à jour robotStatus + busyReason + états legacy (backwards compat)
+  // ✨ Transition actions (State Machine)
+  // Update robotStatus + busyReason + legacy states (backwards compat)
   transitionTo: {
     disconnected: () => {
       console.log('🤖 [STATE] → disconnected');
@@ -143,7 +143,7 @@ const useAppStore = create((set) => ({
           isActive: true,
         };
         
-        // Mettre à jour les flags legacy selon la raison
+        // Update legacy flags based on reason
         if (reason === 'command') updates.isCommandRunning = true;
         if (reason === 'app-running') updates.isAppRunning = true;
         if (reason === 'installing') updates.isInstalling = true;
@@ -173,20 +173,20 @@ const useAppStore = create((set) => ({
     },
   },
   
-  // Helper pour vérifier si le robot est occupé (granularité fine)
+  // Helper to check if robot is busy (fine granularity)
   isBusy: () => {
     const state = useAppStore.getState();
     return state.robotStatus === 'busy' || state.isCommandRunning || state.isAppRunning || state.isInstalling;
   },
   
-  // Helper global : le robot est-il prêt à recevoir des commandes ?
-  // Utilisé partout dans l'UI pour verrouiller les interactions
+  // Global helper: is the robot ready to receive commands?
+  // Used everywhere in UI to lock interactions
   isReady: () => {
     const state = useAppStore.getState();
     return state.robotStatus === 'ready';
   },
   
-  // ✨ Helper pour obtenir un status lisible (debug & UI)
+  // ✨ Helper to get readable status (debug & UI)
   getRobotStatusLabel: () => {
     const state = useAppStore.getState();
     const { robotStatus, busyReason } = state;
@@ -246,13 +246,13 @@ const useAppStore = create((set) => ({
     });
   },
   setInstallResult: (result) => set({
-    installResult: result, // 'success', 'failed' ou null
+    installResult: result, // 'success', 'failed' or null
   }),
   
-  // Helpers spécifiques pour les logs (logique métier)
+  // Specific helpers for logs (business logic)
   addFrontendLog: (message) => set((state) => ({ 
     frontendLogs: [
-      ...state.frontendLogs.slice(-50), // Garder max 50 logs
+      ...state.frontendLogs.slice(-50), // Keep max 50 logs
       {
         timestamp: new Date().toLocaleTimeString('fr-FR', { 
           hour: '2-digit', 
@@ -260,21 +260,21 @@ const useAppStore = create((set) => ({
           second: '2-digit' 
         }),
         message,
-        source: 'frontend', // Pour distinguer visuellement
+        source: 'frontend', // To visually distinguish
       }
     ]
   })),
   
-  // Legacy setters (backwards compatible, synchronisent avec robotStatus)
+  // Legacy setters (backwards compatible, sync with robotStatus)
   setIsActive: (value) => {
     const state = useAppStore.getState();
     if (value && !state.isStarting && !state.isStopping) {
-      // Daemon devient actif → ready (sauf si déjà busy)
+      // Daemon becomes active → ready (unless already busy)
       if (state.robotStatus !== 'busy') {
         state.transitionTo.ready();
       }
     } else if (!value && state.robotStatus !== 'starting' && state.robotStatus !== 'stopping') {
-      // Daemon devient inactif → ready-to-start
+      // Daemon becomes inactive → ready-to-start
       state.transitionTo.readyToStart();
     }
     set({ isActive: value });
@@ -327,14 +327,14 @@ const useAppStore = create((set) => ({
     set({ isCommandRunning: value });
   },
   
-  // Gestion des timeouts/crashes
+  // Timeout/crash management
   incrementTimeouts: () => {
     const state = useAppStore.getState();
     const newCount = state.consecutiveTimeouts + 1;
-    const isCrashed = newCount >= 3; // ⚡ Crash après 3 timeouts sur 4s (~1.33s × 3)
+    const isCrashed = newCount >= 3; // ⚡ Crash after 3 timeouts over 4s (~1.33s × 3)
     
     if (isCrashed && !state.isDaemonCrashed) {
-      console.error(`💥 DAEMON CRASHED - ${newCount} timeouts consécutifs`);
+      console.error(`💥 DAEMON CRASHED - ${newCount} consecutive timeouts`);
       state.transitionTo.crashed();
     }
     
@@ -351,16 +351,16 @@ const useAppStore = create((set) => ({
     state.transitionTo.crashed();
   },
   
-  // Déclencher un effet visuel 3D
+  // Trigger 3D visual effect
   triggerEffect: (effectType) => set({ 
     activeEffect: effectType, 
     effectTimestamp: Date.now() 
   }),
   
-  // Arrêter l'effet actif
+  // Stop active effect
   stopEffect: () => set({ activeEffect: null }),
   
-  // Toggle dark mode (avec persistance)
+  // Toggle dark mode (with persistence)
   setDarkMode: (value) => {
     console.log('🎨 Setting dark mode to:', value);
     localStorage.setItem('darkMode', JSON.stringify(value));
@@ -373,7 +373,7 @@ const useAppStore = create((set) => ({
     return { darkMode: newValue };
   }),
   
-  // Reset à la préférence système
+  // Reset to system preference
   resetDarkMode: () => {
     console.log('🎨 Resetting to system preference');
     localStorage.removeItem('darkMode');
@@ -382,12 +382,12 @@ const useAppStore = create((set) => ({
   },
 }));
 
-// Écouter les changements de préférence système
+// Listen to system preference changes
 if (typeof window !== 'undefined') {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   
   const handleSystemPreferenceChange = (e) => {
-    // Ne mettre à jour que si l'utilisateur n'a pas de préférence stockée
+    // Only update if user has no stored preference
     const storedPreference = getStoredPreference();
     if (storedPreference === null) {
       console.log('🎨 System preference changed:', e.matches);
@@ -395,11 +395,11 @@ if (typeof window !== 'undefined') {
     }
   };
   
-  // Méthode moderne
+  // Modern method
   if (mediaQuery.addEventListener) {
     mediaQuery.addEventListener('change', handleSystemPreferenceChange);
   } else {
-    // Fallback pour anciens navigateurs
+    // Fallback for older browsers
     mediaQuery.addListener(handleSystemPreferenceChange);
   }
 }

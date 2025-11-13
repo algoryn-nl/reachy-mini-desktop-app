@@ -37,14 +37,14 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
     isLoading,
   } = useApps(isActive);
   
-  // ✅ Notifier le parent quand le chargement change
+  // ✅ Notify parent when loading status changes
   useEffect(() => {
     if (onLoadingChange) {
       onLoadingChange(isLoading);
     }
   }, [isLoading, onLoadingChange]);
   
-  // Hook pour gérer les handlers et la logique
+  // Hook to manage handlers and logic
   const {
     expandedApp,
     setExpandedApp,
@@ -69,12 +69,12 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
   
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Récupérer les infos de l'app en cours d'installation pour l'overlay
+  // Retrieve the info of the app being installed for the overlay
   const installingApp = installingAppName 
     ? [...availableApps, ...installedApps].find(app => app.name === installingAppName)
     : null;
   
-  // Récupérer le job d'installation en cours - Convertir la Map en array
+  // Retrieve the current installation job - Convert Map to array
   const activeJobsArray = Array.from(activeJobs.values());
   const installingJob = installingAppName
     ? activeJobsArray.find(job => job.appName === installingAppName)

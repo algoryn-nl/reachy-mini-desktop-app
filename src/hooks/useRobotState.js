@@ -3,16 +3,16 @@ import useAppStore from '../store/useAppStore';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '../config/daemon';
 
 /**
- * Hook pour récupérer l'état complet du robot depuis l'API daemon
- * Utilise les VRAIS champs de l'API : control_mode, head_joints, body_yaw, etc.
+ * Hook to fetch complete robot state from daemon API
+ * Uses REAL API fields: control_mode, head_joints, body_yaw, etc.
  * 
- * ⚠️ NE gère PAS la détection de crash (délégué à useDaemonHealthCheck)
+ * ⚠️ Does NOT handle crash detection (delegated to useDaemonHealthCheck)
  */
 export function useRobotState(isActive) {
   const { isDaemonCrashed, isInstalling } = useAppStore();
   const [robotState, setRobotState] = useState({
-    isOn: null,           // Moteurs allumés (control_mode === 'enabled')
-    isMoving: false,      // Moteurs en mouvement (détecté)
+    isOn: null,           // Motors powered (control_mode === 'enabled')
+    isMoving: false,      // Motors moving (detected)
   });
   
   const lastPositionsRef = useRef(null);
@@ -55,7 +55,7 @@ export function useRobotState(isActive) {
               antennas: data.antennas_position,
             };
             
-            // Comparer avec la frame précédente
+            // Compare with previous frame
             if (lastPositionsRef.current) {
               const yawDiff = Math.abs(currentPositions.body_yaw - lastPositionsRef.current.body_yaw);
               const antennaDiff = currentPositions.antennas && lastPositionsRef.current.antennas
@@ -63,11 +63,11 @@ export function useRobotState(isActive) {
                   Math.abs(currentPositions.antennas[1] - lastPositionsRef.current.antennas[1])
                 : 0;
               
-              // ✅ Seuil augmenté pour filtrer les tremblements : > 0.01 radians (~0.6°)
+              // ✅ Increased threshold to filter tremors: > 0.01 radians (~0.6°)
               if (yawDiff > 0.01 || antennaDiff > 0.01) {
                 isMoving = true;
                 
-                // Reset timeout : considérer comme "en mouvement" pendant 800ms après le dernier changement
+                // Reset timeout: consider as "moving" for 800ms after last change
                 if (movementTimeoutRef.current) {
                   clearTimeout(movementTimeoutRef.current);
                 }
@@ -80,7 +80,7 @@ export function useRobotState(isActive) {
             lastPositionsRef.current = currentPositions;
           }
           
-          // ✅ Log détaillé pour debug (tous les 10 appels)
+          // ✅ Detailed log for debug (every 10 calls)
           if (!fetchState.callCount) fetchState.callCount = 0;
           fetchState.callCount++;
           
@@ -102,15 +102,15 @@ export function useRobotState(isActive) {
           // ✅ Pas de resetTimeouts() ici, géré par useDaemonHealthCheck
         }
       } catch (error) {
-        // ✅ Pas de incrementTimeouts() ici, géré par useDaemonHealthCheck
-        // On log juste l'erreur si ce n'est pas un timeout (déjà géré ailleurs)
+        // ✅ No incrementTimeouts() here, handled by useDaemonHealthCheck
+        // Just log error if it's not a timeout (already handled elsewhere)
         if (error.name !== 'TimeoutError' && !error.message?.includes('timed out')) {
           console.warn('⚠️ Robot state fetch error:', error.message);
         }
       }
     };
 
-    // Ne pas poll si le daemon est crashé
+    // Don't poll if daemon is crashed
     if (isDaemonCrashed) {
       console.warn('⚠️ Daemon crashed, stopping robot state polling');
       return;
@@ -119,7 +119,7 @@ export function useRobotState(isActive) {
     // Fetch initial
     fetchState();
 
-    // ✅ Refresh fréquent pour détecter mouvement en temps réel
+    // ✅ Frequent refresh to detect movement in real-time
     const interval = setInterval(fetchState, DAEMON_CONFIG.INTERVALS.ROBOT_STATE);
 
     return () => {

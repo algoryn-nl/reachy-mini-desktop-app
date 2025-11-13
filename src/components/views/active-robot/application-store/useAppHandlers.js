@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import useAppStore from '../../../../store/useAppStore';
 
 /**
- * Hook pour gérer toutes les actions sur les apps
- * Extrait de ApplicationStore.jsx pour clarifier la logique
+ * Hook to handle all app actions
+ * Extracted from ApplicationStore.jsx to clarify logic
  */
 export function useAppHandlers({
   currentApp,
@@ -13,7 +13,7 @@ export function useAppHandlers({
   startApp,
   stopCurrentApp,
   showToast,
-  refreshApps, // Callback pour forcer le refresh de la liste
+  refreshApps, // Callback to force list refresh
 }) {
   const { lockForApp, unlockApp, lockForInstall, unlockInstall, setInstallResult } = useAppStore();
   
@@ -22,8 +22,8 @@ export function useAppHandlers({
   const [startingApp, setStartingApp] = useState(null);
   const notifiedJobs = useRef(new Set());
   const installStartTime = useRef(null); // Track start time for minimum display duration (4s)
-  const installJobType = useRef(null); // Track job type (install/remove) pour les messages
-  const pendingTimeouts = useRef([]); // Track timeouts pour cleanup
+  const installJobType = useRef(null); // Track job type (install/remove) for messages
+  const pendingTimeouts = useRef([]); // Track timeouts for cleanup
 
   // Effect to detect completed installations/uninstallations and show a toast
   useEffect(() => {
@@ -54,23 +54,23 @@ export function useAppHandlers({
     });
   }, [activeJobs, showToast]);
 
-  // ✅ Cleanup des timeouts en attente lors du unmount
+  // ✅ Cleanup pending timeouts on unmount
   useEffect(() => {
     return () => {
-      // Nettoyer tous les timeouts en attente
+      // Clean all pending timeouts
       pendingTimeouts.current.forEach(clearTimeout);
       pendingTimeouts.current = [];
     };
   }, []);
 
-  // ✅ Vérifier si tous les jobs sont terminés pour déverrouiller immédiatement
+  // ✅ Check if all jobs are finished to unlock immediately
   useEffect(() => {
     const state = useAppStore.getState();
     const installingAppName = state.installingAppName;
     
-    // Si pas d'installation en cours mais qu'il y a encore des jobs, ne rien faire
+    // If no installation in progress but there are still jobs, do nothing
     if (!installingAppName) {
-      // ✅ Si pas d'installation mais qu'il y avait un job, s'assurer que tout est nettoyé
+      // ✅ If no installation but there was a job, ensure everything is cleaned up
       if (activeJobs.size === 0 && installStartTime.current) {
         console.log('🧹 Cleaning up install state (no active jobs)');
         installStartTime.current = null;
@@ -79,31 +79,31 @@ export function useAppHandlers({
       return;
     }
     
-    // ✅ Vérifier si tous les jobs d'installation sont terminés
+    // ✅ Check if all installation jobs are finished
     const hasActiveInstallJobs = Array.from(activeJobs.values()).some(
       job => job.appName === installingAppName && 
              job.status !== 'completed' && 
              job.status !== 'failed'
     );
     
-    // Si plus de jobs actifs pour cette app, le job est terminé (même si pas encore nettoyé)
+    // If no more active jobs for this app, job is finished (even if not yet cleaned up)
     if (!hasActiveInstallJobs && installStartTime.current) {
       console.log('✅ All install jobs completed for', installingAppName);
-      // Le cleanup sera fait par l'autre useEffect qui gère l'overlay
+      // Cleanup will be done by the other useEffect that manages overlay
     }
   }, [activeJobs]);
   
-  // ✅ Écouter les jobs actifs et gérer le cycle de vie de l'overlay
-  // Délai minimum de 4s pour désinstallations + affichage résultat 2s
+  // ✅ Listen to active jobs and manage overlay lifecycle
+  // Minimum delay of 4s for uninstalls + 2s result display
   useEffect(() => {
     const installingAppName = useAppStore.getState().installingAppName;
     
-    // Si pas d'installation en cours, rien à faire
+    // If no installation in progress, nothing to do
     if (!installingAppName) {
       return;
     }
     
-    // Vérifier si le job de l'app en cours est terminé
+    // Check if current app's job is finished
     let jobFound = null;
     for (const [jobId, job] of activeJobs.entries()) {
       if (job.appName === installingAppName) {
@@ -112,8 +112,8 @@ export function useAppHandlers({
       }
     }
     
-    // Si le job n'existe plus OU s'il est marqué completed/failed
-    // ✅ Vérifier aussi si le job a été supprimé (signe qu'il est terminé)
+    // If job no longer exists OR if it's marked completed/failed
+    // ✅ Also check if job was removed (sign it's finished)
     const jobWasRemoved = !jobFound && installStartTime.current !== null;
     if (jobWasRemoved || (jobFound && (jobFound.status === 'completed' || jobFound.status === 'failed'))) {
       console.log('📦 [RESULT] Job found:', !!jobFound);
@@ -121,7 +121,7 @@ export function useAppHandlers({
       console.log('📦 [RESULT] Job status:', jobFound?.status);
       console.log('📦 [RESULT] Job logs:', jobFound?.logs);
       
-      // ✨ Détection intelligente du succès depuis les logs
+      // ✨ Intelligent success detection from logs
       let wasCompleted = false;
       let wasFailed = false;
       
@@ -130,7 +130,7 @@ export function useAppHandlers({
       } else if (jobFound?.status === 'failed') {
         wasFailed = true;
       } else if (jobFound?.logs) {
-        // Analyser les logs pour détecter le résultat
+        // Analyze logs to detect result
         const allLogs = jobFound.logs.join(' ');
         const hasSuccess = allLogs.includes('Successfully installed') || 
                           allLogs.includes('Successfully uninstalled') || 
@@ -144,47 +144,47 @@ export function useAppHandlers({
         } else if (hasError) {
           wasFailed = true;
         } else {
-          // Par défaut : succès si le job a disparu proprement
+          // Default: success if job disappeared cleanly
           wasCompleted = true;
         }
       } else {
-        // Pas de logs disponibles : considérer comme succès par défaut
+        // No logs available: consider as success by default
         wasCompleted = true;
       }
       
-      // Utiliser le type stocké au démarrage (car jobFound peut être undefined)
+      // Use type stored at start (because jobFound can be undefined)
       const jobType = installJobType.current || 'install';
       const isUninstall = jobType === 'remove';
       
       console.log('📦 [RESULT] Job type:', jobType, 'Completed:', wasCompleted, 'Failed:', wasFailed);
       
-      // ⏱️ Calculer le temps minimum d'affichage (4s pour uninstall, 0s pour install)
+      // ⏱️ Calculate minimum display time (4s for uninstall, 0s for install)
       const MINIMUM_DISPLAY_TIME = isUninstall ? 4000 : 0;
       const elapsedTime = installStartTime.current ? Date.now() - installStartTime.current : MINIMUM_DISPLAY_TIME;
       const remainingTime = Math.max(0, MINIMUM_DISPLAY_TIME - elapsedTime);
       
-      // 🎯 Fonction pour afficher le résultat puis fermer
+      // 🎯 Function to show result then close
       const showResultThenClose = () => {
-        // 1️⃣ Afficher le résultat dans l'overlay
+        // 1️⃣ Show result in overlay
         setInstallResult(wasCompleted ? 'success' : 'failed');
         
-        // ✅ Déverrouiller IMMÉDIATEMENT pour permettre les health checks de reprendre
-        // (mais garder l'overlay ouvert pour l'affichage du résultat)
+        // ✅ Unlock IMMEDIATELY to allow health checks to resume
+        // (but keep overlay open for result display)
         console.log('🔓 Unlocking install immediately (job completed)');
         unlockInstall();
         
-        // 2️⃣ Attendre 2s puis fermer et afficher toast
+        // 2️⃣ Wait 2s then close and show toast
         const toastTimeout = setTimeout(() => {
           installStartTime.current = null;
           installJobType.current = null;
           
-          // Refresh la liste des apps (pour être sûr que l'app installée apparaît)
+          // Refresh apps list (to ensure installed app appears)
           if (refreshApps) {
             console.log('🔄 Refreshing apps list after overlay close');
             refreshApps();
           }
           
-          // Toast de résultat
+          // Result toast
           if (showToast) {
             const appName = installingAppName;
             if (wasCompleted) {
@@ -200,7 +200,7 @@ export function useAppHandlers({
         pendingTimeouts.current.push(toastTimeout);
       };
       
-      // Attendre le délai minimum si nécessaire
+      // Wait minimum delay if necessary
       if (remainingTime > 0) {
         const delayTimeout = setTimeout(showResultThenClose, remainingTime);
         pendingTimeouts.current.push(delayTimeout);
@@ -212,36 +212,36 @@ export function useAppHandlers({
 
   const handleInstall = async (appInfo) => {
     try {
-      // ✅ Verrouiller avec le type de job
+      // ✅ Lock with job type
       lockForInstall(appInfo.name, 'install');
       installStartTime.current = Date.now();
-      installJobType.current = 'install'; // 📝 Backup local
+      installJobType.current = 'install'; // 📝 Local backup
       
-      // Lancer l'installation (retourne job_id, ne bloque pas)
+      // Launch installation (returns job_id, doesn't block)
       await installApp(appInfo);
       
-      // Note: Le déverrouillage et les toasts de fin sont gérés par useEffect
-      // qui écoute activeJobs et détecte quand le job se termine
+      // Note: Unlocking and completion toasts are managed by useEffect
+      // that listens to activeJobs and detects when job finishes
     } catch (err) {
       console.error('Failed to install:', err);
       
-      // ✅ Erreur au démarrage : reset tout
+      // ✅ Error at start: reset everything
       installStartTime.current = null;
       installJobType.current = null;
       setInstallResult(null);
       unlockInstall();
       
-      // Message utilisateur spécifique pour les erreurs de permission
+      // Specific user message for permission errors
       if (err.name === 'PermissionDeniedError' || err.name === 'SystemPopupTimeoutError') {
         const message = err.userFriendly 
           ? err.message 
           : `🔒 ${appInfo.name}: System permission required. Please accept the permission dialog if it appears.`;
         
         if (showToast) {
-          showToast(message, 'warning'); // Utiliser 'warning' au lieu de 'error' pour les permissions
+          showToast(message, 'warning'); // Use 'warning' instead of 'error' for permissions
         }
       } else {
-        // Erreur standard
+        // Standard error
         if (showToast) {
           showToast(`❌ Failed to start install ${appInfo.name}: ${err.message}`, 'error');
         }
@@ -251,26 +251,26 @@ export function useAppHandlers({
   
   const handleUninstall = async (appName) => {
     try {
-      // ✅ Verrouiller avec le type de job
+      // ✅ Lock with job type
       lockForInstall(appName, 'remove');
       installStartTime.current = Date.now();
-      installJobType.current = 'remove'; // 📝 Backup local
+      installJobType.current = 'remove'; // 📝 Local backup
       
       await removeApp(appName);
       setExpandedApp(null);
       
-      // Note: Le déverrouillage et les toasts de fin sont gérés par useEffect
-      // qui écoute activeJobs et détecte quand le job se termine
+      // Note: Unlocking and completion toasts are managed by useEffect
+      // that listens to activeJobs and detects when job finishes
     } catch (err) {
       console.error('Failed to uninstall:', err);
       
-      // ✅ Erreur au démarrage : reset tout
+      // ✅ Error at start: reset everything
       installStartTime.current = null;
       installJobType.current = null;
       setInstallResult(null);
       unlockInstall();
       
-      // Message utilisateur spécifique pour les erreurs de permission
+      // Specific user message for permission errors
       if (err.name === 'PermissionDeniedError' || err.name === 'SystemPopupTimeoutError') {
         const message = err.userFriendly 
           ? err.message 
@@ -289,7 +289,7 @@ export function useAppHandlers({
   
   const handleStartApp = async (appName) => {
     try {
-      // ✅ Vérifier si le robot est occupé (quick action en cours)
+      // ✅ Check if robot is busy (quick action in progress)
       if (useAppStore.getState().isCommandRunning) {
         showToast('⚠️ Please wait for the current action to finish', 'warning');
         console.warn(`⚠️ Cannot start ${appName}: quick action is running`);
@@ -303,7 +303,7 @@ export function useAppHandlers({
         
         // Stop the current app
         await stopCurrentApp();
-        unlockApp(); // Déverrouiller
+        unlockApp(); // Unlock
         // Wait a bit for the app to stop
         await new Promise(resolve => setTimeout(resolve, 500));
       }
@@ -313,14 +313,14 @@ export function useAppHandlers({
       const result = await startApp(appName);
       console.log(`✅ ${appName} started successfully:`, result.state);
       
-      // ✅ Verrouiller pour empêcher les quick actions
+      // ✅ Lock to prevent quick actions
       lockForApp(appName);
       
       setStartingApp(null);
     } catch (err) {
       console.error(`❌ Failed to start ${appName}:`, err);
       setStartingApp(null);
-      unlockApp(); // S'assurer de déverrouiller en cas d'erreur
+      unlockApp(); // Ensure unlock on error
       alert(`Failed to start app: ${err.message}`);
     }
   };

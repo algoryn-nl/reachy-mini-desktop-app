@@ -12,10 +12,10 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
   const [elapsedTime, setElapsedTime] = useState(0);
   const logsContainerRef = useRef(null);
   
-  // resultState peut être: null (en cours), 'success', 'failed'
-  // jobType: 'install' ou 'remove'
+  // resultState can be: null (in progress), 'success', 'failed'
+  // jobType: 'install' or 'remove'
 
-  // Timer pour afficher le temps écoulé
+  // Timer to display elapsed time
   useEffect(() => {
     if (!appInfo) return;
     
@@ -37,15 +37,15 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
 
   const isInstalling = jobType === 'install';
   const progress = (jobInfo?.logs?.length || 0);
-  const latestLogs = (jobInfo?.logs && jobInfo.logs.length > 0) ? jobInfo.logs.slice(-5) : []; // Afficher les 5 derniers logs, chronologique (plus récent en bas)
+  const latestLogs = (jobInfo?.logs && jobInfo.logs.length > 0) ? jobInfo.logs.slice(-5) : []; // Display last 5 logs, chronological (most recent at bottom)
   
-  // Déterminer si on affiche le résultat final ou la progression
+  // Determine if showing final result or progress
   const isShowingResult = resultState !== null;
 
-  // Auto-scroll vers le bas quand de nouveaux logs arrivent (seulement en mode progression)
+  // Auto-scroll to bottom when new logs arrive (only in progress mode)
   useEffect(() => {
     if (!isShowingResult && logsContainerRef.current && latestLogs.length > 0) {
-      // Scroll smooth vers le bas
+      // Smooth scroll to bottom
       logsContainerRef.current.scrollTo({
         top: logsContainerRef.current.scrollHeight,
         behavior: 'smooth'
@@ -85,9 +85,9 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
           width: '90%',
         }}
       >
-        {/* Icône - Change selon l'état */}
+        {/* Icon - Changes based on state */}
         {isShowingResult ? (
-          // ✅ État de résultat (succès/échec) - Icône MUI
+          // ✅ Result state (success/failure) - MUI icon
           <Box
             sx={{
               width: 120,
@@ -119,7 +119,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
             )}
           </Box>
         ) : (
-          // 🔄 Progression (icône de l'app avec pulsation)
+          // 🔄 Progress (app icon with pulse)
           <Box
             sx={{
               fontSize: 64,
@@ -142,9 +142,9 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
           </Box>
         )}
 
-        {/* Titre - Change selon l'état */}
+        {/* Title - Changes based on state */}
         {isShowingResult ? (
-          // ✅ Message de résultat
+          // ✅ Result message
           <Box sx={{ textAlign: 'center' }}>
             <Typography
               sx={{
@@ -177,7 +177,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
             </Typography>
           </Box>
         ) : (
-          // 🔄 Titre normal (progression)
+          // 🔄 Normal title (progress)
           <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 0.25, mb: -0.5 }}>
             <Typography
               sx={{
@@ -204,7 +204,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
         )}
 
         {isShowingResult ? (
-          // ✅ Affichage du résultat final (sans détails)
+          // ✅ Final result display (without details)
           <Typography
             sx={{
               fontSize: 13,
@@ -275,7 +275,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
               </Box>
             </Box>
 
-            {/* Temps écoulé + Steps - Deux tags côte à côte */}
+            {/* Elapsed time + Steps - Two tags side by side */}
             <Box
               sx={{
                 display: 'flex',
@@ -284,7 +284,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                 mt: 1.5,
               }}
             >
-              {/* Tag Temps écoulé */}
+              {/* Elapsed time tag */}
               <Box
                 sx={{
                   display: 'flex',
@@ -337,7 +337,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
               </Box>
             </Box>
 
-            {/* Logs récents */}
+            {/* Recent logs */}
             <Box
               ref={logsContainerRef}
               sx={{
@@ -426,7 +426,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
               )}
             </Box>
 
-            {/* Indication - Adaptée selon le type */}
+            {/* Instruction - Adapted according to type */}
             {isInstalling && (
               <Typography
                 sx={{

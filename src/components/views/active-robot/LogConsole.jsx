@@ -7,12 +7,12 @@ export default function LogConsole({ logs, darkMode = false }) {
   const { frontendLogs } = useAppStore();
   const isFirstLoadRef = useRef(true);
   
-  // Normaliser les logs : daemon (string) + frontend (object)
+  // Normalize logs: daemon (string) + frontend (object)
   const normalizedLogs = [
     ...logs.map(log => ({ 
       message: log, 
       source: 'daemon',
-      timestamp: null // Daemon logs n'ont pas de timestamp séparé
+      timestamp: null // Daemon logs don't have separate timestamp
     })),
     ...frontendLogs
   ];
@@ -22,10 +22,10 @@ export default function LogConsole({ logs, darkMode = false }) {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
         top: scrollRef.current.scrollHeight,
-        behavior: isFirstLoadRef.current ? 'auto' : 'smooth' // Pas d'animation au 1er chargement
+        behavior: isFirstLoadRef.current ? 'auto' : 'smooth' // No animation on first load
       });
       
-      // Après le premier chargement, utiliser smooth
+      // After first load, use smooth
       if (isFirstLoadRef.current) {
         isFirstLoadRef.current = false;
       }
@@ -74,7 +74,7 @@ export default function LogConsole({ logs, darkMode = false }) {
           const isFrontend = log.source === 'frontend';
           const message = log.message;
           
-          // Détection du type de log pour la couleur (basé sur les mots-clés)
+          // Detect log type for color (based on keywords)
           const isSuccess = message.includes('SUCCESS') || message.includes('✓');
           const isError = message.includes('FAILED') || message.includes('ERROR') || message.includes('❌');
           const isCommand = message.includes('→') || message.includes('▶️') || message.includes('📥');
@@ -88,18 +88,18 @@ export default function LogConsole({ logs, darkMode = false }) {
                   (isError ? '#ff8888' : 
                    isSuccess ? '#88ff88' : 
                    isCommand ? '#ffaa66' : 
-                   isFrontend ? '#66ccff' :  // Bleu clair pour frontend
-                   '#aaa') :                  // Gris pour daemon
+                   isFrontend ? '#66ccff' :  // Light blue for frontend
+                   '#aaa') :                  // Gray for daemon
                   (isError ? '#cc6666' : 
                    isSuccess ? '#66cc66' : 
                    isCommand ? '#ff8844' : 
-                   isFrontend ? '#3399ff' :  // Bleu pour frontend
-                   '#999'),                   // Gris pour daemon
+                   isFrontend ? '#3399ff' :  // Blue for frontend
+                   '#999'),                   // Gray for daemon
                 fontFamily: 'inherit',
                 lineHeight: 1.6,
                 mb: 0.3,
-                fontWeight: isFrontend ? 500 : 400, // Frontend en gras
-                opacity: isDaemon ? 0.85 : 1, // Daemon légèrement plus transparent
+                fontWeight: isFrontend ? 500 : 400, // Frontend in bold
+                opacity: isDaemon ? 0.85 : 1, // Daemon slightly more transparent
               }}
             >
               {log.timestamp && `[${log.timestamp}] `}{message}

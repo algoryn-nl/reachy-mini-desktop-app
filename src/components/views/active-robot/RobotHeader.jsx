@@ -2,8 +2,8 @@ import React from 'react';
 import { Box, Typography, Chip } from '@mui/material';
 
 /**
- * Header du robot avec titre, version et métadonnées
- * Style Apple : minimaliste, épuré, aéré
+ * Robot header with title, version and metadata
+ * Apple style: minimalist, clean, spacious
  */
 export default function RobotHeader({ isOn, usbPortName, daemonVersion, darkMode = false }) {
 
@@ -17,7 +17,7 @@ export default function RobotHeader({ isOn, usbPortName, daemonVersion, darkMode
         mb: 1.5,
       }}
     >
-      {/* Titre + Version */}
+      {/* Title + Version */}
       <Box
         sx={{
           display: 'flex',
@@ -56,7 +56,7 @@ export default function RobotHeader({ isOn, usbPortName, daemonVersion, darkMode
           gap: 0.75,
         }}
       >
-        {/* Tag Power status (si control_mode === enabled) */}
+        {/* Power status tag (if control_mode === enabled) */}
         {isOn === true && (
           <Box
             sx={{

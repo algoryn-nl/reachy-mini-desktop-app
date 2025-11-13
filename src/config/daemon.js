@@ -1,56 +1,56 @@
 /**
- * Configuration centralisée pour les timeouts et la gestion du daemon
+ * Centralized configuration for timeouts and daemon management
  */
 
 export const DAEMON_CONFIG = {
-  // Timeouts API (en millisecondes)
+  // API timeouts (in milliseconds)
   TIMEOUTS: {
-    HEALTHCHECK: 1333,      // Ping toutes les ~1.33s pour détecter crash en 4s (3 timeouts)
-    STATE_FULL: 5000,       // Lecture état complet avec tous les moteurs
-    COMMAND: 10000,         // Commandes de mouvement (peuvent être longues)
-    STARTUP_CHECK: 2000,    // Par tentative de démarrage
-    VERSION: 3000,          // Info daemon (endpoint léger)
-    EMOTIONS_CHECK: 3000,   // Vérification librairie émotions
-    APPS_LIST: 5000,        // Liste des apps disponibles
-    APP_INSTALL: 60000,     // Lancer une installation (augmenté pour popups système)
-    APP_REMOVE: 90000,      // Désinstaller une app (augmenté pour popups système)
-    APP_START: 30000,       // Démarrer une app
-    APP_STOP: 30000,        // Arrêter une app
-    JOB_STATUS: 120000,     // Polling job status (installations longues)
-    PERMISSION_POPUP_WAIT: 30000, // Attente max pour popup système (macOS/Windows)
+    HEALTHCHECK: 1333,      // Ping every ~1.33s to detect crash in 4s (3 timeouts)
+    STATE_FULL: 5000,       // Read full state with all motors
+    COMMAND: 10000,         // Movement commands (can be long)
+    STARTUP_CHECK: 2000,    // Per startup attempt
+    VERSION: 3000,          // Daemon info (lightweight endpoint)
+    EMOTIONS_CHECK: 3000,   // Emotions library check
+    APPS_LIST: 5000,        // Available apps list
+    APP_INSTALL: 60000,     // Launch installation (increased for system popups)
+    APP_REMOVE: 90000,      // Uninstall app (increased for system popups)
+    APP_START: 30000,       // Start app
+    APP_STOP: 30000,        // Stop app
+    JOB_STATUS: 120000,     // Poll job status (long installations)
+    PERMISSION_POPUP_WAIT: 30000, // Max wait for system popup (macOS/Windows)
   },
   
-  // Polling intervals (en millisecondes)
+  // Polling intervals (in milliseconds)
   INTERVALS: {
-    STATUS_CHECK: 3000,       // Check daemon status toutes les 3s
-    LOGS_FETCH: 1000,         // Logs toutes les 1s
-    USB_CHECK: 1000,          // USB toutes les 1s
-    VERSION_FETCH: 10000,     // Version toutes les 10s
-    ROBOT_STATE: 300,         // État robot (position, moteurs) toutes les 300ms
-    APP_STATUS: 2000,         // Status app en cours toutes les 2s
-    JOB_POLLING: 500,         // Polling job install/remove toutes les 500ms
-    CURRENT_APP_REFRESH: 300, // Délai avant refresh après stop app
+    STATUS_CHECK: 3000,       // Check daemon status every 3s
+    LOGS_FETCH: 1000,         // Logs every 1s
+    USB_CHECK: 1000,          // USB every 1s
+    VERSION_FETCH: 10000,     // Version every 10s
+    ROBOT_STATE: 300,         // Robot state (position, motors) every 300ms
+    APP_STATUS: 2000,         // Current app status every 2s
+    JOB_POLLING: 500,         // Poll job install/remove every 500ms
+    CURRENT_APP_REFRESH: 300, // Delay before refresh after stop app
   },
   
-  // Détection de crash
+  // Crash detection
   CRASH_DETECTION: {
-    MAX_TIMEOUTS: 3,           // Crash après 3 timeouts sur 4 secondes (~1.33s × 3)
-    STARTUP_MAX_ATTEMPTS: 15,  // 15 tentatives de 1s = 15s max au démarrage
-    STARTUP_RETRY_DELAY: 1000, // Attendre 1s entre chaque tentative
-    JOB_MAX_FAILS: 20,         // 20 échecs de polling = job failed
-    JOB_CLEANUP_DELAY: 10000,  // 10s avant de nettoyer un job failed
+    MAX_TIMEOUTS: 3,           // Crash after 3 timeouts over 4 seconds (~1.33s × 3)
+    STARTUP_MAX_ATTEMPTS: 15,  // 15 attempts of 1s = 15s max on startup
+    STARTUP_RETRY_DELAY: 1000, // Wait 1s between each attempt
+    JOB_MAX_FAILS: 20,         // 20 polling failures = job failed
+    JOB_CLEANUP_DELAY: 10000,  // 10s before cleaning up a failed job
   },
   
-  // Durées d'animation/transition
+  // Animation/transition durations
   ANIMATIONS: {
-    MODEL_LOAD_TIME: 1000,       // ⚡ Temps de chargement du modèle 3D (marge)
-    SCAN_DURATION: 8000,         // Durée du scan 3D des meshes (+2s de marge)
-    SCAN_INTERNAL_DELAYS: 250,   // Délai retour X-ray du dernier mesh
-    SCAN_COMPLETE_PAUSE: 1800,   // ⚡ Pause pour VOIR le succès du scan avant transition
-    TRANSITION_DURATION: 800,    // Durée de la TransitionView (resize + spinner visible)
-    VIEW_FADE_DELAY: 100,        // Délai entre hide StartingView et show TransitionView
-    SLEEP_DURATION: 4000,        // Durée du goto_sleep avant kill
-    STARTUP_MIN_DELAY: 2000,     // Délai avant première vérification au démarrage
+    MODEL_LOAD_TIME: 1000,       // ⚡ 3D model loading time (margin)
+    SCAN_DURATION: 8000,         // 3D mesh scan duration (+2s margin)
+    SCAN_INTERNAL_DELAYS: 250,   // X-ray return delay for last mesh
+    SCAN_COMPLETE_PAUSE: 1800,   // ⚡ Pause to SEE scan success before transition
+    TRANSITION_DURATION: 800,    // TransitionView duration (resize + spinner visible)
+    VIEW_FADE_DELAY: 100,        // Delay between hide StartingView and show TransitionView
+    SLEEP_DURATION: 4000,        // goto_sleep duration before kill
+    STARTUP_MIN_DELAY: 2000,     // Delay before first check on startup
   },
   
   // API endpoints
@@ -61,15 +61,15 @@ export const DAEMON_CONFIG = {
     EMOTIONS_LIST: '/api/move/recorded-move-datasets/list/pollen-robotics/reachy-mini-emotions-library',
   },
   
-  // Endpoints à NE PAS logger (polling fréquent)
+  // Endpoints to NOT log (frequent polling)
   SILENT_ENDPOINTS: [
-    '/api/state/full',      // Poll toutes les 3s
-    '/api/daemon/status',   // Poll toutes les 10s
+    '/api/state/full',      // Poll every 3s
+    '/api/daemon/status',   // Poll every 10s
   ],
 };
 
 /**
- * Instance du store (lazy loaded pour éviter circular dependency)
+ * Store instance (lazy loaded to avoid circular dependency)
  */
 let appStoreInstance = null;
 export function setAppStoreInstance(store) {
@@ -77,16 +77,16 @@ export function setAppStoreInstance(store) {
 }
 
 /**
- * Helper pour créer un fetch avec timeout ET logging automatique
- * @param {string} url - URL complète
- * @param {object} options - Options fetch (method, body, etc.)
- * @param {number} timeoutMs - Timeout en ms
- * @param {object} logOptions - Options de logging
- * @param {boolean} logOptions.silent - Ne pas logger cet appel (pour polling)
- * @param {string} logOptions.label - Label custom pour le log
+ * Helper to create a fetch with timeout AND automatic logging
+ * @param {string} url - Full URL
+ * @param {object} options - Fetch options (method, body, etc.)
+ * @param {number} timeoutMs - Timeout in ms
+ * @param {object} logOptions - Logging options
+ * @param {boolean} logOptions.silent - Don't log this call (for polling)
+ * @param {string} logOptions.label - Custom label for log
  */
 /**
- * Détecte si une erreur est liée à une permission refusée (cross-platform)
+ * Detects if an error is related to denied permission (cross-platform)
  */
 function isPermissionDeniedError(error) {
   if (!error) return false;
@@ -94,7 +94,7 @@ function isPermissionDeniedError(error) {
   const errorMsg = error.message?.toLowerCase() || '';
   const errorName = error.name?.toLowerCase() || '';
   
-  // Patterns communs pour permissions refusées
+  // Common patterns for denied permissions
   const permissionPatterns = [
     'permission denied',
     'access denied',
@@ -113,38 +113,38 @@ function isPermissionDeniedError(error) {
 }
 
 /**
- * Détecte si un timeout peut être dû à une popup système
+ * Detects if a timeout might be due to a system popup
  */
 function isLikelySystemPopupTimeout(error, duration, timeoutMs) {
   if (error?.name !== 'TimeoutError') return false;
   
-  // Si le timeout arrive très proche de la limite, c'est probablement une popup
-  // qui a bloqué l'exécution pendant presque tout le timeout
+  // If timeout arrives very close to the limit, it's probably a popup
+  // that blocked execution for almost the entire timeout
   const timeoutRatio = duration / timeoutMs;
-  return timeoutRatio > 0.9; // 90% du timeout écoulé
+  return timeoutRatio > 0.9; // 90% of timeout elapsed
 }
 
 export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions = {}) {
   const { silent = false, label = null } = logOptions;
   
-  // Extraire l'endpoint de l'URL
+  // Extract endpoint from URL
   const endpoint = url.replace(DAEMON_CONFIG.ENDPOINTS.BASE_URL, '');
-  const baseEndpoint = endpoint.split('?')[0]; // Sans query params
+  const baseEndpoint = endpoint.split('?')[0]; // Without query params
   
-  // Vérifier si c'est un endpoint silencieux
+  // Check if it's a silent endpoint
   const shouldBeSilent = silent || DAEMON_CONFIG.SILENT_ENDPOINTS.some(e => baseEndpoint.startsWith(e));
   
   const method = options.method || 'GET';
   const startTime = Date.now();
   
-  // Log début si pas silencieux
+  // Log start if not silent
   if (!shouldBeSilent && appStoreInstance) {
     const logLabel = label || `${method} ${baseEndpoint}`;
     appStoreInstance.getState().addFrontendLog(`→ ${logLabel}`);
   }
   
   try {
-    // Créer un AbortController pour pouvoir annuler manuellement si besoin
+    // Create AbortController to be able to cancel manually if needed
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
@@ -156,7 +156,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
     clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     
-    // Log résultat si pas silencieux
+    // Log result if not silent
     if (!shouldBeSilent && appStoreInstance) {
       const logLabel = label || `${method} ${baseEndpoint}`;
       if (response.ok) {
@@ -170,7 +170,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    // Détecter les erreurs de permission
+    // Detect permission errors
     if (isPermissionDeniedError(error)) {
       const permissionError = new Error('Permission denied by user or system');
       permissionError.name = 'PermissionDeniedError';
@@ -184,7 +184,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
       throw permissionError;
     }
     
-    // Détecter les timeouts potentiellement dus à des popups système
+    // Detect timeouts potentially due to system popups
     if (isLikelySystemPopupTimeout(error, duration, timeoutMs)) {
       const popupError = new Error('Request timed out - system permission popup may be waiting');
       popupError.name = 'SystemPopupTimeoutError';
@@ -199,7 +199,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
       throw popupError;
     }
     
-    // Log erreur standard si pas silencieux
+    // Log standard error if not silent
     if (!shouldBeSilent && appStoreInstance) {
       const logLabel = label || `${method} ${baseEndpoint}`;
       const errorMsg = error.name === 'AbortError' || error.name === 'TimeoutError' 
@@ -213,34 +213,34 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
 }
 
 /**
- * Helper pour construire l'URL complète de l'API
+ * Helper to build full API URL
  */
 export function buildApiUrl(endpoint) {
   return `${DAEMON_CONFIG.ENDPOINTS.BASE_URL}${endpoint}`;
 }
 
 /**
- * ⚡ Helper DRY pour gérer la transition StartingView → TransitionView → ActiveRobotView
- * Évite la duplication du code de transition (utilisé 2× dans useDaemon)
+ * ⚡ DRY helper to manage StartingView → TransitionView → ActiveRobotView transition
+ * Avoids duplication of transition code (used 2× in useDaemon)
  * 
- * @param {object} callbacks - Fonctions de setState
- * @param {Function} callbacks.setIsStarting - Fonction pour changer isStarting
- * @param {Function} callbacks.setIsTransitioning - Fonction pour changer isTransitioning
- * @param {Function} callbacks.setIsActive - Fonction pour changer isActive
- * @param {number} remainingTime - Temps à attendre avant de démarrer la transition
+ * @param {object} callbacks - setState functions
+ * @param {Function} callbacks.setIsStarting - Function to change isStarting
+ * @param {Function} callbacks.setIsTransitioning - Function to change isTransitioning
+ * @param {Function} callbacks.setIsActive - Function to change isActive
+ * @param {number} remainingTime - Time to wait before starting transition
  */
 export function transitionToActiveView({ setIsStarting, setIsTransitioning, setIsActive }, remainingTime) {
   setTimeout(() => {
     console.log('⏱️ Scan animation complete, hiding StartingView');
-    // ⚡ Étape 1 : Cacher StartingView
+    // ⚡ Step 1: Hide StartingView
     setIsStarting(false);
     
-    // ⚡ Étape 2 : Après un micro-délai, afficher TransitionView et trigger resize
+    // ⚡ Step 2: After micro-delay, show TransitionView and trigger resize
     setTimeout(() => {
       console.log('⏱️ Showing TransitionView and triggering resize');
       setIsTransitioning(true);
       
-      // ⚡ Étape 3 : Après le resize, passer en ActiveRobotView
+      // ⚡ Step 3: After resize, switch to ActiveRobotView
       setTimeout(() => {
         console.log('⏱️ TransitionView complete, showing ActiveRobotView');
         setIsActive(true);

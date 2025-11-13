@@ -24,7 +24,7 @@ function ActiveRobotView({
   logs,
   daemonVersion,
   usbPortName,
-  onAppsReady, // ✅ Callback pour notifier quand les apps sont chargées
+  onAppsReady, // ✅ Callback to notify when apps are loaded
 }) {
   // Use mock if available, otherwise the real API
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
@@ -35,7 +35,7 @@ function ActiveRobotView({
   // Get complete robot state from daemon API
   const { isOn, isMoving } = useRobotState(isActive);
   
-  // ✅ Helpers computed pour simplifier les conditions
+  // ✅ Computed helpers to simplify conditions
   const isBusy = useAppStore(state => state.isBusy());
   const isReady = useAppStore(state => state.isReady());
   
@@ -47,23 +47,23 @@ function ActiveRobotView({
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [toastProgress, setToastProgress] = useState(100);
   
-  // ✅ État de chargement des apps : notifier le parent quand c'est prêt
+  // ✅ Apps loading state: notify parent when ready
   const [appsLoading, setAppsLoading] = useState(true);
   
-  // ✅ Callback pour recevoir l'état de chargement des apps
+  // ✅ Callback to receive apps loading state
   const handleAppsLoadingChange = useCallback((loading) => {
     setAppsLoading(loading);
     
-    // ✅ Notifier le parent quand les apps sont chargées pour fermer TransitionView
+    // ✅ Notify parent when apps are loaded to close TransitionView
     if (!loading && onAppsReady) {
-      // Attendre un court délai pour que le rendu soit complet
+      // Wait short delay for render to complete
       setTimeout(() => {
         onAppsReady();
       }, 300);
     }
   }, [onAppsReady]);
   
-  // ✅ Réinitialiser l'état quand on arrive sur la vue
+  // ✅ Reset state when arriving on view
   useEffect(() => {
     if (isActive) {
       setAppsLoading(true);
@@ -334,7 +334,7 @@ function ActiveRobotView({
             overflowY: 'visible',
           }}
         >
-        {/* Main viewer block - Les 2 composants sont toujours montés */}
+        {/* Main viewer block - Both components are always mounted */}
         <Box
           sx={{
             width: '100%',
@@ -344,7 +344,7 @@ function ActiveRobotView({
             overflow: 'visible',
           }}
         >
-          {/* ViewportSwapper : gère le swap entre 3D et Caméra avec Portals */}
+          {/* ViewportSwapper: handles swap between 3D and Camera with Portals */}
           <ViewportSwapper
             view3D={
               <Viewer3D 
