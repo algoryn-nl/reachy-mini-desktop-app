@@ -1,0 +1,105 @@
+name: Build and Sign
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: false
+
+jobs:
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install dependencies
+        run: |
+          cd tauri-app
+          yarn install
+      
+      - name: Build sidecar
+        run: |
+          cd tauri-app
+          yarn build:sidecar-macos
+      
+      - name: Setup Apple Code Signing
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Vérifier que les secrets sont définis
+          # APPLE_CERTIFICATE_PASSWORD est optionnel (peut être vide pour .cer)
+          # APPLE_TEAM_ID est optionnel car il est déjà dans APPLE_SIGNING_IDENTITY
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "⚠️  Secrets Apple non configurés - le build ne sera pas signé"
+            echo "Configurez les secrets dans GitHub → Settings → Secrets and variables → Actions"
+            echo "Utilisez: bash scripts/prepare-github-secrets.sh pour obtenir les valeurs"
+          else
+            echo "✅ Variables Apple configurées depuis GitHub Secrets"
+            echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}"
+            # APPLE_CERTIFICATE_PASSWORD peut être vide pour .cer
+            if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+              echo "APPLE_CERTIFICATE_PASSWORD=(vide - OK pour .cer)"
+            else
+              echo "APPLE_CERTIFICATE_PASSWORD=(défini)"
+            fi
+            # Extraire le Team ID depuis l'identité si APPLE_TEAM_ID n'est pas défini
+            if [ -z "$APPLE_TEAM_ID" ]; then
+              APPLE_TEAM_ID=$(echo "$APPLE_SIGNING_IDENTITY" | sed -n 's/.*(\([A-Z0-9]\{10\}\)).*/\1/p')
+              export APPLE_TEAM_ID
+              echo "APPLE_TEAM_ID extrait depuis l'identité: ${APPLE_TEAM_ID}"
+            else
+              echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}"
+            fi
+            
+            # Exporter les variables pour Tauri (elles sont déjà dans env, mais on s'assure qu'elles sont exportées)
+            export APPLE_CERTIFICATE
+            export APPLE_CERTIFICATE_PASSWORD
+            export APPLE_SIGNING_IDENTITY
+            export APPLE_TEAM_ID
+            
+            echo "✅ Variables exportées pour Tauri"
+          fi
+      
+      - name: Build Tauri app
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd tauri-app
+          yarn tauri build
+          # Vérifier la signature si les secrets étaient définis
+          if [ -n "$APPLE_CERTIFICATE" ] && [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "🔍 Vérification de la signature..."
+            codesign -dv --verbose=4 src-tauri/target/release/bundle/macos/*.app 2>&1 | head -5 || echo "⚠️  Impossible de vérifier la signature"
+          fi
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: |
+            tauri-app/src-tauri/target/release/bundle/macos/*.app
+            tauri-app/src-tauri/target/release/bundle/macos/*.dmg
+          retention-days: 30
+
