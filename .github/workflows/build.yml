@@ -121,8 +121,8 @@ jobs:
       
       - name: Build Tauri app
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          # Ne pas passer APPLE_CERTIFICATE si c'est un .cer seul (déjà importé dans le keychain)
+          # Tauri utilisera le certificat depuis le keychain via APPLE_SIGNING_IDENTITY
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
