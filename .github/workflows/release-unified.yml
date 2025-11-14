@@ -107,19 +107,29 @@ jobs:
             fi
             
             # Configurer le keychain pour codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PATH" "$KEYCHAIN_PATH" || true
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
             
-            # Ajouter le keychain à la liste de recherche
-            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/^[[:space:]]*//' | tr '\n' ' ')
+            # Ajouter le keychain temporaire en PREMIER dans la liste de recherche (priorité)
+            EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/^[[:space:]]*//' | tr '\n' ' ')
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $EXISTING_KEYCHAINS
             
-            # Vérifier que l'identité est disponible
-            echo "🔍 Identités disponibles dans le keychain:"
+            # Vérifier que l'identité est disponible dans TOUS les keychains
+            echo "🔍 Identités disponibles dans tous les keychains:"
+            security find-identity -v -p codesigning || true
+            
+            # Vérifier spécifiquement dans notre keychain
+            echo "🔍 Identités dans le keychain temporaire:"
             security find-identity -v -p codesigning "$KEYCHAIN_PATH" || true
+            
+            # Exporter les variables pour les étapes suivantes
+            echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+            echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
             
             # Nettoyer
             rm -f /tmp/certificate.pem /tmp/certificate.der
             
             echo "✅ Certificat importé dans le keychain temporaire"
+            echo "✅ Keychain ajouté à la liste de recherche"
           fi
 
       - name: Setup Tauri Signing Key
@@ -175,8 +185,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Ne pas passer APPLE_CERTIFICATE à tauri-action si c'est un .cer seul
-          # Le certificat est déjà dans le keychain, tauri-action l'utilisera via APPLE_SIGNING_IDENTITY
+          # Le certificat est déjà dans le keychain temporaire (macOS uniquement)
+          # tauri-action l'utilisera via APPLE_SIGNING_IDENTITY
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
