@@ -90,8 +90,9 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           
-          # Décoder le base64 et sauvegarder comme .p12
-          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/certificate.p12
+          # Nettoyer le base64 (supprimer espaces, retours à la ligne) puis décoder
+          CLEANED_CERT=$(echo "$APPLE_CERTIFICATE" | tr -d ' \n\r\t')
+          echo "$CLEANED_CERT" | base64 --decode > /tmp/certificate.p12
           
           # Vérifier que le fichier est valide avant l'import
           echo "🔍 Vérification du fichier .p12..."
