@@ -92,8 +92,28 @@ jobs:
           
           # Décoder le base64 et sauvegarder comme .p12
           echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/certificate.p12
+          
+          # Vérifier que le fichier est valide avant l'import
+          echo "🔍 Vérification du fichier .p12..."
+          file /tmp/certificate.p12 || true
+          
+          # Vérifier avec openssl que le .p12 est valide
+          openssl pkcs12 -in /tmp/certificate.p12 -passin pass:"$APPLE_CERTIFICATE_PASSWORD" -noout -info 2>&1 | head -5 || {
+            echo "⚠️  Le fichier .p12 semble invalide ou le mot de passe est incorrect"
+          }
+          
+          # Importer le .p12 dans le keychain
+          # Note: security import détecte automatiquement le format PKCS12
           security import /tmp/certificate.p12 -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security || {
             echo "❌ Erreur lors de l'import du .p12"
+            echo "🔍 Tentative alternative avec openssl..."
+            # Alternative: convertir en PEM puis importer
+            openssl pkcs12 -in /tmp/certificate.p12 -passin pass:"$APPLE_CERTIFICATE_PASSWORD" -nodes -out /tmp/certificate.pem 2>/dev/null || {
+              echo "❌ Impossible de convertir le .p12"
+              exit 1
+            }
+            # Cette méthode ne fonctionne pas car on perd la clé privée dans le keychain
+            # Il faut utiliser security import directement avec le .p12
             exit 1
           }
           rm -f /tmp/certificate.p12
