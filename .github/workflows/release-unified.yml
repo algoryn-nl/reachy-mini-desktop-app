@@ -92,11 +92,20 @@ jobs:
           
           # Nettoyer le base64 (supprimer espaces, retours à la ligne) puis décoder
           CLEANED_CERT=$(echo "$APPLE_CERTIFICATE" | tr -d ' \n\r\t')
+          
+          # Debug: vérifier la longueur et les premiers caractères du base64
+          echo "🔍 Debug base64:"
+          echo "  Longueur: ${#CLEANED_CERT}"
+          echo "  Premiers 50 caractères: ${CLEANED_CERT:0:50}"
+          echo "  Derniers 50 caractères: ${CLEANED_CERT: -50}"
+          
+          # Décoder le base64
           echo "$CLEANED_CERT" | base64 --decode > /tmp/certificate.p12
           
           # Vérifier que le fichier est valide avant l'import
           echo "🔍 Vérification du fichier .p12..."
           file /tmp/certificate.p12 || true
+          ls -lh /tmp/certificate.p12 || true
           
           # Vérifier avec openssl que le .p12 est valide
           openssl pkcs12 -in /tmp/certificate.p12 -passin pass:"$APPLE_CERTIFICATE_PASSWORD" -noout -info 2>&1 | head -5 || {
