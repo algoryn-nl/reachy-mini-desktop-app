@@ -24,8 +24,8 @@ base64 -i developerID_application.p12 | pbcopy
 
 **Secrets GitHub à configurer** :
 - `APPLE_CERTIFICATE` : Le base64 du `.p12`
-- `APPLE_CERTIFICATE_PASSWORD` : Le mot de passe défini lors de l'export (ou **un espace** ` ` si aucun mot de passe)
+- `APPLE_CERTIFICATE_PASSWORD` : Le mot de passe défini lors de l'export (ou **ne pas créer ce secret** si aucun mot de passe)
 - `APPLE_SIGNING_IDENTITY` : `Developer ID Application: Pollen Robotics (4KLHP7L6KP)`
 
-**Important** : Créez **toujours** le secret `APPLE_CERTIFICATE_PASSWORD`, même si aucun mot de passe n'a été défini. Dans ce cas, mettez simplement un espace ` ` comme valeur (GitHub ne permet pas les secrets complètement vides).
+**Note** : Si aucun mot de passe n'a été défini lors de l'export, **ne créez pas** le secret `APPLE_CERTIFICATE_PASSWORD` sur GitHub (GitHub ne permet pas les secrets vides). Le workflow fonctionnera sans.
 

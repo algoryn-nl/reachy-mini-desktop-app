@@ -1,0 +1,235 @@
+name: Release Cross-Platform
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.2.0)'
+        required: false
+        type: string
+
+jobs:
+  build-and-release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: darwin-aarch64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: darwin-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'yarn'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Build sidecar (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          TARGET_TRIPLET=${{ matrix.target }} bash ./build_sidecar_unix.sh || echo "Sidecar build skipped"
+
+      - name: Build sidecar (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          pwsh -File ./build_sidecar_windows.ps1 || echo "Sidecar build skipped"
+
+      - name: Setup Apple Code Signing (macOS only)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "⚠️  Secrets Apple non configurés - le build ne sera pas signé"
+          else
+            echo "✅ Variables Apple configurées"
+            if [ -z "$APPLE_TEAM_ID" ]; then
+              APPLE_TEAM_ID=$(echo "$APPLE_SIGNING_IDENTITY" | sed -n 's/.*(\([A-Z0-9]\{10\}\)).*/\1/p')
+              export APPLE_TEAM_ID
+            fi
+          fi
+
+      - name: Setup Tauri Signing Key
+        shell: bash
+        env:
+          TAURI_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          TAURI_PUBLIC_KEY: ${{ secrets.TAURI_PUBLIC_KEY }}
+        run: |
+          mkdir -p ~/.tauri
+          if [ -n "$TAURI_SIGNING_KEY" ]; then
+            CLEANED_KEY=$(echo -n "$TAURI_SIGNING_KEY" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            printf '%s' "$CLEANED_KEY" > ~/.tauri/reachy-mini.key
+            chmod 600 ~/.tauri/reachy-mini.key
+            if [ -n "$TAURI_PUBLIC_KEY" ]; then
+              CLEANED_PUBKEY=$(echo -n "$TAURI_PUBLIC_KEY" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+              printf '%s' "$CLEANED_PUBKEY" > ~/.tauri/reachy-mini.key.pub
+            else
+              PUBKEY=$(grep -o '"pubkey": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
+              if [ -n "$PUBKEY" ]; then
+                printf '%s' "$PUBKEY" > ~/.tauri/reachy-mini.key.pub
+              fi
+            fi
+          else
+            echo "⚠️ No signing key provided, generating temporary key..."
+            yarn tauri signer generate -w ~/.tauri/reachy-mini.key --ci || true
+          fi
+
+      - name: Extract version before build
+        id: version
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "$VERSION" = "$GITHUB_REF" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -o '"version": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Update version in tauri.conf.json
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          else
+            sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json && rm -f src-tauri/tauri.conf.json.bak
+          fi
+
+      - name: Build and Release with tauri-action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Reachy Mini Control v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
+          releaseDraft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+          args: --target ${{ matrix.target }}
+
+      - name: Build update files
+        env:
+          RELEASE_URL_BASE: ${{ secrets.RELEASE_URL_BASE || 'https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v' }}
+          TARGET_TRIPLET: ${{ matrix.target }}
+        shell: bash
+        run: |
+          export RELEASE_URL_BASE
+          export TARGET_TRIPLET
+          bash ./scripts/build-update.sh prod "${{ steps.version.outputs.version }}"
+
+      - name: Upload update artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-${{ matrix.platform }}
+          path: |
+            releases/**
+          retention-days: 30
+
+  create-update-manifest:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "$VERSION" = "$GITHUB_REF" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -o '"version": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all update artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: update-*
+          merge-multiple: true
+          path: update-artifacts
+
+      - name: Merge update.json files into latest.json
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          
+          UPDATE_FILES=$(find update-artifacts -name "update.json" -type f)
+          
+          if [ -z "$UPDATE_FILES" ]; then
+            echo "⚠️ No update.json files found"
+            exit 0
+          fi
+          
+          FIRST_FILE=$(echo "$UPDATE_FILES" | head -n1)
+          VERSION=$(jq -r '.version' "$FIRST_FILE")
+          NOTES=$(jq -r '.notes' "$FIRST_FILE")
+          PUB_DATE=$(jq -r '.pub_date' "$FIRST_FILE")
+          
+          MERGED_PLATFORMS="{}"
+          for FILE in $UPDATE_FILES; do
+            PLATFORM_DATA=$(jq -c '.platforms' "$FILE")
+            MERGED_PLATFORMS=$(echo "$MERGED_PLATFORMS" | jq --argjson platforms "$PLATFORM_DATA" '. + $platforms')
+          done
+          
+          MERGED_JSON=$(jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$NOTES" \
+            --arg pub_date "$PUB_DATE" \
+            --argjson platforms "$MERGED_PLATFORMS" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}')
+          
+          echo "$MERGED_JSON" > latest.json
+          cat latest.json
+
+      - name: Upload latest.json to release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: latest.json
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
