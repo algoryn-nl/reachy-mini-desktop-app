@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Html, Line } from '@react-three/drei';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import useAppStore from '../../../store/useAppStore';
 
 /**
  * Determines the group/component of a mesh based on its real name
@@ -59,6 +60,7 @@ export default function ScanAnnotations({
   currentScannedMesh = null,
 }) {
   const { camera } = useThree();
+  const darkMode = useAppStore(state => state.darkMode);
   const [annotation, setAnnotation] = useState(null);
   const currentGroupRef = useRef(null); // Track current group to avoid repeated changes
   const annotationDataRef = useRef(null); // Store base annotation data (meshPosition, componentName)
@@ -87,7 +89,7 @@ export default function ScanAnnotations({
     cameraRight.crossVectors(cameraUp, cameraForward).normalize();
     
     // Distance on sides (reduced to stay visible on screen)
-    const sideDistance = 0.08;
+    const sideDistance = 0.05; // ✅ Réduit pour des flèches plus courtes
     
     // Text position: slightly higher and horizontally offset based on camera
     const horizontalOffset = isRightSide ? -sideDistance : sideDistance;
@@ -227,18 +229,27 @@ export default function ScanAnnotations({
   return (
     <>
       {/* Futuristic diagonal line pointing to component */}
-      <Line
-        points={[
-          annotation.lineStartPosition ? annotation.lineStartPosition.toArray() : annotation.textPosition.toArray(),
-          annotation.meshPosition.toArray(),
-        ]}
-        color="#22c55e"
-        lineWidth={1.2}
-        dashed={false}
-        opacity={0.9}
-        renderOrder={9999}
-        depthTest={false}
-      />
+      {/* ✅ Calculer un point de fin plus proche du mesh pour une flèche plus courte */}
+      {(() => {
+        const lineStart = annotation.lineStartPosition || annotation.textPosition;
+        const meshPos = annotation.meshPosition;
+        // ✅ Créer un point à 70% de la distance (flèche plus courte)
+        const shortenedEnd = new THREE.Vector3().lerpVectors(meshPos, lineStart, 0.3);
+        return (
+          <Line
+            points={[
+              lineStart.toArray(),
+              shortenedEnd.toArray(),
+            ]}
+            color="#16a34a"
+            lineWidth={0.8}
+            dashed={false}
+            opacity={0.9}
+            renderOrder={9999}
+            depthTest={false}
+          />
+        );
+      })()}
       
       {/* Text without box, futuristic style, always on sides */}
       <Html
@@ -253,20 +264,34 @@ export default function ScanAnnotations({
       >
         <div
           style={{
-            fontSize: '10px',
+            fontSize: '12px',
             fontFamily: 'monospace',
-            fontWeight: '700',
-            color: '#22c55e',
+            fontWeight: '900',
+            color: '#16a34a',
             whiteSpace: 'nowrap',
             // ✅ Align based on side: left if component on right, right if component on left
             // Transform adjusted so line starts from bottom of text
             transform: annotation.alignLeft 
               ? 'translate(0, 0)' // Aligned left, bottom of text at position
               : 'translate(-100%, 0)', // Aligned right, bottom of text at position
-            textShadow: '0 0 6px rgba(34, 197, 94, 0.9), 0 0 3px rgba(34, 197, 94, 0.7)',
+            // ✅ Contour de la couleur du fond de la scène pour meilleure lisibilité
+            textShadow: `
+              -3px -3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              3px -3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              -3px 3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              3px 3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              -2px -2px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              2px -2px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              -2px 2px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              2px 2px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              -1px -1px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              1px -1px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              -1px 1px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
+              1px 1px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'}
+            `,
             letterSpacing: '1px',
             textTransform: 'uppercase',
-            opacity: 0.9,
+            opacity: 1,
             zIndex: 9999,
             position: 'relative',
             background: 'none',

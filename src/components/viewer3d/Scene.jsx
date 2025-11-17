@@ -30,6 +30,7 @@ export default function Scene({
   showScanEffect = false, // Display the scan effect
   onScanComplete = null, // Callback when scan is complete
   onScanMesh = null, // Callback for each scanned mesh
+  onMeshesReady = null, // Callback when robot meshes are ready
   cameraConfig = {}, // Camera config (target, minDistance, maxDistance)
   useCinematicCamera = false, // Use animated camera instead of OrbitControls
   useHeadFollowCamera = false, // Camera attached to head that follows its movements
@@ -42,6 +43,13 @@ export default function Scene({
   const [outlineMeshes, setOutlineMeshes] = useState([]);
   const [robotRef, setRobotRef] = useState(null); // Reference to robot for HeadFollowCamera
   const [currentScannedMesh, setCurrentScannedMesh] = useState(null); // Mesh currently being scanned
+  
+  // ✅ Forward meshes to parent callback if provided
+  useEffect(() => {
+    if (onMeshesReady && outlineMeshes.length > 0) {
+      onMeshesReady(outlineMeshes);
+    }
+  }, [onMeshesReady, outlineMeshes]);
   
   // ✅ Exposer les informations cinématiques du robot
   const kinematics = useRobotParts(isActive, robotRef);
@@ -158,13 +166,20 @@ export default function Scene({
 
   // ✅ Find all camera meshes when an error is detected
   const errorMeshes = useMemo(() => {
-    if (!errorFocusMesh || !robotRef || !outlineMeshes.length) {
-      console.log('⚠️ ErrorHighlight: Missing prerequisites', {
+    if (!errorFocusMesh) {
+      return null;
+    }
+    
+    // If we don't have robotRef or outlineMeshes yet, return just the error mesh
+    if (!robotRef || !outlineMeshes.length) {
+      console.log('⚠️ ErrorHighlight: Missing prerequisites, using single error mesh', {
         hasErrorMesh: !!errorFocusMesh,
         hasRobotRef: !!robotRef,
-        meshesCount: outlineMeshes.length
+        meshesCount: outlineMeshes.length,
+        errorMeshName: errorFocusMesh.name,
+        errorMeshUuid: errorFocusMesh.uuid
       });
-      return null;
+      return [errorFocusMesh]; // Return array with single mesh
     }
 
     console.log('🔍 Analyzing error mesh:', {
@@ -331,7 +346,7 @@ export default function Scene({
         <>
         <ScanEffect 
           meshes={outlineMeshes}
-            scanColor="#22c55e"
+            scanColor="#16a34a"
           enabled={true}
             onScanMesh={(mesh, index, total) => {
               // Update currently scanned mesh for annotations

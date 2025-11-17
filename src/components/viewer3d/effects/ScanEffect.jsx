@@ -104,6 +104,12 @@ export default function ScanEffect({
       const scanTimeout = setTimeout(() => {
         if (!mesh.material) return;
         
+        // ✅ Skip error meshes - ErrorHighlight takes priority
+        if (mesh.userData.isErrorMesh) {
+          console.log('⏭️ Skipping error mesh in scan:', mesh.name || mesh.uuid);
+          return;
+        }
+        
         // ✅ Notify that we're starting to scan this mesh
         if (onScanMeshRef.current) {
           onScanMeshRef.current(mesh, index + 1, scannableMeshes.length);
@@ -152,6 +158,11 @@ export default function ScanEffect({
         // Animation frame for smooth AAA effect
         const animate = () => {
           if (!mesh.material) return;
+          
+          // ✅ Skip if mesh is now an error mesh (ErrorHighlight takes priority)
+          if (mesh.userData.isErrorMesh) {
+            return;
+          }
           
           const elapsed = Date.now() - startTime;
           const progress = Math.min(elapsed / highlightDuration, 1.0);

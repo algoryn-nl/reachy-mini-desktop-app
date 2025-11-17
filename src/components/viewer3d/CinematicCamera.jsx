@@ -18,10 +18,8 @@ export default function CinematicCamera({
   const cameraRef = useRef();
   const startTimeRef = useRef(null); // ⚡ null initially, will be initialized on first frame
   const errorStartTimeRef = useRef(null);
-  const errorStartPositionRef = useRef(null); // Starting position for error
-  const errorStartLookAtRef = useRef(null); // Starting lookAt for error
-  const errorTargetPositionRef = useRef(null);
-  const errorTargetLookAtRef = useRef(null);
+  const errorTargetAngleRef = useRef(null); // Target angle on circle for error mode
+  const errorStartAngleRef = useRef(null); // Starting angle for smooth transition
   const { set } = useThree();
   
   // ⚡ Animation duration read from central config
@@ -37,7 +35,18 @@ export default function CinematicCamera({
   // Detect when an error is raised and calculate target position
   useEffect(() => {
     if (errorFocusMesh && cameraRef.current) {
-      console.log('🎥 Error detected, focusing on mesh:', errorFocusMesh);
+      console.log('🎥 Error detected, focusing on mesh:', {
+        name: errorFocusMesh.name,
+        uuid: errorFocusMesh.uuid,
+        position: errorFocusMesh.position?.toArray(),
+        worldPosition: errorFocusMesh.getWorldPosition?.(new THREE.Vector3())?.toArray()
+      });
+      
+      // Ensure mesh is in scene and has geometry
+      if (!errorFocusMesh.geometry) {
+        console.error('❌ Error mesh has no geometry!', errorFocusMesh);
+        return;
+      }
       
       // Calculate bounding box of error mesh
       if (!errorFocusMesh.geometry.boundingBox) {
@@ -45,33 +54,58 @@ export default function CinematicCamera({
       }
       
       const bbox = errorFocusMesh.geometry.boundingBox;
+      if (!bbox) {
+        console.error('❌ Could not compute bounding box for error mesh!');
+        return;
+      }
+      
       const center = new THREE.Vector3();
       bbox.getCenter(center);
       
-      // Convert to world position
-      const worldCenter = center.clone();
-      errorFocusMesh.localToWorld(worldCenter);
+      // Convert to world position - IMPORTANT: use getWorldPosition for accurate world coordinates
+      const worldCenter = new THREE.Vector3();
+      errorFocusMesh.getWorldPosition(worldCenter);
+      // Add the local bounding box center offset
+      const localCenter = center.clone();
+      localCenter.applyMatrix4(errorFocusMesh.matrixWorld);
+      worldCenter.add(localCenter.sub(errorFocusMesh.position));
       
-      // Camera position: a bit further, overview
-      const meshSize = new THREE.Vector3();
-      bbox.getSize(meshSize);
-      const baseDistance = 0.15; // Reasonable fixed distance
+      // Alternative: simpler approach using localToWorld
+      const localCenter2 = center.clone();
+      errorFocusMesh.localToWorld(localCenter2);
       
-      const errorCameraPosition = new THREE.Vector3(
-        worldCenter.x + baseDistance * 0.3, // Slightly to the side
-        worldCenter.y + baseDistance * 0.4, // Slightly above
-        worldCenter.z + baseDistance * 0.8  // Forward
-      );
+      // Use the simpler approach
+      const finalWorldCenter = localCenter2;
       
-      errorTargetPositionRef.current = errorCameraPosition;
-      errorTargetLookAtRef.current = worldCenter;
+      // ✅ Camera stays on a circle around robot center, pointing at center
+      // Calculate angle on circle to face the error component
+      const robotCenter = new THREE.Vector3(0, 0.15, 0);
+      const directionToMesh = new THREE.Vector3().subVectors(finalWorldCenter, robotCenter);
+      directionToMesh.y = 0; // Project to horizontal plane (XZ)
+      
+      // Check if direction is valid (not zero length)
+      if (directionToMesh.length() < 0.001) {
+        console.warn('⚠️ Error mesh is at robot center, cannot calculate angle');
+        return;
+      }
+      
+      directionToMesh.normalize();
+      
+      // Calculate angle on circle (in radians, 0 = +Z axis, counter-clockwise)
+      const targetAngle = Math.atan2(directionToMesh.x, directionToMesh.z);
+      
+      errorTargetAngleRef.current = targetAngle;
       errorStartTimeRef.current = null; // Will be initialized on next frame
-      errorStartPositionRef.current = null; // Will be captured on next frame
+      errorStartAngleRef.current = null; // Will be captured on next frame
       
       console.log('🎥 Error focus transition prepared:', {
-        to: errorCameraPosition.toArray(),
-        meshCenter: worldCenter.toArray(),
+        meshName: errorFocusMesh.name,
+        targetAngle: targetAngle,
+        targetAngleDegrees: (targetAngle * 180 / Math.PI).toFixed(1),
+        meshWorldPosition: finalWorldCenter.toArray()
       });
+    } else if (errorFocusMesh && !cameraRef.current) {
+      console.warn('⚠️ Error mesh set but camera not ready yet');
     }
   }, [errorFocusMesh]);
 
@@ -79,26 +113,27 @@ export default function CinematicCamera({
   useFrame(() => {
     if (!enabled || !cameraRef.current) return;
 
-    // ⚠️ MODE ERREUR : Focus sur le mesh en erreur
-    if (errorFocusMesh && errorTargetPositionRef.current) {
-      // Capture starting position and lookAt on first frame (avoids flicker)
+    // ⚠️ MODE ERREUR : Camera moves on circle to face error component, always pointing at center
+    if (errorFocusMesh && errorTargetAngleRef.current !== null) {
+      // Capture starting angle on first frame
       if (errorStartTimeRef.current === null) {
         errorStartTimeRef.current = Date.now();
-        errorStartPositionRef.current = cameraRef.current.position.clone();
         
-        // Calculate current lookAt from camera rotation
-        const direction = new THREE.Vector3(0, 0, -1);
-        direction.applyQuaternion(cameraRef.current.quaternion);
-        errorStartLookAtRef.current = cameraRef.current.position.clone().add(direction);
+        // Calculate current angle from camera position
+        const currentPos = cameraRef.current.position;
+        const currentAngle = Math.atan2(currentPos.x, currentPos.z);
+        errorStartAngleRef.current = currentAngle;
         
-        console.log('🎥 Error focus started from:', {
-          position: errorStartPositionRef.current.toArray(),
-          lookAt: errorStartLookAtRef.current.toArray(),
+        console.log('🎥 Error focus started from angle:', {
+          startAngle: currentAngle,
+          startAngleDegrees: (currentAngle * 180 / Math.PI).toFixed(1),
+          targetAngle: errorTargetAngleRef.current,
+          targetAngleDegrees: (errorTargetAngleRef.current * 180 / Math.PI).toFixed(1)
         });
       }
       
       const errorElapsed = (Date.now() - errorStartTimeRef.current) / 1000;
-      const errorDuration = 1.5; // 1.5s for fast and smooth transition
+      const errorDuration = 1.5; // 1.5s for smooth transition
       const errorProgress = Math.min(errorElapsed / errorDuration, 1.0);
       
       // Very smooth easing (ease-in-out)
@@ -106,26 +141,29 @@ export default function CinematicCamera({
         ? 2 * errorProgress * errorProgress
         : 1 - Math.pow(-2 * errorProgress + 2, 2) / 2;
       
-      // Position interpolation
-      const startPos = errorStartPositionRef.current;
-      const newPos = new THREE.Vector3(
-        startPos.x + (errorTargetPositionRef.current.x - startPos.x) * eased,
-        startPos.y + (errorTargetPositionRef.current.y - startPos.y) * eased,
-        startPos.z + (errorTargetPositionRef.current.z - startPos.z) * eased
-      );
+      // Interpolate angle on circle
+      const startAngle = errorStartAngleRef.current;
+      const targetAngle = errorTargetAngleRef.current;
       
-      cameraRef.current.position.copy(newPos);
+      // Handle angle wrapping (shortest path)
+      let angleDiff = targetAngle - startAngle;
+      if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
       
-      // LookAt interpolation for smooth rotation
-      const startLookAt = errorStartLookAtRef.current;
-      const targetLookAt = errorTargetLookAtRef.current;
-      const interpolatedLookAt = new THREE.Vector3(
-        startLookAt.x + (targetLookAt.x - startLookAt.x) * eased,
-        startLookAt.y + (targetLookAt.y - startLookAt.y) * eased,
-        startLookAt.z + (targetLookAt.z - startLookAt.z) * eased
-      );
+      const currentAngle = startAngle + angleDiff * eased;
       
-      cameraRef.current.lookAt(interpolatedLookAt);
+      // ✅ Camera stays on fixed circle, same radius and height as normal mode
+      const radius = 0.35; // Same as normal mode
+      const height = 0.15; // Same as normal mode
+      const robotCenter = new THREE.Vector3(0, height, 0);
+      
+      // Position camera on circle at interpolated angle
+      const x = Math.sin(currentAngle) * radius;
+      const z = Math.cos(currentAngle) * radius;
+      cameraRef.current.position.set(x, height, z);
+      
+      // ✅ Always look at robot center
+      cameraRef.current.lookAt(robotCenter);
       
       return;
     }

@@ -20,7 +20,7 @@ export default function QuickActionsPad({
     onActionClick(action);
   };
 
-  // Grid 4x4 pour 16 cases
+  // Grid 4x2 pour 8 cases
   const columns = 4;
 
   return (
@@ -52,8 +52,8 @@ export default function QuickActionsPad({
                 disabled={isDisabled}
                 sx={{
                   width: '100%',
-                  minHeight: 48,
-                  maxHeight: 56,
+                  minHeight: 64,
+                  maxHeight: 72,
                   borderRadius: '10px',
                   bgcolor: darkMode 
                     ? 'rgba(255, 255, 255, 0.05)' 

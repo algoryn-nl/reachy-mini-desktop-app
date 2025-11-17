@@ -13,6 +13,9 @@ export default function DevPlayground() {
   const [currentComponent, setCurrentComponent] = useState(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [scanComplete, setScanComplete] = useState(false); // Scan completed successfully
+  const [scanError, setScanError] = useState(null); // Simulated scan error
+  const [errorMesh, setErrorMesh] = useState(null); // Mesh to highlight on error
+  const [availableMeshes, setAvailableMeshes] = useState([]); // All meshes from robot
 
   const handleScanComplete = useCallback(() => {
     console.log('✅ Scan completed in DevPlayground');
@@ -30,13 +33,97 @@ export default function DevPlayground() {
     }));
   }, []);
 
+  const handleMeshesReady = useCallback((meshes) => {
+    console.log('📦 Meshes ready in DevPlayground:', meshes.length);
+    setAvailableMeshes(meshes);
+  }, []);
+
   const handleModeChange = (newMode) => {
     setMode(newMode);
     // Reset scan state when changing mode
     setCurrentComponent(null);
     setScanProgress({ current: 0, total: 0 });
     setScanComplete(false);
+    setScanError(null);
+    setErrorMesh(null);
+    setAvailableMeshes([]); // Reset meshes when changing mode
   };
+
+  const handleToggleError = useCallback(() => {
+    if (scanError) {
+      // Clear error
+      setScanError(null);
+      setErrorMesh(null);
+    } else {
+      // Simulate error - find SPECIFICALLY camera meshes
+      let meshToError = null;
+      
+      if (availableMeshes.length > 0) {
+        // Helper function to check if a mesh is part of the camera
+        const isCameraMesh = (mesh) => {
+          const meshName = (mesh.name || '').toLowerCase();
+          
+          // Check mesh name directly
+          if (meshName.includes('camera') || meshName.includes('xl_330')) {
+            return true;
+          }
+          
+          // Traverse hierarchy to find camera parent
+          let current = mesh;
+          let depth = 0;
+          while (current && current.parent && depth < 10) {
+            const parentName = (current.parent.name || '').toLowerCase();
+            const currentName = (current.name || '').toLowerCase();
+            
+            if (parentName.includes('camera') || currentName.includes('camera') ||
+                parentName.includes('xl_330') || currentName.includes('xl_330')) {
+              return true;
+            }
+            
+            current = current.parent;
+            depth++;
+          }
+          
+          return false;
+        };
+        
+        // Find ALL camera meshes
+        const cameraMeshes = availableMeshes.filter(isCameraMesh);
+        
+        if (cameraMeshes.length > 0) {
+          // Use the first camera mesh found
+          meshToError = cameraMeshes[0];
+          console.log(`🔴 Found ${cameraMeshes.length} camera mesh(es), using first one:`, {
+            name: meshToError.name,
+            uuid: meshToError.uuid,
+            position: meshToError.position?.toArray(),
+            hasBoundingBox: !!meshToError.geometry?.boundingBox,
+            allCameraMeshes: cameraMeshes.map(m => ({ name: m.name, uuid: m.uuid }))
+          });
+        } else {
+          console.warn('⚠️ No camera meshes found in available meshes. Available mesh names:', 
+            availableMeshes.slice(0, 10).map(m => m.name || m.uuid));
+          // Don't set an error if we can't find the camera
+          return;
+        }
+        
+        // Ensure bounding box is computed
+        if (meshToError && meshToError.geometry && !meshToError.geometry.boundingBox) {
+          meshToError.geometry.computeBoundingBox();
+          console.log('📦 Computed bounding box for camera error mesh');
+        }
+      } else {
+        console.warn('⚠️ No meshes available yet');
+        return;
+      }
+      
+      setScanError({
+        action: true,
+        code: 'CAMERA_ERROR_001'
+      });
+      setErrorMesh(meshToError);
+    }
+  }, [scanError, availableMeshes]);
 
   return (
     <Box
@@ -98,6 +185,7 @@ export default function DevPlayground() {
         }}>
           {mode === 'normal' ? (
             <Viewer3D 
+              key="normal-view"
               isActive={true}
               initialMode="normal"
               forceLoad={true}
@@ -108,6 +196,7 @@ export default function DevPlayground() {
             />
           ) : mode === 'scan' ? (
             <Viewer3D 
+              key="scan-view"
               isActive={false}
               initialMode="xray"
               hideControls={true}
@@ -122,6 +211,7 @@ export default function DevPlayground() {
             />
           ) : (
             <Viewer3D 
+              key="hardware-scan-view"
               isActive={true}
               antennas={[-10, -10]}
               initialMode="xray"
@@ -129,13 +219,15 @@ export default function DevPlayground() {
               forceLoad={true}
               hideGrid={true}
               hideBorder={true}
-              showScanEffect={true}
+              showScanEffect={!scanError}
               onScanComplete={handleScanComplete}
               onScanMesh={handleScanMesh}
               cameraPreset="scan"
               useCinematicCamera={true}
               enableDebug={true}
               forceLevaOpen={true}
+              errorFocusMesh={errorMesh}
+              onMeshesReady={handleMeshesReady}
             />
           )}
         </Box>
@@ -152,51 +244,132 @@ export default function DevPlayground() {
               maxWidth: '400px',
             }}
           >
-            {/* Titre + spinner/checkmark + compteur discret */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {scanComplete ? (
-                // ✅ Success checkmark
-                <CheckCircleIcon
-                  sx={{
-                    fontSize: 18,
-                    color: '#16a34a',
-                  }}
-                />
-              ) : (
-                // 🔄 Spinner en cours
-                <CircularProgress 
-                  size={16} 
-                  thickness={4} 
-                  sx={{ 
-                    color: 'rgba(0, 0, 0, 0.3)',
-                  }} 
-                />
-              )}
-              <Typography
+            {/* Error UI */}
+            {scanError ? (
+              <Box
                 sx={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: scanComplete ? '#16a34a' : '#333',
-                  letterSpacing: '0.2px',
-                  transition: 'color 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 1,
+                  py: 0.5,
+                  maxWidth: '360px',
+                  minHeight: '90px',
                 }}
               >
-                {scanComplete ? 'Scan complete' : 'Scanning hardware'}
-              </Typography>
-              {!scanComplete && (
                 <Typography
                   sx={{
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 600,
-                    color: '#999',
-                    fontFamily: 'monospace',
-                    ml: 0.5,
+                    color: '#666',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
                   }}
                 >
-                  {scanProgress.current}/{scanProgress.total}
+                  Hardware Error
                 </Typography>
-              )}
-            </Box>
+                
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography
+                    component="span"
+                    sx={{
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: '#333',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {scanError.action ? (
+                      <>
+                        <Box component="span" sx={{ fontWeight: 700 }}>Check</Box> the{' '}
+                        <Box component="span" sx={{ fontWeight: 700 }}>camera cable</Box> connection and{' '}
+                        <Box component="span" sx={{ fontWeight: 700 }}>restart</Box>
+                      </>
+                    ) : (
+                      'Hardware error detected'
+                    )}
+                  </Typography>
+                </Box>
+                
+                {scanError.code && (
+                  <Typography
+                    sx={{
+                      fontSize: 9,
+                      fontWeight: 500,
+                      color: '#999',
+                      fontFamily: 'monospace',
+                      bgcolor: 'rgba(239, 68, 68, 0.05)',
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: '6px',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                    }}
+                  >
+                    {scanError.code}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              /* Normal scan progress */
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {scanComplete ? (
+                  // ✅ Success checkmark
+                  <CheckCircleIcon
+                    sx={{
+                      fontSize: 18,
+                      color: '#16a34a',
+                    }}
+                  />
+                ) : (
+                  // 🔄 Spinner en cours
+                  <CircularProgress 
+                    size={16} 
+                    thickness={4} 
+                    sx={{ 
+                      color: 'rgba(0, 0, 0, 0.3)',
+                    }} 
+                  />
+                )}
+                <Typography
+                  sx={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: scanComplete ? '#16a34a' : '#333',
+                    letterSpacing: '0.2px',
+                    transition: 'color 0.3s ease',
+                  }}
+                >
+                  {scanComplete ? 'Scan complete' : 'Scanning hardware'}
+                </Typography>
+                {!scanComplete && (
+                  <Typography
+                    sx={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: '#999',
+                      fontFamily: 'monospace',
+                      ml: 0.5,
+                    }}
+                  >
+                    {scanProgress.current}/{scanProgress.total}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            {/* Toggle Error Button */}
+            <Button
+              variant={scanError ? 'contained' : 'outlined'}
+              color={scanError ? 'error' : 'primary'}
+              size="small"
+              onClick={handleToggleError}
+              sx={{
+                textTransform: 'none',
+                mt: 1,
+              }}
+            >
+              {scanError ? 'Clear Error' : 'Trigger Error'}
+            </Button>
           </Box>
         )}
       </Box>

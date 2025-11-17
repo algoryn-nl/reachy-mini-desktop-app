@@ -216,12 +216,12 @@ function ActiveRobotView({
     showToast(`${action.emoji} ${action.label}`, 'info');
   }, [sendCommand, playRecordedMove, showToast]);
 
-  // Quick Actions: 15 emotions from QUICK_EMOTIONS + 1 sleep action = 16 total
+  // Quick Actions: 7 emotions from QUICK_EMOTIONS + 1 sleep action = 8 total
   const quickActions = [
     // Sleep action
     { name: 'goto_sleep', emoji: '😴', label: 'Sleep', type: 'action' },
-    // 15 emotions from QUICK_EMOTIONS
-    ...QUICK_EMOTIONS.map(emotion => ({
+    // 7 emotions from QUICK_EMOTIONS (first half)
+    ...QUICK_EMOTIONS.slice(0, 7).map(emotion => ({
       name: emotion.name,
       emoji: emotion.emoji,
       label: emotion.label,

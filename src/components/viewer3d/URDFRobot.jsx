@@ -28,6 +28,7 @@ export default function URDFRobot({
   const [isReady, setIsReady] = useState(false);
   const groupRef = useRef();
   const meshesRef = useRef([]);
+  const displayTimeoutRef = useRef(null);
   const { camera, gl } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
@@ -649,13 +650,25 @@ export default function URDFRobot({
         });
       }
       
-      setRobot(robotModel);
+      // ✅ Attendre 500ms avant d'afficher le robot pour éviter l'accoup de la tête penchée
+      console.log('⏳ Waiting 500ms before displaying robot...');
+      displayTimeoutRef.current = setTimeout(() => {
+        if (!isMounted) return;
+        console.log('✅ Displaying robot after delay');
+        setRobot(robotModel);
+        displayTimeoutRef.current = null;
+      }, 500);
     }).catch((err) => {
       console.error('❌ URDF loading error:', err);
     });
 
     return () => {
       isMounted = false;
+      // Cleanup timeout if component unmounts before delay completes
+      if (displayTimeoutRef.current) {
+        clearTimeout(displayTimeoutRef.current);
+        displayTimeoutRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, forceLoad, onMeshesReady]); // ✅ Load when isActive or forceLoad changes
@@ -669,6 +682,8 @@ export default function URDFRobot({
     const leftPos = antennas?.[0] !== undefined ? antennas[0] : 0;
     const rightPos = antennas?.[1] !== undefined ? antennas[1] : 0;
     
+    const currentAntennas = [leftPos, rightPos];
+    
     if (robot.joints['left_antenna']) {
       robot.setJointValue('left_antenna', leftPos);
     }
@@ -676,8 +691,10 @@ export default function URDFRobot({
       robot.setJointValue('right_antenna', rightPos);
     }
     
+    // ✅ IMPORTANT: Initialiser lastAntennasRef pour éviter que useFrame ne réapplique les antennes
+    lastAntennasRef.current = currentAntennas.slice();
+    
     // Only log if antennas changed significantly (threshold: 0.01 rad)
-    const currentAntennas = [leftPos, rightPos];
     const lastAntennas = lastAntennasLogRef.current;
     if (!lastAntennas || 
         Math.abs(currentAntennas[0] - lastAntennas[0]) > 0.01 ||
@@ -776,7 +793,7 @@ export default function URDFRobot({
       if (yawChanged) {
       robot.setJointValue('yaw_body', yawBody);
       lastYawBodyRef.current = yawBody;
-      }
+    }
     }
 
     // STEP 1.5: Apply passive joints (21 valeurs : passive_1_x/y/z à passive_7_x/y/z)
@@ -785,7 +802,7 @@ export default function URDFRobot({
     if (passiveJoints && (Array.isArray(passiveJoints) || (passiveJoints.array && Array.isArray(passiveJoints.array)))) {
       const passiveArray = Array.isArray(passiveJoints) ? passiveJoints : passiveJoints.array;
       const passiveJointsChanged = !arraysEqual(passiveArray, lastPassiveJointsRef.current);
-      
+    
       if (passiveJointsChanged && passiveArray.length >= 21) {
         // ✅ Noms des joints passifs dans l'ordre exact du daemon
         const passiveJointNames = [
@@ -825,7 +842,9 @@ export default function URDFRobot({
     }
 
     // STEP 3: Update antennas - only if changed (avec tolérance pour éviter les mises à jour inutiles)
-    if (antennas && antennas.length >= 2) {
+    // ✅ IMPORTANT: Appliquer les antennes même si elles sont [0, 0] (repliées)
+    // Vérifier si antennas est défini (peut être null, undefined, ou un array)
+    if (antennas !== null && antennas !== undefined && Array.isArray(antennas) && antennas.length >= 2) {
       const antennasChanged = !lastAntennasRef.current || 
                              Math.abs(antennas[0] - lastAntennasRef.current[0]) > 0.001 ||
                              Math.abs(antennas[1] - lastAntennasRef.current[1]) > 0.001;

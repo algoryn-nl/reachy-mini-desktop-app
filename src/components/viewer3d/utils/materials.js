@@ -419,12 +419,16 @@ export function createXrayMaterial(baseColorHex = 0x7A8590, options = {}) {
     subsurfaceIntensity: { value: options.subsurfaceIntensity ?? 0.2 }, // ✅ New
   };
   
+  // ✅ Allow depthWrite to be overridden for error meshes (need proper z-ordering)
+  const depthWrite = options.depthWrite !== undefined ? options.depthWrite : false;
+  const transparent = options.transparent !== undefined ? options.transparent : true;
+  
   const material = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: xrayShader.vertexShader,
     fragmentShader: xrayShader.fragmentShader,
-    transparent: true,
-    depthWrite: false, // ✅ Standard for transparents: don't write to depth buffer
+    transparent: transparent,
+    depthWrite: depthWrite, // ✅ Can be overridden for error meshes
     depthTest: true,
     side: THREE.DoubleSide,
     opacity: options.opacity ?? 0.5,

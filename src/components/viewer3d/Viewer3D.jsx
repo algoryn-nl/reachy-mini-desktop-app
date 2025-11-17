@@ -48,6 +48,7 @@ export default function RobotViewer3D({
   showScanEffect = false, // Show scan effect
   onScanComplete = null, // Callback when scan is complete
   onScanMesh = null, // Callback for each scanned mesh
+  onMeshesReady = null, // Callback when robot meshes are ready
   cameraPreset = 'normal', // Camera preset ('normal' | 'scan') or custom object
   useCinematicCamera = false, // Use animated camera instead of OrbitControls
   useHeadFollowCamera = false, // Camera that follows robot head
@@ -57,6 +58,7 @@ export default function RobotViewer3D({
   // Robot props
   antennas = null, // Antenna positions [left, right] (null = default position)
   headPose = null, // Head position (null = default position)
+  headJoints = null, // Head joints [yaw_body, stewart_1, ..., stewart_6] (null = use WebSocket data)
   yawBody = null, // Body rotation (null = default position)
   // Status tag props
   showStatusTag = false, // Show status tag at bottom right
@@ -72,15 +74,20 @@ export default function RobotViewer3D({
     ? CAMERA_PRESETS[cameraPreset] 
     : { ...CAMERA_PRESETS.normal, ...cameraPreset };
   // Custom hook for WebSocket connection to daemon
-  // ✅ Allow WebSocket connection if isActive OR forceLoad (so robot moves even if isActive is temporarily false)
-  const robotState = useRobotWebSocket(isActive || forceLoad);
+  // ✅ IMPORTANT: Ne PAS se connecter au WebSocket si isActive=false ET qu'on passe explicitement headJoints=null
+  // Cela permet d'avoir un robot complètement statique (pour la vue de scan hardware)
+  // Si headJoints est explicitement null ET isActive=false, on ne se connecte JAMAIS au WebSocket
+  // headJoints === null signifie "robot statique", headJoints === undefined signifie "utiliser WebSocket"
+  const shouldConnectWebSocket = isActive || (forceLoad && headJoints !== null);
+  const robotState = useRobotWebSocket(shouldConnectWebSocket);
   
   // ✅ Use provided props or those from WebSocket robotState
-  // If antennas is not provided and robotState.antennas is null, use [0, 0] (folded)
-  const finalAntennas = antennas !== null ? antennas : (robotState.antennas || [0, 0]);
-  const finalHeadPose = headPose !== null ? headPose : robotState.headPose;
-  const finalHeadJoints = robotState.headJoints; // ✅ Utiliser headJoints depuis WebSocket
-  const finalYawBody = yawBody !== null ? yawBody : robotState.yawBody;
+  // Si headJoints est explicitement null, on n'utilise JAMAIS les données du WebSocket pour les mouvements
+  // Cela garantit que le robot reste statique dans la vue de scan
+  const finalAntennas = antennas !== null ? antennas : (shouldConnectWebSocket ? (robotState.antennas || [0, 0]) : [0, 0]);
+  const finalHeadPose = headPose !== null ? headPose : (shouldConnectWebSocket ? robotState.headPose : null);
+  const finalHeadJoints = headJoints !== null ? headJoints : (shouldConnectWebSocket ? robotState.headJoints : null);
+  const finalYawBody = yawBody !== null ? yawBody : (shouldConnectWebSocket ? robotState.yawBody : null);
   
   const [isTransparent, setIsTransparent] = useState(initialMode === 'xray');
   const [showLevaControls, setShowLevaControls] = useState(forceLevaOpen);
@@ -226,6 +233,7 @@ export default function RobotViewer3D({
                 showScanEffect={showScanEffect}
                 onScanComplete={onScanComplete}
                 onScanMesh={onScanMesh}
+                onMeshesReady={onMeshesReady}
                 cameraConfig={cameraConfig}
                 useCinematicCamera={useCinematicCamera}
               useHeadFollowCamera={useHeadFollowCamera && useHeadFollow}
