@@ -1,5 +1,4 @@
 import React, { useRef, useEffect } from 'react';
-import AudioVisualizer from './AudioVisualizer';
 
 /**
  * Composant CameraFeed - Affiche un flux caméra
@@ -80,24 +79,6 @@ export default function CameraFeed({ width = 240, height = 180, isLarge = false 
           display: 'block',
         }}
       />
-      
-      {/* Audio Visualizer - Bottom Left */}
-      <div style={{
-        position: 'absolute',
-        bottom: isLarge ? '12px' : '6px',
-        left: isLarge ? '12px' : '6px',
-        borderRadius: '4px',
-        background: 'rgba(0, 0, 0, 0.15)',
-        padding: '2px',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}>
-        <AudioVisualizer 
-          barCount={6} 
-          color="rgba(255, 255, 255, 0.95)"
-          showBackground={false}
-          isLarge={isLarge}
-        />
-      </div>
 
       {/* Note: Swap button is now handled by ViewportSwapper */}
     </div>

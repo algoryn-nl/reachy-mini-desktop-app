@@ -1,11 +1,11 @@
 import React from 'react';
-import { Box, Typography, Chip } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 /**
  * Robot header with title, version and metadata
  * Apple style: minimalist, clean, spacious
  */
-export default function RobotHeader({ isOn, usbPortName, daemonVersion, darkMode = false }) {
+export default function RobotHeader({ daemonVersion, darkMode = false }) {
 
   return (
     <Box
@@ -17,97 +17,31 @@ export default function RobotHeader({ isOn, usbPortName, daemonVersion, darkMode
         mb: 1.5,
       }}
     >
-      {/* Title + Version */}
-      <Box
+      {/* Title */}
+      <Typography
         sx={{
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: 1,
+          fontSize: 20,
+          fontWeight: 600,
+          color: darkMode ? '#f5f5f5' : '#1d1d1f',
+          letterSpacing: '-0.4px',
           mb: 0.75,
         }}
       >
-        <Typography
-          sx={{
-            fontSize: 20,
-            fontWeight: 600,
-            color: darkMode ? '#f5f5f5' : '#1d1d1f',
-            letterSpacing: '-0.4px',
-          }}
-        >
-          Reachy Mini
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: darkMode ? '#888' : '#86868b',
-            letterSpacing: '0.2px',
-          }}
-        >
-          {daemonVersion ? `v${daemonVersion}` : 'v0.1.0'}
-        </Typography>
-      </Box>
-
-      {/* Power Tag + USB Port */}
-      <Box
+        Reachy Mini
+      </Typography>
+      
+      {/* Version Subtitle */}
+      <Typography
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.75,
+          fontSize: 11,
+          fontWeight: 500,
+          color: darkMode ? '#888' : '#86868b',
+          fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+          mb: 0.75,
         }}
       >
-        {/* Power status tag (if control_mode === enabled) */}
-        {isOn === true && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              px: 1.25,
-              height: 20,
-              borderRadius: '10px',
-              bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-              border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.06)',
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: 9,
-                fontWeight: 600,
-                color: darkMode ? '#888' : '#86868b',
-              }}
-            >
-              Power
-            </Typography>
-            <Typography
-              sx={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: '#22c55e',
-              }}
-            >
-              ON
-            </Typography>
-          </Box>
-        )}
-        
-        {usbPortName && (
-          <Chip
-            label={usbPortName.split('/').pop()}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: 9,
-              fontWeight: 600,
-              bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-              color: darkMode ? '#888' : '#86868b',
-              border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.06)',
-              fontFamily: 'SF Mono, Monaco, Menlo, monospace',
-              '& .MuiChip-label': { px: 1.25 },
-            }}
-          />
-        )}
-      </Box>
+        {daemonVersion ? `Daemon v${daemonVersion}` : 'Daemon unknown version'}
+      </Typography>
     </Box>
   );
 }

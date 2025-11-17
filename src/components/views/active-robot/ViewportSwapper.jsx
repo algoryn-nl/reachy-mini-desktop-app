@@ -22,6 +22,9 @@ export default function ViewportSwapper({
   const mainViewportRef = useRef(null);
   const smallViewportRef = useRef(null);
   
+  // Aspect ratio pour la caméra (640x480 = 4:3)
+  const cameraAspectRatio = 640 / 480; // 1.333...
+  
   // Gérer le swap
   const handleSwap = useCallback(() => {
     setIsSwapped(prev => !prev);
@@ -59,7 +62,14 @@ export default function ViewportSwapper({
       sx={{
         position: 'relative',
         width: '100%',
-        height: '100%',
+        // Si c'est la caméra qui est affichée, utiliser l'aspect ratio 4:3
+        // Sinon, laisser la hauteur s'adapter avec un minHeight pour le 3D viewer
+        ...(isSwapped ? {
+          aspectRatio: `${cameraAspectRatio}`,
+        } : {
+          height: '100%',
+          minHeight: 280, // Hauteur minimale pour le 3D viewer
+        }),
       }}
     >
       {/* Viewport principal (grand) */}
@@ -69,20 +79,20 @@ export default function ViewportSwapper({
           width: '100%',
           height: '100%',
           borderRadius: '16px',
-          overflow: 'hidden',
+          overflow: 'visible',
           position: 'relative',
         }}
       />
       
-      {/* Viewport petit (en bas à droite) */}
+      {/* Viewport petit (en bas à droite, à cheval sur le visualiseur) */}
       <Box
         sx={{
           position: 'absolute',
           bottom: -45,
-          right: 24,
+          right: 12,
           width: 120,
           height: 90,
-          overflow: 'visible',
+          zIndex: 10,
         }}
       >
         <Box

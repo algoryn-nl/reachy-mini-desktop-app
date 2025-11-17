@@ -41,7 +41,58 @@ export function getComponentName(mesh, index, total) {
 }
 
 /**
+ * Détermine le groupe/composant d'un mesh basé sur son nom réel
+ * Même logique que dans ScanAnnotations.jsx pour cohérence
+ */
+function getComponentGroup(mesh) {
+  if (!mesh) return null;
+  
+  const meshName = (mesh.name || '').toLowerCase();
+  const materialName = (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase();
+  
+  // Vérifier les userData d'abord (plus fiable)
+  if (mesh.userData?.isAntenna) {
+    return 'ANTENNA';
+  }
+  
+  // Vérifier les lentilles par matériau
+  if (materialName.includes('big_lens') || materialName.includes('lens_d40')) {
+    return 'OPTICAL LENS';
+  }
+  if (materialName.includes('small_lens') || materialName.includes('lens_d30')) {
+    return 'CAMERA LENS';
+  }
+  
+  // Remonter la hiérarchie pour trouver le groupe parent
+  let currentParent = mesh.parent;
+  let depth = 0;
+  while (currentParent && depth < 5) {
+    const pName = (currentParent.name || '').toLowerCase();
+    
+    // Groupes principaux basés sur les noms de liens URDF
+    if (pName.includes('xl_330') || pName.includes('camera') || meshName.includes('xl_330') || meshName.includes('camera')) {
+      return 'CAMERA MODULE';
+    }
+    if (pName.includes('head') || pName.includes('stewart') || meshName.includes('head') || meshName.includes('stewart')) {
+      return 'HEAD ASSEMBLY';
+    }
+    if (pName.includes('arm') || pName.includes('shoulder') || meshName.includes('arm') || meshName.includes('shoulder')) {
+      return 'ARM JOINT';
+    }
+    if (pName.includes('base') || pName.includes('body') || pName.includes('yaw_body') || meshName.includes('base') || meshName.includes('body')) {
+      return 'BASE UNIT';
+    }
+    
+    currentParent = currentParent.parent;
+    depth++;
+  }
+  
+  return null;
+}
+
+/**
  * Generates a short name for quick display based on actual mesh name
+ * Utilise maintenant les mêmes groupes que ScanAnnotations pour cohérence
  */
 export function getShortComponentName(mesh, index, total) {
   if (!mesh) {
@@ -49,7 +100,13 @@ export function getShortComponentName(mesh, index, total) {
     return getGenericName(index);
   }
   
-  // Chercher le nom dans la hiérarchie parent (URDF link)
+  // ✅ Utiliser la même logique de regroupement que ScanAnnotations
+  const componentGroup = getComponentGroup(mesh);
+  if (componentGroup) {
+    return componentGroup;
+  }
+  
+  // Fallback: chercher le nom dans la hiérarchie parent (URDF link)
   let name = mesh.name;
   let currentParent = mesh.parent;
   let depth = 0;

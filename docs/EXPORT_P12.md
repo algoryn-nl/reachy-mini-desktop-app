@@ -12,8 +12,8 @@ Un `.p12` contient **le certificat ET la clé privée** (nécessaire pour signer
 2. Sélectionner **"login"** dans la liste de gauche
 3. Chercher : `Developer ID Application: Pollen Robotics` (ou Team ID `4KLHP7L6KP`)
 4. Clic droit → **Exporter** → Format **`.p12`**
-5. Définir un mot de passe (ou laisser vide) → **Important** : noter le mot de passe si défini
-6. Envoyer le fichier `.p12` + le mot de passe (si défini)
+5. **Définir un mot de passe** → **Important** : noter le mot de passe
+6. Envoyer le fichier `.p12` + le mot de passe
 
 ## Utiliser le .p12
 
@@ -24,8 +24,6 @@ base64 -i developerID_application.p12 | pbcopy
 
 **Secrets GitHub à configurer** :
 - `APPLE_CERTIFICATE` : Le base64 du `.p12`
-- `APPLE_CERTIFICATE_PASSWORD` : Le mot de passe défini lors de l'export (ou **ne pas créer ce secret** si aucun mot de passe)
+- `APPLE_CERTIFICATE_PASSWORD` : Le mot de passe défini lors de l'export (obligatoire)
 - `APPLE_SIGNING_IDENTITY` : `Developer ID Application: Pollen Robotics (4KLHP7L6KP)`
-
-**Note** : Si aucun mot de passe n'a été défini lors de l'export, **ne créez pas** le secret `APPLE_CERTIFICATE_PASSWORD` sur GitHub (GitHub ne permet pas les secrets vides). Le workflow fonctionnera sans.
 

@@ -38,6 +38,7 @@ export default function ReadyToStartView({
   startDaemon, 
   isStarting, 
   usbPortName,
+  isSimulationMode = false,
   updateAvailable,
   isChecking,
   isDownloading,
@@ -55,8 +56,8 @@ export default function ReadyToStartView({
 
   useEffect(() => {
     getVersion().then(setCurrentVersion).catch(() => {
-      // Fallback si l'API n'est pas disponible
-      setCurrentVersion('0.1.0');
+      // Si l'API n'est pas disponible, on ne définit pas de version (affichera "unknown")
+      setCurrentVersion(null);
     });
   }, []);
   
@@ -118,29 +119,32 @@ export default function ReadyToStartView({
           alignItems: 'center',
           justifyContent: 'space-between',
           px: 2,
+          pt: 1.5,
           cursor: 'move',
           userSelect: 'none',
           position: 'relative',
+          WebkitAppRegion: 'drag',
         }}
       >
-        <Box sx={{ width: 12, height: 12 }} />
+        {/* Espace pour les boutons macOS (rouge, jaune, vert) - environ 78px */}
+        <Box sx={{ width: 78, height: 12, WebkitAppRegion: 'no-drag' }} />
         <Box sx={{ height: 20 }} /> {/* Space for drag */}
         {/* Version number - always visible when available */}
         <Typography
           sx={{
             position: 'absolute',
-            top: '50%',
+            top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
             right: 12,
-            transform: 'translateY(-50%)',
-            fontSize: 10,
-            color: darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+            fontSize: 9,
+            color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
             fontWeight: 500,
             letterSpacing: '0.02em',
             pointerEvents: 'none',
             fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+            lineHeight: 1.2,
           }}
         >
-          {currentVersion ? `v${currentVersion}` : 'v0.1.0'}
+          {currentVersion ? `Reachy Mini Desktop App v${currentVersion}` : 'Reachy Mini Desktop App unknown version'}
         </Typography>
         <Box sx={{ width: 20, height: 20 }} />
       </Box>
@@ -497,7 +501,7 @@ export default function ReadyToStartView({
                 color: darkMode ? '#666' : '#bbb',
               }}
             >
-              Reachy connected via USB
+              {isSimulationMode ? '🎮 Reachy (Simulation Mode)' : 'Reachy connected via USB'}
             </Typography>
             {usbPortName && (
               <Typography
@@ -508,7 +512,14 @@ export default function ReadyToStartView({
                   mt: 0.5,
                 }}
               >
-                {usbPortName}
+                {isSimulationMode ? (
+                  <>
+                    <span style={{ color: darkMode ? '#4CAF50' : '#2E7D32' }}>🎮 </span>
+                    {usbPortName} (Simulation)
+                  </>
+                ) : (
+                  usbPortName
+                )}
               </Typography>
             )}
           </Box>

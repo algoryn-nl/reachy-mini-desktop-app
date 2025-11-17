@@ -1,6 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert, LinearProgress, ButtonGroup } from '@mui/material';
+import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert, LinearProgress, ButtonGroup, Slider, Switch } from '@mui/material';
 import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOutlined';
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import MicIcon from '@mui/icons-material/Mic';
+import MicOffIcon from '@mui/icons-material/MicOff';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-shell';
 import Viewer3D from '../../viewer3d';
@@ -9,9 +16,11 @@ import ViewportSwapper from './ViewportSwapper';
 import LogConsole from './LogConsole';
 import ApplicationStore from './application-store';
 import RobotHeader from './RobotHeader';
+import AudioVisualizer from './camera/AudioVisualizer';
 import { useRobotState } from '../../../hooks/useRobotState';
 import useAppStore from '../../../store/useAppStore';
-import { CHOREOGRAPHY_DATASETS, DANCES } from '../../../constants/choreographies';
+import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_EMOTIONS } from '../../../constants/choreographies';
+import { buildApiUrl } from '../../../config/daemon';
 
 function ActiveRobotView({ 
   isActive, 
@@ -46,6 +55,77 @@ function ActiveRobotView({
   // Toast notifications
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [toastProgress, setToastProgress] = useState(100);
+  
+  // Volume control - Connecté à l'API
+  const [volume, setVolume] = useState(50);
+  const [microphoneVolume, setMicrophoneVolume] = useState(50);
+  
+  // Logs collapse state
+  const [logsExpanded, setLogsExpanded] = useState(false);
+  
+  // Charger le volume depuis l'API
+  useEffect(() => {
+    if (!isActive) return;
+
+    const fetchVolume = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/volume/current'));
+        if (response.ok) {
+          const data = await response.json();
+          if (data.volume !== undefined) {
+            setVolume(data.volume);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch volume:', err);
+      }
+    };
+
+    const fetchMicrophoneVolume = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/volume/microphone/current'));
+        if (response.ok) {
+          const data = await response.json();
+          if (data.volume !== undefined) {
+            setMicrophoneVolume(data.volume);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch microphone volume:', err);
+      }
+    };
+
+    fetchVolume();
+    fetchMicrophoneVolume();
+  }, [isActive]);
+
+  // Mettre à jour le volume via l'API
+  const handleVolumeChange = async (newVolume) => {
+    setVolume(newVolume);
+    try {
+      await fetch(buildApiUrl('/api/volume/set'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: newVolume }),
+      });
+    } catch (err) {
+      console.warn('Failed to set volume:', err);
+    }
+  };
+
+  // Mettre à jour le microphone via l'API
+  const handleMicrophoneChange = async (enabled) => {
+    setMicrophoneVolume(enabled ? 50 : 0);
+    try {
+      await fetch(buildApiUrl('/api/volume/microphone/set'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: enabled ? 50 : 0 }),
+      });
+    } catch (err) {
+      console.warn('Failed to set microphone:', err);
+    }
+  };
   
   // ✅ Apps loading state: notify parent when ready
   const [appsLoading, setAppsLoading] = useState(true);
@@ -136,13 +216,17 @@ function ActiveRobotView({
     showToast(`${action.emoji} ${action.label}`, 'info');
   }, [sendCommand, playRecordedMove, showToast]);
 
-  // Quick Actions: Mix of actions and emotions
+  // Quick Actions: 15 emotions from QUICK_EMOTIONS + 1 sleep action = 16 total
   const quickActions = [
+    // Sleep action
     { name: 'goto_sleep', emoji: '😴', label: 'Sleep', type: 'action' },
-    { name: 'wake_up', emoji: '☀️', label: 'Awake', type: 'action' },
-    { name: 'loving1', emoji: '🥰', label: 'Love', type: 'emotion' },
-    { name: 'sad1', emoji: '😢', label: 'Sad', type: 'emotion' },
-    { name: 'surprised1', emoji: '😲', label: 'Surprised', type: 'emotion' },
+    // 15 emotions from QUICK_EMOTIONS
+    ...QUICK_EMOTIONS.map(emotion => ({
+      name: emotion.name,
+      emoji: emotion.emoji,
+      label: emotion.label,
+      type: 'emotion',
+    })),
   ];
 
   // Detect crash and log (no toast, we have the overlay)
@@ -308,10 +392,53 @@ function ActiveRobotView({
           px: 2,
           cursor: 'move',
           userSelect: 'none',
+          bgcolor: 'transparent',
         }}
       >
-        {/* Empty titlebar now - moved version near the title */}
+        {/* Empty titlebar */}
       </Box>
+
+      {/* Dark Mode Toggle - Fixé en haut à droite de la fenêtre, un peu plus bas */}
+      <IconButton
+        size="small"
+        onClick={() => useAppStore.getState().toggleDarkMode()}
+        sx={{
+          position: 'absolute',
+          top: 18,
+          right: 18,
+          width: 32,
+          height: 32,
+          bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'transparent',
+          zIndex: 10,
+          '&:hover': {
+            bgcolor: darkMode ? 'rgba(255, 149, 0, 0.12)' : 'rgba(0, 0, 0, 0.04)',
+          },
+        }}
+      >
+        {darkMode ? (
+          <LightModeOutlinedIcon sx={{ fontSize: 18, color: '#FF9500' }} />
+        ) : (
+          <DarkModeOutlinedIcon sx={{ fontSize: 18, color: darkMode ? '#aaa' : '#999' }} />
+        )}
+      </IconButton>
+
+      {/* Drop shadow au milieu pour effet d'élévation - Positionné sur toute la hauteur */}
+      <Box
+        sx={{
+          position: 'absolute',
+          left: '50%',
+          top: 0,
+          bottom: 0,
+          width: '16px',
+          background: darkMode
+            ? 'linear-gradient(to left, transparent 0%, rgba(0, 0, 0, 0.25) 15%, rgba(0, 0, 0, 0.15) 50%, transparent 100%)'
+            : 'linear-gradient(to left, transparent 0%, rgba(0, 0, 0, 0.12) 15%, rgba(0, 0, 0, 0.06) 50%, transparent 100%)',
+          pointerEvents: 'none',
+          zIndex: 3,
+          transform: 'translateX(-50%)',
+          filter: 'blur(4px)',
+        }}
+      />
 
       {/* Content - 2 columns */}
       <Box
@@ -320,6 +447,7 @@ function ActiveRobotView({
           flexDirection: 'row',
           height: 'calc(100% - 33px)',
           gap: 0,
+          position: 'relative',
         }}
       >
         {/* Left column (450px) - Current content */}
@@ -331,17 +459,37 @@ function ActiveRobotView({
             flexDirection: 'column',
             alignItems: 'center',
             px: 3,
-            overflowY: 'visible',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            position: 'relative',
+            zIndex: 1,
+            height: '100%',
+            // Scrollbar styling
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+              borderRadius: '3px',
+            },
+            '&:hover::-webkit-scrollbar-thumb': {
+              background: darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+            },
           }}
         >
         {/* Main viewer block - Both components are always mounted */}
         <Box
           sx={{
             width: '100%',
-            height: 280,
+            height: 'auto',
             position: 'relative',
             mb: 1,
             overflow: 'visible',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* ViewportSwapper: handles swap between 3D and Camera with Portals */}
@@ -378,20 +526,20 @@ function ActiveRobotView({
               top: 12,
               left: 12,
               bgcolor: 'rgba(255, 255, 255, 0.95)',
-              color: '#FF3B30',
+              color: '#FF9500',
               width: 36,
               height: 36,
-              border: '1.5px solid rgba(255, 59, 48, 0.3)',
+              border: '1.5px solid rgba(255, 149, 0, 0.3)',
               backdropFilter: 'blur(10px)',
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
               opacity: isReady ? 1 : 0.4,
-              boxShadow: '0 2px 8px rgba(255, 59, 48, 0.15)',
+              boxShadow: '0 2px 8px rgba(255, 149, 0, 0.15)',
               zIndex: 20,
               '&:hover': {
-                bgcolor: 'rgba(255, 59, 48, 0.08)',
+                bgcolor: 'rgba(255, 149, 0, 0.08)',
                 transform: isReady ? 'scale(1.08)' : 'none',
-                borderColor: 'rgba(255, 59, 48, 0.5)',
-                boxShadow: '0 4px 12px rgba(255, 59, 48, 0.25)',
+                borderColor: 'rgba(255, 149, 0, 0.5)',
+                boxShadow: '0 4px 12px rgba(255, 149, 0, 0.25)',
               },
               '&:active': {
                 transform: isReady ? 'scale(0.95)' : 'none',
@@ -413,76 +561,225 @@ function ActiveRobotView({
         </Box>
         
         {/* Robot Header - Title, version, status, mode */}
-        <RobotHeader
-          isOn={isOn}
-          usbPortName={usbPortName}
-          daemonVersion={daemonVersion}
-          darkMode={darkMode}
-        />
+          <RobotHeader
+            daemonVersion={daemonVersion}
+            darkMode={darkMode}
+          />
 
-        {/* Quick Actions - Using MUI ButtonGroup for cleaner layout */}
-        <Box sx={{ width: '100%', mb: 2 }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 600, color: darkMode ? '#888' : '#999', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1.5 }}>
-            Quick Actions
-          </Typography>
-          <ButtonGroup
-            variant="outlined"
-            disabled={!isReady}
+        {/* Audio Controls - Single Line 50/50 */}
+        <Box
+          sx={{
+            width: '100%',
+            mb: 1.5,
+            display: 'flex',
+            gap: 1,
+          }}
+        >
+          {/* Volume Control - 50% */}
+          <Box
             sx={{
-              width: '100%',
+              flex: '0 0 50%',
               display: 'flex',
-              borderRadius: '14px',
-              overflow: 'hidden',
-              border: '1px solid #FF9500',
-              '& .MuiButtonGroup-grouped': {
-                flex: 1,
-                border: 'none',
-                borderColor: 'transparent',
-                color: darkMode ? '#fff' : '#000',
-                opacity: !isActive || isBusy ? 0.3 : 1,
-                filter: !isActive || isBusy ? 'grayscale(100%)' : 'none',
-                fontSize: '24px',
-                minWidth: 0,
-                padding: '12px 8px',
-                '&:hover': {
-                  bgcolor: !isActive || isBusy ? 'transparent' : (darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)'),
-                  zIndex: 1,
-                },
-                '&:not(:last-of-type)': {
-                  borderRight: '1px solid #FF9500',
-                },
-              },
-              '& .MuiButtonGroup-grouped:not(:first-of-type)': {
-                borderLeft: 'none',
+              flexDirection: 'column',
+              gap: 0.75,
+              p: 1.25,
+              borderRadius: '12px',
+              bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+              border: darkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
               },
             }}
           >
-            {quickActions.map((action) => (
-              <Button
-                key={action.name}
-                onClick={() => handleQuickAction(action)}
-                disabled={!isActive || isBusy}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <VolumeUpIcon sx={{ fontSize: 12, color: '#FF9500' }} />
+                <Typography
+                  sx={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: darkMode ? '#aaa' : '#666',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Volume
+                </Typography>
+              </Box>
+              <Typography
                 sx={{
-                  fontSize: '24px',
-                  padding: '12px 8px',
-                  transition: 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: '#FF9500',
+                  fontFamily: 'SF Mono, Monaco, Menlo, monospace',
                 }}
-                title={action.label}
               >
-                {action.emoji}
-              </Button>
-            ))}
-          </ButtonGroup>
+                {volume}%
+              </Typography>
+            </Box>
+            <Slider
+              value={volume}
+              onChange={(e, val) => handleVolumeChange(val)}
+              sx={{
+                '& .MuiSlider-thumb': {
+                  width: 12,
+                  height: 12,
+                  bgcolor: '#FF9500',
+                  border: `2px solid ${darkMode ? '#1a1a1a' : '#fff'}`,
+                  boxShadow: '0 2px 4px rgba(255, 149, 0, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 0 0 5px rgba(255, 149, 0, 0.16)',
+                    transform: 'scale(1.1)',
+                  },
+                  transition: 'all 0.2s ease',
+                },
+                '& .MuiSlider-track': {
+                  bgcolor: '#FF9500',
+                  border: 'none',
+                  height: 2.5,
+                  borderRadius: '2px',
+                },
+                '& .MuiSlider-rail': {
+                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                  height: 2.5,
+                  borderRadius: '2px',
+                },
+              }}
+            />
+          </Box>
+
+          {/* Microphone Control - 50% */}
+          <Box
+            sx={{
+              flex: '0 0 50%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.75,
+              p: 1.25,
+              borderRadius: '12px',
+              bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+              border: darkMode 
+                ? `1px solid ${microphoneVolume > 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.06)'}`
+                : `1px solid ${microphoneVolume > 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(0, 0, 0, 0.06)'}`,
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                borderColor: microphoneVolume > 0 
+                  ? (darkMode ? 'rgba(34, 197, 94, 0.3)' : 'rgba(34, 197, 94, 0.25)')
+                  : (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'),
+              },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {microphoneVolume > 0 ? (
+                  <MicIcon sx={{ fontSize: 12, color: '#22c55e' }} />
+                ) : (
+                  <MicOffIcon sx={{ fontSize: 12, color: darkMode ? '#666' : '#999', opacity: 0.6 }} />
+                )}
+                <Typography
+                  sx={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: darkMode ? '#aaa' : '#666',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  Microphone
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                {/* Audio Visualizer */}
+                {microphoneVolume > 0 && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      px: 0.75,
+                      py: 0.25,
+                      borderRadius: '6px',
+                      bgcolor: darkMode ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.08)',
+                    }}
+                  >
+                    <AudioVisualizer 
+                      barCount={6} 
+                      color={darkMode ? 'rgba(34, 197, 94, 0.9)' : '#22c55e'}
+                      showBackground={false}
+                      isLarge={true}
+                    />
+                  </Box>
+                )}
+                <IconButton
+                  onClick={() => handleMicrophoneChange(microphoneVolume === 0)}
+                  size="small"
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '8px',
+                    bgcolor: microphoneVolume > 0 
+                      ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)')
+                      : 'transparent',
+                    color: microphoneVolume > 0 ? '#22c55e' : (darkMode ? '#666' : '#999'),
+                    padding: 0,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: microphoneVolume > 0 
+                        ? (darkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.15)')
+                        : (darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'),
+                      transform: 'scale(1.05)',
+                    },
+                  }}
+                >
+                  {microphoneVolume > 0 ? (
+                    <MicIcon sx={{ fontSize: 14 }} />
+                  ) : (
+                    <MicOffIcon sx={{ fontSize: 14 }} />
+                  )}
+                </IconButton>
+              </Box>
+            </Box>
+            {/* Spacer pour aligner avec le slider du volume */}
+            <Box sx={{ height: 2.5 }} />
+          </Box>
         </Box>
         
-        {/* Logs Console */}
+        {/* Logs Console - Collapsible */}
         <Box sx={{ mt: 1, width: '100%' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography sx={{ fontSize: 11, fontWeight: 600, color: darkMode ? '#888' : '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Daemon Logs
-            </Typography>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              mb: logsExpanded ? 1.5 : 0,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+            onClick={() => setLogsExpanded(!logsExpanded)}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 600, color: darkMode ? '#888' : '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Daemon Logs
+              </Typography>
+              <IconButton
+                size="small"
+                sx={{
+                  width: 20,
+                  height: 20,
+                  padding: 0,
+                  color: darkMode ? '#888' : '#999',
+                  transition: 'transform 0.2s ease',
+                  transform: logsExpanded ? 'rotate(0deg)' : 'rotate(180deg)',
+                }}
+              >
+                <ExpandMoreIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
             <Typography
-              onClick={async () => {
+              onClick={async (e) => {
+                e.stopPropagation();
                 try {
                   // Opens in external system browser (Safari, Chrome, etc.)
                   await open('http://localhost:8000/docs');
@@ -510,25 +807,39 @@ function ActiveRobotView({
             </Typography>
           </Box>
           
-          <LogConsole logs={logs} darkMode={darkMode} />
+          {logsExpanded && (
+            <Box sx={{ transition: 'all 0.3s ease' }}>
+              <LogConsole logs={logs} darkMode={darkMode} />
+            </Box>
+          )}
         </Box>
         </Box>
 
-        {/* Right column (450px) - Application Store */}
-        <Box
-          sx={{
-            width: '450px',
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            borderLeft: darkMode 
-              ? '1px solid rgba(255, 255, 255, 0.08)' 
-              : '1px solid rgba(0, 0, 0, 0.06)',
-          }}
-        >
+                {/* Right column (450px) - Application Store avec effet d'élévation */}
+                <Box
+                  sx={{
+                    width: '450px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderLeft: darkMode
+                      ? '1px solid rgba(255, 255, 255, 0.08)'
+                      : '1px solid rgba(0, 0, 0, 0.06)',
+                    // ✅ Effet d'élévation simple avec transform
+                    position: 'relative',
+                    zIndex: 2,
+                    transform: 'translateY(-8px)',
+                  }}
+                >
           <ApplicationStore 
             showToast={showToast}
             onLoadingChange={handleAppsLoadingChange}
+            quickActions={quickActions}
+            handleQuickAction={handleQuickAction}
+            isReady={isReady}
+            isActive={isActive}
+            isBusy={isBusy}
+            darkMode={darkMode}
           />
         </Box>
       </Box>

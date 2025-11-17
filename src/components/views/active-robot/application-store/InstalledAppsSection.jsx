@@ -415,38 +415,6 @@ export default function InstalledAppsSection({
                       />
                     </Box>
 
-                    {/* Volume slider */}
-                    <Box
-                      sx={{
-                        py: 1,
-                        px: 1.5,
-                        borderRadius: '8px',
-                        bgcolor: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: darkMode ? '#f5f5f5' : '#333',
-                          mb: 1,
-                        }}
-                      >
-                        Volume
-                      </Typography>
-                      <Slider
-                        size="small"
-                        value={settings.volume || 50}
-                        onChange={(e, val) => updateAppSetting(app.name, 'volume', val)}
-                        disabled={isCurrentlyRunning}
-                        sx={{
-                          '& .MuiSlider-thumb': {
-                            width: 14,
-                            height: 14,
-                          },
-                        }}
-                      />
-                    </Box>
 
                     {/* Actions */}
                     <Button

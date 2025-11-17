@@ -59,6 +59,10 @@ export const DAEMON_CONFIG = {
     STATE_FULL: '/api/state/full',
     DAEMON_STATUS: '/api/daemon/status',
     EMOTIONS_LIST: '/api/move/recorded-move-datasets/list/pollen-robotics/reachy-mini-emotions-library',
+    VOLUME_CURRENT: '/api/volume/current',
+    VOLUME_SET: '/api/volume/set',
+    MICROPHONE_CURRENT: '/api/volume/microphone/current',
+    MICROPHONE_SET: '/api/volume/microphone/set',
   },
   
   // Endpoints to NOT log (frequent polling)

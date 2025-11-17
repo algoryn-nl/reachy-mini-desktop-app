@@ -309,4 +309,160 @@ export function updateCellShadingMaterial(material, params = {}) {
   }
 }
 
+/**
+ * Shader X-ray AAA avec rim lighting avancé, depth-based opacity, et subsurface scattering
+ */
+export const xrayShader = {
+  uniforms: {
+    baseColor: { value: new THREE.Color(0x7A8590) },
+    rimColor: { value: new THREE.Color(0xFFFFFF) },
+    rimPower: { value: 2.0 },
+    rimIntensity: { value: 0.4 },
+    opacity: { value: 0.5 },
+    edgeIntensity: { value: 0.3 },
+    depthIntensity: { value: 0.3 }, // ✅ Nouveau : intensité de l'effet depth-based
+    subsurfaceColor: { value: new THREE.Color(0xB0C4DE) }, // ✅ Nouveau : couleur subsurface scattering
+    subsurfaceIntensity: { value: 0.2 }, // ✅ Nouveau : intensité subsurface
+  },
+  
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
+    varying float vDepth; // ✅ Nouveau : profondeur pour depth-based opacity
+    
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+      
+      // ✅ Calculer la profondeur (distance à la caméra)
+      vDepth = length(vViewPosition);
+      
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  
+  fragmentShader: `
+    uniform vec3 baseColor;
+    uniform vec3 rimColor;
+    uniform float rimPower;
+    uniform float rimIntensity;
+    uniform float opacity;
+    uniform float edgeIntensity;
+    uniform float depthIntensity; // ✅ Nouveau
+    uniform vec3 subsurfaceColor; // ✅ Nouveau
+    uniform float subsurfaceIntensity; // ✅ Nouveau
+    
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+    varying float vDepth; // ✅ Nouveau
+    
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewPosition);
+      
+      // ===== RIM LIGHTING AVANCÉ (Fresnel effect avec variation de couleur) =====
+      float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
+      fresnel = pow(fresnel, rimPower);
+      
+      // ✅ Rim light avec transition douce et variation de couleur selon l'angle
+      float rimSmooth = smoothstep(0.2, 0.9, fresnel);
+      vec3 rimColorVaried = mix(rimColor, vec3(0.9, 0.95, 1.0), fresnel * 0.5); // Légèrement bleuté aux bords
+      vec3 rimLight = rimColorVaried * rimSmooth * rimIntensity;
+      
+      // ===== EDGE DETECTION AMÉLIORÉ =====
+      float edge = 1.0 - abs(dot(viewDir, normal));
+      edge = pow(edge, 2.5); // Légèrement moins agressif
+      vec3 edgeHighlight = rimColor * edge * edgeIntensity;
+      
+      // ===== SUBSURFACE SCATTERING (simulation de lumière qui traverse) =====
+      // Plus la surface est perpendiculaire à la vue, plus la lumière traverse
+      float subsurfaceFactor = max(dot(viewDir, normal), 0.0);
+      subsurfaceFactor = pow(subsurfaceFactor, 1.5);
+      vec3 subsurface = subsurfaceColor * subsurfaceFactor * subsurfaceIntensity;
+      
+      // ===== DEPTH-BASED OPACITY (les parties plus épaisses sont plus opaques) =====
+      // Normaliser la profondeur (ajuster selon votre scène)
+      float normalizedDepth = clamp((vDepth - 0.1) / 0.5, 0.0, 1.0);
+      float depthOpacity = 1.0 + normalizedDepth * depthIntensity;
+      float finalOpacity = opacity * depthOpacity;
+      
+      // ===== COULEUR FINALE =====
+      vec3 finalColor = baseColor + rimLight + edgeHighlight + subsurface;
+      
+      // ✅ Clamp avec un peu plus de headroom pour le bloom
+      finalColor = clamp(finalColor, 0.0, 1.2);
+      
+      gl_FragColor = vec4(finalColor, clamp(finalOpacity, 0.0, 1.0));
+    }
+  `
+};
+
+/**
+ * Crée un matériau X-ray amélioré avec rim lighting
+ * @param {number} baseColorHex - Couleur de base en hexa
+ * @param {object} options - Options du shader
+ * @returns {THREE.ShaderMaterial}
+ */
+export function createXrayMaterial(baseColorHex = 0x7A8590, options = {}) {
+  const uniforms = {
+    baseColor: { value: new THREE.Color(baseColorHex) },
+    rimColor: { value: new THREE.Color(options.rimColor || 0xFFFFFF) },
+    rimPower: { value: options.rimPower ?? 2.0 },
+    rimIntensity: { value: options.rimIntensity ?? 0.4 },
+    opacity: { value: options.opacity ?? 0.5 },
+    edgeIntensity: { value: options.edgeIntensity ?? 0.3 },
+    depthIntensity: { value: options.depthIntensity ?? 0.3 }, // ✅ Nouveau
+    subsurfaceColor: { value: new THREE.Color(options.subsurfaceColor || 0xB0C4DE) }, // ✅ Nouveau
+    subsurfaceIntensity: { value: options.subsurfaceIntensity ?? 0.2 }, // ✅ Nouveau
+  };
+  
+  const material = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: xrayShader.vertexShader,
+    fragmentShader: xrayShader.fragmentShader,
+    transparent: true,
+    depthWrite: false, // ✅ Standard pour transparents : ne pas écrire dans le depth buffer
+    depthTest: true,
+    side: THREE.DoubleSide,
+    opacity: options.opacity ?? 0.5,
+    alphaTest: 0.001, // ✅ Rejeter les pixels presque transparents (très faible pour éviter les artefacts)
+  });
+  
+  return material;
+}
+
+/**
+ * Met à jour les paramètres du shader X-ray
+ * @param {THREE.ShaderMaterial} material - Le matériau à mettre à jour
+ * @param {object} params - Paramètres à modifier
+ */
+export function updateXrayMaterial(material, params = {}) {
+  if (!material.uniforms) return;
+  
+  if (params.baseColor !== undefined) {
+    material.uniforms.baseColor.value.set(params.baseColor);
+  }
+  if (params.rimColor !== undefined) {
+    material.uniforms.rimColor.value.set(params.rimColor);
+  }
+  if (params.rimPower !== undefined) {
+    material.uniforms.rimPower.value = params.rimPower;
+  }
+  if (params.rimIntensity !== undefined) {
+    material.uniforms.rimIntensity.value = params.rimIntensity;
+  }
+  if (params.opacity !== undefined) {
+    material.uniforms.opacity.value = params.opacity;
+    material.opacity = params.opacity;
+  }
+  if (params.edgeIntensity !== undefined) {
+    material.uniforms.edgeIntensity.value = params.edgeIntensity;
+  }
+  
+  material.needsUpdate = true;
+}
+
 

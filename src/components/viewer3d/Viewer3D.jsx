@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { IconButton, Switch, Tooltip, Box, Typography } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ThreeSixtyOutlinedIcon from '@mui/icons-material/ThreeSixtyOutlined';
 import MyLocationOutlinedIcon from '@mui/icons-material/MyLocationOutlined';
@@ -11,6 +12,7 @@ import { Leva } from 'leva';
 import * as THREE from 'three';
 import Scene from './Scene';
 import useRobotWebSocket from './hooks/useRobotWebSocket';
+import useAppStore from '../../store/useAppStore';
 
 /**
  * Composant principal du visualiseur 3D
@@ -19,14 +21,14 @@ import useRobotWebSocket from './hooks/useRobotWebSocket';
 // ✅ Presets de caméra
 const CAMERA_PRESETS = {
   normal: {
-    position: [0, 0.25, 0.25],
+    position: [0, 0.25, 0.32 + .20], // Dézoomé : Z augmenté de 0.25 à 0.32
     fov: 50,
     target: [0, 0.2, 0],
     minDistance: 0.2,
     maxDistance: 0.6,
   },
   scan: {
-    position: [0, 0.22, 0.35],
+    position: [0, 0.22, 0.42 + .20], // Dézoomé : Z augmenté de 0.35 à 0.42
     fov: 55,
     target: [0, 0.12, 0],
     minDistance: 0.15,
@@ -81,6 +83,14 @@ export default function RobotViewer3D({
   
   const [isTransparent, setIsTransparent] = useState(initialMode === 'xray');
   const [showLevaControls, setShowLevaControls] = useState(forceLevaOpen);
+  
+  // ✅ Récupérer le darkMode depuis le store
+  const darkMode = useAppStore(state => state.darkMode);
+  
+  // ✅ Adapter backgroundColor selon darkMode si non fourni explicitement
+  const effectiveBackgroundColor = backgroundColor === '#e0e0e0' 
+    ? (darkMode ? '#1a1a1a' : '#e0e0e0')
+    : backgroundColor;
   
   // 🎥 Camera modes: 'free' | 'locked'
   // - free: Caméra libre avec OrbitControls
@@ -167,7 +177,8 @@ export default function RobotViewer3D({
     <div style={{ 
       width: '100%', 
       height: '100%', 
-      background: backgroundColor,
+      background: effectiveBackgroundColor,
+      borderRadius: hideBorder ? '0' : '16px',
       position: 'relative',
       overflow: 'visible',
     }}>
@@ -185,16 +196,22 @@ export default function RobotViewer3D({
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.0,
         }}
+        onCreated={({ gl }) => {
+          // ✅ Désactiver le tri automatique des objets transparents pour éviter le flickering
+          gl.sortObjects = false;
+        }}
         style={{ 
           width: '100%', 
           height: '100%', 
           display: 'block', 
-          background: backgroundColor,
-          border: hideBorder ? 'none' : '1px solid rgba(0, 0, 0, 0.08)',
+                   background: effectiveBackgroundColor,
+                   border: hideBorder ? 'none' : darkMode 
+                     ? '1px solid rgba(255, 255, 255, 0.08)' 
+                     : '1px solid rgba(0, 0, 0, 0.08)',
           borderRadius: hideBorder ? '0' : '16px',
         }}
       >
-        <color attach="background" args={[backgroundColor]} />
+                 <color attach="background" args={[effectiveBackgroundColor]} />
                <Scene 
                 headPose={finalHeadPose}
                 yawBody={finalYawBody}
@@ -213,11 +230,13 @@ export default function RobotViewer3D({
               lockCameraToHead={lockToOrientation}
               errorFocusMesh={errorFocusMesh}
               hideEffects={hideEffects}
+                   darkMode={darkMode}
             />
       </Canvas>
       
       
       {/* Note: Camera Feed swap is now handled by ViewportSwapper component */}
+      
       
       {/* Top Right Controls */}
       {!hideControls && (
@@ -232,8 +251,37 @@ export default function RobotViewer3D({
             zIndex: 10,
           }}
         >
-          {/* Camera Mode Toggle (si showCameraToggle) */}
-          {showCameraToggle && (
+          {/* Settings Button */}
+          <Tooltip
+            title="Settings"
+            placement="top"
+            arrow
+          >
+            <IconButton
+              onClick={() => {
+                // TODO: Navigate to settings
+                console.log('Settings clicked');
+              }}
+              size="small"
+              sx={{
+                width: 32,
+                height: 32,
+                transition: 'all 0.2s ease',
+                opacity: 0.7,
+                color: '#666',
+                '&:hover': {
+                  opacity: 1,
+                  color: '#FF9500',
+                  bgcolor: 'rgba(255, 149, 0, 0.08)',
+                },
+              }}
+            >
+              <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* Camera Mode Toggle (si showCameraToggle) - COMMENTED */}
+          {/* {showCameraToggle && (
             <>
               <Tooltip
                 title={
@@ -266,7 +314,6 @@ export default function RobotViewer3D({
                 </IconButton>
               </Tooltip>
 
-              {/* Separator */}
               <Box
                 sx={{
                   width: '1px',
@@ -276,10 +323,10 @@ export default function RobotViewer3D({
                 }}
               />
             </>
-          )}
+          )} */}
 
-          {/* View Mode Toggle - Single Button */}
-          <Tooltip
+          {/* View Mode Toggle - COMMENTED */}
+          {/* <Tooltip
             title={isTransparent ? 'Wireframe View - Click for solid' : 'Solid View - Click for wireframe'}
             placement="top"
             arrow
@@ -304,7 +351,7 @@ export default function RobotViewer3D({
                 <VisibilityOutlinedIcon sx={{ fontSize: 16, color: '#666' }} />
               )}
             </IconButton>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* Debug Settings (si enableDebug) */}
           {enableDebug && !forceLevaOpen && (
@@ -359,13 +406,7 @@ export default function RobotViewer3D({
             px: 1.5,
             py: 0.75,
             borderRadius: '10px',
-            bgcolor: status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.12)' : 
-                     status.color === '#FF9500' ? 'rgba(255, 149, 0, 0.12)' :
-                     status.color === '#3b82f6' ? 'rgba(59, 130, 246, 0.12)' :
-                     status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.12)' :
-                     status.color === '#f59e0b' ? 'rgba(245, 158, 11, 0.12)' :
-                     status.color === '#ef4444' ? 'rgba(239, 68, 68, 0.12)' :
-                     status.color === '#999' ? 'rgba(153, 153, 153, 0.12)' : 'rgba(0, 0, 0, 0.06)',
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             border: `1.5px solid ${
               status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.3)' : 
               status.color === '#FF9500' ? 'rgba(255, 149, 0, 0.3)' :

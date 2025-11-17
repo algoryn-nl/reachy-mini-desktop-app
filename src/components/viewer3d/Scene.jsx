@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import URDFRobot from './URDFRobot';
 import { useLevaControls } from './config/levaControls';
 import ScanEffect from './effects/ScanEffect';
+import ScanAnnotations from './effects/ScanAnnotations';
 import ErrorHighlight from './effects/ErrorHighlight';
 import ParticleEffect from './effects/ParticleEffect';
 import CinematicCamera from './CinematicCamera';
@@ -32,10 +34,19 @@ export default function Scene({
   lockCameraToHead = false, // Lock camera to head orientation
   errorFocusMesh = null, // Mesh to focus on in case of error
   hideEffects = false, // Hide particle effects
+  darkMode = false, // Dark mode pour adapter la grille
 }) {
   // State to store meshes to outline
   const [outlineMeshes, setOutlineMeshes] = useState([]);
   const [robotRef, setRobotRef] = useState(null); // Reference to robot for HeadFollowCamera
+  const [currentScannedMesh, setCurrentScannedMesh] = useState(null); // Mesh actuellement en cours de scan
+  
+  // ✅ Réinitialiser currentScannedMesh quand showScanEffect devient false
+  useEffect(() => {
+    if (!showScanEffect) {
+      setCurrentScannedMesh(null);
+    }
+  }, [showScanEffect]);
   
   // ⚡ Scan duration read from central config
   const scanDuration = DAEMON_CONFIG.ANIMATIONS.SCAN_DURATION / 1000;
@@ -72,14 +83,18 @@ export default function Scene({
     return [0, 0.18, 0.02]; // Fallback if no link found
   }, [robotRef, activeEffect]); // ✅ Recalculate only when a new effect starts
 
-  // Create grid only once with useMemo
+  // Create grid only once with useMemo - Adapté au dark mode
   const gridHelper = useMemo(() => {
-    const grid = new THREE.GridHelper(2, 20, '#999999', '#cccccc');
-    grid.material.opacity = 0.5;
+    // Couleurs adaptées au dark mode
+    const majorLineColor = darkMode ? '#444444' : '#999999';
+    const minorLineColor = darkMode ? '#2a2a2a' : '#cccccc';
+    
+    const grid = new THREE.GridHelper(2, 20, majorLineColor, minorLineColor);
+    grid.material.opacity = darkMode ? 0.3 : 0.5;
     grid.material.transparent = true;
     grid.material.fog = true; // Enable fog on grid
     return grid;
-  }, []);
+  }, [darkMode]);
 
   // ✅ Find all camera meshes when an error is detected
   const errorMeshes = useMemo(() => {
@@ -251,13 +266,34 @@ export default function Scene({
       
       {/* Scan effect during loading */}
       {showScanEffect && (
+        <>
         <ScanEffect 
           meshes={outlineMeshes}
-          scanColor="#FF9500"
+            scanColor="#22c55e"
           enabled={true}
-          onComplete={onScanComplete}
-          onScanMesh={onScanMesh}
+            onScanMesh={(mesh, index, total) => {
+              // Mettre à jour le mesh actuellement scanné pour les annotations
+              console.log('📡 Scene: onScanMesh called', mesh.uuid, mesh.name, index, total);
+              setCurrentScannedMesh(mesh);
+              // Appeler le callback parent si fourni
+              if (onScanMesh) {
+                onScanMesh(mesh, index, total);
+              }
+            }}
+            onComplete={() => {
+              // Réinitialiser le mesh scanné à la fin pour cacher les annotations
+              setCurrentScannedMesh(null);
+              if (onScanComplete) {
+                onScanComplete();
+              }
+            }}
+          />
+          {/* Annotations SF pour les composants scannés */}
+          <ScanAnnotations 
+            enabled={showScanEffect}
+            currentScannedMesh={currentScannedMesh}
         />
+        </>
       )}
       
       {/* Highlight effect in case of error */}
@@ -289,10 +325,12 @@ export default function Scene({
             <OrbitControls 
               enablePan={false}
               enableRotate={true}
-              enableZoom={false} // ✅ Disable zoom
+              enableZoom={true} // ✅ Permettre le zoom
               enableDamping={true}
               dampingFactor={0.05}
               target={cameraConfig.target || [0, 0.2, 0]}
+              minDistance={cameraConfig.minDistance || 0.2} // ✅ Distance minimale (empêche le dézoom)
+              maxDistance={cameraConfig.maxDistance || 10} // ✅ Distance maximale très grande (permet le zoom)
               // ✅ No angle constraints = free 360° rotation
             />
           )}
@@ -307,14 +345,16 @@ export default function Scene({
           errorFocusMesh={errorFocusMesh}
         />
       ) : (
-        // Mode 3: Manual OrbitControls (default) - Free rotation without zoom
+        // Mode 3: Manual OrbitControls (default) - Free rotation with zoom but no dezoom
         <OrbitControls 
           enablePan={false}
           enableRotate={true}
-          enableZoom={false} // ✅ Disable zoom
+          enableZoom={true} // ✅ Permettre le zoom
           enableDamping={true}
           dampingFactor={0.05}
           target={cameraConfig.target || [0, 0.2, 0]}
+          minDistance={cameraConfig.minDistance || 0.2} // ✅ Distance minimale (empêche le dézoom)
+          maxDistance={cameraConfig.maxDistance || 10} // ✅ Distance maximale très grande (permet le zoom)
           // ✅ No angle constraints = free 360° rotation
         />
       )}
@@ -328,6 +368,18 @@ export default function Scene({
           enabled={true}
           duration={4.0}
         />
+      )}
+      
+      {/* ✅ Post-processing AAA : Bloom pour le mode X-ray */}
+      {isTransparent && (
+        <EffectComposer>
+          <Bloom
+            intensity={1.2} // Intensité du bloom
+            luminanceThreshold={0.6} // Seuil de luminance (les pixels plus brillants que ça blooment)
+            luminanceSmoothing={0.9} // Lissage du bloom
+            height={300} // Résolution du bloom (plus bas = plus performant)
+          />
+        </EffectComposer>
       )}
     </>
   );

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createCellShadingMaterial, updateCellShadingMaterial } from './utils/materials';
+import { createCellShadingMaterial, updateCellShadingMaterial, createXrayMaterial, updateXrayMaterial } from './utils/materials';
 import robotModelCache from '../../utils/robotModelCache';
 
 /**
@@ -30,6 +30,17 @@ export default function URDFRobot({
   const mouse = useRef(new THREE.Vector2());
   const hoveredMesh = useRef(null);
   
+  // ✅ Réutiliser les objets Three.js pour éviter les allocations à chaque frame
+  const tempMatrix = useRef(new THREE.Matrix4());
+  const tempPosition = useRef(new THREE.Vector3());
+  const tempQuaternion = useRef(new THREE.Quaternion());
+  const tempScale = useRef(new THREE.Vector3());
+  
+  // ✅ Cache pour éviter les mises à jour inutiles
+  const lastHeadPoseRef = useRef(null);
+  const lastYawBodyRef = useRef(undefined);
+  const lastAntennasRef = useRef(null);
+  
   // ✅ Gestionnaire de mouvement de la souris pour le raycaster
   useEffect(() => {
     const handleMouseMove = (event) => {
@@ -47,7 +58,7 @@ export default function URDFRobot({
   // ✅ Cache des matériaux pour chaque mesh (séparation TOTALE entre cell shading et X-ray)
   const materialsCache = useRef({
     cellShading: new Map(), // Map<mesh, ShaderMaterial>
-    xray: new Map(),         // Map<mesh, MeshBasicMaterial>
+    xray: new Map(),         // Map<mesh, ShaderMaterial> (maintenant avec shader amélioré)
   });
 
   // ✅ Fonction pour créer ou récupérer un matériau cell shading depuis le cache
@@ -70,17 +81,13 @@ export default function URDFRobot({
     return cache.get(mesh);
   }, []);
 
-  // ✅ Fonction pour créer ou récupérer un matériau X-ray depuis le cache avec couleurs stylées
+  // ✅ Fonction pour créer ou récupérer un matériau X-ray depuis le cache avec couleurs discrètes style radiographie
   const getXrayMaterial = useCallback((mesh, opacity, colorOverride = null) => {
     const cache = materialsCache.current.xray;
     const cacheKey = `${mesh.uuid}_${colorOverride || 'default'}`;
     
     if (!cache.has(cacheKey)) {
-      // ✅ Couleurs stylées et punchy pour le mode X-ray
-      let xrayColor = colorOverride;
-      
-      if (!xrayColor) {
-        // Déterminer la couleur selon le type d'objet
+      // ✅ Déterminer le type d'objet AVANT de déterminer la couleur
         const isAntenna = mesh.userData?.isAntenna || false;
         const isShellPiece = mesh.userData?.isShellPiece || false;
         const isBigLens = (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('big_lens') ||
@@ -88,49 +95,85 @@ export default function URDFRobot({
                          (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('lens_d40') ||
                          (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('lens_d30');
         
+      // ✅ Couleurs discrètes style radiographie (tons de gris/bleu pâle)
+      let xrayColor = colorOverride;
+      
+      if (!xrayColor) {
+        // ✅ Palette X-ray réaliste avec différentes teintes selon le matériau
+        // Style radiographie médicale : différentes densités = différentes teintes
         if (isAntenna) {
-          xrayColor = 0x00FF00; // Vert vif pour les antennes
+          // Antennes : métal dense = gris moyen avec légère teinte bleutée
+          xrayColor = 0x5A6B7C; // Gris moyen-bleuté (densité moyenne-élevée)
         } else if (isBigLens) {
-          xrayColor = 0x00FFFF; // Cyan vif pour les lentilles
+          // Lentilles : verre/plastique = gris clair avec teinte légèrement verdâtre
+          xrayColor = 0x6B7B7A; // Gris clair-verdâtre (densité faible-moyenne)
         } else if (isShellPiece) {
-          xrayColor = 0xFF00FF; // Magenta vif pour les coques
+          // Coques : plastique épais = gris moyen avec teinte légèrement bleutée
+          xrayColor = 0x5A6570; // Gris moyen (densité moyenne)
         } else {
-          // Couleur basée sur la couleur originale mais plus saturée
+          // Couleur basée sur la luminosité originale (style radiographie)
           const originalColor = mesh.userData?.originalColor || 0xFF9500;
-          // Convertir en HSV, augmenter la saturation, puis revenir en RGB
-          const r = ((originalColor >> 16) & 0xFF) / 255;
-          const g = ((originalColor >> 8) & 0xFF) / 255;
-          const b = (originalColor & 0xFF) / 255;
+          const r = (originalColor >> 16) & 0xFF;
+          const g = (originalColor >> 8) & 0xFF;
+          const b = originalColor & 0xFF;
           
-          // Couleurs vives selon la teinte originale
-          if (r > 0.8 && g < 0.5 && b < 0.5) {
-            xrayColor = 0xFF0080; // Rouge/Rose vif
-          } else if (r > 0.7 && g > 0.7 && b < 0.5) {
-            xrayColor = 0xFFFF00; // Jaune vif
-          } else if (r < 0.5 && g > 0.7 && b < 0.5) {
-            xrayColor = 0x00FF00; // Vert vif
-          } else if (r < 0.5 && g < 0.5 && b > 0.7) {
-            xrayColor = 0x0080FF; // Bleu vif
-          } else if (r > 0.6 && g > 0.6 && b > 0.6) {
-            xrayColor = 0xFFFFFF; // Blanc pour les objets gris/blancs
+          // Calculer la luminosité pour mapper sur une palette réaliste
+          const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
+          
+          // ✅ Palette X-ray réaliste : assombrie avec variations de teinte subtiles
+          // Plus sombre = plus réaliste, avec légères teintes colorées comme les vrais scans
+          if (luminance > 200) {
+            xrayColor = 0x6B757D; // Gris moyen-clair (densité moyenne-élevée)
+          } else if (luminance > 150) {
+            xrayColor = 0x5A6570; // Gris moyen (densité moyenne)
+          } else if (luminance > 100) {
+            xrayColor = 0x4A5560; // Gris moyen-foncé (densité moyenne-faible)
+          } else if (luminance > 50) {
+            xrayColor = 0x3A4550; // Gris foncé (densité faible)
           } else {
-            xrayColor = 0xFF9500; // Orange vif par défaut
+            xrayColor = 0x2A3540; // Gris très foncé (densité très faible, presque transparent)
           }
         }
       }
       
-      const material = new THREE.MeshBasicMaterial({
-        color: xrayColor,
-        transparent: true,
-        opacity: opacity,
-        depthWrite: false,
-        side: THREE.DoubleSide,
+      // ✅ Utiliser le shader X-ray amélioré avec rim lighting
+      // Rim color adapté selon le matériau pour plus de réalisme
+      const rimColor = isAntenna ? 0x8A9AAC : // Légèrement bleuté pour métal
+                       isBigLens ? 0x7A8A8A : // Légèrement verdâtre pour verre
+                       isShellPiece ? 0x7A8590 : // Gris neutre pour plastique
+                       0x6A7580; // Gris neutre pour autres matériaux
+      
+      // ✅ Transparence accrue pour les pièces imprimées en 3D (shell pieces)
+      // Les pièces imprimées en 3D sont moins denses, donc plus transparentes en X-ray
+      const finalOpacity = isShellPiece ? opacity * 0.4 : opacity; // 60% de transparence en plus pour les coques
+      
+      const material = createXrayMaterial(xrayColor, {
+        rimColor: rimColor, // Teinte adaptée au matériau
+        rimPower: 2.0,
+        rimIntensity: 0.25, // Réduit pour un look plus réaliste
+        opacity: finalOpacity, // Opacité réduite pour les pièces 3D imprimées
+        edgeIntensity: 0.2, // Réduit pour un look plus discret
+        subsurfaceColor: isAntenna ? 0x4A5A6C : // Subsurface bleuté pour métal
+                         isBigLens ? 0x5A6A6A : // Subsurface verdâtre pour verre
+                         0x4A5560, // Subsurface neutre pour autres
+        subsurfaceIntensity: 0.15, // Réduit pour plus de subtilité
       });
       cache.set(cacheKey, material);
     } else {
       // Mettre à jour l'opacité si elle change
       const material = cache.get(cacheKey);
-      material.opacity = opacity;
+      if (material.uniforms) {
+        // ✅ Appliquer la transparence accrue pour les pièces 3D imprimées
+        const isShellPiece = mesh.userData?.isShellPiece || false;
+        const finalOpacity = isShellPiece ? opacity * 0.3 : opacity;
+        // Shader material
+        updateXrayMaterial(material, { opacity: finalOpacity });
+      } else {
+        // MeshBasicMaterial (fallback)
+        const isShellPiece = mesh.userData?.isShellPiece || false;
+        const finalOpacity = isShellPiece ? opacity * 0.3 : opacity;
+        material.opacity = finalOpacity;
+      }
     }
     
     return cache.get(cacheKey);
@@ -354,7 +397,7 @@ export default function URDFRobot({
         // ✅ BIG_LENS : Cell shading AVEC transparence (pas de matériau glass)
         // Appliquer le cell shading comme les autres pièces, mais avec transparence
         if (!transparent) {
-          const lensOpacity = 0.9; // Opacité transparente mais visible
+          const lensOpacity = 0.75; // Opacité réduite pour mode normal (cell shading)
           
           // ✅ Créer un matériau cell shading NOIR pour les lentilles
           // Utiliser directement createCellShadingMaterial avec couleur noire
@@ -396,8 +439,8 @@ export default function URDFRobot({
             child.userData.outlineMesh = null;
           }
         } else {
-          // En mode X-ray, utiliser le matériau X-ray avec couleur cyan pour les lentilles
-          const xrayMaterial = getXrayMaterial(child, opacity, 0x00FFFF); // Cyan vif pour les lentilles
+          // En mode X-ray, utiliser le matériau X-ray avec couleur gris clair pour les lentilles
+          const xrayMaterial = getXrayMaterial(child, opacity, 0x6B7B7A); // Gris clair-verdâtre pour les lentilles (style X-ray)
           child.material = xrayMaterial;
         }
         
@@ -427,8 +470,8 @@ export default function URDFRobot({
         antennaCount++;
         
         if (transparent) {
-          // Mode X-ray : Vert vif et punchy pour les antennes
-          const antennaMaterial = getXrayMaterial(child, opacity, 0x00FF00); // Vert vif
+          // Mode X-ray : Gris bleuté discret pour les antennes
+          const antennaMaterial = getXrayMaterial(child, opacity, 0x5A6B7C); // Gris moyen-bleuté (densité métal)
           child.material = antennaMaterial;
         } else {
           // Mode normal : Noir opaque
@@ -519,6 +562,13 @@ export default function URDFRobot({
       else {
         const xrayMaterial = getXrayMaterial(child, opacity);
         child.material = xrayMaterial;
+        
+        // ✅ Fix flickering : utiliser un renderOrder statique basé sur la hiérarchie
+        // Les objets sont triés naturellement par Three.js, on évite juste les conflits
+        if (!child.userData.renderOrderSet) {
+          child.renderOrder = 0; // Laisser Three.js gérer le tri automatique
+          child.userData.renderOrderSet = true;
+        }
         
           // Supprimer les contours en mode X-ray
           if (child.userData.outlineMesh) {
@@ -723,43 +773,54 @@ export default function URDFRobot({
     // Si forceLoad est true, on veut que le robot bouge même si isActive est temporairement false
     if (!isActive && !forceLoad) return;
 
-    // ÉTAPE 1 : Appliquer yaw_body (rotation du corps)
-    if (yawBody !== undefined && robot.joints['yaw_body']) {
+    // ÉTAPE 1 : Appliquer yaw_body (rotation du corps) - seulement si changé
+    if (yawBody !== lastYawBodyRef.current && yawBody !== undefined && robot.joints['yaw_body']) {
       robot.setJointValue('yaw_body', yawBody);
+      lastYawBodyRef.current = yawBody;
     }
 
     // ÉTAPE 2 : Appliquer head_pose (transformation complète de la tête via Stewart platform)
-    if (headPose && headPose.length === 16) {
+    // ✅ Vérifier si headPose a changé pour éviter les recalculs inutiles
+    const headPoseChanged = headPose && headPose.length === 16 && 
+                           JSON.stringify(headPose) !== JSON.stringify(lastHeadPoseRef.current);
+    
+    if (headPoseChanged) {
       const xl330Link = robot.links['xl_330'];
       
       if (xl330Link) {
-        const matrix = new THREE.Matrix4();
-        matrix.fromArray(headPose);
-        
-        const position = new THREE.Vector3();
-        const quaternion = new THREE.Quaternion();
-        const scale = new THREE.Vector3();
-        matrix.decompose(position, quaternion, scale);
+        // ✅ Réutiliser les objets Three.js au lieu de les recréer (CRITIQUE pour performance)
+        tempMatrix.current.fromArray(headPose);
+        tempMatrix.current.decompose(tempPosition.current, tempQuaternion.current, tempScale.current);
         
         // Appliquer rotation + translation
-        xl330Link.position.copy(position);
-        xl330Link.quaternion.copy(quaternion);
+        xl330Link.position.copy(tempPosition.current);
+        xl330Link.quaternion.copy(tempQuaternion.current);
         xl330Link.updateMatrix();
         xl330Link.updateMatrixWorld(true);
+        
+        lastHeadPoseRef.current = headPose.slice(); // Copie pour comparaison
       }
     }
 
-    // ÉTAPE 3 : Mettre à jour les antennes
-    if (antennas && antennas.length >= 2) {
+    // ÉTAPE 3 : Mettre à jour les antennes - seulement si changé
+    const antennasChanged = antennas && antennas.length >= 2 && 
+                           JSON.stringify(antennas) !== JSON.stringify(lastAntennasRef.current);
+    
+    if (antennasChanged) {
       if (robot.joints['left_antenna']) {
         robot.setJointValue('left_antenna', antennas[0]);
       }
       if (robot.joints['right_antenna']) {
         robot.setJointValue('right_antenna', antennas[1]);
       }
+      lastAntennasRef.current = antennas.slice(); // Copie pour comparaison
     }
     
-    // ✅ Détection du survol avec raycaster pour debug
+    // ✅ Détection du survol avec raycaster pour debug (throttlé pour performance)
+    // Désactiver en production ou throttler à ~10 FPS max
+    if (process.env.NODE_ENV === 'development') {
+      // Throttle le raycaster à ~10 FPS (toutes les 6 frames environ)
+      if (Math.random() < 0.16) { // ~10% des frames
     raycaster.current.setFromCamera(mouse.current, camera);
     const intersects = raycaster.current.intersectObject(robot, true);
     
@@ -806,6 +867,8 @@ export default function URDFRobot({
       }
     } else {
       hoveredMesh.current = null;
+        }
+      }
     }
   });
 

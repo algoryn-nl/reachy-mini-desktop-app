@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Stack, CircularProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CheckIcon from '@mui/icons-material/Check';
 import Viewer3D from './viewer3d';
 import { getShortComponentName } from '../utils/componentNames';
 
@@ -13,16 +12,7 @@ export default function DevPlayground() {
   const [mode, setMode] = useState('normal'); // 'normal', 'scan' ou 'hardware-scan'
   const [currentComponent, setCurrentComponent] = useState(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
-  const [scannedComponents, setScannedComponents] = useState([]); // Liste des composants scannés
   const [scanComplete, setScanComplete] = useState(false); // Scan terminé avec succès
-  const logBoxRef = useRef(null);
-  
-  // Auto-scroll vers le bas à chaque ajout de composant
-  useEffect(() => {
-    if (logBoxRef.current) {
-      logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
-    }
-  }, [scannedComponents]);
 
   const handleScanComplete = useCallback(() => {
     console.log('✅ Scan completed in DevPlayground');
@@ -38,12 +28,6 @@ export default function DevPlayground() {
       current: Math.max(prev.current, index),
       total: total
     }));
-    
-    // Ajouter le composant à la liste des scannés après un délai
-    // pour synchroniser avec l'animation visuelle (qui prend ~200ms pour être bien visible)
-    setTimeout(() => {
-      setScannedComponents(prev => [...prev, componentName]);
-    }, 200);
   }, []);
 
   const handleModeChange = (newMode) => {
@@ -51,7 +35,6 @@ export default function DevPlayground() {
     // Reset scan state when changing mode
     setCurrentComponent(null);
     setScanProgress({ current: 0, total: 0 });
-    setScannedComponents([]);
     setScanComplete(false);
   };
 
@@ -213,65 +196,6 @@ export default function DevPlayground() {
                   {scanProgress.current}/{scanProgress.total}
                 </Typography>
               )}
-            </Box>
-            
-            {/* Boîte de logs - 3 lignes max, scrollée vers le bas */}
-            <Box
-              ref={logBoxRef}
-              sx={{
-                width: '80%',
-                maxWidth: '320px',
-                height: '57px', // Environ 3 lignes
-                bgcolor: 'rgba(0, 0, 0, 0.02)',
-                border: '1px solid rgba(0, 0, 0, 0.06)',
-                borderRadius: '8px',
-                px: 1.5,
-                py: 0.75,
-                overflow: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.25,
-                '&::-webkit-scrollbar': {
-                  width: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: 'rgba(0, 0, 0, 0.1)',
-                  borderRadius: '2px',
-                },
-              }}
-            >
-              {scannedComponents.map((component, idx) => (
-                <Box 
-                  key={idx}
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 0.75,
-                    minHeight: '16px',
-                  }}
-                >
-                  <CheckIcon
-                    sx={{
-                      fontSize: 10,
-                      color: '#16a34a',
-                    }}
-                  />
-                  <Typography
-                    sx={{
-                      fontSize: 9,
-                      fontWeight: 500,
-                      color: '#666',
-                      fontFamily: 'monospace',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {component}
-                  </Typography>
-                </Box>
-              ))}
             </Box>
           </Box>
         )}

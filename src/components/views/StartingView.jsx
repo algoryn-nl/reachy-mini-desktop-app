@@ -1,8 +1,7 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
+import React, { useState, useCallback } from 'react';
+import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
-import CheckIcon from '@mui/icons-material/Check';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import Viewer3D from '../viewer3d';
@@ -23,16 +22,7 @@ function StartingView({ startupError }) {
   const [scanError, setScanError] = useState(null);
   const [errorMesh, setErrorMesh] = useState(null); // The mesh in error for camera focus
   const [isRetrying, setIsRetrying] = useState(false);
-  const [scannedComponents, setScannedComponents] = useState([]); // List of scanned components
   const [scanComplete, setScanComplete] = useState(false); // Scan completed successfully
-  const logBoxRef = useRef(null);
-  
-  // Auto-scroll to bottom on each component addition
-  useEffect(() => {
-    if (logBoxRef.current) {
-      logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
-    }
-  }, [scannedComponents]);
   
   const handleRetry = useCallback(async () => {
     console.log('🔄 Retrying scan...');
@@ -51,7 +41,6 @@ function StartingView({ startupError }) {
       setErrorMesh(null);
       setScanProgress({ current: 0, total: 0 });
       setCurrentComponent(null);
-      setScannedComponents([]);
       setScanComplete(false);
       setHardwareError(null);
       
@@ -98,12 +87,6 @@ function StartingView({ startupError }) {
       current: Math.max(prev.current, index),
       total: total
     }));
-    
-    // Add component to scanned list after a delay
-    // to synchronize with visual animation (which takes ~200ms to be clearly visible)
-    setTimeout(() => {
-      setScannedComponents(prev => [...prev, componentName]);
-    }, 200);
     
     // ========================================================================
     // ⚠️ HARDWARE ERROR SIMULATION - To test error UI
@@ -167,9 +150,7 @@ function StartingView({ startupError }) {
           userSelect: 'none',
         }}
       >
-        <Box sx={{ width: 12, height: 12 }} />
         <Box sx={{ height: 20 }} /> {/* Space for drag */}
-        <Box sx={{ width: 20, height: 20 }} />
       </Box>
 
       {/* Centered content */}
@@ -184,11 +165,11 @@ function StartingView({ startupError }) {
           gap: 1.5,
         }}
       >
-        {/* Robot Viewer 3D - Clean design */}
+        {/* Robot Viewer 3D - Clean design, plus grand */}
         <Box
           sx={{
             width: '100%',
-            maxWidth: '400px',
+            maxWidth: '450px',
             position: 'relative',
           }}
         >
@@ -196,7 +177,7 @@ function StartingView({ startupError }) {
           <Box
             sx={{
               width: '100%',
-              height: '360px',
+              height: '480px',
               position: 'relative',
             }}
           >
@@ -219,15 +200,16 @@ function StartingView({ startupError }) {
           </Box>
         </Box>
 
-        {/* Status - Minimalist design */}
+        {/* Status - Minimalist design, plus discret */}
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             width: '100%',
-            maxWidth: '400px',
-            minHeight: '90px',
+            maxWidth: '450px',
+            minHeight: '60px',
+            mt: -2, // Réduire l'espace au-dessus
           }}
         >
           {(startupError || scanError) ? (
@@ -259,6 +241,38 @@ function StartingView({ startupError }) {
               
               {/* Main instruction - Larger with bold words */}
               <Box sx={{ textAlign: 'center' }}>
+                {startupError && startupError.includes('MuJoCo') ? (
+                  // 🎮 Erreur MuJoCo spécifique avec instructions
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography
+                      component="span"
+                      sx={{
+                        fontSize: 14,
+                        fontWeight: 500,
+                        color: darkMode ? '#f5f5f5' : '#333',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <Box component="span" sx={{ fontWeight: 700 }}>MuJoCo</Box> is not installed
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 400,
+                        color: darkMode ? '#999' : '#666',
+                        fontFamily: 'monospace',
+                        bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
+                        px: 1.5,
+                        py: 0.75,
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 149, 0, 0.2)',
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      pip install reachy_mini[mujoco]
+                    </Typography>
+                  </Box>
+                ) : scanError?.action ? (
                 <Typography
                   component="span"
                   sx={{
@@ -268,16 +282,24 @@ function StartingView({ startupError }) {
                     lineHeight: 1.5,
                   }}
                 >
-                  {scanError?.action ? (
-                    <>
                       <Box component="span" sx={{ fontWeight: 700 }}>Check</Box> the{' '}
                       <Box component="span" sx={{ fontWeight: 700 }}>camera cable</Box> connection and{' '}
                       <Box component="span" sx={{ fontWeight: 700 }}>restart</Box>
-                    </>
+                  </Typography>
                   ) : (
-                    startupError
-                  )}
+                  <Typography
+                    component="span"
+                    sx={{
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: darkMode ? '#f5f5f5' : '#333',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {startupError}
                 </Typography>
+                )}
               </Box>
               
               {/* Technical error code - Smaller, secondary */}
@@ -328,44 +350,44 @@ function StartingView({ startupError }) {
               </Button>
             </Box>
           ) : (
-            // 🔄 Scanning in progress - Clean design with logs
+            // 🔄 Scanning in progress - Clean design, plus discret et compact
             <Box
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: 1.5,
+                gap: 0.75,
                 width: '100%',
               }}
             >
-              {/* Title + spinner/checkmark + discrete counter */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              {/* Title + spinner/checkmark + discrete counter - Plus discret et compact */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {scanComplete ? (
                   // ✅ Success checkmark (outlined)
                   <CheckCircleOutlinedIcon
                     sx={{
-                      fontSize: 18,
-                      color: darkMode ? '#22c55e' : '#16a34a',
+                      fontSize: 14,
+                      color: darkMode ? 'rgba(34, 197, 94, 0.6)' : 'rgba(22, 163, 74, 0.5)',
                     }}
                   />
                 ) : (
                   // 🔄 Spinner in progress
                   <CircularProgress 
-                    size={16} 
+                    size={12} 
                     thickness={4} 
                     sx={{ 
-                      color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.3)',
+                      color: darkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.2)',
                     }} 
                   />
                 )}
                 <Typography
                   sx={{
-                    fontSize: 13,
-                    fontWeight: 600,
+                    fontSize: 10,
+                    fontWeight: 500,
                     color: scanComplete 
-                      ? (darkMode ? '#22c55e' : '#16a34a')
-                      : (darkMode ? '#f5f5f5' : '#333'),
-                    letterSpacing: '0.2px',
+                      ? (darkMode ? 'rgba(34, 197, 94, 0.6)' : 'rgba(22, 163, 74, 0.5)')
+                      : (darkMode ? 'rgba(245, 245, 245, 0.5)' : 'rgba(51, 51, 51, 0.5)'),
+                    letterSpacing: '0.1px',
                     transition: 'color 0.3s ease',
                   }}
                 >
@@ -374,9 +396,9 @@ function StartingView({ startupError }) {
                 {!scanComplete && (
                   <Typography
                     sx={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: darkMode ? '#666' : '#999',
+                      fontSize: 8,
+                      fontWeight: 500,
+                      color: darkMode ? 'rgba(102, 102, 102, 0.6)' : 'rgba(153, 153, 153, 0.6)',
                       fontFamily: 'monospace',
                       ml: 0.5,
                     }}
@@ -384,66 +406,6 @@ function StartingView({ startupError }) {
                     {scanProgress.current}/{scanProgress.total}
                   </Typography>
                 )}
-              </Box>
-              
-              {/* Log box - Max 3 lines, scrolled to bottom */}
-              <Box
-                ref={logBoxRef}
-                sx={{
-                  width: '80%',
-                  maxWidth: '320px',
-                  height: '57px', // Environ 3 lignes
-                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
-                  border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}`,
-                  borderRadius: '8px',
-                  px: 1.5,
-                  py: 0.75,
-                  overflow: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 0.25,
-                  opacity: 0.5,
-                  '&::-webkit-scrollbar': {
-                    width: '4px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    background: 'transparent',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    background: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                    borderRadius: '2px',
-                  },
-                }}
-              >
-                {scannedComponents.map((component, idx) => (
-                  <Box 
-                    key={idx}
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 0.75,
-                      minHeight: '16px',
-                    }}
-                  >
-                    <CheckIcon
-                      sx={{
-                        fontSize: 10,
-                        color: darkMode ? '#22c55e' : '#16a34a',
-                      }}
-                    />
-                    <Typography
-                      sx={{
-                        fontSize: 9,
-                        fontWeight: 500,
-                        color: darkMode ? '#888' : '#666',
-                        fontFamily: 'monospace',
-                        lineHeight: 1,
-                      }}
-                    >
-                      {component}
-                    </Typography>
-                  </Box>
-                ))}
               </Box>
             </Box>
           )}

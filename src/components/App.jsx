@@ -5,6 +5,8 @@ import useAppStore from '../store/useAppStore';
 import { useDaemon } from '../hooks/useDaemon';
 import { useDaemonHealthCheck } from '../hooks/useDaemonHealthCheck';
 import { useUsbDetection } from '../hooks/useUsbDetection';
+import { useSimulationMode } from '../hooks/useSimulationMode';
+import { useSidecarErrors } from '../hooks/useSidecarErrors';
 import { useRobotCommands } from '../hooks/useRobotCommands';
 import { useLogs } from '../hooks/useLogs';
 import { useWindowResize } from '../hooks/useWindowResize';
@@ -19,6 +21,7 @@ function App() {
   const { daemonVersion, hardwareError, isTransitioning, setIsTransitioning, setHardwareError } = useAppStore();
   const { isActive, isStarting, isStopping, startupError, checkStatus, startDaemon, stopDaemon, fetchDaemonVersion } = useDaemon();
   const { isUsbConnected, usbPortName, checkUsbRobot } = useUsbDetection();
+  const { isEnabled: isSimulationMode } = useSimulationMode();
   const { sendCommand, playRecordedMove, isCommandRunning } = useRobotCommands();
   const { logs, fetchLogs } = useLogs();
   
@@ -40,6 +43,9 @@ function App() {
   
   // 🏥 Centralized health check (SINGLE place for crash detection)
   useDaemonHealthCheck();
+  
+  // 🎮 Listen to sidecar errors (e.g., MuJoCo not installed)
+  useSidecarErrors();
   
   // 🤖 Debug: Display state machine transitions
   const robotStatus = useAppStore(state => state.robotStatus);
@@ -95,13 +101,13 @@ function App() {
     };
   }, [checkStatus, fetchLogs, checkUsbRobot, fetchDaemonVersion]);
 
-  // Stop daemon automatically if robot gets disconnected
+  // Stop daemon automatically if robot gets disconnected (but not in simulation mode)
   useEffect(() => {
-    if (!isUsbConnected && isActive) {
+    if (!isSimulationMode && !isUsbConnected && isActive) {
       console.log('⚠️ Robot disconnected during use - stopping daemon');
       stopDaemon();
     }
-  }, [isUsbConnected, isActive, stopDaemon]);
+  }, [isUsbConnected, isActive, stopDaemon, isSimulationMode]);
 
   // ✅ Callback to close TransitionView when apps are loaded
   // ⚠️ IMPORTANT: All hooks must be called before conditional returns
@@ -112,8 +118,9 @@ function App() {
     }
   }, [isTransitioning, setIsTransitioning]);
 
-  // Conditional view: Robot not connected
-  if (!isUsbConnected) {
+  // 🎮 En mode simulation, bypasser complètement la vue USB
+  // Conditional view: Robot not connected (skip in simulation mode)
+  if (!isSimulationMode && !isUsbConnected) {
     return <RobotNotDetectedView />;
   }
 
@@ -166,6 +173,7 @@ function App() {
         startDaemon={startDaemon} 
         isStarting={isStarting} 
         usbPortName={usbPortName}
+        isSimulationMode={isSimulationMode}
         updateAvailable={updateAvailable}
         isChecking={isChecking}
         isDownloading={isDownloading}

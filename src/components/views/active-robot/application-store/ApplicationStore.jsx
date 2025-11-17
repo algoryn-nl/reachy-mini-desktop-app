@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
+import { Box, Typography, IconButton, Button, ButtonGroup } from '@mui/material';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import useAppStore from '../../../../store/useAppStore';
@@ -8,6 +8,7 @@ import { useAppHandlers } from './useAppHandlers';
 import InstalledAppsSection from './InstalledAppsSection';
 import DiscoverAppsSection from './DiscoverAppsSection';
 import InstallOverlay from './InstallOverlay';
+import QuickActionsPad from './QuickActionsPad';
 
 /**
  * Application Store for Reachy Mini
@@ -15,10 +16,24 @@ import InstallOverlay from './InstallOverlay';
  * @param {Function} showToast - Function to show toasts (message, severity)
  */
 
-export default function ApplicationStore({ showToast, onLoadingChange }) {
-  const { darkMode, toggleDarkMode } = useAppStore();
-  const isActive = useAppStore(state => state.isActive);
-  const isBusy = useAppStore(state => state.isBusy());
+export default function ApplicationStore({ 
+  showToast, 
+  onLoadingChange,
+  quickActions = [],
+  handleQuickAction = null,
+  isReady = false,
+  isActive = false,
+  isBusy = false,
+  darkMode = false,
+}) {
+  const { darkMode: storeDarkMode, toggleDarkMode } = useAppStore();
+  // Use prop darkMode if provided, otherwise use store darkMode
+  const effectiveDarkMode = darkMode !== undefined ? darkMode : storeDarkMode;
+  // Use props isActive/isBusy if provided, otherwise use store values
+  const storeIsActive = useAppStore(state => state.isActive);
+  const storeIsBusy = useAppStore(state => state.isBusy());
+  const effectiveIsActive = isActive !== undefined ? isActive : storeIsActive;
+  const effectiveIsBusy = isBusy !== undefined ? isBusy : storeIsBusy;
   const installingAppName = useAppStore(state => state.installingAppName);
   const installJobType = useAppStore(state => state.installJobType);
   const installResult = useAppStore(state => state.installResult);
@@ -35,7 +50,7 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
     stopCurrentApp,
     fetchAvailableApps,
     isLoading,
-  } = useApps(isActive);
+  } = useApps(effectiveIsActive);
   
   // ✅ Notify parent when loading status changes
   useEffect(() => {
@@ -113,58 +128,62 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
           background: 'transparent',
         },
         '&::-webkit-scrollbar-thumb': {
-          background: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+          background: effectiveDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
           borderRadius: '3px',
         },
         '&:hover::-webkit-scrollbar-thumb': {
-          background: darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+          background: effectiveDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
         },
       }}
     >
-      {/* Header */}
+      {/* Quick Actions Section - Pad Design */}
+      {quickActions.length > 0 && handleQuickAction && (
+        <Box sx={{ px: 3, pt: 0, pb: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: effectiveDarkMode ? '#f5f5f5' : '#333',
+              letterSpacing: '-0.3px',
+              mb: 1.5,
+            }}
+          >
+            Quick Actions
+          </Typography>
+          <QuickActionsPad
+            actions={quickActions}
+            onActionClick={handleQuickAction}
+            isReady={isReady}
+            isActive={effectiveIsActive}
+            isBusy={effectiveIsBusy}
+            darkMode={effectiveDarkMode}
+          />
+        </Box>
+      )}
+
+      {/* Header Applications */}
       <Box 
         sx={{ 
           px: 3, 
           pb: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography
-            sx={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: darkMode ? '#f5f5f5' : '#333',
-              letterSpacing: '-0.3px',
-            }}
-          >
-            Applications
-          </Typography>
-          
-          {/* Dark Mode Toggle */}
-          <IconButton
-            size="small"
-            onClick={toggleDarkMode}
-            sx={{
-              width: 32,
-              height: 32,
-              bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'transparent',
-              '&:hover': {
-                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.12)' : 'rgba(0, 0, 0, 0.04)',
-              },
-            }}
-          >
-            {darkMode ? (
-              <LightModeOutlinedIcon sx={{ fontSize: 18, color: '#FF9500' }} />
-            ) : (
-              <DarkModeOutlinedIcon sx={{ fontSize: 18, color: darkMode ? '#aaa' : '#999' }} />
-            )}
-          </IconButton>
-        </Box>
+        <Typography
+          sx={{
+            fontSize: 20,
+            fontWeight: 700,
+            color: effectiveDarkMode ? '#f5f5f5' : '#333',
+            letterSpacing: '-0.3px',
+            mb: 0.5,
+          }}
+        >
+          Applications
+        </Typography>
         
         <Typography
           sx={{
             fontSize: 12,
-            color: darkMode ? '#888' : '#999',
+            color: effectiveDarkMode ? '#888' : '#999',
             fontWeight: 500,
           }}
         >
@@ -175,14 +194,14 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
       {/* Installed Apps Section */}
       <InstalledAppsSection
         installedApps={installedApps}
-        darkMode={darkMode}
+        darkMode={effectiveDarkMode}
         expandedApp={expandedApp}
         setExpandedApp={setExpandedApp}
         appSettings={appSettings}
         updateAppSetting={updateAppSetting}
         startingApp={startingApp}
         currentApp={currentApp}
-        isBusy={isBusy}
+        isBusy={effectiveIsBusy}
         isJobRunning={isJobRunning}
         handleStartApp={handleStartApp}
         handleUninstall={handleUninstall}
@@ -193,8 +212,8 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
       {/* Discover from Hugging Face */}
       <DiscoverAppsSection
         filteredApps={filteredApps}
-        darkMode={darkMode}
-        isBusy={isBusy}
+        darkMode={effectiveDarkMode}
+        isBusy={effectiveIsBusy}
         activeJobs={activeJobs}
         isJobRunning={isJobRunning}
         handleInstall={handleInstall}
@@ -208,7 +227,7 @@ export default function ApplicationStore({ showToast, onLoadingChange }) {
         <InstallOverlay
           appInfo={installingApp}
           jobInfo={installingJob || { type: installJobType || 'install', status: 'starting', logs: [] }}
-          darkMode={darkMode}
+          darkMode={effectiveDarkMode}
           jobType={installJobType || 'install'}
           resultState={installResult}
         />
