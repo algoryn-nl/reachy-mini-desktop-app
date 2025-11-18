@@ -40,29 +40,6 @@ export function useApps(isActive) {
         
         if (response.ok) {
           daemonApps = await response.json();
-          console.log('📦 Fetched', daemonApps.length, 'apps from daemon (primary source)');
-          // Debug: log installed apps structure
-          const installedFromDaemon = daemonApps.filter(app => app.source_kind === 'installed');
-          if (installedFromDaemon.length > 0) {
-            console.log('📦 Installed apps from daemon:', installedFromDaemon.map(app => ({
-              name: app.name,
-              id: app.id,
-              icon: app.icon,
-              extra: app.extra,
-              fullApp: app, // Full app object for debugging
-            })));
-          }
-          
-          // Debug: log available apps structure (to see if they have icons)
-          const availableFromDaemon = daemonApps.filter(app => app.source_kind !== 'installed');
-          if (availableFromDaemon.length > 0) {
-            console.log('📦 Available apps from daemon (first 3):', availableFromDaemon.slice(0, 3).map(app => ({
-              name: app.name,
-              id: app.id,
-              icon: app.icon,
-              extra: app.extra,
-            })));
-          }
         } else {
           console.warn('⚠️ Failed to fetch apps from daemon:', response.status);
         }
@@ -74,7 +51,6 @@ export function useApps(isActive) {
       let hfApps = [];
       try {
         hfApps = await fetchHuggingFaceAppList();
-        console.log('📦 Fetched', hfApps.length, 'apps metadata from Hugging Face dataset');
       } catch (hfErr) {
         console.warn('⚠️ Failed to fetch Hugging Face metadata:', hfErr.message);
       }
@@ -126,13 +102,6 @@ export function useApps(isActive) {
         }
       });
       
-      // Debug: log all HF app ids/names for debugging
-      console.log('📦 HF apps indexed:', hfApps.slice(0, 5).map(app => ({
-        id: app.id,
-        name: app.name,
-        icon: app.icon,
-      })));
-      
       // 4. Enrich daemon apps with HF metadata
       const enrichedApps = daemonApps.map(daemonApp => {
         // Find corresponding HF metadata (try multiple matching strategies)
@@ -169,36 +138,6 @@ export function useApps(isActive) {
                             daemonApp.name.toLowerCase().includes(hfApp.name.toLowerCase())))
           ) : null);
         
-        // Debug matching for installed apps
-        if (daemonApp.source_kind === 'installed') {
-          if (!hfMetadata) {
-            console.warn(`⚠️ No HF metadata found for installed app "${daemonApp.name}"`, {
-              daemonApp: {
-                name: daemonApp.name,
-                id: daemonApp.id,
-                extra: daemonApp.extra,
-              },
-              triedNames: [
-                daemonApp.id,
-                daemonApp.id?.toLowerCase(),
-                normalizedDaemonId,
-                daemonApp.name,
-                daemonApp.name?.toLowerCase(),
-                normalizedDaemonName,
-                daemonApp.name?.replace(/_/g, '-'),
-                daemonApp.name?.replace(/-/g, '_'),
-              ],
-              availableKeys: Array.from(hfMetadataMap.keys()).slice(0, 20), // Show first 20 for debugging
-              totalHfApps: hfApps.length,
-            });
-          } else {
-            console.log(`✅ HF metadata found for installed app "${daemonApp.name}":`, {
-              hfId: hfMetadata.id,
-              hfName: hfMetadata.name,
-              hfIcon: hfMetadata.icon,
-            });
-          }
-        }
         
         // Build enriched app
         const enrichedApp = {
@@ -242,22 +181,13 @@ export function useApps(isActive) {
       
       // 6. For installed apps that don't have emoji or lastModified, try to find it from available apps
       // (available apps have the correct Hugging Face metadata)
-      console.log(`📅 [useApps] Enriching ${installed.length} installed apps with metadata from ${available.length} available apps`);
       const installedWithEmoji = installed.map(installedApp => {
         // Check if we need to enrich with metadata from available apps
         const needsEmoji = !installedApp.extra?.cardData?.emoji || installedApp.extra.cardData.emoji === '📦';
         const needsLastModified = !installedApp.extra?.lastModified;
         
-        console.log(`📅 [useApps] App "${installedApp.name}":`, {
-          needsEmoji,
-          needsLastModified,
-          hasLastModified: !!installedApp.extra?.lastModified,
-          lastModified: installedApp.extra?.lastModified,
-        });
-        
         // If already has everything, keep it
         if (!needsEmoji && !needsLastModified) {
-          console.log(`📅 [useApps] App "${installedApp.name}" already has all metadata`);
           return installedApp;
         }
         
@@ -270,20 +200,12 @@ export function useApps(isActive) {
         );
         
         if (matchingAvailable) {
-          console.log(`📅 [useApps] Found matching available app for "${installedApp.name}":`, {
-            name: matchingAvailable.name,
-            id: matchingAvailable.id,
-            hasLastModified: !!matchingAvailable.extra?.lastModified,
-            lastModified: matchingAvailable.extra?.lastModified,
-          });
-          
           const enrichedExtra = {
             ...installedApp.extra,
           };
           
           // Add emoji if needed
           if (needsEmoji && matchingAvailable.extra?.cardData?.emoji) {
-          console.log(`✅ Found emoji for installed app "${installedApp.name}" from available app:`, matchingAvailable.extra.cardData.emoji);
             enrichedExtra.cardData = {
               ...(enrichedExtra.cardData || {}),
               emoji: matchingAvailable.extra.cardData.emoji,
@@ -292,25 +214,13 @@ export function useApps(isActive) {
           
           // Add lastModified if needed
           if (needsLastModified && matchingAvailable.extra?.lastModified) {
-            console.log(`✅ Found lastModified for installed app "${installedApp.name}" from available app:`, matchingAvailable.extra.lastModified);
             enrichedExtra.lastModified = matchingAvailable.extra.lastModified;
-          } else if (needsLastModified) {
-            console.log(`⚠️ [useApps] Matching available app "${matchingAvailable.name}" does not have lastModified`);
           }
           
-          const enrichedApp = {
+          return {
             ...installedApp,
             extra: enrichedExtra,
           };
-          
-          console.log(`📅 [useApps] Enriched app "${installedApp.name}":`, {
-            hasLastModified: !!enrichedApp.extra?.lastModified,
-            lastModified: enrichedApp.extra?.lastModified,
-          });
-          
-          return enrichedApp;
-        } else {
-          console.log(`⚠️ [useApps] No matching available app found for "${installedApp.name}"`);
         }
         
         return installedApp;
@@ -318,20 +228,6 @@ export function useApps(isActive) {
       
       setAvailableApps(enrichedApps);
       setInstalledApps(installedWithEmoji);
-      
-      console.log('📦 Apps processed:', enrichedApps.length, 'total,', installed.length, 'installed');
-      console.log('📦 Available apps (not installed):', enrichedApps.filter(app => app.source_kind !== 'installed').length);
-      if (installed.length > 0) {
-        console.log('📦 Installed app sample:', {
-          name: installed[0].name,
-          emoji: installed[0].extra?.cardData?.emoji,
-          hasCardData: !!installed[0].extra?.cardData,
-          hasIcon: !!installed[0].icon,
-        });
-      }
-      if (enrichedApps.length > 0) {
-        console.log('📦 Sample app:', enrichedApps.find(app => app.source_kind !== 'installed') || enrichedApps[0]);
-      }
       setIsLoading(false);
       return enrichedApps;
     } catch (err) {
@@ -365,7 +261,6 @@ export function useApps(isActive) {
       }
       
       const jobStatus = await response.json();
-      console.log(`📊 Job ${jobId} status:`, jobStatus);
       return jobStatus;
     } catch (err) {
       // Gracefully handle system popup timeouts during polling
@@ -387,7 +282,6 @@ export function useApps(isActive) {
     if (interval) {
       clearInterval(interval);
       jobPollingIntervals.current.delete(jobId);
-      console.log('⏱️ Stop polling job:', jobId);
     }
   }, []);
   
@@ -397,11 +291,8 @@ export function useApps(isActive) {
   const startJobPolling = useCallback((jobId) => {
     // Avoid duplicates
     if (jobPollingIntervals.current.has(jobId)) {
-      console.warn('⚠️ Polling already active for job:', jobId);
       return;
     }
-    
-    console.log('⏱️ Start polling job:', jobId);
     
     const pollJob = async () => {
       // Check if polling is still active (may have been stopped)
@@ -472,7 +363,6 @@ export function useApps(isActive) {
       if (isFinished) {
         stopJobPolling(jobId);
         const finalStatus = jobStatus.status === 'failed' ? 'failed' : 'completed';
-        console.log(`${finalStatus === 'completed' ? '✅' : '❌'} Job ${jobId} finished:`, finalStatus, isSuccessInLogs ? '(detected from logs)' : '(from status field)');
         
         // ⚡ Log to visible LogConsole
         const jobInfo = activeJobs.get(jobId);
@@ -499,13 +389,6 @@ export function useApps(isActive) {
         const newLogs = jobStatus.logs || [];
         const oldLogs = job.logs || [];
         
-        // Log new lines (only if not already logged)
-        if (newLogs.length > oldLogs.length) {
-          const newLines = newLogs.slice(oldLogs.length);
-          newLines.forEach(line => {
-            console.log(`📦 [${job.type}/${job.appName}] ${line}`);
-          });
-        }
         
         updated.set(jobId, {
           ...job,
@@ -533,7 +416,6 @@ export function useApps(isActive) {
         
         // Refresh list after short delay (let daemon update its DB)
         setTimeout(() => {
-          console.log('🔄 Refreshing apps list after job completion');
           fetchAvailableApps();
         }, 500);
         
@@ -562,8 +444,6 @@ export function useApps(isActive) {
    */
   const installApp = useCallback(async (appInfo) => {
     try {
-      console.log('📥 Installing app:', appInfo.name);
-      
       const response = await fetchWithTimeout(
         buildApiUrl('/api/apps/install'),
         {
@@ -586,7 +466,6 @@ export function useApps(isActive) {
       }
       
       const result = await response.json();
-      console.log('📦 Install API response:', result);
       
       // Result can be {"job_id": "xxx"} or {"uuid": ...}
       const jobId = result.job_id || Object.keys(result)[0];
@@ -594,8 +473,6 @@ export function useApps(isActive) {
       if (!jobId) {
         throw new Error('No job_id returned from API');
       }
-      
-      console.log('✅ Installation started, job_id:', jobId);
       
       // Add job to tracking
       setActiveJobs(prev => new Map(prev).set(jobId, {
@@ -641,8 +518,6 @@ export function useApps(isActive) {
    */
   const removeApp = useCallback(async (appName) => {
     try {
-      console.log('🗑️ Removing app:', appName);
-      
       const response = await fetchWithTimeout(
         buildApiUrl(`/api/apps/remove/${encodeURIComponent(appName)}`),
         { method: 'POST' },
@@ -661,7 +536,6 @@ export function useApps(isActive) {
       }
       
       const result = await response.json();
-      console.log('📦 Remove API response:', result);
       
       // Result can be {"job_id": "xxx"} or {"uuid": ...}
       const jobId = result.job_id || Object.keys(result)[0];
@@ -669,8 +543,6 @@ export function useApps(isActive) {
       if (!jobId) {
         throw new Error('No job_id returned from API');
       }
-      
-      console.log('✅ Removal started, job_id:', jobId);
       
       // Add job to tracking
       setActiveJobs(prev => new Map(prev).set(jobId, {
@@ -746,8 +618,6 @@ export function useApps(isActive) {
    */
   const startApp = useCallback(async (appName) => {
     try {
-      console.log('▶️ Starting app:', appName);
-      
       const response = await fetchWithTimeout(
         buildApiUrl(`/api/apps/start-app/${encodeURIComponent(appName)}`),
         { method: 'POST' },
@@ -760,7 +630,6 @@ export function useApps(isActive) {
       }
       
       const status = await response.json();
-      console.log('✅ App started:', status);
       
       // Refresh current app status
       fetchCurrentAppStatus();
@@ -779,8 +648,6 @@ export function useApps(isActive) {
    */
   const stopCurrentApp = useCallback(async () => {
     try {
-      console.log('⏹️ Stopping current app');
-      
       const response = await fetchWithTimeout(
         buildApiUrl('/api/apps/stop-current-app'),
         { method: 'POST' },
@@ -793,7 +660,6 @@ export function useApps(isActive) {
       }
       
       const message = await response.json();
-      console.log('✅ App stopped:', message);
       
       // Reset state immediately
       setCurrentApp(null);

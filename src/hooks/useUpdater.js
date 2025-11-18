@@ -68,22 +68,16 @@ export const useUpdater = ({
     setError(null);
 
     try {
-      console.log('🔍 Checking for updates...');
       const update = await check();
-      console.log('🔍 Update check result:', update);
       
       // Reset retry count on success
       retryCountRef.current = 0;
       lastCheckTimeRef.current = Date.now();
       
       if (update) {
-        console.log(`📦 Update available: ${update.version} (${update.date})`);
         setUpdateAvailable(update);
         return update;
       } else {
-        if (!silent) {
-          console.log('✅ Application is up to date');
-        }
         setUpdateAvailable(null);
         return null;
       }
@@ -94,7 +88,6 @@ export const useUpdater = ({
       // Automatic retry for recoverable errors
       if (isRecoverableError(err) && retryCount < maxRetries) {
         const delay = retryDelay * Math.pow(2, retryCount); // Exponential backoff
-        console.log(`🔄 Retrying in ${delay}ms...`);
         
         await sleep(delay);
         retryCountRef.current = retryCount + 1;
@@ -150,7 +143,6 @@ export const useUpdater = ({
       await update.downloadAndInstall((event) => {
         switch (event.event) {
           case 'Started':
-            console.log(`📥 Download started: ${event.data.contentLength} bytes`);
             setDownloadProgress(0);
             lastProgress = 0;
             targetProgress = 0;
@@ -196,14 +188,9 @@ export const useUpdater = ({
               }, 30000);
             }
             
-            // Log only for significant changes
-            if (Math.abs(progress - lastProgress) >= 5 || progress === 100) {
-              console.log(`📥 Download: ${progress}%`);
-            }
             break;
           
           case 'Finished':
-            console.log('✅ Download finished');
             // Stop animation
             if (animationFrameId) {
               cancelAnimationFrame(animationFrameId);
@@ -220,14 +207,11 @@ export const useUpdater = ({
             break;
         }
       });
-
-      console.log('✅ Update installed successfully');
       
       // downloadAndInstall should handle restart automatically,
       // but we call relaunch() explicitly to ensure restart happens
       // Note: In dev mode, relaunch might not work correctly
       try {
-        console.log('🔄 Restarting application...');
         // Small delay to ensure installation is complete before restarting
         await new Promise(resolve => setTimeout(resolve, 1000));
         
@@ -241,7 +225,6 @@ export const useUpdater = ({
         // In dev mode, relaunch might fail - this is expected
         // The app should still restart automatically via Tauri's updater mechanism
         // Don't throw here, as the update was successful
-        console.log('ℹ️ Relaunch error (may be normal in dev mode), app should restart automatically');
       }
     } catch (err) {
       console.error(`❌ Error installing update (attempt ${retryCount + 1}/${maxRetries}):`, err);
@@ -263,7 +246,6 @@ export const useUpdater = ({
       // Automatic retry for recoverable errors during download
       if (isRecoverableError(err) && retryCount < maxRetries) {
         const delay = retryDelay * Math.pow(2, retryCount);
-        console.log(`🔄 Retrying download in ${delay}ms...`);
         
         await sleep(delay);
         return downloadAndInstall(update, retryCount + 1);

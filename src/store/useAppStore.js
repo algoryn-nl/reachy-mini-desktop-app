@@ -13,18 +13,15 @@ const getStoredPreference = () => {
   return stored ? JSON.parse(stored) : null;
 };
 
-// Determine initial dark mode
+  // Determine initial dark mode
 const getInitialDarkMode = () => {
   const storedPreference = getStoredPreference();
   // If user has stored preference, use it
   if (storedPreference !== null) {
-    console.log('🎨 Using stored dark mode preference:', storedPreference);
     return storedPreference;
   }
   // Otherwise, use system preference
-  const systemPreference = getSystemPreference();
-  console.log('🎨 Using system dark mode preference:', systemPreference);
-  return systemPreference;
+  return getSystemPreference();
 };
 
 // Track last logged state to avoid repeated logs
@@ -88,10 +85,7 @@ const useAppStore = create((set) => ({
   // Update robotStatus + busyReason + legacy states (backwards compat)
   transitionTo: {
     disconnected: () => {
-      if (lastLoggedStatus !== 'disconnected') {
-        console.log('🤖 [STATE] → disconnected');
-        lastLoggedStatus = 'disconnected';
-      }
+      lastLoggedStatus = 'disconnected';
       set({
         robotStatus: 'disconnected',
         busyReason: null,
@@ -105,10 +99,7 @@ const useAppStore = create((set) => ({
     },
     
     readyToStart: () => {
-      if (lastLoggedStatus !== 'ready-to-start') {
-        console.log('🤖 [STATE] → ready-to-start');
-        lastLoggedStatus = 'ready-to-start';
-      }
+      lastLoggedStatus = 'ready-to-start';
       set({
         robotStatus: 'ready-to-start',
         busyReason: null,
@@ -119,10 +110,7 @@ const useAppStore = create((set) => ({
     },
     
     starting: () => {
-      if (lastLoggedStatus !== 'starting') {
-        console.log('🤖 [STATE] → starting');
-        lastLoggedStatus = 'starting';
-      }
+      lastLoggedStatus = 'starting';
       set({
         robotStatus: 'starting',
         busyReason: null,
@@ -133,10 +121,7 @@ const useAppStore = create((set) => ({
     },
     
     ready: () => {
-      if (lastLoggedStatus !== 'ready') {
-        console.log('🤖 [STATE] → ready');
-        lastLoggedStatus = 'ready';
-      }
+      lastLoggedStatus = 'ready';
       set({
         robotStatus: 'ready',
         busyReason: null,
@@ -151,10 +136,7 @@ const useAppStore = create((set) => ({
     
     busy: (reason) => {
       const newStatus = `busy (${reason})`;
-      if (lastLoggedStatus !== newStatus) {
-        console.log(`🤖 [STATE] → ${newStatus}`);
-        lastLoggedStatus = newStatus;
-      }
+      lastLoggedStatus = newStatus;
       set((state) => {
         const updates = {
           robotStatus: 'busy',
@@ -172,10 +154,7 @@ const useAppStore = create((set) => ({
     },
     
     stopping: () => {
-      if (lastLoggedStatus !== 'stopping') {
-        console.log('🤖 [STATE] → stopping');
-        lastLoggedStatus = 'stopping';
-      }
+      lastLoggedStatus = 'stopping';
       set({
         robotStatus: 'stopping',
         busyReason: null,
@@ -185,10 +164,7 @@ const useAppStore = create((set) => ({
     },
     
     crashed: () => {
-      if (lastLoggedStatus !== 'crashed') {
-        console.log('🤖 [STATE] → crashed');
-        lastLoggedStatus = 'crashed';
-      }
+      lastLoggedStatus = 'crashed';
       set({
         robotStatus: 'crashed',
         busyReason: null,
@@ -388,20 +364,17 @@ const useAppStore = create((set) => ({
   
   // Toggle dark mode (with persistence)
   setDarkMode: (value) => {
-    console.log('🎨 Setting dark mode to:', value);
     localStorage.setItem('darkMode', JSON.stringify(value));
     set({ darkMode: value });
   },
   toggleDarkMode: () => set((state) => {
     const newValue = !state.darkMode;
-    console.log('🎨 Toggling dark mode to:', newValue);
     localStorage.setItem('darkMode', JSON.stringify(newValue));
     return { darkMode: newValue };
   }),
   
   // Reset to system preference
   resetDarkMode: () => {
-    console.log('🎨 Resetting to system preference');
     localStorage.removeItem('darkMode');
     const systemPreference = getSystemPreference();
     set({ darkMode: systemPreference });
@@ -416,7 +389,6 @@ if (typeof window !== 'undefined') {
     // Only update if user has no stored preference
     const storedPreference = getStoredPreference();
     if (storedPreference === null) {
-      console.log('🎨 System preference changed:', e.matches);
       useAppStore.setState({ darkMode: e.matches });
     }
   };

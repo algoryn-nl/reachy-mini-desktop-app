@@ -398,12 +398,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📥 Full state received:', {
-          body_yaw: data.body_yaw,
-          body_yaw_deg: data.body_yaw ? (data.body_yaw * (180 / Math.PI)).toFixed(1) + '°' : 'N/A',
-          body_yaw_type: typeof data.body_yaw,
-          has_head_pose: !!data.head_pose,
-        });
         
         if (data.head_pose) {
           const newState = {
@@ -418,14 +412,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
             bodyYaw: typeof data.body_yaw === 'number' ? data.body_yaw : 0, // Ensure it's a number (radians from API)
             antennas: data.antennas_position || [0, 0],
           };
-          
-          console.log('🔄 State update:', {
-            oldBodyYaw: robotState.bodyYaw,
-            oldBodyYawDeg: (robotState.bodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-            newBodyYaw: newState.bodyYaw,
-            newBodyYawDeg: (newState.bodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-            changed: Math.abs(newState.bodyYaw - robotState.bodyYaw) > 0.001,
-          });
           
           setRobotState(newState);
           // ✅ Only update localValues if user is not dragging (checked via ref)
@@ -470,12 +456,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
               target_body_yaw: validBodyYaw, // ✅ Send ONLY body_yaw
             };
 
-            console.log('📤 set_target (continuous, body_yaw only):', {
-              target_body_yaw: validBodyYaw,
-              target_body_yaw_deg: (validBodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-              requestBody: JSON.stringify(requestBody, null, 2),
-            });
-
             fetchWithTimeout(
               buildApiUrl('/api/move/set_target'),
               {
@@ -495,12 +475,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
               target_antennas: antennas,
               target_body_yaw: validBodyYaw,
             };
-
-            console.log('📤 set_target (continuous):', {
-              target_body_yaw: validBodyYaw,
-              target_body_yaw_deg: (validBodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-              requestBody: JSON.stringify(requestBody, null, 2),
-            });
 
             fetchWithTimeout(
               buildApiUrl('/api/move/set_target'),
@@ -596,14 +570,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
       target_body_yaw: validBodyYaw,
     };
 
-    console.log('📤 set_target (body_yaw only):', {
-      target_body_yaw: validBodyYaw,
-      target_body_yaw_deg: (validBodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-      currentBodyYaw: robotState.bodyYaw,
-      currentBodyYawDeg: (robotState.bodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-      requestBody: JSON.stringify(requestBody, null, 2),
-    });
-
     fetchWithTimeout(
       buildApiUrl('/api/move/set_target'),
       {
@@ -620,7 +586,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
           throw new Error(`HTTP ${response.status}: ${text}`);
         });
       }
-      console.log('✅ set_target (body_yaw only) response: OK');
       setTimeout(fetchRobotState, 400);
     }).catch((error) => {
       console.error('❌ set_target (body_yaw only) error:', error);
@@ -651,17 +616,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
         interpolation: 'minjerk',
       };
 
-      console.log('📤 goto (discrete):', {
-        body_yaw: validBodyYaw,
-        body_yaw_deg: (validBodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-        body_yaw_type: typeof validBodyYaw,
-        isNaN: isNaN(validBodyYaw),
-        duration: duration.toFixed(2) + 's',
-        currentBodyYaw: robotState.bodyYaw,
-        currentBodyYawDeg: (robotState.bodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-        requestBody: JSON.stringify(requestBody, null, 2),
-      });
-
       fetchWithTimeout(
         buildApiUrl('/api/move/goto'),
         {
@@ -672,7 +626,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
         DAEMON_CONFIG.TIMEOUTS.COMMAND,
         { label: 'Move', silent: true }
       ).then((response) => {
-        console.log('✅ goto response:', response.ok ? 'OK' : 'FAILED');
         setTimeout(fetchRobotState, 400);
       }).catch((error) => {
         console.error('❌ goto error:', error);
@@ -715,15 +668,6 @@ export default function RobotPositionControl({ isActive, darkMode }) {
   const handleBodyYawChange = useCallback((value, continuous = false) => {
     // ✅ Ensure value is always a valid number (value is in radians from conversion)
     const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
-    
-    console.log('🔄 Body Yaw Change:', {
-      inputValue: value,
-      validValue: validValue,
-      validValueDeg: (validValue * (180 / Math.PI)).toFixed(1) + '°',
-      continuous,
-      currentBodyYaw: robotState.bodyYaw,
-      currentBodyYawDeg: (robotState.bodyYaw * (180 / Math.PI)).toFixed(1) + '°',
-    });
     
     setLocalValues(prev => ({ ...prev, bodyYaw: validValue }));
     

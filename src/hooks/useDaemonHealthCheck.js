@@ -34,7 +34,6 @@ export function useDaemonHealthCheck() {
     const checkHealth = async () => {
       // ⚠️ SKIP during installations (daemon may be overloaded by pip install)
       if (isInstalling) {
-        console.log('⏭️ Skipping health check (installation in progress)');
         return;
       }
       

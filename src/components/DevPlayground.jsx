@@ -20,7 +20,6 @@ export default function DevPlayground() {
   const [availableMeshes, setAvailableMeshes] = useState([]); // All meshes from robot
 
   const handleScanComplete = useCallback(() => {
-    console.log('✅ Scan completed in DevPlayground');
     setScanProgress(prev => ({ ...prev, current: prev.total }));
     setCurrentComponent(null);
     setScanComplete(true); // ✅ Display success
@@ -36,7 +35,6 @@ export default function DevPlayground() {
   }, []);
 
   const handleMeshesReady = useCallback((meshes) => {
-    console.log('📦 Meshes ready in DevPlayground:', meshes.length);
     setAvailableMeshes(meshes);
   }, []);
 
@@ -95,13 +93,6 @@ export default function DevPlayground() {
         if (cameraMeshes.length > 0) {
           // Use the first camera mesh found
           meshToError = cameraMeshes[0];
-          console.log(`🔴 Found ${cameraMeshes.length} camera mesh(es), using first one:`, {
-            name: meshToError.name,
-            uuid: meshToError.uuid,
-            position: meshToError.position?.toArray(),
-            hasBoundingBox: !!meshToError.geometry?.boundingBox,
-            allCameraMeshes: cameraMeshes.map(m => ({ name: m.name, uuid: m.uuid }))
-          });
         } else {
           console.warn('⚠️ No camera meshes found in available meshes. Available mesh names:', 
             availableMeshes.slice(0, 10).map(m => m.name || m.uuid));
@@ -112,7 +103,6 @@ export default function DevPlayground() {
         // Ensure bounding box is computed
         if (meshToError && meshToError.geometry && !meshToError.geometry.boundingBox) {
           meshToError.geometry.computeBoundingBox();
-          console.log('📦 Computed bounding box for camera error mesh');
         }
       } else {
         console.warn('⚠️ No meshes available yet');
@@ -246,8 +236,8 @@ export default function DevPlayground() {
                 <AudioControls
                   volume={75}
                   microphoneVolume={50}
-                  onVolumeChange={(val) => console.log('Volume:', val)}
-                  onMicrophoneChange={(enabled) => console.log('Microphone:', enabled)}
+                  onVolumeChange={() => {}}
+                  onMicrophoneChange={() => {}}
                   darkMode={false}
                 />
               </Box>

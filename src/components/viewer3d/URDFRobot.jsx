@@ -458,10 +458,6 @@ function URDFRobot({
       processedCount++;
     });
     
-    // Only log summary, not details
-    if (processedCount > 0) {
-      console.log(`🎨 Materials applied: ${processedCount} meshes (${antennaCount} antennas)${skippedCount > 0 ? `, ${skippedCount} skipped` : ''} - ${transparent ? 'X-RAY' : 'CELL SHADING'}`);
-    }
   }, [getCellShadingMaterial, getXrayMaterial]);
 
   // Cleanup: Dispose all cached materials on component unmount
@@ -478,8 +474,6 @@ function URDFRobot({
         if (material) material.dispose();
       });
       materialsCache.current.xray.clear();
-      
-      console.log('🧹 Materials cache cleaned up');
     };
   }, []);
 
@@ -487,7 +481,6 @@ function URDFRobot({
   useEffect(() => {
     // Reset state when daemon is inactive (except if forceLoad is active)
     if (!isActive && !forceLoad) {
-      console.log('⏸️ Daemon inactive, no URDF loading');
       setRobot(null);
       setIsReady(false);
       return;
@@ -496,17 +489,11 @@ function URDFRobot({
     let isMounted = true;
 
     // ✅ Get model from cache (already preloaded)
-    console.log('📦 Loading URDF model from cache...');
-    
     robotModelCache.getModel().then((cachedModel) => {
       if (!isMounted) return;
       
       // Clone model for this instance
       const robotModel = cachedModel.clone(true); // true = recursive clone
-      // Reduced logging
-      if (robotModel.children.length > 0) {
-        console.log(`✅ URDF loaded: ${robotModel.children.length} children`);
-      }
       
       // ✅ Recalculate smooth normals after cloning to ensure smooth rendering
       // Cloning can sometimes lose normals, so we recalculate them systematically
@@ -530,11 +517,6 @@ function URDFRobot({
           normalsRecalculated++;
         }
       });
-      
-      // Reduced logging - only log summary
-      if (normalsRecalculated > 0) {
-        console.log(`✨ Smooth shading: ${normalsRecalculated} meshes recalculated`);
-      }
       
       // ✅ Detect shells by BOUNDING BOX (shells are large)
       let shellPieceCount = 0;
@@ -571,11 +553,6 @@ function URDFRobot({
           }
         }
       });
-      
-      // Reduced logging - only log summary
-      if (shellPieceCount > 0) {
-        console.log(`🛡️ ${shellPieceCount} shell pieces detected`);
-      }
 
       // ✅ Prepare initial materials (cell shading or X-ray based on current mode)
       let meshCount = 0;
@@ -584,11 +561,6 @@ function URDFRobot({
           meshCount++;
         }
       });
-      
-      // Reduced logging
-      if (meshCount > 0) {
-        console.log(`✅ Robot ready: ${meshCount} meshes`);
-      }
       
       // Collect all meshes for Outline effect
       const collectedMeshes = [];
@@ -652,10 +624,8 @@ function URDFRobot({
       }
       
       // ✅ Attendre 500ms avant d'afficher le robot pour éviter l'accoup de la tête penchée
-      console.log('⏳ Waiting 500ms before displaying robot...');
       displayTimeoutRef.current = setTimeout(() => {
         if (!isMounted) return;
-        console.log('✅ Displaying robot after delay');
         setRobot(robotModel);
         displayTimeoutRef.current = null;
       }, 500);
@@ -700,7 +670,6 @@ function URDFRobot({
     if (!lastAntennas || 
         Math.abs(currentAntennas[0] - lastAntennas[0]) > 0.01 ||
         Math.abs(currentAntennas[1] - lastAntennas[1]) > 0.01) {
-      console.log('🤖 Antennas set to:', currentAntennas);
       lastAntennasLogRef.current = currentAntennas;
     }
   }, [robot, antennas]); // Triggers on load AND when antennas change
@@ -743,24 +712,6 @@ function URDFRobot({
       const headJointsChanged = !arraysEqual(headJoints, lastHeadJointsRef.current);
       
       if (headJointsChanged) {
-        // ✅ Debug: Vérifier quels joints sont disponibles (seulement la première fois)
-        if (!lastHeadJointsRef.current) {
-          const availableJoints = Object.keys(robot.joints || {});
-          const stewartJoints = availableJoints.filter(j => j.startsWith('stewart_'));
-          const passiveJoints = availableJoints.filter(j => j.startsWith('passive_'));
-          console.log('🔧 Available joints:', {
-            total: availableJoints.length,
-            stewart: stewartJoints.sort(),
-            passive: passiveJoints.length > 0 ? passiveJoints.slice(0, 6).sort() : 'none',
-            hasYawBody: !!robot.joints['yaw_body'],
-            headJointsValues: headJoints.map((v, i) => ({
-              index: i,
-              name: i === 0 ? 'yaw_body' : `stewart_${i}`,
-              value: v.toFixed(4),
-            })),
-          });
-        }
-        
         // yaw_body (index 0) - Appliquer en premier
         if (robot.joints['yaw_body']) {
           robot.setJointValue('yaw_body', headJoints[0]);
@@ -788,11 +739,6 @@ function URDFRobot({
         
         if (appliedCount < 6 && !lastHeadJointsRef.current) {
           console.warn(`⚠️ Only ${appliedCount}/6 stewart joints were applied`);
-        }
-        
-        // ✅ Log les valeurs appliquées la première fois pour debug
-        if (!lastHeadJointsRef.current && appliedCount > 0) {
-          console.log('✅ Applied stewart joints:', appliedValues);
         }
         
         lastHeadJointsRef.current = headJoints.slice();
@@ -886,9 +832,6 @@ function URDFRobot({
       const mesh = intersects[0].object;
       if (mesh.isMesh && mesh !== hoveredMesh.current) {
         hoveredMesh.current = mesh;
-            // Reduced logging - only log mesh name and material
-            const materialName = mesh.userData?.materialName || mesh.material?.name || 'unnamed';
-            console.log('🖱️ HOVER:', mesh.name || 'unnamed', '-', materialName);
       }
     } else {
       hoveredMesh.current = null;
@@ -902,10 +845,6 @@ function URDFRobot({
     if (!robot) return;
     
     const isInitialSetup = !isReady;
-    // Reduced logging - only log on initial setup
-    if (isInitialSetup) {
-      console.log('🎨 Initial material setup');
-    }
     
     applyMaterials(robot, isTransparent, cellShading, xrayOpacity);
     

@@ -35,13 +35,6 @@ export default function CinematicCamera({
   // Detect when an error is raised and calculate target position
   useEffect(() => {
     if (errorFocusMesh && cameraRef.current) {
-      console.log('🎥 Error detected, focusing on mesh:', {
-        name: errorFocusMesh.name,
-        uuid: errorFocusMesh.uuid,
-        position: errorFocusMesh.position?.toArray(),
-        worldPosition: errorFocusMesh.getWorldPosition?.(new THREE.Vector3())?.toArray()
-      });
-      
       // Ensure mesh is in scene and has geometry
       if (!errorFocusMesh.geometry) {
         console.error('❌ Error mesh has no geometry!', errorFocusMesh);
@@ -97,13 +90,6 @@ export default function CinematicCamera({
       errorTargetAngleRef.current = targetAngle;
       errorStartTimeRef.current = null; // Will be initialized on next frame
       errorStartAngleRef.current = null; // Will be captured on next frame
-      
-      console.log('🎥 Error focus transition prepared:', {
-        meshName: errorFocusMesh.name,
-        targetAngle: targetAngle,
-        targetAngleDegrees: (targetAngle * 180 / Math.PI).toFixed(1),
-        meshWorldPosition: finalWorldCenter.toArray()
-      });
     } else if (errorFocusMesh && !cameraRef.current) {
       console.warn('⚠️ Error mesh set but camera not ready yet');
     }
@@ -123,13 +109,6 @@ export default function CinematicCamera({
         const currentPos = cameraRef.current.position;
         const currentAngle = Math.atan2(currentPos.x, currentPos.z);
         errorStartAngleRef.current = currentAngle;
-        
-        console.log('🎥 Error focus started from angle:', {
-          startAngle: currentAngle,
-          startAngleDegrees: (currentAngle * 180 / Math.PI).toFixed(1),
-          targetAngle: errorTargetAngleRef.current,
-          targetAngleDegrees: (errorTargetAngleRef.current * 180 / Math.PI).toFixed(1)
-        });
       }
       
       const errorElapsed = (Date.now() - errorStartTimeRef.current) / 1000;
@@ -172,7 +151,6 @@ export default function CinematicCamera({
     // ⚡ Initialize timer on first frame (when scan really starts)
     if (startTimeRef.current === null) {
       startTimeRef.current = Date.now();
-      console.log('🎥 Camera animation started - slow rotation');
     }
     
     const elapsed = (Date.now() - startTimeRef.current) / 1000;

@@ -251,7 +251,6 @@ function ActiveRobotView({
 
   // Handler to restart daemon after crash
   const handleRestartDaemon = useCallback(async () => {
-    console.log('🔄 Restarting daemon after crash...');
     resetTimeouts();
     update({ isDaemonCrashed: false, isActive: false });
     
@@ -390,7 +389,6 @@ function ActiveRobotView({
           
           if (!isButton) {
             e.preventDefault();
-            console.log('🖱️ Start dragging');
             try {
               await appWindow.startDragging();
             } catch (err) {
@@ -549,7 +547,6 @@ function ActiveRobotView({
                 try {
                   // Opens in external system browser (Safari, Chrome, etc.)
                   await open('http://localhost:8000/docs');
-                  console.log('📖 Opening API docs in external browser');
                 } catch (err) {
                   console.error('Failed to open API docs:', err);
                 }

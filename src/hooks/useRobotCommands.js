@@ -24,9 +24,6 @@ export const useRobotCommands = () => {
     
     setIsCommandRunning(true);
     
-    // Log dans la console navigateur
-    console.log(`🤖 Command: ${label} → ${endpoint}`);
-    
     // Fire and forget avec logging automatique via fetchWithTimeout
     fetchWithTimeout(
       buildApiUrl(endpoint),
@@ -41,7 +38,6 @@ export const useRobotCommands = () => {
         // Unlock commands after lock duration
         setTimeout(() => {
           setIsCommandRunning(false);
-          console.log(`🔓 Commands unlocked (${label} finished)`);
         }, lockDuration);
       });
   }, [isActive, isCommandRunning, setIsCommandRunning]);

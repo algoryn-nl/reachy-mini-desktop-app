@@ -19,29 +19,20 @@ export default function ErrorHighlight({
     const errorMeshesList = errorMeshes || (errorMesh ? [errorMesh] : []);
     
     if (!enabled) {
-      console.log('⚠️ ErrorHighlight disabled');
       return;
     }
     
     if (errorMeshesList.length === 0) {
-      console.log('⚠️ ErrorHighlight: No error meshes provided');
       return;
     }
     
     if (allMeshes.length === 0) {
-      console.log('⚠️ ErrorHighlight: No meshes available');
       return;
     }
-
-    console.log(`🔴 ErrorHighlight: Highlighting ${errorMeshesList.length} error mesh(es) out of ${allMeshes.length} total meshes`);
-    console.log('🔴 Error meshes:', errorMeshesList.map(m => ({ name: m.name, uuid: m.uuid })));
-    console.log('🔴 All meshes:', allMeshes.map(m => ({ name: m.name, uuid: m.uuid })).slice(0, 5), '...');
 
     // ✅ IMPORTANT: Find matching meshes in allMeshes by UUID (in case references don't match)
     const errorMeshUuids = new Set(errorMeshesList.map(m => m.uuid));
     const matchingErrorMeshes = allMeshes.filter(mesh => errorMeshUuids.has(mesh.uuid));
-    
-    console.log(`🔴 Found ${matchingErrorMeshes.length} matching error mesh(es) in allMeshes by UUID`);
     if (matchingErrorMeshes.length === 0 && errorMeshesList.length > 0) {
       console.warn('⚠️ No matching meshes found by UUID! Error meshes:', errorMeshesList.map(m => ({ name: m.name, uuid: m.uuid })));
       console.warn('⚠️ First few allMeshes UUIDs:', allMeshes.slice(0, 5).map(m => ({ name: m.name, uuid: m.uuid })));
@@ -83,11 +74,6 @@ export default function ErrorHighlight({
       const isErrorMesh = finalErrorMeshRefs.has(mesh) || finalErrorMeshes.includes(mesh) || finalErrorMeshUuids.has(mesh.uuid);
       
       if (isErrorMesh) {
-        console.log(`🔴✅ Matched error mesh: ${mesh.name || mesh.uuid}`, {
-          hasMaterial: !!mesh.material,
-          hasUniforms: !!mesh.material?.uniforms,
-          materialType: mesh.material?.type
-        });
         // ✅ ERROR MESH: Red rim lighting effect (same style as scan effect)
         highlightedCount++;
         mesh.userData.isErrorMesh = true;
@@ -117,36 +103,12 @@ export default function ErrorHighlight({
         // ✅ Ensure material properties for proper rendering and z-index
         errorMaterial.depthTest = true; // Test depth for proper occlusion
         
-        console.log('🔴 Created error material:', {
-          hasUniforms: !!errorMaterial.uniforms,
-          uniformsKeys: errorMaterial.uniforms ? Object.keys(errorMaterial.uniforms) : [],
-          rimIntensity: errorMaterial.uniforms?.rimIntensity?.value,
-          opacity: errorMaterial.uniforms?.opacity?.value,
-          renderOrder: mesh.renderOrder,
-          depthWrite: errorMaterial.depthWrite,
-          depthTest: errorMaterial.depthTest
-        });
-        
         mesh.material = errorMaterial;
         mesh.material.needsUpdate = true;
         
         // ✅ Force update matrices to ensure renderOrder takes effect
         mesh.updateMatrix();
         mesh.updateMatrixWorld(true);
-        
-        // ✅ Verify material is correctly set (log after a frame to see if it's still red)
-        requestAnimationFrame(() => {
-          if (mesh.material && mesh.material.uniforms) {
-            console.log('🔴 Error material verified:', {
-              baseColor: mesh.material.uniforms.baseColor?.value?.getHex?.()?.toString(16),
-              rimColor: mesh.material.uniforms.rimColor?.value?.getHex?.()?.toString(16),
-              rimIntensity: mesh.material.uniforms.rimIntensity?.value,
-              opacity: mesh.material.uniforms.opacity?.value,
-              renderOrder: mesh.renderOrder,
-              isErrorMesh: mesh.userData.isErrorMesh
-            });
-          }
-        });
         
         // Wait a frame to ensure material is applied before starting animation
         requestAnimationFrame(() => {
@@ -198,8 +160,6 @@ export default function ErrorHighlight({
           const frameId = requestAnimationFrame(animate);
           animationFrameRefs.current.set(meshUuid, frameId);
         });
-        
-        console.log(`🔴 Highlighted error mesh: ${mesh.name || mesh.uuid}`);
       } else {
         // ⚪ OTHER MESHES: Very transparent (almost invisible)
         mesh.material.transparent = true;
@@ -214,8 +174,6 @@ export default function ErrorHighlight({
       
       mesh.material.needsUpdate = true;
     });
-
-    console.log(`🔴 ErrorHighlight complete: ${highlightedCount} mesh(es) highlighted, ${allMeshes.length - highlightedCount} dimmed to 5% opacity`);
 
     // Cleanup: restore original states of ALL meshes
     return () => {
@@ -258,7 +216,6 @@ export default function ErrorHighlight({
           mesh.material.needsUpdate = true;
         }
       });
-      console.log('🔄 All meshes restored to original state');
     };
   }, [enabled, errorMesh, errorMeshes, allMeshes, errorColor]);
 

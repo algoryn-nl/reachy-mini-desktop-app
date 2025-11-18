@@ -59,23 +59,12 @@ export default function useRobotWebSocket(isActive) {
         );
 
         ws.onopen = () => {
-          console.log('🔌 WebSocket connected to daemon');
+          // WebSocket connected
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            
-            // Reduced logging - only log every 1000 messages (~every 100 seconds at 10Hz)
-            if (!ws.messageCount) ws.messageCount = 0;
-            ws.messageCount++;
-            if (ws.messageCount % 1000 === 1) {
-              console.log('📡 Animation data:', {
-                yaw_body: data.head_joints?.[0]?.toFixed(3),
-                antennas: data.antennas_position?.map(v => v.toFixed(3)),
-                head_pose_rotation: data.head_pose ? '4x4 matrix' : 'N/A',
-              });
-            }
 
             const newState = {};
             
@@ -147,7 +136,6 @@ export default function useRobotWebSocket(isActive) {
         };
 
         ws.onclose = () => {
-          console.log('🔌 WebSocket disconnected, reconnecting in 1s...');
           // ✅ Cleanup previous timeout if exists
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);

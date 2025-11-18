@@ -391,7 +391,6 @@ export default function DiscoverAppsSection({
                         onClick={async () => {
                           try {
                             await open(app.url);
-                            console.log('🌐 Opening space:', app.url);
                           } catch (err) {
                             console.error('Failed to open space URL:', err);
                           }
@@ -430,7 +429,6 @@ export default function DiscoverAppsSection({
           onClick={async () => {
             try {
               await open('https://huggingface.co/new-space');
-              console.log('🌐 Opening Hugging Face Space creation');
             } catch (err) {
               console.error('Failed to open Hugging Face URL:', err);
             }

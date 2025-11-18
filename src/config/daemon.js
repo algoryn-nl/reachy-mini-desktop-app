@@ -229,18 +229,15 @@ export function buildApiUrl(endpoint) {
  */
 export function transitionToActiveView({ setIsStarting, setIsTransitioning, setIsActive }, remainingTime) {
   setTimeout(() => {
-    console.log('⏱️ Scan animation complete, hiding StartingView');
     // ⚡ Step 1: Hide StartingView
     setIsStarting(false);
     
     // ⚡ Step 2: After micro-delay, show TransitionView and trigger resize
     setTimeout(() => {
-      console.log('⏱️ Showing TransitionView and triggering resize');
       setIsTransitioning(true);
       
       // ⚡ Step 3: After resize, switch to ActiveRobotView
       setTimeout(() => {
-        console.log('⏱️ TransitionView complete, showing ActiveRobotView');
         setIsActive(true);
         setIsTransitioning(false);
       }, DAEMON_CONFIG.ANIMATIONS.TRANSITION_DURATION);

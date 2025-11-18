@@ -44,13 +44,6 @@ function App() {
   // 🏥 Centralized health check (SINGLE place for crash detection)
   useDaemonHealthCheck();
   
-  // 🤖 Debug: Display state machine transitions
-  const robotStatus = useAppStore(state => state.robotStatus);
-  const busyReason = useAppStore(state => state.busyReason);
-  useEffect(() => {
-    const label = useAppStore.getState().getRobotStatusLabel();
-    console.log(`🤖 [STATE MACHINE] Status: ${robotStatus}${busyReason ? ` (${busyReason})` : ''} → "${label}"`);
-  }, [robotStatus, busyReason]);
   
   // ⚡ Cleanup is handled on Rust side in lib.rs:
   // - Signal handler (SIGTERM/SIGINT) → cleanup_system_daemons()
@@ -62,19 +55,16 @@ function App() {
   const currentView = useMemo(() => {
     // Compact view: ClosingView (stopping)
     if (isStopping) {
-      console.log('📐 App - Switching to COMPACT view (stopping daemon)');
       return 'compact';
     }
     
     // ⚡ Expanded view: daemon active OR transitioning (but NEVER during StartingView)
     // BLOCK resize as long as isStarting = true (scan in progress)
     if (!isStarting && (isActive || isTransitioning) && !hardwareError) {
-      console.log('📐 App - Switching to EXPANDED view (isActive or TransitionView visible)');
       return 'expanded';
     }
     
     // Compact view: all others (RobotNotDetected, Starting, ReadyToStart)
-    console.log(`📐 App - COMPACT view (isActive=${isActive}, isTransitioning=${isTransitioning}, isStarting=${isStarting})`);
     return 'compact';
   }, [isActive, hardwareError, isStopping, isTransitioning, isStarting]);
 
@@ -101,7 +91,6 @@ function App() {
   // Stop daemon automatically if robot gets disconnected
   useEffect(() => {
     if (!isUsbConnected && isActive) {
-      console.log('⚠️ Robot disconnected during use - stopping daemon');
       stopDaemon();
     }
   }, [isUsbConnected, isActive, stopDaemon]);
@@ -110,7 +99,6 @@ function App() {
   // ⚠️ IMPORTANT: All hooks must be called before conditional returns
   const handleAppsReady = useCallback(() => {
     if (isTransitioning) {
-      console.log('✅ Apps loaded, closing TransitionView');
       setIsTransitioning(false);
     }
   }, [isTransitioning, setIsTransitioning]);

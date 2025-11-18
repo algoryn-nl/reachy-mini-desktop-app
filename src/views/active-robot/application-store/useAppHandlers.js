@@ -72,7 +72,6 @@ export function useAppHandlers({
     if (!installingAppName) {
       // ✅ If no installation but there was a job, ensure everything is cleaned up
       if (activeJobs.size === 0 && installStartTime.current) {
-        console.log('🧹 Cleaning up install state (no active jobs)');
         installStartTime.current = null;
         installJobType.current = null;
       }
@@ -88,7 +87,6 @@ export function useAppHandlers({
     
     // If no more active jobs for this app, job is finished (even if not yet cleaned up)
     if (!hasActiveInstallJobs && installStartTime.current) {
-      console.log('✅ All install jobs completed for', installingAppName);
       // Cleanup will be done by the other useEffect that manages overlay
     }
   }, [activeJobs]);
@@ -116,10 +114,6 @@ export function useAppHandlers({
     // ✅ Also check if job was removed (sign it's finished)
     const jobWasRemoved = !jobFound && installStartTime.current !== null;
     if (jobWasRemoved || (jobFound && (jobFound.status === 'completed' || jobFound.status === 'failed'))) {
-      console.log('📦 [RESULT] Job found:', !!jobFound);
-      console.log('📦 [RESULT] Job was removed:', jobWasRemoved);
-      console.log('📦 [RESULT] Job status:', jobFound?.status);
-      console.log('📦 [RESULT] Job logs:', jobFound?.logs);
       
       // ✨ Intelligent success detection from logs
       let wasCompleted = false;
@@ -156,8 +150,6 @@ export function useAppHandlers({
       const jobType = installJobType.current || 'install';
       const isUninstall = jobType === 'remove';
       
-      console.log('📦 [RESULT] Job type:', jobType, 'Completed:', wasCompleted, 'Failed:', wasFailed);
-      
       // ⏱️ Calculate minimum display time (4s for uninstall, 0s for install)
       const MINIMUM_DISPLAY_TIME = isUninstall ? 4000 : 0;
       const elapsedTime = installStartTime.current ? Date.now() - installStartTime.current : MINIMUM_DISPLAY_TIME;
@@ -170,7 +162,6 @@ export function useAppHandlers({
         
         // ✅ Unlock IMMEDIATELY to allow health checks to resume
         // (but keep overlay open for result display)
-        console.log('🔓 Unlocking install immediately (job completed)');
         unlockInstall();
         
         // 2️⃣ Wait 2s then close and show toast
@@ -180,7 +171,6 @@ export function useAppHandlers({
           
           // Refresh apps list (to ensure installed app appears)
           if (refreshApps) {
-            console.log('🔄 Refreshing apps list after overlay close');
             refreshApps();
           }
           
@@ -309,9 +299,7 @@ export function useAppHandlers({
       }
       
       setStartingApp(appName);
-      console.log(`▶️ Launching ${appName}...`);
       const result = await startApp(appName);
-      console.log(`✅ ${appName} started successfully:`, result.state);
       
       // ✅ Lock to prevent quick actions
       lockForApp(appName);

@@ -222,14 +222,6 @@ export default function InstalledAppsSection({
             const settings = appSettings[app.name] || {};
             const isRemoving = isJobRunning(app.name, 'remove');
             
-            // Debug: Log app data
-            console.log(`📅 [InstalledApps] App: ${app.name}`, {
-              hasExtra: !!app.extra,
-              hasLastModified: !!app.extra?.lastModified,
-              lastModified: app.extra?.lastModified,
-              extraKeys: app.extra ? Object.keys(app.extra) : [],
-            });
-            
             // Handle all current app states (with protections)
             const isThisAppCurrent = currentApp && currentApp.info && currentApp.info.name === app.name;
             const appState = isThisAppCurrent && currentApp.state ? currentApp.state : null;
@@ -319,14 +311,8 @@ export default function InstalledAppsSection({
                       {/* Job info (installation/removal en cours) - Priority over date */}
                       {(() => {
                         const jobInfo = getJobInfo(app.name);
-                        console.log(`📅 [InstalledApps] Rendering date for ${app.name}:`, {
-                          hasJobInfo: !!jobInfo,
-                          hasLastModified: !!app.extra?.lastModified,
-                          lastModified: app.extra?.lastModified,
-                        });
                         
                         if (jobInfo) {
-                          console.log(`📅 [InstalledApps] Showing job info instead of date for ${app.name}`);
                           return (
                             <Typography
                               sx={{
@@ -348,7 +334,6 @@ export default function InstalledAppsSection({
                             month: 'short',
                             year: 'numeric'
                           });
-                          console.log(`📅 [InstalledApps] Showing date for ${app.name}:`, formattedDate);
                         return (
                           <Typography
                             sx={{
@@ -363,7 +348,6 @@ export default function InstalledAppsSection({
                           </Typography>
                         );
                         }
-                        console.log(`📅 [InstalledApps] No date to show for ${app.name}`);
                         return null;
                       })()}
                     </Box>

@@ -26,7 +26,6 @@ export function useRobotState(isActive) {
 
     // ✅ Don't poll during installation (daemon may be slow/unavailable)
     if (isInstalling) {
-      console.log('⏭️ Skipping robot state polling (installation in progress)');
       return;
     }
 
@@ -78,21 +77,6 @@ export function useRobotState(isActive) {
             }
             
             lastPositionsRef.current = currentPositions;
-          }
-          
-          // ✅ Detailed log for debug (every 10 calls)
-          if (!fetchState.callCount) fetchState.callCount = 0;
-          fetchState.callCount++;
-          
-          // Reduced logging - only log every 50 calls (~every 5 seconds at 10Hz)
-          if (fetchState.callCount % 50 === 1) {
-            console.log('🤖 Robot state:', {
-              control_mode: data.control_mode,
-              motors_on: motorsOn,
-              is_moving: isMoving,
-              body_yaw: data.body_yaw?.toFixed(3),
-              antennas: data.antennas_position?.map(a => a.toFixed(3)),
-            });
           }
           
           // ✅ OPTIMIZED: Only update state if values actually changed (avoid unnecessary re-renders)

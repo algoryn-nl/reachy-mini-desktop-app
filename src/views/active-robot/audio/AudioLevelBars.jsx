@@ -86,8 +86,6 @@ export default function AudioLevelBars({ isActive, color = '#FF9500', barCount =
         ctx.scale(dpr / currentDpr, dpr / currentDpr);
         currentDpr = dpr;
       }
-      
-      console.log('✅ AudioLevelBars: Resized', { displayWidth, displayHeight, dpr, canvasWidth: canvas.width, canvasHeight: canvas.height });
     };
     
     // ✅ Use ResizeObserver for container size changes

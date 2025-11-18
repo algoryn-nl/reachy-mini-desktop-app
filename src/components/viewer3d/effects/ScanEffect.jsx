@@ -45,7 +45,6 @@ export default function ScanEffect({
 
     // ✅ Avoid multiple simultaneous scans
     if (isScanningRef.current) {
-      console.log('⚠️ Scan already in progress, skipping...');
       return;
     }
 
@@ -53,8 +52,6 @@ export default function ScanEffect({
 
     // ⚡ Scan duration read from central config
     const duration = DAEMON_CONFIG.ANIMATIONS.SCAN_DURATION / 1000;
-
-    console.log(`🔍 Starting optimized scan: ${meshes.length} meshes`);
 
     // ✅ Filter shells AND outline meshes
     const scannableMeshes = meshes.filter(mesh => 
@@ -287,7 +284,6 @@ export default function ScanEffect({
             
       // Check if all meshes are complete
       if (scanStateRef.current.scannedCount >= scanStateRef.current.totalMeshes) {
-              console.log('✅ Scan complete');
         isScanningRef.current = false;
               if (onCompleteRef.current) {
                 onCompleteRef.current();

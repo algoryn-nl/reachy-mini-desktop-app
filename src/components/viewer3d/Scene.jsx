@@ -151,21 +151,8 @@ function Scene({
     
     // If we don't have robotRef or outlineMeshes yet, return just the error mesh
     if (!robotRef || !outlineMeshes.length) {
-      console.log('⚠️ ErrorHighlight: Missing prerequisites, using single error mesh', {
-        hasErrorMesh: !!errorFocusMesh,
-        hasRobotRef: !!robotRef,
-        meshesCount: outlineMeshes.length,
-        errorMeshName: errorFocusMesh.name,
-        errorMeshUuid: errorFocusMesh.uuid
-      });
       return [errorFocusMesh]; // Return array with single mesh
     }
-
-    console.log('🔍 Analyzing error mesh:', {
-      name: errorFocusMesh.name,
-      parent: errorFocusMesh.parent?.name,
-      availableLinks: Object.keys(robotRef.links || {})
-    });
 
     // Helper function to find the parent link of a mesh
     const findParentLink = (mesh) => {
@@ -213,7 +200,6 @@ function Scene({
       isCameraMesh = cameraMeshes.includes(errorFocusMesh);
       
       if (isCameraMesh) {
-        console.log(`📷 Error mesh is part of camera link, found ${cameraMeshes.length} total camera meshes`);
         return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
       }
     }
@@ -227,10 +213,6 @@ function Scene({
       
       if (parentName.includes('camera') || currentName.includes('camera')) {
         isCameraMesh = true;
-        console.log('📷 Found camera in hierarchy:', {
-          parentName: current.parent.name,
-          currentName: current.name
-        });
         break;
       }
       current = current.parent;
@@ -242,7 +224,6 @@ function Scene({
       // If we have the camera link, use its meshes
       if (cameraLink) {
         const cameraMeshes = collectMeshesFromObject(cameraLink, []);
-        console.log(`📷 Found ${cameraMeshes.length} camera mesh(es) via link traversal`);
         return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
       }
       
@@ -263,12 +244,10 @@ function Scene({
         }
       });
 
-      console.log(`📷 Found ${cameraMeshes.length} camera mesh(es) via name matching`);
       return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
     }
 
-      // Otherwise, return just the error mesh
-    console.log('⚠️ Error mesh is not part of camera, highlighting only the error mesh');
+    // Otherwise, return just the error mesh
     return [errorFocusMesh];
   }, [errorFocusMesh, robotRef, outlineMeshes]);
 
@@ -329,10 +308,6 @@ function Scene({
           enabled={true}
             onScanMesh={(mesh, index, total) => {
               // Update currently scanned mesh for annotations
-              // Reduced logging - only log every 10th mesh
-              if (index % 10 === 0 || index === total - 1) {
-                console.log(`📡 Scan: ${index + 1}/${total} meshes`);
-              }
               setCurrentScannedMesh(mesh);
               // Call parent callback if provided
               if (onScanMesh) {

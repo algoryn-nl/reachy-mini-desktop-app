@@ -27,7 +27,6 @@ class RobotModelCache {
     try {
       const cachedVersion = localStorage.getItem('robotModelCacheVersion');
       if (cachedVersion !== this.version) {
-        console.log('🔄 [Cache] Version changed:', cachedVersion, '→', this.version);
         this.clear();
         localStorage.setItem('robotModelCacheVersion', this.version);
       }
@@ -35,19 +34,16 @@ class RobotModelCache {
     
     // If already loaded, return directly
     if (this.isLoaded && this.robotModel) {
-      console.log('✅ Robot model already in cache');
       return this.robotModel;
     }
 
     // If loading in progress, wait for existing promise
     if (this.isLoading && this.loadPromise) {
-      console.log('⏳ Robot model loading in progress, waiting...');
       return this.loadPromise;
     }
 
     // New loading
     this.isLoading = true;
-    console.log('📦 [Cache] Loading URDF model...');
 
     this.loadPromise = (async () => {
       try {
@@ -71,13 +67,11 @@ class RobotModelCache {
           load: (url) => {
             const filename = url.split('/').pop();
             stlFileMap.set(url, filename);
-            console.log(`📥 Loading STL: ${filename} from ${url}`);
           }
         });
 
         // Parse URDF from imported file
         const robotModel = loader.parse(urdfFile);
-        console.log('📦 [Cache] URDF parsed: %d links', robotModel.children.length);
         
         // ✅ Wait for ALL STL files to be loaded (async loader)
         let totalMeshes = 0;
@@ -86,8 +80,6 @@ class RobotModelCache {
         robotModel.traverse((child) => {
           if (child.isMesh) totalMeshes++;
         });
-        
-        console.log(`⏳ Initial meshes: ${totalMeshes}, waiting for STL files to load...`);
         
         // Wait for LoadingManager to finish
         await new Promise((resolveLoading) => {
@@ -110,8 +102,6 @@ class RobotModelCache {
         robotModel.traverse((child) => {
           if (child.isMesh) totalMeshes++;
         });
-        
-        console.log(`✅ [Cache] All STL loaded: ${totalMeshes} meshes ready`);
 
         // Initialize default materials
         let meshCount = 0;
@@ -216,16 +206,6 @@ class RobotModelCache {
               stlFilesList.push(stlFileName);
             }
             
-            const geometryUrl = child.geometry?.userData?.url || 'not found';
-            console.log(`📦 STL file [${meshCount}]: ${stlFileName}`, {
-              meshName: child.name || 'unnamed',
-              geometryUrl: geometryUrl,
-              vertices: child.geometry?.attributes?.position?.count || 0,
-              hasNormals: !!child.geometry?.attributes?.normal,
-              parentName: child.parent?.name || 'no parent',
-              userDataKeys: Object.keys(child.geometry?.userData || {}),
-              meshUserDataKeys: Object.keys(child.userData || {}),
-            });
 
             // ✅ Quality smooth shading (like Blender)
             if (child.geometry) {
@@ -256,9 +236,6 @@ class RobotModelCache {
                   const mergedGeometry = mergeVertices(child.geometry, 0.0001);
                   child.geometry = mergedGeometry;
                   const mergedCount = child.geometry.attributes.position.count;
-                  if (vertexCount !== mergedCount) {
-                    console.log(`🔧 Smooth shading: ${vertexCount} → ${mergedCount} vertices (${((1 - mergedCount/vertexCount) * 100).toFixed(1)}% reduction)`);
-                  }
                 } catch (e) {
                   console.warn('⚠️ Could not merge vertices:', e.message);
                 }
@@ -334,18 +311,6 @@ class RobotModelCache {
             const isAntenna = isAntennaByName || isSmallOrangePiece;
             child.userData.isAntenna = isAntenna;
             
-            // ✅ LOG TOUS LES MESHES (sans condition)
-            console.log(`Mesh ${meshCount}:`, {
-              name: child.name || 'unnamed',
-              color: `#${originalColor.toString(16).padStart(6, '0')}`,
-              vertices: vertexCount,
-              geometry: meshFileName,
-              isOrange: isOrange ? '🟠 YES' : '',
-              isSmallOrange: isSmallOrangePiece ? '🟠 SMALL' : '',
-              isAntennaByName: isAntennaByName ? '📡 NAME' : '',
-              isAntenna: isAntenna ? '✅ ANTENNA' : ''
-            });
-            
             // Shells are generally LARGE meshes (many vertices)
             // Threshold: > 1000 vertices = probably a shell
             const isLargeMesh = vertexCount > 1000;
@@ -355,11 +320,6 @@ class RobotModelCache {
             
             if (isLargeMesh) {
               shellCount++;
-            }
-            
-            // Debug : log quelques exemples
-            if (meshCount <= 5 || (isLargeMesh && shellCount <= 3)) {
-              console.log(`  ${isLargeMesh ? '🛡️ Large shell' : '⚙️ Small component'} (${vertexCount} vertices, color: #${originalColor.toString(16).padStart(6, '0')})`);
             }
 
             // Dispose old material
@@ -378,10 +338,6 @@ class RobotModelCache {
             });
           }
         });
-        
-        console.log(`✅ [Cache] Materials initialized: ${meshCount} meshes (${shellCount} large shells excluded, ${meshCount - shellCount} components to scan)`);
-        console.log(`📋 [Cache] Total STL files loaded: ${stlFilesList.length} unique files`);
-        console.log(`📋 [Cache] STL files list:`, stlFilesList.sort());
 
         this.robotModel = robotModel;
         this.isLoaded = true;
@@ -465,7 +421,6 @@ class RobotModelCache {
    * Nettoie le cache (à appeler au démontage de l'app)
    */
   clear() {
-    console.log('🧹 [Cache] Robot model cache cleared - version:', this.version);
     if (this.robotModel) {
       this.robotModel.traverse((child) => {
         if (child.isMesh) {

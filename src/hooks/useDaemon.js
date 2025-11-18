@@ -27,7 +27,6 @@ export const useDaemon = () => {
     // ⚠️ SKIP during installations (daemon may be overloaded by pip install)
     const { isInstalling } = useAppStore.getState();
     if (isInstalling) {
-      console.log('⏭️ Skipping status check (installation in progress)');
       return;
     }
     
@@ -71,7 +70,6 @@ export const useDaemon = () => {
         // ✅ No resetTimeouts() here, handled by useDaemonHealthCheck
       }
     } catch (error) {
-      console.log('Could not fetch daemon version:', error);
       // ✅ No incrementTimeouts() here, handled by useDaemonHealthCheck
     }
   }, [setDaemonVersion]);
@@ -80,8 +78,6 @@ export const useDaemon = () => {
     // First reset errors but don't change view yet
     setStartupError(null);
     setHardwareError(null);
-    
-    console.log('🚀 Starting daemon (transition will be triggered by scan completion)');
     
     // Wait a moment for React to render the spinner
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -96,19 +92,18 @@ export const useDaemon = () => {
           { label: 'Check existing daemon' }
         );
         if (response.ok) {
-          console.log('✅ Daemon already running, showing scan view');
           // Wait 500ms to see the spinner in the button
           await new Promise(resolve => setTimeout(resolve, 500));
           setIsStarting(true);
           return;
         }
       } catch (e) {
-        console.log('No daemon detected, starting new one');
+        // No daemon detected, starting new one
       }
 
       // Launch new daemon (non-blocking - we don't wait for it)
       invoke('start_daemon').then(() => {
-        console.log('✅ Daemon started, scan will trigger transition');
+        // Daemon started
       }).catch((e) => {
         console.error('❌ Daemon startup error:', e);
         setStartupError(e.message || 'Error starting the daemon');
@@ -116,9 +111,7 @@ export const useDaemon = () => {
       });
       
       // Wait 500ms to see the spinner in the button, then switch to scan view
-      console.log('⏱️ Waiting 500ms before showing scan view...');
       await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('✅ Switching to scan view');
       setIsStarting(true);
       
       // Periodically check that daemon has started (but don't block)
@@ -134,11 +127,10 @@ export const useDaemon = () => {
           
           if (response.ok) {
             await checkStatus(); // Update state
-            console.log('✅ Daemon is ready');
             clearInterval(checkInterval);
           }
         } catch (e) {
-          console.warn('⚠️ Daemon not ready yet, checking again...');
+          // Daemon not ready yet, checking again...
         }
       }, 1000);
     } catch (e) {
@@ -162,7 +154,7 @@ export const useDaemon = () => {
         // Wait for movement to complete
         await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
       } catch (e) {
-        console.log('Robot already inactive or sleep error:', e);
+        // Robot already inactive or sleep error
       }
       
       // Then kill the daemon

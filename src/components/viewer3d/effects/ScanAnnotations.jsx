@@ -155,9 +155,7 @@ export default function ScanAnnotations({
 
     // New group detected
     currentGroupRef.current = componentGroup;
-    // Reduced logging - only log when group changes
     if (componentGroup !== lastGroupRef.current) {
-      console.log(`🔍 Scan group: ${componentGroup}`);
       lastGroupRef.current = componentGroup;
     }
 

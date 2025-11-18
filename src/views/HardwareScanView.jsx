@@ -26,11 +26,9 @@ function HardwareScanView({
   const [scanComplete, setScanComplete] = useState(false);
   
   const handleRetry = useCallback(async () => {
-    console.log('🔄 Retrying scan...');
     setIsRetrying(true);
     
     try {
-      console.log('🛑 Stopping daemon...');
       await invoke('stop_daemon');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -41,7 +39,6 @@ function HardwareScanView({
       setScanComplete(false);
       setHardwareError(null);
       
-      console.log('🔄 Reloading app...');
       window.location.reload();
     } catch (err) {
       console.error('Failed to stop daemon:', err);
@@ -50,7 +47,6 @@ function HardwareScanView({
   }, [setHardwareError]);
   
   const handleScanComplete = useCallback(() => {
-    console.log('✅ Scan 3D completed (visually finished)');
     setScanProgress(prev => ({ ...prev, current: prev.total }));
     setCurrentComponent(null);
     setScanComplete(true);

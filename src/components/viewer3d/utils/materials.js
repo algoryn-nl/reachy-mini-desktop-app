@@ -43,11 +43,6 @@ export function createCellShadingGradient(bands = 3) {
   gradientTexture.magFilter = THREE.NearestFilter;
   gradientTexture.needsUpdate = true;
   
-  console.log('🎨 Gradient map created:', {
-    bands,
-    values: Array.from(colors).slice(0, bands * 3),
-  });
-  
   return gradientTexture;
 }
 
@@ -241,12 +236,6 @@ export function createCellShadingMaterial(baseColorHex = 0xFF9500, options = {})
     // ✅ Smooth shading is controlled by geometry normals (computeVertexNormals)
     // No flatShading property on ShaderMaterial
   });
-  
-  // Reduced logging - only log in development mode and only occasionally
-  if (process.env.NODE_ENV === 'development' && Math.random() < 0.01) {
-    // Log only 1% of materials created
-    console.log('✨ Cell shading material created');
-  }
   
   return material;
 }

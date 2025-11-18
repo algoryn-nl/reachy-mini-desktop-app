@@ -15,9 +15,7 @@ function StartingView({ startupError }) {
   
   const handleScanComplete = useCallback(() => {
     // ⚡ WAIT for pause to see success, then trigger transition
-    console.log(`⏱️ Waiting ${DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE}ms before transition...`);
     setTimeout(() => {
-      console.log('🚀 Triggering transition to ActiveView');
       // Trigger transition via store
       const { setIsStarting, setIsTransitioning, setIsActive } = useAppStore.getState();
       

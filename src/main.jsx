@@ -10,12 +10,9 @@ const DEV_MODE = isDevPath;
 
 // Mock Tauri APIs if not in Tauri (browser)
 if (typeof window !== 'undefined' && !window.__TAURI__) {
-  console.log('🔧 Mocking Tauri APIs for browser dev...');
-  
   window.__TAURI__ = {
     core: {
       invoke: (cmd, args) => {
-        console.log(`[MOCK] Tauri invoke: ${cmd}`, args);
         return Promise.resolve({ status: 'mocked' });
       }
     }
@@ -23,7 +20,6 @@ if (typeof window !== 'undefined' && !window.__TAURI__) {
   
   const mockWindow = {
     startDragging: () => {
-      console.log('[MOCK] Window dragging');
       return Promise.resolve();
     },
     label: 'dev-window'
@@ -39,14 +35,10 @@ import useAppStore from './store/useAppStore';
 
 // 🚀 Preload robot 3D model (FORCE complete reload)
 robotModelCache.clear();
-console.log('🧹 Robot cache cleared - FORCE RELOAD');
 
 // Wait a bit to ensure clear is effective
 setTimeout(() => {
-  console.log('🚀 Preloading robot 3D model...');
-  robotModelCache.load().then(() => {
-    console.log('✅ Robot 3D model preloaded and cached');
-  }).catch((err) => {
+  robotModelCache.load().catch((err) => {
     console.error('❌ Failed to preload robot model:', err);
   });
 }, 100);
