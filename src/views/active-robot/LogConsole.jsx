@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
-import useAppStore from '../../../store/useAppStore';
+import useAppStore from '../../store/useAppStore';
 
 function LogConsole({ logs, darkMode = false }) {
   const scrollRef = useRef(null);

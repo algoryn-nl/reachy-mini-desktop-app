@@ -3,7 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
-import FullscreenOverlay from '../../../FullscreenOverlay';
+import FullscreenOverlay from '../../../components/FullscreenOverlay';
 
 /**
  * Overlay fullscreen pour l'installation d'une app
@@ -61,8 +61,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
       darkMode={darkMode}
       zIndex={10003} // Above DiscoverModal (10002)
       showCloseButton={false} // No manual close, auto-closes on completion
-      centeredX={true} // Center horizontally
-      centeredY={false} // Don't center vertically
+      centered={true} // Center both horizontally and vertically
     >
       <Box
         sx={{

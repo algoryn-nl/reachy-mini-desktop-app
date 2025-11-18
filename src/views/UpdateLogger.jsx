@@ -10,9 +10,9 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import SystemUpdateIcon from '@mui/icons-material/SystemUpdate';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import reachyUpdateBoxSvg from '../../assets/reachy-update-box.svg';
-import useAppStore from '../../store/useAppStore';
-import FullscreenOverlay from '../FullscreenOverlay';
+import reachyUpdateBoxSvg from '../assets/reachy-update-box.svg';
+import useAppStore from '../store/useAppStore';
+import FullscreenOverlay from '../components/FullscreenOverlay';
 
 /**
  * Simple update view similar to ReadyToStartView

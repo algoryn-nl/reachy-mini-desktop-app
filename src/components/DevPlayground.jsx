@@ -2,9 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Stack, CircularProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Viewer3D from './viewer3d';
-import FPSMeter from './FPSMeter';
-import AudioLevelBars from './views/active-robot/audio/AudioLevelBars';
-import AudioControls from './views/active-robot/audio/AudioControls';
+import AudioLevelBars from '../views/active-robot/audio/AudioLevelBars';
+import AudioControls from '../views/active-robot/audio/AudioControls';
 import { getShortComponentName } from '../utils/componentNames';
 
 /**
@@ -142,7 +141,6 @@ export default function DevPlayground() {
         p: 4,
       }}
     >
-      <FPSMeter />
       <Typography variant="h5" sx={{ fontWeight: 600, color: '#333' }}>
         🔬 Dev Playground
       </Typography>

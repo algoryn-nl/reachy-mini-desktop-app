@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import useAppStore from '../../store/useAppStore';
+import useAppStore from '../store/useAppStore';
 
 /**
  * Vue de transition entre StartingView et ActiveRobotView

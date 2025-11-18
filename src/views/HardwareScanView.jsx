@@ -2,9 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
-import Viewer3D from '../viewer3d';
-import { getShortComponentName } from '../../utils/componentNames';
-import useAppStore from '../../store/useAppStore';
+import Viewer3D from '../components/viewer3d';
+import { getShortComponentName } from '../utils/componentNames';
+import useAppStore from '../store/useAppStore';
 import { invoke } from '@tauri-apps/api/core';
 
 /**

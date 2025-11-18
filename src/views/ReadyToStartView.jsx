@@ -2,9 +2,9 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Typography, Button, CircularProgress, LinearProgress } from '@mui/material';
 import SystemUpdateIcon from '@mui/icons-material/SystemUpdate';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import reachyBusteSvg from '../../assets/reachy-buste.svg';
-import reachyUpdateBoxSvg from '../../assets/reachy-update-box.svg';
-import useAppStore from '../../store/useAppStore';
+import reachyBusteSvg from '../assets/reachy-buste.svg';
+import reachyUpdateBoxSvg from '../assets/reachy-update-box.svg';
+import useAppStore from '../store/useAppStore';
 
 // 🤖 Startup messages (fixed title)
 const START_MESSAGES = [

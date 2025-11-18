@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import useAppStore from '../../../../store/useAppStore';
+import useAppStore from '../../../store/useAppStore';
 
 /**
  * Hook to handle all app actions

@@ -2,8 +2,8 @@ import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import HardwareScanView from './HardwareScanView';
-import useAppStore from '../../store/useAppStore';
-import { DAEMON_CONFIG } from '../../config/daemon';
+import useAppStore from '../store/useAppStore';
+import { DAEMON_CONFIG } from '../config/daemon';
 
 /**
  * View displayed during daemon startup

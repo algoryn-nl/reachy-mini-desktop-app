@@ -16,6 +16,7 @@ import Scene from './Scene';
 import useRobotWebSocket from './hooks/useRobotWebSocket';
 import useAppStore from '../../store/useAppStore';
 import SettingsOverlay from './SettingsOverlay';
+import { FPSMeter } from '../FPSMeter';
 
 /**
  * Main 3D viewer component
@@ -466,6 +467,20 @@ export default function RobotViewer3D({
               </Tooltip>
             </>
           )}
+        </Box>
+      )}
+      
+      {/* FPS Meter - Above Status Tag */}
+      {!hideControls && (
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 50, // Above status tag (which is at bottom: 12, height ~36px)
+            left: 12, // Same left position as status tag
+            zIndex: 11, // Just above status tag (zIndex: 10)
+          }}
+        >
+          <FPSMeter darkMode={darkMode} />
         </Box>
       )}
       

@@ -4,15 +4,15 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import useAppStore from '../../../../store/useAppStore';
-import { useApps } from '../../../../hooks/useApps';
+import useAppStore from '../../../store/useAppStore';
+import { useApps } from '../../../hooks/useApps';
 import { useAppHandlers } from './useAppHandlers';
 import InstalledAppsSection from './InstalledAppsSection';
 import DiscoverModal from './DiscoverModal';
 import InstallOverlay from './InstallOverlay';
 import QuickActionsPad from './QuickActionsPad';
 import HandwrittenArrows from './HandwrittenArrows';
-import RobotPositionControl from '../RobotPositionControl';
+// import RobotPositionControl from '../RobotPositionControl';
 
 /**
  * Application Store for Reachy Mini
@@ -576,10 +576,10 @@ export default function ApplicationStore({
             </Box>
           </AccordionSummary>
           <AccordionDetails sx={{ px: 0, pt: 0, pb: 3, bgcolor: 'transparent !important', backgroundColor: 'transparent !important' }}>
-            <RobotPositionControl
+            {/* <RobotPositionControl
               isActive={effectiveIsActive}
               darkMode={effectiveDarkMode}
-            />
+            /> */}
           </AccordionDetails>
         </Accordion>
       )}

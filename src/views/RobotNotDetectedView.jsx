@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import unpluggedCableSvg from '../../assets/unplugged-cable.svg';
-import useAppStore from '../../store/useAppStore';
+import unpluggedCableSvg from '../assets/unplugged-cable.svg';
+import useAppStore from '../store/useAppStore';
 
 /**
  * Vue affichée quand le robot n'est pas détecté via USB

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, IconButton, Tooltip, Slider, Chip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ApiIcon from '@mui/icons-material/Api';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../../config/daemon';
+import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
 
 /**
  * 2D Joystick Component - Compact

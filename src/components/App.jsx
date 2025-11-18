@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { Box } from '@mui/material';
-import { RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView } from './views';
+import { RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView } from '../views';
 import useAppStore from '../store/useAppStore';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
-import AppTopBar from './views/AppTopBar';
-import FPSMeter from './FPSMeter';
+import AppTopBar from './AppTopBar';
 import { useDaemon } from '../hooks/useDaemon';
 import { useDaemonHealthCheck } from '../hooks/useDaemonHealthCheck';
 import { useUsbDetection } from '../hooks/useUsbDetection';
@@ -121,7 +120,6 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <FPSMeter />
         <RobotNotDetectedView />
       </>
     );
@@ -133,7 +131,6 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <FPSMeter />
         <StartingView startupError={startupError} />
       </>
     );
@@ -145,7 +142,6 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <FPSMeter />
         {/* ActiveRobotView hidden to load apps in background */}
         <Box sx={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
           <ActiveRobotView 
@@ -173,7 +169,6 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <FPSMeter />
         <ClosingView />
       </>
     );
@@ -188,7 +183,6 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <FPSMeter />
       <ReadyToStartView 
         startDaemon={startDaemon} 
         isStarting={isStarting} 
@@ -211,7 +205,6 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <FPSMeter />
         <StartingView startupError={hardwareError} />
       </>
     );
@@ -221,7 +214,6 @@ function App() {
   return (
     <>
       <AppTopBar />
-      <FPSMeter />
       <ActiveRobotView 
         isActive={isActive}
         isStarting={isStarting}

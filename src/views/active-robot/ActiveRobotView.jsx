@@ -3,7 +3,7 @@ import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert,
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-shell';
-import Viewer3D from '../../viewer3d';
+import Viewer3D from '../../components/viewer3d';
 import CameraFeed from './camera/CameraFeed';
 import ViewportSwapper from './ViewportSwapper';
 import LogConsole from './LogConsole';
@@ -11,10 +11,10 @@ import ApplicationStore from './application-store';
 import RobotHeader from './RobotHeader';
 import PowerButton from './PowerButton';
 import AudioControls from './audio/AudioControls';
-import { useRobotState } from '../../../hooks/useRobotState';
-import useAppStore from '../../../store/useAppStore';
-import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_EMOTIONS } from '../../../constants/choreographies';
-import { buildApiUrl } from '../../../config/daemon';
+import { useRobotState } from '../../hooks/useRobotState';
+import useAppStore from '../../store/useAppStore';
+import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_EMOTIONS } from '../../constants/choreographies';
+import { buildApiUrl } from '../../config/daemon';
 
 
 function ActiveRobotView({ 
@@ -511,7 +511,7 @@ function ActiveRobotView({
           />
 
         {/* Audio Controls - Wrapper stable pour garantir le sizing correct */}
-        <Box sx={{ width: '100%', mt: 1.5, mb: 1.5 }}>
+        <Box sx={{ width: '100%' }}>
           <AudioControls
             volume={volume}
             microphoneVolume={microphoneVolume}

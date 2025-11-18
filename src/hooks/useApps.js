@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import useAppStore from '../store/useAppStore';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '../config/daemon';
-import { fetchHuggingFaceAppList } from '../components/views/active-robot/application-store/huggingFaceApi';
+import { fetchHuggingFaceAppList } from '../views/active-robot/application-store/huggingFaceApi';
 
 /**
  * Hook to manage applications (list, installation, launch)

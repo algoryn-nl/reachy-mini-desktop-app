@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import useAppStore from '../../store/useAppStore';
+import useAppStore from '../store/useAppStore';
 
 // 💤 Random messages for closing
 const CLOSING_MESSAGES = [

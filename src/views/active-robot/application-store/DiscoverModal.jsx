@@ -7,9 +7,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExtensionIcon from '@mui/icons-material/Extension';
 import AppsIcon from '@mui/icons-material/Apps';
 import { open } from '@tauri-apps/plugin-shell';
-import FullscreenOverlay from '../../../FullscreenOverlay';
-import hfLogo from '../../../../assets/hf-logo.svg';
-import reachyBox from '../../../../assets/reachy-update-box.svg';
+import FullscreenOverlay from '../../../components/FullscreenOverlay';
+import hfLogo from '../../../assets/hf-logo.svg';
+import reachyBox from '../../../assets/reachy-update-box.svg';
 
 /**
  * Modal overlay for discovering and installing apps from Hugging Face

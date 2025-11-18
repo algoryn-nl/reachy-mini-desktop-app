@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
-import useAppStore from '../../store/useAppStore';
+import useAppStore from '../store/useAppStore';
 
 /**
  * Common TopBar component for all views

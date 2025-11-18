@@ -60,15 +60,6 @@ export default function InstalledAppsSection({
         >
               No apps installed yet
             </Typography>
-          <Typography
-            sx={{
-              fontSize: 12,
-              color: darkMode ? '#666' : '#999',
-                fontWeight: 400,
-              }}
-            >
-              Extend Reachy's capabilities with apps from the community
-            </Typography>
           </Box>
 
           {/* Call-to-action cards - 50/50 layout */}

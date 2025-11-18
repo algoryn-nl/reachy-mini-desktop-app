@@ -5,7 +5,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { open } from '@tauri-apps/plugin-shell';
-import hfLogo from '../../../../assets/hf-logo.svg';
+import hfLogo from '../../../assets/hf-logo.svg';
 
 /**
  * Section displaying available apps (Discover from Hugging Face)
