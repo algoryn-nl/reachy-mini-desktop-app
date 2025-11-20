@@ -254,7 +254,8 @@ jobs:
           
           # Verify .p8 file is in valid PEM format
           echo "🔍 Verifying .p8 file format..."
-          if grep -q "^-----BEGIN" ~/.appstoreconnect/private_key.p8 && grep -q "-----END" ~/.appstoreconnect/private_key.p8; then
+          # Use grep -E to avoid issues with BSD grep on macOS interpreting dashes as options
+          if grep -E "^-----BEGIN" ~/.appstoreconnect/private_key.p8 >/dev/null 2>&1 && grep -E "-----END" ~/.appstoreconnect/private_key.p8 >/dev/null 2>&1; then
             echo "✅ Valid PEM format detected"
             echo "   File size: $(wc -c < ~/.appstoreconnect/private_key.p8) bytes"
             echo "   Line count: $(wc -l < ~/.appstoreconnect/private_key.p8) lines"
