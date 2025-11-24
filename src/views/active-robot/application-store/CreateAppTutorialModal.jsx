@@ -586,8 +586,8 @@ git push -f space main:main`,
             <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
               <Box 
                 sx={{ 
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                  display: 'flex',
+                  flexDirection: 'column',
                   gap: 2.5,
                 }}
               >
@@ -595,8 +595,9 @@ git push -f space main:main`,
             <Box
               key={step.number}
               sx={{
-                display: 'flex',
-                flexDirection: 'column',
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2.5,
                 p: 2.5,
                 borderRadius: '16px',
                 bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
@@ -605,186 +606,147 @@ git push -f space main:main`,
                 '&:hover': {
                   transform: 'translateY(-2px)',
                   borderColor: darkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.2)',
-                      boxShadow: darkMode 
+                  boxShadow: darkMode 
                     ? '0 8px 24px rgba(0, 0, 0, 0.3)'
                     : '0 8px 24px rgba(0, 0, 0, 0.08)',
                 },
               }}
             >
-              {/* Step header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-              <Box
-                sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '10px',
-                    bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
-                  border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                    flexShrink: 0,
-                    color: '#FF9500',
-                  }}
-                >
-                  {step.icon}
-              </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Chip
-                    label={`Step ${step.number}`}
-                    size="small"
+              {/* Left column: Explanations */}
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {/* Step header */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <Box
                     sx={{
-                      height: 18,
-                      fontSize: 9,
-                      fontWeight: 700,
+                      width: 36,
+                      height: 36,
+                      borderRadius: '10px',
                       bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                      border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                       color: '#FF9500',
-                      border: 'none',
-                      mb: 0.5,
                     }}
-                  />
-                <Typography
-                  sx={{
-                      fontSize: 15,
-                    fontWeight: 700,
-                      color: darkMode ? '#f5f5f5' : '#1a1a1a',
-                      letterSpacing: '-0.2px',
-                      lineHeight: 1.2,
-                  }}
-                >
-                  {step.title}
-                </Typography>
+                  >
+                    {step.icon}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Chip
+                      label={`Step ${step.number}`}
+                      size="small"
+                      sx={{
+                        height: 18,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                        color: '#FF9500',
+                        border: 'none',
+                        mb: 0.5,
+                      }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: darkMode ? '#f5f5f5' : '#1a1a1a',
+                        letterSpacing: '-0.2px',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {step.title}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
                 
-              {/* Description */}
+                {/* Description */}
                 <Typography
                   sx={{
-                  fontSize: 11,
-                  color: darkMode ? '#bbb' : '#666',
-                  lineHeight: 1.5,
-                  mb: 2,
+                    fontSize: 11,
+                    color: darkMode ? '#bbb' : '#666',
+                    lineHeight: 1.5,
+                    mb: 2,
                   }}
                 >
                   {step.description}
                 </Typography>
 
-              {/* Details list */}
-              {step.details && (
-                <Box 
-                  sx={{ 
-                    mb: 2,
-                    display: step.number === 3 ? 'grid' : 'flex',
-                    flexDirection: step.number === 3 ? 'unset' : 'column',
-                    gridTemplateColumns: step.number === 3 ? 'repeat(2, 1fr)' : 'none',
-                    gap: step.number === 3 ? 2 : 0,
-                    alignItems: step.number === 3 ? 'flex-start' : 'flex-start',
-                  }}
-                >
-                  {step.details.map((detail, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 0.75,
-                        mb: step.number === 3 ? (idx < 2 ? 1 : 0) : 0.75,
-                        gridColumn: step.number === 3 && idx === 2 ? 'span 2' : 'auto',
-                        width: step.number === 3 && idx === 2 ? '100%' : 'auto',
-                      }}
-                    >
+                {/* Details list */}
+                {step.details && (
+                  <Box sx={{ mb: 2 }}>
+                    {step.details.map((detail, idx) => (
                       <Box
+                        key={idx}
                         sx={{
-                          width: 3,
-                          height: 3,
-                          borderRadius: '50%',
-                          bgcolor: '#FF9500',
-                          mt: 0.6,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          fontSize: 10,
-                          color: darkMode ? '#999' : '#777',
-                          lineHeight: 1.4,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 0.75,
+                          mb: 0.75,
                         }}
                       >
-                        {detail}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
+                        <Box
+                          sx={{
+                            width: 3,
+                            height: 3,
+                            borderRadius: '50%',
+                            bgcolor: '#FF9500',
+                            mt: 0.6,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Typography
+                          sx={{
+                            fontSize: 10,
+                            color: darkMode ? '#999' : '#777',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {detail}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
 
-                {/* Code block */}
-                {step.code && (
+                {/* Tip */}
+                {step.tip && (
                   <Box
                     sx={{
-                    p: 1.5,
-                    borderRadius: '10px',
-                    bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
-                    border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-                    mb: 2,
-                    overflow: 'hidden',
-                    flex: 1,
+                      p: 1.25,
+                      borderRadius: '8px',
+                      bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
+                      border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
+                      mb: 1.5,
                     }}
                   >
                     <Typography
-                      component="pre"
                       sx={{
-                      fontSize: 9,
-                      fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
-                        color: darkMode ? '#e0e0e0' : '#333',
-                        margin: 0,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      lineHeight: 1.5,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: '#FF9500',
+                        mb: 0.5,
                       }}
                     >
-                      {step.code}
+                      💡 Tip
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        color: darkMode ? '#ddd' : '#666',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {step.tip}
                     </Typography>
                   </Box>
                 )}
 
-              {/* Tip */}
-              {step.tip && (
-                <Box
-                  sx={{
-                    p: 1.25,
-                    borderRadius: '8px',
-                    bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
-                    border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
-                    mb: 1.5,
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: '#FF9500',
-                      mb: 0.5,
-                    }}
-                  >
-                    💡 Tip
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 10,
-                      color: darkMode ? '#ddd' : '#666',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {step.tip}
-                  </Typography>
-                </Box>
-              )}
-
                 {/* Action button */}
                 {step.action && step.actionUrl && (
                   <Button
-                  fullWidth
-                  size="medium"
+                    fullWidth
+                    size="medium"
                     onClick={async () => {
                       try {
                         await open(step.actionUrl);
@@ -792,19 +754,19 @@ git push -f space main:main`,
                         console.error('Failed to open URL:', err);
                       }
                     }}
-                  endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                    endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
                     sx={{
                       textTransform: 'none',
-                    fontSize: 13,
+                      fontSize: 13,
                       fontWeight: 600,
                       color: '#FF9500',
                       border: '1px solid #FF9500',
-                    borderRadius: '10px',
-                    py: 1.25,
+                      borderRadius: '10px',
+                      py: 1.25,
                       bgcolor: 'transparent',
-                    mt: 'auto',
+                      mt: 'auto',
                       '&:hover': {
-                      bgcolor: darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
+                        bgcolor: darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
                         borderColor: '#FF9500',
                       },
                     }}
@@ -812,6 +774,36 @@ git push -f space main:main`,
                     {step.action}
                   </Button>
                 )}
+              </Box>
+
+              {/* Right column: Code */}
+              {step.code && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '10px',
+                    bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
+                    border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+                    overflow: 'hidden',
+                    height: 'fit-content',
+                  }}
+                >
+                  <Typography
+                    component="pre"
+                    sx={{
+                      fontSize: 9,
+                      fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
+                      color: darkMode ? '#e0e0e0' : '#333',
+                      margin: 0,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {step.code}
+                  </Typography>
+                </Box>
+              )}
             </Box>
                 ))}
               </Box>
@@ -890,8 +882,8 @@ git push -f space main:main`,
             <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
               <Box 
                 sx={{ 
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                  display: 'flex',
+                  flexDirection: 'column',
                   gap: 2.5,
                 }}
               >
@@ -899,8 +891,9 @@ git push -f space main:main`,
             <Box
               key={step.number}
               sx={{
-                display: 'flex',
-                flexDirection: 'column',
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2.5,
                 p: 2.5,
                 borderRadius: '16px',
                 bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
@@ -915,160 +908,132 @@ git push -f space main:main`,
                 },
               }}
             >
-              {/* Step header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-              <Box
-                sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '10px',
-                    bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
-                  border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                    flexShrink: 0,
-                    color: '#FF9500',
-                  }}
-                >
-                  {step.icon}
-              </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Chip
-                    label={`Step ${step.number}`}
-                    size="small"
+              {/* Left column: Explanations */}
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {/* Step header */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <Box
                     sx={{
-                      height: 18,
-                      fontSize: 9,
-                      fontWeight: 700,
+                      width: 36,
+                      height: 36,
+                      borderRadius: '10px',
                       bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                      border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                       color: '#FF9500',
-                      border: 'none',
-                      mb: 0.5,
                     }}
-                  />
-                <Typography
-                  sx={{
-                      fontSize: 15,
-                    fontWeight: 700,
-                      color: darkMode ? '#f5f5f5' : '#1a1a1a',
-                      letterSpacing: '-0.2px',
-                      lineHeight: 1.2,
-                  }}
-                >
-                  {step.title}
-                </Typography>
+                  >
+                    {step.icon}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Chip
+                      label={`Step ${step.number}`}
+                      size="small"
+                      sx={{
+                        height: 18,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                        color: '#FF9500',
+                        border: 'none',
+                        mb: 0.5,
+                      }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: darkMode ? '#f5f5f5' : '#1a1a1a',
+                        letterSpacing: '-0.2px',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {step.title}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Box>
                 
-              {/* Description */}
+                {/* Description */}
                 <Typography
                   sx={{
-                  fontSize: 11,
-                  color: darkMode ? '#bbb' : '#666',
-                  lineHeight: 1.5,
-                  mb: 2,
+                    fontSize: 11,
+                    color: darkMode ? '#bbb' : '#666',
+                    lineHeight: 1.5,
+                    mb: 2,
                   }}
                 >
                   {step.description}
                 </Typography>
 
-              {/* Details list */}
-              {step.details && (
-                <Box sx={{ mb: 2 }}>
-                  {step.details.map((detail, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 0.75,
-                        mb: 0.75,
-                      }}
-                    >
+                {/* Details list */}
+                {step.details && (
+                  <Box sx={{ mb: 2 }}>
+                    {step.details.map((detail, idx) => (
                       <Box
+                        key={idx}
                         sx={{
-                          width: 3,
-                          height: 3,
-                          borderRadius: '50%',
-                          bgcolor: '#FF9500',
-                          mt: 0.6,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          fontSize: 10,
-                          color: darkMode ? '#999' : '#777',
-                          lineHeight: 1.4,
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 0.75,
+                          mb: 0.75,
                         }}
                       >
-                        {detail}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-
-                {/* Code block */}
-                {step.code && (
-                  <Box
-                    sx={{
-                    p: 1.5,
-                    borderRadius: '10px',
-                    bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
-                    border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-                    mb: 2,
-                    overflow: 'hidden',
-                    flex: 1,
-                    }}
-                  >
-                    <Typography
-                      component="pre"
-                      sx={{
-                      fontSize: 9,
-                      fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
-                        color: darkMode ? '#e0e0e0' : '#333',
-                        margin: 0,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      lineHeight: 1.5,
-                      }}
-                    >
-                      {step.code}
-                    </Typography>
+                        <Box
+                          sx={{
+                            width: 3,
+                            height: 3,
+                            borderRadius: '50%',
+                            bgcolor: '#FF9500',
+                            mt: 0.6,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Typography
+                          sx={{
+                            fontSize: 10,
+                            color: darkMode ? '#999' : '#777',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {detail}
+                        </Typography>
+                      </Box>
+                    ))}
                   </Box>
                 )}
 
-              {/* Tip */}
-              {step.tip && (
-                <Box
-                  sx={{
-                    p: 1.25,
-                    borderRadius: '8px',
-                    bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
-                    border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
-                    mb: 1.5,
-                  }}
-                >
-                  <Typography
+                {/* Tip */}
+                {step.tip && (
+                  <Box
                     sx={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: '#FF9500',
-                      mb: 0.5,
+                      p: 1.25,
+                      borderRadius: '8px',
+                      bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
+                      border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
+                      mb: 1.5,
                     }}
                   >
-                    💡 Tip
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 10,
-                      color: darkMode ? '#ddd' : '#666',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {step.tip}
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: '#FF9500',
+                        mb: 0.5,
+                      }}
+                    >
+                      💡 Tip
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        color: darkMode ? '#ddd' : '#666',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {step.tip}
                     </Typography>
                   </Box>
                 )}
@@ -1076,8 +1041,8 @@ git push -f space main:main`,
                 {/* Action button */}
                 {step.action && step.actionUrl && (
                   <Button
-                  fullWidth
-                  size="small"
+                    fullWidth
+                    size="small"
                     onClick={async () => {
                       try {
                         await open(step.actionUrl);
@@ -1085,19 +1050,19 @@ git push -f space main:main`,
                         console.error('Failed to open URL:', err);
                       }
                     }}
-                  endIcon={<OpenInNewIcon sx={{ fontSize: 12 }} />}
+                    endIcon={<OpenInNewIcon sx={{ fontSize: 12 }} />}
                     sx={{
                       textTransform: 'none',
-                    fontSize: 11,
+                      fontSize: 11,
                       fontWeight: 600,
                       color: '#FF9500',
                       border: '1px solid #FF9500',
-                    borderRadius: '8px',
-                    py: 1,
+                      borderRadius: '8px',
+                      py: 1,
                       bgcolor: 'transparent',
-                    mt: 'auto',
+                      mt: 'auto',
                       '&:hover': {
-                      bgcolor: darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
+                        bgcolor: darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
                         borderColor: '#FF9500',
                       },
                     }}
@@ -1105,6 +1070,36 @@ git push -f space main:main`,
                     {step.action}
                   </Button>
                 )}
+              </Box>
+
+              {/* Right column: Code */}
+              {step.code && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '10px',
+                    bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
+                    border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+                    overflow: 'hidden',
+                    height: 'fit-content',
+                  }}
+                >
+                  <Typography
+                    component="pre"
+                    sx={{
+                      fontSize: 9,
+                      fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
+                      color: darkMode ? '#e0e0e0' : '#333',
+                      margin: 0,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {step.code}
+                  </Typography>
+                </Box>
+              )}
             </Box>
                 ))}
               </Box>

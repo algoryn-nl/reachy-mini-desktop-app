@@ -54,14 +54,14 @@ REACHY_MINI_SOURCE=develop yarn build:sidecar-linux
 yarn tauri build --target aarch64-apple-darwin
 ```
 
-#### Installation du daemon depuis différentes sources
+#### Installing the daemon from different sources
 
-Par défaut, le package `reachy-mini` est installé depuis PyPI (dernière release stable). Vous pouvez également installer depuis la branche `develop` de GitHub en utilisant la variable d'environnement `REACHY_MINI_SOURCE` :
+By default, the `reachy-mini` package is installed from PyPI (latest stable release). You can also install from the `develop` branch on GitHub by using the `REACHY_MINI_SOURCE` environment variable:
 
-- **PyPI (par défaut)** : `REACHY_MINI_SOURCE=pypi` ou omettre la variable
+- **PyPI (default)** : `REACHY_MINI_SOURCE=pypi` or omit the variable
 - **GitHub develop** : `REACHY_MINI_SOURCE=develop`
 
-Exemple pour construire le sidecar avec la version develop :
+Example to build the sidecar with the develop version:
 ```bash
 REACHY_MINI_SOURCE=develop bash ./build_sidecar_unix.sh
 ```
@@ -87,31 +87,31 @@ yarn serve:updates    # Serve updates locally for testing
 
 ### 🎭 Simulation Mode
 
-Pour développer ou tester l'application sans robot USB connecté, utilisez le mode simulation :
+To develop or test the application without a USB-connected robot, use simulation mode:
 
 ```bash
-# Via script npm/yarn (recommandé)
+# Via npm/yarn script (recommended)
 yarn tauri:dev:sim
 
-# Ou manuellement avec variable d'environnement
+# Or manually with environment variable
 VITE_SIM_MODE=true yarn tauri:dev
 
-# Ou via localStorage (dans la console du navigateur)
+# Or via localStorage (in browser console)
 localStorage.setItem('simMode', 'true')
-# Puis recharger l'application
+# Then reload the application
 ```
 
-**Comportement en mode simulation :**
-- ✅ Skip la détection USB (passe directement à `ReadyToStartView`)
-- ✅ Simule une connexion USB (`/dev/tty.usbserial-SIMULATED`)
-- ✅ Indicateur visuel "🎭 SIM" dans la barre supérieure
-- ✅ **Le daemon démarre automatiquement en mode simulation (MuJoCo)** avec l'argument `--sim`
-- ✅ **MuJoCo est installé automatiquement** lors du premier démarrage en mode simulation
-  - L'installation se fait en arrière-plan via `uv pip install reachy-mini[mujoco]`
-  - Si MuJoCo est déjà installé, l'installation sera rapide (vérification uniquement)
-- 🍎 **Sur macOS** : Utilise automatiquement `mjpython` (requis par MuJoCo) avec correction automatique du shebang
+**Simulation mode behavior:**
+- ✅ Skip USB detection (goes directly to `ReadyToStartView`)
+- ✅ Simulates a USB connection (`/dev/tty.usbserial-SIMULATED`)
+- ✅ Visual indicator "🎭 SIM" in the top bar
+- ✅ **The daemon automatically starts in simulation mode (MuJoCo)** with the `--sim` argument
+- ✅ **MuJoCo is automatically installed** on first startup in simulation mode
+  - Installation happens in the background via `uv pip install reachy-mini[mujoco]`
+  - If MuJoCo is already installed, installation will be quick (verification only)
+- 🍎 **On macOS**: Automatically uses `mjpython` (required by MuJoCo) with automatic shebang correction
 
-**Désactiver le mode simulation :**
+**Disable simulation mode:**
 ```bash
 # Supprimer la variable d'environnement
 yarn tauri:dev
