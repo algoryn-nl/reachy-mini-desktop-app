@@ -1,39 +1,39 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box } from '@mui/material';
 
-// Charger toutes les images du dossier reachies/small-top-sided dynamiquement avec Vite
+// Load all images from reachies/small-top-sided folder dynamically with Vite
 const imageModules = import.meta.glob('../assets/reachies/small-top-sided/*.png', { eager: true });
 
 /**
- * Composant qui charge toutes les images PNG du dossier reachies/small-top-sided,
- * les met en mémoire et les affiche en séquence avec une transition fade superposée.
+ * Component that loads all PNG images from reachies/small-top-sided folder,
+ * stores them in memory and displays them in sequence with overlapping fade transition.
  * 
- * Les images sont chargées dynamiquement et affichées les unes après les autres
- * dans un cadre fixe, avec une transition fade in/out entre chaque image.
+ * Images are loaded dynamically and displayed one after another
+ * in a fixed frame, with a fade in/out transition between each image.
  */
 export default function ReachiesCarousel({ 
   width = 100, 
   height = 100, 
-  interval = 1000, // Durée d'affichage de chaque image en ms (plus rapide)
-  transitionDuration = 150, // Durée de la transition fade en ms (très nette) - DEPRECATED, utilise fadeInDuration et fadeOutDuration
-  fadeInDuration = 350, // Durée du fade-in pour l'image entrante (plus lent, style Apple/Google)
-  fadeOutDuration = 120, // Durée du fade-out pour l'image sortante (plus rapide, style Apple/Google)
-  zoom = 1.8, // Facteur de zoom pour agrandir le sticker
-  verticalAlign = 'center', // Alignement vertical: 'top', 'center', 'bottom', ou pourcentage (ex: '60%')
+  interval = 1000, // Display duration of each image in ms (faster)
+  transitionDuration = 150, // Fade transition duration in ms (very sharp) - DEPRECATED, use fadeInDuration and fadeOutDuration
+  fadeInDuration = 350, // Fade-in duration for incoming image (slower, Apple/Google style)
+  fadeOutDuration = 120, // Fade-out duration for outgoing image (faster, Apple/Google style)
+  zoom = 1.8, // Zoom factor to enlarge the sticker
+  verticalAlign = 'center', // Vertical alignment: 'top', 'center', 'bottom', or percentage (e.g.: '60%')
   darkMode = false,
   sx = {} 
 }) {
-  // Extraire les URLs des images chargées et les trier pour un ordre cohérent
+  // Extract URLs of loaded images and sort them for consistent order
   const imagePaths = useMemo(() => {
     const paths = Object.values(imageModules)
       .map(module => {
-        // Avec eager: true, le module est déjà chargé, on accède à .default
+        // With eager: true, module is already loaded, access .default
         return typeof module === 'object' && module !== null && 'default' in module 
           ? module.default 
           : module;
       })
-      .filter(Boolean) // Filtrer les valeurs nulles/undefined
-      .sort(); // Trier pour un ordre cohérent
+      .filter(Boolean) // Filter null/undefined values
+      .sort(); // Sort for consistent order
     
     return paths;
   }, []);
@@ -43,7 +43,7 @@ export default function ReachiesCarousel({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [fadeOutComplete, setFadeOutComplete] = useState(false);
 
-  // Précharger toutes les images en mémoire pour des transitions fluides
+  // Preload all images in memory for smooth transitions
   useEffect(() => {
     imagePaths.forEach(imagePath => {
       const img = new Image();
@@ -51,7 +51,7 @@ export default function ReachiesCarousel({
     });
   }, [imagePaths]);
 
-  // Fonction pour obtenir un index aléatoire différent du courant
+  // Function to get a random index different from current
   const getRandomIndex = (currentIdx, total) => {
     if (total <= 1) return 0;
     let newIndex;
@@ -61,28 +61,28 @@ export default function ReachiesCarousel({
     return newIndex;
   };
 
-  // Changer d'image automatiquement avec overlap et sélection aléatoire
+  // Automatically change image with overlap and random selection
   useEffect(() => {
     if (imagePaths.length > 0) {
       const timer = setInterval(() => {
-        // Sauvegarder l'index précédent AVANT de changer pour garantir le crossfade
+        // Save previous index BEFORE changing to guarantee crossfade
         const prevIdx = currentIndex;
         setPreviousIndex(prevIdx);
         setIsTransitioning(true);
-        setFadeOutComplete(false); // Réinitialiser au début de la transition
+        setFadeOutComplete(false); // Reset at start of transition
         
-        // Sélectionner une image aléatoire différente de la courante
+        // Select a random image different from current
         const newIndex = getRandomIndex(currentIndex, imagePaths.length);
         setCurrentIndex(newIndex);
         
-        // L'image sortante commence à disparaître après un délai pour créer plus d'overlap
-        // Les deux images restent visibles ensemble plus longtemps
-        const overlapDelay = Math.min(fadeInDuration * 0.4, fadeOutDuration * 2); // 40% du fade-in ou 2x fade-out
+        // Outgoing image starts disappearing after a delay to create more overlap
+        // Both images remain visible together longer
+        const overlapDelay = Math.min(fadeInDuration * 0.4, fadeOutDuration * 2); // 40% of fade-in or 2x fade-out
         setTimeout(() => {
           setFadeOutComplete(true);
         }, overlapDelay);
         
-        // Réinitialiser l'état de transition après la durée la plus longue (fade-in)
+        // Reset transition state after longest duration (fade-in)
         setTimeout(() => {
           setIsTransitioning(false);
           setPreviousIndex(null);
@@ -118,7 +118,7 @@ export default function ReachiesCarousel({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden', // Empêcher le débordement du zoom
+        overflow: 'hidden', // Prevent zoom overflow
         ...sx,
       }}
     >
@@ -126,7 +126,7 @@ export default function ReachiesCarousel({
         const isActive = index === currentIndex;
         const isPrevious = index === previousIndex && isTransitioning;
         
-        // Calculer la position verticale selon l'alignement
+        // Calculate vertical position according to alignment
         let topValue, transformY;
         if (verticalAlign === 'top') {
           topValue = 0;
@@ -135,36 +135,36 @@ export default function ReachiesCarousel({
           topValue = '100%';
           transformY = '-100%';
         } else if (typeof verticalAlign === 'string' && verticalAlign.includes('%')) {
-          // Pourcentage personnalisé
+          // Custom percentage
           topValue = verticalAlign;
           transformY = '-50%';
         } else {
-          // Par défaut: center
+          // Default: center
           topValue = '50%';
           transformY = '-50%';
         }
         
-        // Crossfade style Apple/Google : sortant disparaît plus vite que l'entrant n'apparaît
+        // Crossfade style Apple/Google: outgoing disappears faster than incoming appears
         const baseOpacity = darkMode ? 0.8 : 0.9;
         let opacity = 0;
         let transitionStyle = 'none';
         
-        // Logique de crossfade : les deux images doivent être visibles simultanément
+        // Crossfade logic: both images must be visible simultaneously
         if (isActive) {
-          // Image entrante : fade-in lent et progressif (style premium)
+          // Incoming image: slow and progressive fade-in (premium style)
           opacity = baseOpacity;
-          transitionStyle = `opacity ${fadeInDuration}ms cubic-bezier(0.4, 0, 0.2, 1)`; // Ease-out fluide
+          transitionStyle = `opacity ${fadeInDuration}ms cubic-bezier(0.4, 0, 0.2, 1)`; // Smooth ease-out
         } else if (isPrevious) {
-          // Image sortante : fade-out rapide (disparaît vite pour laisser place)
-          // Commence visible, puis disparaît après fadeOutDuration
+          // Outgoing image: fast fade-out (disappears quickly to make room)
+          // Starts visible, then disappears after fadeOutDuration
           opacity = fadeOutComplete ? 0 : baseOpacity;
-          transitionStyle = `opacity ${fadeOutDuration}ms cubic-bezier(0.4, 0, 1, 1)`; // Ease-out plus agressif
+          transitionStyle = `opacity ${fadeOutDuration}ms cubic-bezier(0.4, 0, 1, 1)`; // More aggressive ease-out
         }
-        // Sinon opacity reste à 0 (invisible)
+        // Otherwise opacity stays at 0 (invisible)
         
         return (
           <Box
-            key={`${imageSrc}-${index}`} // Key unique pour forcer le re-render
+            key={`${imageSrc}-${index}`} // Unique key to force re-render
             component="img"
             src={imageSrc}
             alt={`Reachy ${index + 1}`}
@@ -173,17 +173,17 @@ export default function ReachiesCarousel({
               width: width * zoom,
               height: height * zoom,
               objectFit: 'cover',
-              objectPosition: 'center top', // Aligner le haut de l'image vers le haut
+              objectPosition: 'center top', // Align top of image to top
               opacity,
-              transform: `translate(-50%, ${transformY})`, // Pas de scale
+              transform: `translate(-50%, ${transformY})`, // No scale
               transition: transitionStyle,
               pointerEvents: 'none',
-              // Positionner l'image zoomée avec alignement vertical personnalisé
+              // Position zoomed image with custom vertical alignment
               left: '50%',
               top: topValue,
-              zIndex: isActive ? 2 : (isPrevious ? 1 : 0), // Image active au-dessus
-              willChange: 'opacity', // Optimisation GPU
-              backfaceVisibility: 'hidden', // Éviter les artefacts de rendu
+              zIndex: isActive ? 2 : (isPrevious ? 1 : 0), // Active image on top
+              willChange: 'opacity', // GPU optimization
+              backfaceVisibility: 'hidden', // Avoid rendering artifacts
               WebkitBackfaceVisibility: 'hidden',
             }}
           />

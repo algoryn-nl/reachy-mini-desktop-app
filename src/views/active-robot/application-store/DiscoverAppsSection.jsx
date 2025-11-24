@@ -276,6 +276,8 @@ export default function DiscoverAppsSection({
                     
                     {/* Install Button */}
                     <Button
+                      variant="outlined"
+                      color="primary"
                       size="small"
                       disabled={isBusy}
                       onClick={() => handleInstall(app)}
@@ -298,8 +300,8 @@ export default function DiscoverAppsSection({
                           borderColor: '#FF9500',
                         },
                         '&:disabled': {
-                          bgcolor: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
-                          color: darkMode ? '#555' : '#999',
+                          bgcolor: 'transparent',
+                          color: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
                           borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.12)',
                         },
                       }}

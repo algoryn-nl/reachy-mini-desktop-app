@@ -1,10 +1,10 @@
 /**
- * Liste complète des chorégraphies et mouvements disponibles dans le daemon Reachy Mini
- * Référence: http://localhost:8000/docs quand le daemon est actif
+ * Complete list of choreographies and movements available in the Reachy Mini daemon
+ * Reference: http://localhost:8000/docs when the daemon is active
  * 
- * Les datasets sont hébergés comme des bibliothèques :
+ * Datasets are hosted as libraries:
  * - API endpoint: /api/move/play/recorded-move-dataset/{dataset}/{move}
- * - Liste datasets: /api/move/recorded-move-datasets/list/pollen-robotics/{library}
+ * - Dataset list: /api/move/recorded-move-datasets/list/pollen-robotics/{library}
  */
 
 export const CHOREOGRAPHY_DATASETS = {
@@ -139,7 +139,38 @@ export const QUICK_EMOTIONS = [
   { name: 'relief1', emoji: '😌', label: 'Relief' },
 ];
 
-// Mouvements de base (via l'API directe)
+// Curated selection of emotions and dances for Quick Actions
+// Avoids redundancy and provides a representative mix
+export const QUICK_ACTIONS = [
+  // Core emotions - diverse emotional range
+  { name: 'loving1', emoji: '🥰', label: 'Love', type: 'emotion' },
+  { name: 'cheerful1', emoji: '😊', label: 'Cheerful', type: 'emotion' },
+  { name: 'laughing1', emoji: '😂', label: 'Laughing', type: 'emotion' },
+  { name: 'surprised1', emoji: '😲', label: 'Surprised', type: 'emotion' },
+  { name: 'curious1', emoji: '🤨', label: 'Curious', type: 'emotion' },
+  { name: 'thoughtful1', emoji: '🤔', label: 'Thoughtful', type: 'emotion' },
+  { name: 'proud1', emoji: '😎', label: 'Proud', type: 'emotion' },
+  { name: 'grateful1', emoji: '🙏', label: 'Grateful', type: 'emotion' },
+  { name: 'welcoming1', emoji: '👋', label: 'Welcoming', type: 'emotion' },
+  { name: 'relief1', emoji: '😌', label: 'Relief', type: 'emotion' },
+  { name: 'sad1', emoji: '😢', label: 'Sad', type: 'emotion' },
+  { name: 'rage1', emoji: '😠', label: 'Angry', type: 'emotion' },
+  { name: 'fear1', emoji: '😨', label: 'Fear', type: 'emotion' },
+  { name: 'confused1', emoji: '😕', label: 'Confused', type: 'emotion' },
+  
+  // Dances - dynamic movements
+  { name: 'dance1', emoji: '💃', label: 'Dance 1', type: 'dance' },
+  { name: 'dance2', emoji: '🕺', label: 'Dance 2', type: 'dance' },
+  { name: 'dance3', emoji: '🎭', label: 'Dance 3', type: 'dance' },
+  { name: 'jackson_square', emoji: '🎵', label: 'Jackson', type: 'dance' },
+  { name: 'headbanger_combo', emoji: '🤘', label: 'Headbang', type: 'dance' },
+  { name: 'groovy_sway_and_roll', emoji: '🎶', label: 'Groovy', type: 'dance' },
+  
+  // Special actions
+  { name: 'goto_sleep', emoji: '😴', label: 'Sleep', type: 'action' },
+];
+
+// Basic movements (via direct API)
 export const BASIC_MOVES = {
   WAKE_UP: '/api/move/play/wake_up',
   GOTO_SLEEP: '/api/move/play/goto_sleep',

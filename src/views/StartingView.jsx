@@ -9,7 +9,7 @@ import { DAEMON_CONFIG } from '../config/daemon';
  * View displayed during daemon startup
  * Wrapper around HardwareScanView that handles the transition logic
  */
-function StartingView({ startupError }) {
+function StartingView({ startupError, startDaemon }) {
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
   const { darkMode } = useAppStore();
   
@@ -43,13 +43,17 @@ function StartingView({ startupError }) {
       {/* Centered content */}
       <Box
         sx={{
-          height: 'calc(100vh - 44px)',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <HardwareScanView 
           startupError={startupError}
           onScanComplete={handleScanComplete}
           showTitlebar={false}
+          startDaemon={startDaemon}
         />
       </Box>
     </Box>

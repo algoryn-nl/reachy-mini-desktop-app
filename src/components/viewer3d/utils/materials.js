@@ -129,7 +129,7 @@ export const cellShadingShader = {
       vec3 light = normalize(lightDirection);
       vec3 light2 = normalize(lightDirection2);
       
-      // ===== 1. DIFFUSE CELL SHADING (Multi-light avec smooth) =====
+      // ===== 1. DIFFUSE CELL SHADING (Multi-light with smooth) =====
       // Main light
       float NdotL = max(dot(normal, light), 0.0);
       // Secondary light (fill light)
@@ -197,9 +197,9 @@ export const cellShadingShader = {
 };
 
 /**
- * Crée un matériau cell shading AAA avec shader custom
- * @param {number} baseColorHex - Couleur de base en hexa
- * @param {object} options - Options du shader
+ * Creates an AAA cell shading material with custom shader
+ * @param {number} baseColorHex - Base color in hex
+ * @param {object} options - Shader options
  * @returns {THREE.ShaderMaterial}
  */
 export function createCellShadingMaterial(baseColorHex = 0xFF9500, options = {}) {
@@ -299,7 +299,7 @@ export function updateCellShadingMaterial(material, params = {}) {
 }
 
 /**
- * Shader X-ray AAA avec rim lighting avancé, depth-based opacity, et subsurface scattering
+ * AAA X-ray shader with advanced rim lighting, depth-based opacity, and subsurface scattering
  */
 export const xrayShader = {
   uniforms: {

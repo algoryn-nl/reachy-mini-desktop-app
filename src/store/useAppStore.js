@@ -215,7 +215,7 @@ const useAppStore = create((set) => ({
     return statusLabels[robotStatus] || 'Unknown';
   },
   
-  // Gestion du verrouillage pour les apps
+  // App locking management
   lockForApp: (appName) => {
     const state = useAppStore.getState();
     state.transitionTo.busy('app-running');
@@ -227,13 +227,13 @@ const useAppStore = create((set) => ({
     set({ currentAppName: null });
   },
   
-  // Gestion du verrouillage pour les installations
+  // Installation locking management
   lockForInstall: (appName, jobType = 'install') => {
     const state = useAppStore.getState();
     state.transitionTo.busy('installing');
     set({
       installingAppName: appName,
-      installJobType: jobType, // 'install' ou 'remove'
+      installJobType: jobType, // 'install' or 'remove'
       installResult: null,
     });
   },

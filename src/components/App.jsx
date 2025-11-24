@@ -95,6 +95,13 @@ function App() {
     }
   }, [isUsbConnected, isActive, stopDaemon]);
 
+  // Reset hardware error when returning to ready-to-start view
+  useEffect(() => {
+    if (isUsbConnected && !isActive && !isStarting && hardwareError) {
+      setHardwareError(null);
+    }
+  }, [isUsbConnected, isActive, isStarting, hardwareError, setHardwareError]);
+
   // ✅ Callback to close TransitionView when apps are loaded
   // ⚠️ IMPORTANT: All hooks must be called before conditional returns
   const handleAppsReady = useCallback(() => {
@@ -115,11 +122,12 @@ function App() {
 
   // ⚡ PRIORITY: Starting daemon (visual scan)
   // Must remain visible even if isTransitioning becomes true
-  if (isStarting) {
+  // Also show if hardwareError is set (even if isStarting becomes false)
+  if (isStarting || hardwareError) {
     return (
       <>
         <AppTopBar />
-        <StartingView startupError={startupError} />
+        <StartingView startupError={hardwareError || startupError} startDaemon={startDaemon} />
       </>
     );
   }
@@ -164,10 +172,6 @@ function App() {
 
   // Main view: Robot connected but daemon not active - show start screen
   if (isUsbConnected && !isActive && !isStarting) {
-    // Reset hardware error if returning to this view
-    if (hardwareError) {
-      setHardwareError(null);
-    }
     return (
       <>
         <AppTopBar />

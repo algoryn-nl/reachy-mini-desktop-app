@@ -221,7 +221,7 @@ export default function ParticleEffect({
     particles.forEach((particle, index) => {
       const userData = particle.userData;
       
-      // Attendre le spawn delay
+      // Wait for spawn delay
       if (timeRef.current < userData.spawnDelay) {
         particle.material.opacity = 0;
         return;

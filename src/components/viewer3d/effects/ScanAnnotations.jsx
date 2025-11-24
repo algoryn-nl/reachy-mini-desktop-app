@@ -89,7 +89,7 @@ export default function ScanAnnotations({
     cameraRight.crossVectors(cameraUp, cameraForward).normalize();
     
     // Distance on sides (reduced to stay visible on screen)
-    const sideDistance = 0.05; // ✅ Réduit pour des flèches plus courtes
+    const sideDistance = 0.05; // ✅ Reduced for shorter arrows
     
     // Text position: slightly higher and horizontally offset based on camera
     const horizontalOffset = isRightSide ? -sideDistance : sideDistance;
@@ -227,11 +227,11 @@ export default function ScanAnnotations({
   return (
     <>
       {/* Futuristic diagonal line pointing to component */}
-      {/* ✅ Calculer un point de fin plus proche du mesh pour une flèche plus courte */}
+      {/* ✅ Calculate an end point closer to the mesh for a shorter arrow */}
       {(() => {
         const lineStart = annotation.lineStartPosition || annotation.textPosition;
         const meshPos = annotation.meshPosition;
-        // ✅ Créer un point à 70% de la distance (flèche plus courte)
+        // ✅ Create a point at 70% of the distance (shorter arrow)
         const shortenedEnd = new THREE.Vector3().lerpVectors(meshPos, lineStart, 0.3);
         return (
           <Line
@@ -272,7 +272,7 @@ export default function ScanAnnotations({
             transform: annotation.alignLeft 
               ? 'translate(0, 0)' // Aligned left, bottom of text at position
               : 'translate(-100%, 0)', // Aligned right, bottom of text at position
-            // ✅ Contour de la couleur du fond de la scène pour meilleure lisibilité
+            // ✅ Outline with scene background color for better readability
             textShadow: `
               -3px -3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
               3px -3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},

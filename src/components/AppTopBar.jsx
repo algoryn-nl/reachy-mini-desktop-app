@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import useAppStore from '../store/useAppStore';
+import { isSimulationMode } from '../utils/simulationMode';
 
 /**
  * Common TopBar component for all views
@@ -12,6 +13,7 @@ export default function AppTopBar() {
   const { darkMode } = useAppStore();
   const [currentVersion, setCurrentVersion] = useState('');
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const simMode = isSimulationMode();
 
   useEffect(() => {
     getVersion().then(setCurrentVersion).catch(() => {
@@ -43,6 +45,37 @@ export default function AppTopBar() {
           zIndex: 99999,
         }}
       />
+      {/* Simulation mode indicator */}
+      {simMode && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 10,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            px: 1,
+            py: 0.5,
+            bgcolor: darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)',
+            border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.4)' : 'rgba(255, 149, 0, 0.3)'}`,
+            borderRadius: 1,
+            pointerEvents: 'none',
+            zIndex: 99999,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 8,
+              color: darkMode ? 'rgba(255, 149, 0, 0.9)' : 'rgba(255, 149, 0, 0.8)',
+              fontWeight: 600,
+              letterSpacing: '0.05em',
+              fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+              lineHeight: 1.2,
+            }}
+          >
+            🎭 SIM
+          </Typography>
+        </Box>
+      )}
       {/* Version number - always visible when available */}
       <Typography
         sx={{

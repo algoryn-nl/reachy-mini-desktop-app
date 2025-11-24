@@ -129,18 +129,11 @@ export default function ApplicationStore({
     ? activeJobsArray.find(job => job.appName === installingAppName)
     : null;
 
-  // Get not installed apps (used for categories and total count)
-  const notInstalledApps = useMemo(() => {
-    return availableApps.filter(app => 
-      !installedApps.some(inst => inst.name === app.name)
-    );
-  }, [availableApps, installedApps]);
-
   // Extract available categories from apps with counts
   const categories = useMemo(() => {
     const categoryMap = new Map(); // category -> count
     
-    notInstalledApps.forEach(app => {
+    availableApps.forEach(app => {
       // Extract tags from both root level and cardData (HF API has tags in both places)
       const rootTags = app.extra?.tags || [];
       const cardDataTags = app.extra?.cardData?.tags || [];
@@ -198,12 +191,12 @@ export default function ApplicationStore({
         return a.name.localeCompare(b.name);
       })
       .slice(0, 6); // Keep only top 6 categories
-  }, [notInstalledApps]);
+  }, [availableApps]);
 
-  // Filter available apps (not installed) based on search and category
+  // Filter available apps based on search and category
   const filteredApps = useMemo(() => {
-    // Start with not installed apps
-    let notInstalled = [...notInstalledApps];
+    // Start with all available apps (including installed ones)
+    let apps = [...availableApps];
     
     // Filter by category
     if (selectedCategory) {
@@ -238,8 +231,8 @@ export default function ApplicationStore({
     );
     }
     
-    return notInstalled;
-  }, [notInstalledApps, searchQuery, selectedCategory]);
+    return apps;
+  }, [availableApps, searchQuery, selectedCategory]);
 
   return (
     <Box
@@ -488,7 +481,7 @@ export default function ApplicationStore({
                 Position Control
               </Typography>
               <Tooltip 
-                title="Glissez les contrôles pour un mouvement continu (envoie /api/move/set_target). Relâchez pour envoyer une commande discrète avec durée dynamique basée sur la distance (envoie /api/move/goto)." 
+                title="Drag controls for continuous movement (sends /api/move/set_target). Release to send a discrete command with dynamic duration based on distance (sends /api/move/goto)." 
                 arrow 
                 placement="right"
               >
@@ -524,7 +517,8 @@ export default function ApplicationStore({
         categories={categories}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
-        totalAppsCount={notInstalledApps.length}
+        totalAppsCount={availableApps.length}
+        installedApps={installedApps}
         onOpenCreateTutorial={() => openModal('createTutorial')}
       />
 
@@ -535,7 +529,7 @@ export default function ApplicationStore({
         darkMode={effectiveDarkMode}
       />
 
-      {/* Overlay fullscreen pour installations */}
+      {/* Fullscreen overlay for installations */}
       {installingApp && (
         <InstallOverlay
           appInfo={installingApp}

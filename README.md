@@ -14,6 +14,7 @@ A modern desktop application for controlling and monitoring your Reachy Mini rob
 - 🔄 **Auto Updates** - Seamless automatic updates with progress tracking
 - 🎨 **Modern UI** - Clean, intuitive interface built with Material-UI
 - 🔌 **USB Detection** - Automatic detection of Reachy Mini via USB
+- 🎭 **Simulation Mode** - Test and develop without hardware using MuJoCo simulation
 - 📱 **Cross-platform** - Works on macOS and Windows
 
 ## 🚀 Quick Start
@@ -78,9 +79,45 @@ REACHY_MINI_SOURCE=develop bash ./build_sidecar_unix.sh
 ```bash
 yarn dev              # Start Vite dev server
 yarn tauri:dev        # Run Tauri app in dev mode
+yarn tauri:dev:sim    # Run Tauri app in simulation mode (skip USB detection)
 yarn tauri:build      # Build production bundle
 yarn build:update:dev # Build update for local testing
 yarn serve:updates    # Serve updates locally for testing
+```
+
+### 🎭 Simulation Mode
+
+Pour développer ou tester l'application sans robot USB connecté, utilisez le mode simulation :
+
+```bash
+# Via script npm/yarn (recommandé)
+yarn tauri:dev:sim
+
+# Ou manuellement avec variable d'environnement
+VITE_SIM_MODE=true yarn tauri:dev
+
+# Ou via localStorage (dans la console du navigateur)
+localStorage.setItem('simMode', 'true')
+# Puis recharger l'application
+```
+
+**Comportement en mode simulation :**
+- ✅ Skip la détection USB (passe directement à `ReadyToStartView`)
+- ✅ Simule une connexion USB (`/dev/tty.usbserial-SIMULATED`)
+- ✅ Indicateur visuel "🎭 SIM" dans la barre supérieure
+- ✅ **Le daemon démarre automatiquement en mode simulation (MuJoCo)** avec l'argument `--sim`
+- ✅ **MuJoCo est installé automatiquement** lors du premier démarrage en mode simulation
+  - L'installation se fait en arrière-plan via `uv pip install reachy-mini[mujoco]`
+  - Si MuJoCo est déjà installé, l'installation sera rapide (vérification uniquement)
+- 🍎 **Sur macOS** : Utilise automatiquement `mjpython` (requis par MuJoCo) avec correction automatique du shebang
+
+**Désactiver le mode simulation :**
+```bash
+# Supprimer la variable d'environnement
+yarn tauri:dev
+
+# Ou via localStorage
+localStorage.removeItem('simMode')
 ```
 
 ### Project Structure

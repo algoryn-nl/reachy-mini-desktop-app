@@ -65,54 +65,84 @@ export default function CreateAppTutorialModal({
     {
       number: 1,
       icon: <TerminalIcon sx={{ fontSize: 20 }} />,
-      title: 'Create App Structure',
-      description: 'Use the official tool to generate your app structure with all required files.',
+      title: 'Generate App Scaffold',
+      description: 'Start by using the official scaffolding tool to create your app\'s folder structure and boilerplate files.',
       details: [
-        'Run: reachy-mini-make-app my_app',
-        'Creates pyproject.toml with entry points',
-        'Generates template code with examples',
+        'Execute: reachy-mini-make-app <app_name> --path <destination>',
+        'Generates a proper Python package layout',
+        'Includes all necessary files: pyproject.toml, main.py, README, etc.',
+        'Automatically replaces placeholders with your app name',
       ],
-      code: `reachy-mini-make-app my_app`,
-      action: 'View Default App Template',
-      actionUrl: 'https://huggingface.co/spaces/pollen-robotics/reachy_mini_app_example',
-      tip: 'This tool ensures correct structure and entry points configuration',
+      code: `# Create your app in your home directory
+reachy-mini-make-app my_app --path ~/
+
+# Generated structure:
+# ~/my_app/
+# ├── index.html
+# ├── pyproject.toml
+# ├── my_app/
+# │   ├── __init__.py
+# │   └── main.py
+# ├── README.md
+# └── style.css`,
+      action: 'View Example App',
+      actionUrl: 'https://huggingface.co/spaces/pollen-robotics/hand_tracker_app',
+      tip: 'This generates a complete, installable Python package structure',
     },
     {
       number: 2,
       icon: <CodeIcon sx={{ fontSize: 20 }} />,
-      title: 'Write Your App',
-      description: 'Implement your app logic by inheriting from ReachyMiniApp and implementing the run method.',
+      title: 'Implement Your Logic',
+      description: 'Write your app\'s behavior in the main.py file. Your class should extend ReachyMiniApp and define the run method.',
       details: [
-        'Inherit from ReachyMiniApp',
-        'Implement run(reachy_mini, stop_event)',
-        'Check stop_event.is_set() in loops',
+        'Extend the ReachyMiniApp base class',
+        'Define run(reachy_mini, stop_event) method',
+        'Always check stop_event.is_set() in your loops',
+        'You can optionally add a custom_app_url for a settings page',
       ],
       code: `import threading
 import time
+import numpy as np
 from reachy_mini import ReachyMini, ReachyMiniApp
 from reachy_mini.utils import create_head_pose
 
 class MyApp(ReachyMiniApp):
+    # Optional: add a custom settings page URL
+    # custom_app_url: str | None = None
+    
     def run(self, reachy_mini: ReachyMini, stop_event: threading.Event):
+        # The robot connection is already established
+        t0 = time.time()
+        
         while not stop_event.is_set():
-            pose = create_head_pose(yaw=30, degrees=True)
-            reachy_mini.goto_target(head=pose, duration=1.0)
-            time.sleep(0.1)`,
-      tip: 'ReachyMini is already initialized - don\'t create a new instance in run()',
+            t = time.time() - t0
+            yaw = 30 * np.sin(2 * np.pi * 0.5 * t)
+            head_pose = create_head_pose(yaw=yaw, degrees=True)
+            reachy_mini.set_target(head=head_pose)
+            time.sleep(0.01)`,
+      tip: 'The ReachyMini instance is already connected - don\'t instantiate a new one in run()',
     },
     {
       number: 3,
       icon: <CheckCircleIcon sx={{ fontSize: 20 }} />,
-      title: 'Test Locally',
-      description: 'Test your app locally before deploying. Install it and run it with the daemon.',
+      title: 'Test Your App',
+      description: 'Verify everything works before publishing. You have two ways to test: run the script directly or install it as a package.',
       details: [
-        'Install: pip install -e my_app/',
-        'Ensure daemon is running',
-        'Run: python my_app/my_app/main.py',
+        'Direct execution: python my_app/my_app/main.py',
+        'Or install as package: pip install -e my_app/',
+        'Installed apps show up in the dashboard automatically',
+        'Make sure the daemon is running (use --sim flag for simulation)',
       ],
-      code: `pip install -e my_app/
-python my_app/my_app/main.py`,
-      tip: 'Test in simulation mode: reachy-mini-daemon --sim',
+      code: `# Method 1: Direct execution
+cd my_app
+python my_app/main.py
+
+# Method 2: Install and run from dashboard
+pip install -e my_app/
+
+# Run daemon in simulation mode for testing
+reachy-mini-daemon --sim`,
+      tip: 'Installing with pip install -e makes your app available in the dashboard',
     },
   ];
 
@@ -120,44 +150,68 @@ python my_app/my_app/main.py`,
     {
       number: 1,
       icon: <CloudUploadIcon sx={{ fontSize: 20 }} />,
-      title: 'Create Hugging Face Space',
-      description: 'Create a new Space with SDK framework. Upload your files and configure it.',
+      title: 'Set Up Hugging Face Space',
+      description: 'Create a new Space on your Hugging Face account. Choose the Static SDK framework with a blank template.',
       details: [
-        'Go to: huggingface.co/new-space',
-        'Select SDK as framework',
-        'Upload: app.py, requirements.txt, README.md',
-        'Add tag: reachy_mini',
+        'Navigate to huggingface.co/new-space',
+        'Pick "Static SDK" from the framework options',
+        'Select the "Blank static" template',
+        'Start with private visibility to test, switch to public later',
+        'Save the Git repository URL provided (HTTP or SSH format)',
       ],
-      code: `# requirements.txt
-reachy-mini
-
-# app.py (root of Space)
-from my_app.main import MyApp
-from reachy_mini import ReachyMini
-import threading
-
-with ReachyMini() as reachy:
-    app = MyApp()
-    stop = threading.Event()
-    app.run(reachy, stop)`,
+      code: `# You'll receive a Git URL after creation:
+# https://huggingface.co/spaces/your-username/your-app-name
+# or SSH format:
+# git@hf.co:spaces/your-username/your-app-name`,
       action: 'Create Space',
       actionUrl: 'https://huggingface.co/new-space',
-      tip: 'Make sure to select SDK, not Gradio or Streamlit',
+      tip: 'Be careful: choose "Static SDK", not the regular SDK option or other frameworks',
     },
     {
       number: 2,
       icon: <RocketLaunchIcon sx={{ fontSize: 20 }} />,
-      title: 'Publish & Share',
-      description: 'Once your Space is ready, it will appear in searches. Share it with the community!',
+      title: 'Upload Your Code',
+      description: 'Set up git in your app folder, connect it to your Space, and upload all your files.',
       details: [
-        'Commit and push to your Space',
-        'Add description and screenshots',
-        'Tag with reachy_mini for discovery',
-        'Share with the community',
+        'Run git init in your app directory',
+        'Link your Space: git remote add space <space-url>',
+        'Stage all files: git add .',
+        'Create initial commit: git commit -m "first commit!"',
+        'Upload everything: git push -f space main:main',
       ],
+      code: `# Navigate to your app folder first
+git init
+git remote add space git@hf.co:spaces/your-username/your-app-name
+git add .
+git commit -m "first commit!"
+git push -f space main:main
+
+# Alternative with HTTP authentication:
+git remote add space https://huggingface.co/spaces/your-username/your-app-name
+git push -f space main:main`,
+      tip: 'The -f flag is needed on the first push to replace the template files',
+    },
+    {
+      number: 3,
+      icon: <CheckCircleIcon sx={{ fontSize: 20 }} />,
+      title: 'Publish & Discover',
+      description: 'After testing, switch your Space to public and add the reachy_mini tag so others can find it.',
+      details: [
+        'Change Space settings to make it public',
+        'In Space settings, add the tag: reachy_mini',
+        'Fill in a good description and add some screenshots',
+        'The dashboard will automatically pick it up',
+      ],
+      code: `# Configure your Space:
+# 1. Switch visibility to Public in settings
+# 2. Add the tag: reachy_mini
+# 3. Write a description and upload screenshots
+
+# Want to be featured? Submit to the official store:
+# Open a PR at: https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store`,
       action: 'Browse Apps',
-      actionUrl: 'https://huggingface.co/spaces?q=reachy_mini',
-      tip: 'Apps with tag reachy_mini appear in the store automatically',
+      actionUrl: 'https://huggingface.co/spaces/pollen-robotics/Reachy_Mini_Apps',
+      tip: 'Tagged apps show up automatically in the dashboard. The official store contains curated, tested apps.',
     },
   ];
 
@@ -339,8 +393,15 @@ with ReachyMini() as reachy:
                   The <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ddd' : '#555' }}>Reachy Mini daemon</Box> runs a <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ddd' : '#555' }}>REST API</Box> at <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12, color: '#FF9500' }}>localhost:8000</Box>. It manages robot communication and exposes endpoints to control motors, read sensors, and execute movements. Use <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ddd' : '#555' }}>curl</Box> commands or any HTTP client to interact with it.
                 </Typography>
                 
-                {/* Console examples */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2.5 }}>
+                {/* Console examples - 2 columns layout */}
+                <Box 
+                  sx={{ 
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                    gap: 2,
+                    mb: 2.5,
+                  }}
+                >
                   {consoleExamples.map((example, idx) => (
                     <Box
                       key={idx}
@@ -349,50 +410,51 @@ with ReachyMini() as reachy:
                         borderRadius: '12px',
                         bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
                         border: `1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,
+                        display: 'flex',
+                        flexDirection: 'column',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1 }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography
-                            sx={{
-                              fontSize: 14,
-                              fontWeight: 700,
-                              color: darkMode ? '#f5f5f5' : '#1a1a1a',
-                              mb: 0.5,
-                            }}
-                          >
-                            {example.title}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontSize: 11,
-                              color: darkMode ? '#aaa' : '#666',
-                              lineHeight: 1.4,
-                            }}
-                          >
-                            {example.description}
-                          </Typography>
-                        </Box>
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          sx={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: darkMode ? '#f5f5f5' : '#1a1a1a',
+                            mb: 0.5,
+                          }}
+                        >
+                          {example.title}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: 10,
+                            color: darkMode ? '#aaa' : '#666',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {example.description}
+                        </Typography>
                       </Box>
                       <Box
                         sx={{
-                          p: 1.5,
+                          p: 1.25,
                           borderRadius: '8px',
                           bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
                           border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
                           mb: example.explanation ? 1 : 0,
+                          flex: 1,
                         }}
                       >
                         <Typography
                           component="pre"
                           sx={{
-                            fontSize: 10,
+                            fontSize: 9,
                             fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
                             color: darkMode ? '#e0e0e0' : '#333',
                             margin: 0,
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word',
-                            lineHeight: 1.5,
+                            lineHeight: 1.4,
                           }}
                         >
                           {example.code}
@@ -401,11 +463,11 @@ with ReachyMini() as reachy:
                       {example.explanation && (
                         <Typography
                           sx={{
-                            fontSize: 10,
+                            fontSize: 9,
                             color: darkMode ? '#888' : '#777',
-                            lineHeight: 1.4,
+                            lineHeight: 1.3,
                             fontStyle: 'italic',
-                            mt: 0.5,
+                            mt: 'auto',
                           }}
                         >
                           💡 {example.explanation}
@@ -522,15 +584,21 @@ with ReachyMini() as reachy:
               </Box>
             </AccordionSummary>
             <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box 
+                sx={{ 
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                  gap: 2.5,
+                }}
+              >
                 {createSteps.map((step) => (
             <Box
               key={step.number}
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                p: 3.5,
-                borderRadius: '20px',
+                p: 2.5,
+                borderRadius: '16px',
                 bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
                 border: `1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -544,12 +612,12 @@ with ReachyMini() as reachy:
               }}
             >
               {/* Step header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
               <Box
                 sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '12px',
+                    width: 36,
+                    height: 36,
+                    borderRadius: '10px',
                     bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
                   border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
                   display: 'flex',
@@ -566,8 +634,8 @@ with ReachyMini() as reachy:
                     label={`Step ${step.number}`}
                     size="small"
                     sx={{
-                      height: 20,
-                      fontSize: 10,
+                      height: 18,
+                      fontSize: 9,
                       fontWeight: 700,
                       bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
                       color: '#FF9500',
@@ -577,10 +645,10 @@ with ReachyMini() as reachy:
                   />
                 <Typography
                   sx={{
-                      fontSize: 18,
+                      fontSize: 15,
                     fontWeight: 700,
                       color: darkMode ? '#f5f5f5' : '#1a1a1a',
-                      letterSpacing: '-0.3px',
+                      letterSpacing: '-0.2px',
                       lineHeight: 1.2,
                   }}
                 >
@@ -592,10 +660,10 @@ with ReachyMini() as reachy:
               {/* Description */}
                 <Typography
                   sx={{
-                  fontSize: 13,
+                  fontSize: 11,
                   color: darkMode ? '#bbb' : '#666',
-                  lineHeight: 1.6,
-                  mb: 2.5,
+                  lineHeight: 1.5,
+                  mb: 2,
                   }}
                 >
                   {step.description}
@@ -603,32 +671,43 @@ with ReachyMini() as reachy:
 
               {/* Details list */}
               {step.details && (
-                <Box sx={{ mb: 2.5 }}>
+                <Box 
+                  sx={{ 
+                    mb: 2,
+                    display: step.number === 3 ? 'grid' : 'flex',
+                    flexDirection: step.number === 3 ? 'unset' : 'column',
+                    gridTemplateColumns: step.number === 3 ? 'repeat(2, 1fr)' : 'none',
+                    gap: step.number === 3 ? 2 : 0,
+                    alignItems: step.number === 3 ? 'flex-start' : 'flex-start',
+                  }}
+                >
                   {step.details.map((detail, idx) => (
                     <Box
                       key={idx}
                       sx={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: 1,
-                        mb: 1,
+                        gap: 0.75,
+                        mb: step.number === 3 ? (idx < 2 ? 1 : 0) : 0.75,
+                        gridColumn: step.number === 3 && idx === 2 ? 'span 2' : 'auto',
+                        width: step.number === 3 && idx === 2 ? '100%' : 'auto',
                       }}
                     >
                       <Box
                         sx={{
-                          width: 4,
-                          height: 4,
+                          width: 3,
+                          height: 3,
                           borderRadius: '50%',
                           bgcolor: '#FF9500',
-                          mt: 0.75,
+                          mt: 0.6,
                           flexShrink: 0,
                         }}
                       />
                       <Typography
                         sx={{
-                          fontSize: 12,
+                          fontSize: 10,
                           color: darkMode ? '#999' : '#777',
-                          lineHeight: 1.5,
+                          lineHeight: 1.4,
                         }}
                       >
                         {detail}
@@ -642,24 +721,25 @@ with ReachyMini() as reachy:
                 {step.code && (
                   <Box
                     sx={{
-                    p: 2,
-                    borderRadius: '12px',
+                    p: 1.5,
+                    borderRadius: '10px',
                     bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
                     border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-                    mb: 2.5,
+                    mb: 2,
                     overflow: 'hidden',
+                    flex: 1,
                     }}
                   >
                     <Typography
                       component="pre"
                       sx={{
-                      fontSize: 11,
+                      fontSize: 9,
                       fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
                         color: darkMode ? '#e0e0e0' : '#333',
                         margin: 0,
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
-                      lineHeight: 1.6,
+                      lineHeight: 1.5,
                       }}
                     >
                       {step.code}
@@ -671,16 +751,16 @@ with ReachyMini() as reachy:
               {step.tip && (
                 <Box
                   sx={{
-                    p: 1.5,
-                    borderRadius: '10px',
+                    p: 1.25,
+                    borderRadius: '8px',
                     bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
                     border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
-                    mb: 2,
+                    mb: 1.5,
                   }}
                 >
                   <Typography
                     sx={{
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: 600,
                       color: '#FF9500',
                       mb: 0.5,
@@ -690,9 +770,9 @@ with ReachyMini() as reachy:
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: 11,
+                      fontSize: 10,
                       color: darkMode ? '#ddd' : '#666',
-                      lineHeight: 1.5,
+                      lineHeight: 1.4,
                     }}
                   >
                     {step.tip}
@@ -808,15 +888,21 @@ with ReachyMini() as reachy:
           </Box>
             </AccordionSummary>
             <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box 
+                sx={{ 
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                  gap: 2.5,
+                }}
+              >
                 {deploySteps.map((step) => (
             <Box
               key={step.number}
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
-                p: 3.5,
-                borderRadius: '20px',
+                p: 2.5,
+                borderRadius: '16px',
                 bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
                 border: `1.5px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -830,12 +916,12 @@ with ReachyMini() as reachy:
               }}
             >
               {/* Step header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
               <Box
                 sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '12px',
+                    width: 36,
+                    height: 36,
+                    borderRadius: '10px',
                     bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
                   border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
                   display: 'flex',
@@ -852,8 +938,8 @@ with ReachyMini() as reachy:
                     label={`Step ${step.number}`}
                     size="small"
                     sx={{
-                      height: 20,
-                      fontSize: 10,
+                      height: 18,
+                      fontSize: 9,
                       fontWeight: 700,
                       bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
                       color: '#FF9500',
@@ -863,10 +949,10 @@ with ReachyMini() as reachy:
                   />
                 <Typography
                   sx={{
-                      fontSize: 18,
+                      fontSize: 15,
                     fontWeight: 700,
                       color: darkMode ? '#f5f5f5' : '#1a1a1a',
-                      letterSpacing: '-0.3px',
+                      letterSpacing: '-0.2px',
                       lineHeight: 1.2,
                   }}
                 >
@@ -878,10 +964,10 @@ with ReachyMini() as reachy:
               {/* Description */}
                 <Typography
                   sx={{
-                  fontSize: 13,
+                  fontSize: 11,
                   color: darkMode ? '#bbb' : '#666',
-                  lineHeight: 1.6,
-                  mb: 2.5,
+                  lineHeight: 1.5,
+                  mb: 2,
                   }}
                 >
                   {step.description}
@@ -889,32 +975,32 @@ with ReachyMini() as reachy:
 
               {/* Details list */}
               {step.details && (
-                <Box sx={{ mb: 2.5 }}>
+                <Box sx={{ mb: 2 }}>
                   {step.details.map((detail, idx) => (
                     <Box
                       key={idx}
                       sx={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: 1,
-                        mb: 1,
+                        gap: 0.75,
+                        mb: 0.75,
                       }}
                     >
                       <Box
                         sx={{
-                          width: 4,
-                          height: 4,
+                          width: 3,
+                          height: 3,
                           borderRadius: '50%',
                           bgcolor: '#FF9500',
-                          mt: 0.75,
+                          mt: 0.6,
                           flexShrink: 0,
                         }}
                       />
                       <Typography
                         sx={{
-                          fontSize: 12,
+                          fontSize: 10,
                           color: darkMode ? '#999' : '#777',
-                          lineHeight: 1.5,
+                          lineHeight: 1.4,
                         }}
                       >
                         {detail}
@@ -928,24 +1014,25 @@ with ReachyMini() as reachy:
                 {step.code && (
                   <Box
                     sx={{
-                    p: 2,
-                    borderRadius: '12px',
+                    p: 1.5,
+                    borderRadius: '10px',
                     bgcolor: darkMode ? '#0a0a0a' : '#f8f8f8',
                     border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-                    mb: 2.5,
+                    mb: 2,
                     overflow: 'hidden',
+                    flex: 1,
                     }}
                   >
                     <Typography
                       component="pre"
                       sx={{
-                      fontSize: 11,
+                      fontSize: 9,
                       fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace',
                         color: darkMode ? '#e0e0e0' : '#333',
                         margin: 0,
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
-                      lineHeight: 1.6,
+                      lineHeight: 1.5,
                       }}
                     >
                       {step.code}
@@ -957,16 +1044,16 @@ with ReachyMini() as reachy:
               {step.tip && (
                 <Box
                   sx={{
-                    p: 1.5,
-                    borderRadius: '10px',
+                    p: 1.25,
+                    borderRadius: '8px',
                     bgcolor: darkMode ? 'rgba(255, 149, 0, 0.08)' : 'rgba(255, 149, 0, 0.05)',
                     border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.2)' : 'rgba(255, 149, 0, 0.15)'}`,
-                    mb: 2,
+                    mb: 1.5,
                   }}
                 >
                   <Typography
                     sx={{
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: 600,
                       color: '#FF9500',
                       mb: 0.5,
@@ -976,9 +1063,9 @@ with ReachyMini() as reachy:
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: 11,
+                      fontSize: 10,
                       color: darkMode ? '#ddd' : '#666',
-                      lineHeight: 1.5,
+                      lineHeight: 1.4,
                     }}
                   >
                     {step.tip}
@@ -990,7 +1077,7 @@ with ReachyMini() as reachy:
                 {step.action && step.actionUrl && (
                   <Button
                   fullWidth
-                  size="medium"
+                  size="small"
                     onClick={async () => {
                       try {
                         await open(step.actionUrl);
@@ -998,15 +1085,15 @@ with ReachyMini() as reachy:
                         console.error('Failed to open URL:', err);
                       }
                     }}
-                  endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                  endIcon={<OpenInNewIcon sx={{ fontSize: 12 }} />}
                     sx={{
                       textTransform: 'none',
-                    fontSize: 13,
+                    fontSize: 11,
                       fontWeight: 600,
                       color: '#FF9500',
                       border: '1px solid #FF9500',
-                    borderRadius: '10px',
-                    py: 1.25,
+                    borderRadius: '8px',
+                    py: 1,
                       bgcolor: 'transparent',
                     mt: 'auto',
                       '&:hover': {
@@ -1018,7 +1105,7 @@ with ReachyMini() as reachy:
                     {step.action}
                   </Button>
                 )}
-              </Box>
+            </Box>
                 ))}
               </Box>
             </AccordionDetails>

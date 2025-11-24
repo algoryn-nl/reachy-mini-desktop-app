@@ -4,8 +4,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import useAppStore from '../store/useAppStore';
 
 /**
- * Vue de transition entre StartingView et ActiveRobotView
- * Affichée pendant le resize de la fenêtre
+ * Transition view between StartingView and ActiveRobotView
+ * Displayed during window resize
  */
 export default function TransitionView() {
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
@@ -22,7 +22,7 @@ export default function TransitionView() {
         overflow: 'hidden',
       }}
     >
-      {/* Spinner centré */}
+      {/* Centered spinner */}
       <Box
         sx={{
           display: 'flex',

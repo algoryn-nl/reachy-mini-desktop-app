@@ -1,19 +1,10 @@
-import React, { useState } from 'react';
-import { Box, Typography, Button, Chip, IconButton, Collapse, Switch, Slider, CircularProgress, Tooltip } from '@mui/material';
+import React from 'react';
+import { Box, Typography, Button, Chip, Collapse, Switch, CircularProgress } from '@mui/material';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import StoreOutlinedIcon from '@mui/icons-material/StoreOutlined';
-import CodeOutlinedIcon from '@mui/icons-material/CodeOutlined';
-import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
-import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
-import CloseIcon from '@mui/icons-material/Close';
-import ReachyBox from '../../../assets/reachy-update-box.svg';
 import DiscoverAppsButton from './DiscoverAppsButton';
 import ReachiesCarousel from '../../../components/ReachiesCarousel';
-import FullscreenOverlay from '../../../components/FullscreenOverlay';
 
 /**
  * Section displaying installed apps with call-to-actions for discovery and creation
@@ -36,25 +27,6 @@ export default function InstalledAppsSection({
   onOpenDiscover, // Callback to open Discover modal
   onOpenCreateTutorial, // Callback to open Create App Tutorial modal
 }) {
-  const [settingsAppName, setSettingsAppName] = useState(null);
-
-  const handleOpenSettings = (appName, e) => {
-    if (e) e.stopPropagation();
-    setSettingsAppName(appName);
-  };
-
-  const handleCloseSettings = () => {
-    setSettingsAppName(null);
-  };
-
-  const settingsApp = installedApps.find(app => app.name === settingsAppName);
-  const settings = settingsApp ? (appSettings[settingsAppName] || {}) : {};
-  
-  // Handle all current app states for settings modal
-  const isThisAppCurrent = settingsApp && currentApp && currentApp.info && currentApp.info.name === settingsAppName;
-  const appState = isThisAppCurrent && currentApp.state ? currentApp.state : null;
-  const isCurrentlyRunning = appState === 'running';
-  const isRemoving = settingsApp ? isJobRunning(settingsAppName, 'remove') : false;
 
   return (
     <Box sx={{ px: 3, mb: 0 }}>
@@ -76,7 +48,7 @@ export default function InstalledAppsSection({
             gap: 1.5,
           }}
         >
-          {/* Reachies Carousel - Images qui défilent */}
+          {/* Reachies Carousel - Scrolling images */}
           <Box
             sx={{
               display: 'flex',
@@ -275,31 +247,6 @@ export default function InstalledAppsSection({
                   
                   {/* Actions */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Settings cog - outlined gris - Ouvre la modale */}
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleOpenSettings(app.name, e)}
-                      sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                        color: darkMode ? '#aaa' : '#666',
-                        border: darkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)',
-                        borderRadius: '8px',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                          borderColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
-                        },
-                      }}
-                    >
-                      <SettingsOutlinedIcon 
-                        sx={{ 
-                          fontSize: 16,
-                        }} 
-                      />
-                    </IconButton>
-                    
                     {/* Play/Stop button */}
                     {isCurrentlyRunning ? (
                       <Button
@@ -375,7 +322,7 @@ export default function InstalledAppsSection({
                   </Box>
                 </Box>
 
-                {/* Expanded Content - Description seulement */}
+                {/* Expanded Content - Description, Settings, and Uninstall */}
                 <Collapse in={isExpanded}>
                   <Box
                     sx={{
@@ -383,6 +330,9 @@ export default function InstalledAppsSection({
                       pb: 2,
                       pt: 2,
                       borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
                     }}
                   >
                     {/* Description */}
@@ -395,6 +345,96 @@ export default function InstalledAppsSection({
                     >
                       {app.description || 'No description available'}
                     </Typography>
+
+                    {/* Settings Section */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.5,
+                        pt: 1,
+                        borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
+                      }}
+                    >
+                      {/* Auto-start toggle */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1.5,
+                          borderRadius: '10px',
+                          bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                          border: darkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
+                        }}
+                      >
+                        <Box>
+                          <Typography
+                            sx={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: darkMode ? '#f5f5f5' : '#333',
+                              mb: 0.25,
+                            }}
+                          >
+                            Auto-start on boot
+                          </Typography>
+                          <Typography
+                            sx={{
+                              fontSize: 10,
+                              color: darkMode ? '#888' : '#999',
+                            }}
+                          >
+                            Launch automatically when robot starts
+                          </Typography>
+                        </Box>
+                        <Switch
+                          checked={settings.autoStart || false}
+                          onChange={(e) => updateAppSetting(app.name, 'autoStart', e.target.checked)}
+                          disabled={isCurrentlyRunning}
+                          sx={{
+                            '& .MuiSwitch-switchBase.Mui-checked': {
+                              color: '#FF9500',
+                            },
+                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                              backgroundColor: '#FF9500',
+                            },
+                          }}
+                        />
+                      </Box>
+
+                      {/* Uninstall button */}
+                      <Button
+                        fullWidth
+                        size="small"
+                        disabled={isRemoving || isCurrentlyRunning}
+                        startIcon={isRemoving ? <CircularProgress size={14} /> : <DeleteOutlineIcon sx={{ fontSize: 14 }} />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUninstall(app.name);
+                        }}
+                        sx={{
+                          py: 1,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          color: '#ef4444',
+                          borderColor: 'rgba(239, 68, 68, 0.3)',
+                          '&:hover': {
+                            bgcolor: 'rgba(239, 68, 68, 0.08)',
+                            borderColor: '#ef4444',
+                          },
+                          '&:disabled': {
+                            bgcolor: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                            color: darkMode ? '#555' : '#999',
+                            borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.12)',
+                          },
+                        }}
+                        variant="outlined"
+                      >
+                        {isRemoving ? 'Uninstalling...' : 'Uninstall'}
+                      </Button>
+                    </Box>
                   </Box>
                 </Collapse>
               </Box>
@@ -403,180 +443,6 @@ export default function InstalledAppsSection({
         </Box>
       )}
 
-      {/* Settings Modal */}
-      <FullscreenOverlay
-        open={settingsAppName !== null}
-        onClose={handleCloseSettings}
-        darkMode={darkMode}
-        zIndex={10003} // Above discover modal
-      >
-        {settingsApp && (
-          <Box
-            sx={{
-              position: 'relative',
-              width: '90%',
-              maxWidth: '500px',
-              display: 'flex',
-              flexDirection: 'column',
-              mt: 8,
-              mb: 4,
-            }}
-          >
-            {/* Close button - top right */}
-            <IconButton
-              onClick={handleCloseSettings}
-              sx={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                color: '#FF9500',
-                bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
-                border: '1px solid #FF9500',
-                opacity: 0.7,
-                '&:hover': {
-                  opacity: 1,
-                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.12)' : '#ffffff',
-                },
-                zIndex: 1,
-              }}
-            >
-              <CloseIcon sx={{ fontSize: 20 }} />
-            </IconButton>
-
-            {/* Header */}
-            <Box sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                <Box
-                  sx={{
-                    fontSize: 32,
-                    width: 64,
-                    height: 64,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '14px',
-                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                    border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-                    flexShrink: 0,
-                  }}
-                >
-                  {settingsApp.extra?.cardData?.emoji || settingsApp.icon || '📦'}
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography
-                    sx={{
-                      fontSize: 24,
-                      fontWeight: 700,
-                      color: darkMode ? '#f5f5f5' : '#333',
-                      letterSpacing: '-0.3px',
-                      mb: 0.5,
-                    }}
-                  >
-                    {settingsApp.name}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      color: darkMode ? '#888' : '#999',
-                    }}
-                  >
-                    Settings
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Settings Content */}
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}
-            >
-              {/* Auto-start toggle */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  p: 2,
-                  borderRadius: '12px',
-                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
-                  border: darkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
-                }}
-              >
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: darkMode ? '#f5f5f5' : '#333',
-                      mb: 0.5,
-                    }}
-                  >
-                    Auto-start on boot
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: 11,
-                      color: darkMode ? '#888' : '#999',
-                    }}
-                  >
-                    Launch automatically when robot starts
-                  </Typography>
-                </Box>
-                <Switch
-                  checked={settings.autoStart || false}
-                  onChange={(e) => updateAppSetting(settingsAppName, 'autoStart', e.target.checked)}
-                  disabled={isCurrentlyRunning}
-                  sx={{
-                    '& .MuiSwitch-switchBase.Mui-checked': {
-                      color: '#FF9500',
-                    },
-                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                      backgroundColor: '#FF9500',
-                    },
-                  }}
-                />
-              </Box>
-
-              {/* Uninstall button */}
-              <Button
-                fullWidth
-                size="medium"
-                disabled={isRemoving || isCurrentlyRunning}
-                startIcon={isRemoving ? <CircularProgress size={16} /> : <DeleteOutlineIcon sx={{ fontSize: 16 }} />}
-                onClick={() => {
-                  handleUninstall(settingsAppName);
-                  handleCloseSettings();
-                }}
-                sx={{
-                  mt: 1,
-                  py: 1.25,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  color: '#ef4444',
-                  borderColor: 'rgba(239, 68, 68, 0.3)',
-                  '&:hover': {
-                    bgcolor: 'rgba(239, 68, 68, 0.08)',
-                    borderColor: '#ef4444',
-                  },
-                  '&:disabled': {
-                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
-                    color: darkMode ? '#555' : '#999',
-                    borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.12)',
-                  },
-                }}
-                variant="outlined"
-              >
-                Uninstall
-              </Button>
-            </Box>
-          </Box>
-        )}
-      </FullscreenOverlay>
     </Box>
   );
 }

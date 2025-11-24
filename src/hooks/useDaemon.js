@@ -1,7 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../store/useAppStore';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl, transitionToActiveView } from '../config/daemon';
+import { isSimulationMode } from '../utils/simulationMode';
+import { findErrorConfig, createErrorFromConfig } from '../utils/hardwareErrors';
 
 export const useDaemon = () => {
   const { 
@@ -74,6 +77,62 @@ export const useDaemon = () => {
     }
   }, [setDaemonVersion]);
 
+  // Listen to sidecar stderr events to detect hardware errors
+  // Only process errors when daemon is starting
+  useEffect(() => {
+    let unlistenStderr;
+    
+    const setupStderrListener = async () => {
+      try {
+        unlistenStderr = await listen('sidecar-stderr', (event) => {
+          // Only process errors when starting
+          if (!isStarting) {
+            return;
+          }
+          
+          // Extract error line from payload (can be string or object)
+          const errorLine = typeof event.payload === 'string' 
+            ? event.payload 
+            : event.payload?.toString() || '';
+          
+          // Use centralized error detection
+          const errorConfig = findErrorConfig(errorLine);
+          
+          if (errorConfig) {
+            console.warn(`⚠️ Hardware error detected (${errorConfig.type}):`, errorLine);
+            const errorObject = createErrorFromConfig(errorConfig, errorLine);
+            setHardwareError(errorObject);
+            // Keep isStarting = true to stay on StartingView/scan view
+          } else if (errorLine.includes('RuntimeError')) {
+            // Generic runtime error - no specific config found
+            console.warn('⚠️ Generic hardware runtime error detected:', errorLine);
+            // Don't override specific error if already set
+            const currentError = useAppStore.getState().hardwareError;
+            if (!currentError || !currentError.type) {
+              setHardwareError({
+                type: 'hardware',
+                message: errorLine,
+                messageParts: null,
+                code: null,
+                cameraPreset: 'scan',
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to setup sidecar-stderr listener:', error);
+      }
+    };
+    
+    setupStderrListener();
+    
+    return () => {
+      if (unlistenStderr) {
+        unlistenStderr();
+      }
+    };
+  }, [isStarting, setHardwareError, setIsStarting]);
+
   const startDaemon = useCallback(async () => {
     // First reset errors but don't change view yet
     setStartupError(null);
@@ -101,9 +160,16 @@ export const useDaemon = () => {
         // No daemon detected, starting new one
       }
 
+      // 🎭 Check if simulation mode is enabled
+      const simMode = isSimulationMode();
+
       // Launch new daemon (non-blocking - we don't wait for it)
-      invoke('start_daemon').then(() => {
+      // Pass sim_mode parameter to backend
+      invoke('start_daemon', { simMode: simMode }).then(() => {
         // Daemon started
+        if (simMode) {
+          addFrontendLog('🎭 Daemon started in simulation mode (MuJoCo)');
+        }
       }).catch((e) => {
         console.error('❌ Daemon startup error:', e);
         setStartupError(e.message || 'Error starting the daemon');

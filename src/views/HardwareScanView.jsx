@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Box, Typography, CircularProgress, Button } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
@@ -6,6 +6,7 @@ import Viewer3D from '../components/viewer3d';
 import { getShortComponentName } from '../utils/componentNames';
 import useAppStore from '../store/useAppStore';
 import { invoke } from '@tauri-apps/api/core';
+import { HARDWARE_ERROR_CONFIGS, getErrorMeshes } from '../utils/hardwareErrors';
 
 /**
  * Hardware Scan View Component
@@ -16,22 +17,58 @@ function HardwareScanView({
   startupError,
   onScanComplete: onScanCompleteCallback,
   showTitlebar = true,
+  startDaemon,
 }) {
-  const { setHardwareError, darkMode } = useAppStore();
+  const { setHardwareError, darkMode, setIsStarting } = useAppStore();
   const [currentComponent, setCurrentComponent] = useState(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [scanError, setScanError] = useState(null);
   const [errorMesh, setErrorMesh] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
+  const [allMeshes, setAllMeshes] = useState([]);
+  const robotRefRef = useRef(null);
+  
+  // Get error configuration from startupError
+  const errorConfig = useMemo(() => {
+    if (!startupError || typeof startupError !== 'object') return null;
+    return HARDWARE_ERROR_CONFIGS[Object.keys(HARDWARE_ERROR_CONFIGS).find(
+      key => HARDWARE_ERROR_CONFIGS[key].type === startupError.type
+    )] || null;
+  }, [startupError]);
+  
+  // Find error meshes based on configuration
+  useEffect(() => {
+    if (!errorConfig || !allMeshes.length) {
+      setErrorMesh(null);
+      return;
+    }
+    
+    // Get error meshes using centralized helper
+    const meshes = getErrorMeshes(errorConfig, robotRefRef.current, allMeshes);
+    
+    // Set first mesh as errorFocusMesh (Viewer3D will handle finding all related meshes)
+    if (meshes && meshes.length > 0) {
+      setErrorMesh(meshes[0]);
+    } else {
+      setErrorMesh(null);
+    }
+  }, [errorConfig, allMeshes]);
+  
+  // Callback when meshes are ready
+  const handleMeshesReady = useCallback((meshes) => {
+    setAllMeshes(meshes);
+  }, []);
   
   const handleRetry = useCallback(async () => {
     setIsRetrying(true);
     
     try {
+      // Stop daemon first
       await invoke('stop_daemon');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Reset all error states
       setScanError(null);
       setErrorMesh(null);
       setScanProgress({ current: 0, total: 0 });
@@ -39,12 +76,24 @@ function HardwareScanView({
       setScanComplete(false);
       setHardwareError(null);
       
-      window.location.reload();
+      // If startDaemon is provided, use it instead of reloading
+      if (startDaemon) {
+        setIsStarting(true);
+        await startDaemon();
+        setIsRetrying(false);
+      } else {
+        // Fallback to reload if startDaemon not available
+        window.location.reload();
+      }
     } catch (err) {
-      console.error('Failed to stop daemon:', err);
-      window.location.reload();
+      console.error('Failed to retry:', err);
+      setIsRetrying(false);
+      // If startDaemon fails, reload as fallback
+      if (startDaemon) {
+        window.location.reload();
+      }
     }
-  }, [setHardwareError]);
+  }, [setHardwareError, setIsStarting, startDaemon]);
   
   const handleScanComplete = useCallback(() => {
     setScanProgress(prev => ({ ...prev, current: prev.total }));
@@ -69,11 +118,9 @@ function HardwareScanView({
     <Box
       sx={{
         width: '100%',
-        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
         px: 4,
         gap: 1.5,
         bgcolor: 'transparent',
@@ -109,7 +156,8 @@ function HardwareScanView({
             showScanEffect={!startupError && !scanError}
             onScanComplete={handleScanComplete}
             onScanMesh={handleScanMesh}
-            cameraPreset="scan"
+            onMeshesReady={handleMeshesReady}
+            cameraPreset={errorConfig?.cameraPreset || 'scan'}
             useCinematicCamera={true}
             errorFocusMesh={errorMesh}
             backgroundColor="transparent"
@@ -122,10 +170,10 @@ function HardwareScanView({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
           width: '100%',
           maxWidth: '450px',
-          minHeight: '60px',
-          mt: 2,
+          height: '140px', // Fixed height to prevent vertical shifts between states
         }}
       >
         {(startupError || scanError) ? (
@@ -162,14 +210,22 @@ function HardwareScanView({
                   lineHeight: 1.5,
                 }}
               >
-                {scanError?.action ? (
+                {startupError && typeof startupError === 'object' && startupError.messageParts ? (
+                  <>
+                    {startupError.messageParts.text && `${startupError.messageParts.text} `}
+                    <Box component="span" sx={{ fontWeight: 700 }}>{startupError.messageParts.bold}</Box>
+                    {startupError.messageParts.suffix && ` ${startupError.messageParts.suffix}`}
+                  </>
+                ) : scanError?.action ? (
                   <>
                     <Box component="span" sx={{ fontWeight: 700 }}>Check</Box> the{' '}
                     <Box component="span" sx={{ fontWeight: 700 }}>camera cable</Box> connection and{' '}
                     <Box component="span" sx={{ fontWeight: 700 }}>restart</Box>
                   </>
+                ) : startupError && typeof startupError === 'object' && startupError.message ? (
+                  startupError.message
                 ) : (
-                  startupError
+                  startupError || 'Hardware error detected'
                 )}
               </Typography>
             </Box>
@@ -217,7 +273,7 @@ function HardwareScanView({
                 },
               }}
             >
-              {isRetrying ? 'Restarting...' : 'Retry Scan'}
+              {isRetrying ? 'Restarting...' : 'Restart Scan'}
             </Button>
           </Box>
         ) : (
@@ -254,7 +310,7 @@ function HardwareScanView({
                   color: '#16a34a',
                   letterSpacing: '0.3px',
                   transition: 'color 0.3s ease',
-                  // ✅ Contour de la couleur du fond de la scène pour meilleure lisibilité
+                  // ✅ Text shadow matching scene background color for better readability
                   textShadow: `
                     -4px -4px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
                     4px -4px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
@@ -286,7 +342,7 @@ function HardwareScanView({
                     opacity: 0.9,
                     fontFamily: 'monospace',
                     ml: 0.5,
-                    // ✅ Contour de la couleur du fond de la scène pour le compteur
+                    // ✅ Text shadow matching scene background color for the counter
                     textShadow: `
                       -3px -3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},
                       3px -3px 0 ${darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)'},

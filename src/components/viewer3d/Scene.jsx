@@ -3,7 +3,7 @@ import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import URDFRobot from './URDFRobot';
-import { useLevaControls } from './config/levaControls';
+// Leva removed - using hardcoded default values
 import ScanEffect from './effects/ScanEffect';
 import ScanAnnotations from './effects/ScanAnnotations';
 import ErrorHighlight from './effects/ErrorHighlight';
@@ -15,17 +15,17 @@ import { DAEMON_CONFIG } from '../../config/daemon';
 // 🚀 GAME-CHANGING: Removed useRobotParts - now using unified WebSocket via props
 
 /**
- * Scène 3D avec éclairage, environnement et effets post-processing
+ * 3D Scene with lighting, environment and post-processing effects
  */
 function Scene({ 
   headPose, 
-  headJoints, // ✅ Array de 7 valeurs [yaw_body, stewart_1, ..., stewart_6]
-  passiveJoints, // 🚀 GAME-CHANGING: Array de 21 valeurs [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z] (depuis unified WebSocket)
+  headJoints, // ✅ Array of 7 values [yaw_body, stewart_1, ..., stewart_6]
+  passiveJoints, // 🚀 GAME-CHANGING: Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z] (from unified WebSocket)
   yawBody, 
   antennas, 
   isActive, 
   isTransparent, 
-  showLevaControls, 
+  wireframe = false, // ✅ Wireframe mode
   forceLoad = false, 
   hideGrid = false,
   showScanEffect = false, // Display the scan effect
@@ -55,7 +55,7 @@ function Scene({
   // 🚀 GAME-CHANGING: passiveJoints now comes from props (unified WebSocket) instead of useRobotParts
   // This eliminates the DOUBLE WebSocket problem!
   
-  // ✅ Exposer les données cinématiques via window pour debug (simplifié, sans useRobotParts)
+  // ✅ Expose kinematic data via window for debug (simplified, without useRobotParts)
   const lastLogRef = useRef(null);
   useEffect(() => {
     // Only log if we have meaningful data
@@ -90,8 +90,31 @@ function Scene({
   // Get active effect from store
   const { activeEffect } = useAppStore();
 
-  // Centralized Leva controls
-  const { cellShading, lighting, xraySettings, scene } = useLevaControls(showLevaControls);
+  // Default values (Leva removed - was never displayed)
+  const cellShading = {
+    bands: 100,
+    smoothness: 0.45,
+    rimIntensity: 0.4,
+    specularIntensity: 0.3,
+    ambientIntensity: 0.45,
+    contrastBoost: 0.9,
+    outlineEnabled: true,
+    outlineThickness: 12.0,
+    outlineColor: '#000000',
+  };
+  const lighting = {
+    ambient: 0.3,
+    keyIntensity: 1.8,
+    fillIntensity: 0.3,
+    rimIntensity: 0.8,
+  };
+  const xraySettings = {
+    opacity: 0.5,
+  };
+  const scene = {
+    showGrid: true,
+    fogDistance: 2.5,
+  };
 
   // 🚀 GAME-CHANGING: Reuse Vector3 objects to avoid allocations
   const headPositionVectorRef = useRef(new THREE.Vector3());
@@ -286,12 +309,13 @@ function Scene({
       
       <URDFRobot 
         headPose={headPose} 
-        headJoints={headJoints} // ✅ Utiliser les joints directement (comme Rerun)
-        passiveJoints={passiveJoints} // ✅ Joints passifs pour la cinématique complète Stewart
+        headJoints={headJoints} // ✅ Use joints directly (like Rerun)
+        passiveJoints={passiveJoints} // ✅ Passive joints for complete Stewart kinematics
         yawBody={yawBody} 
         antennas={antennas}
         isActive={isActive} 
         isTransparent={isTransparent}
+        wireframe={wireframe} // ✅ Wireframe mode
         cellShading={cellShading}
         xrayOpacity={xraySettings.opacity}
         onMeshesReady={setOutlineMeshes}
@@ -427,6 +451,7 @@ export default memo(Scene, (prevProps, nextProps) => {
   if (
     prevProps.isActive !== nextProps.isActive ||
     prevProps.isTransparent !== nextProps.isTransparent ||
+    prevProps.wireframe !== nextProps.wireframe ||
     prevProps.forceLoad !== nextProps.forceLoad ||
     prevProps.hideGrid !== nextProps.hideGrid ||
     prevProps.showScanEffect !== nextProps.showScanEffect ||

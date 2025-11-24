@@ -1,6 +1,6 @@
 /**
- * Export principal du module views
- * Vues des différents états de l'application
+ * Main export for views module
+ * Views for different application states
  */
 export { default as RobotNotDetectedView } from './RobotNotDetectedView';
 export { default as StartingView } from './StartingView';

@@ -8,6 +8,7 @@
     "build": "vite build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --no-watch",
+    "tauri:dev:sim": "VITE_SIM_MODE=true tauri dev --no-watch",
     "tauri:build": "tauri build",
     "build:sidecar-macos": "bash ./build_sidecar_unix.sh",
     "build:sidecar-linux": "bash ./build_sidecar_unix.sh",

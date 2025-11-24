@@ -1,8 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 
 /**
- * Composant AudioVisualizer - Affiche un égaliseur audio épuré
- * Pour l'instant, simule des données FFT avec du bruit aléatoire
+ * AudioVisualizer component - Displays a clean audio equalizer
+ * For now, simulates FFT data with random noise
  */
 export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 150, 0.8)', showBackground = true, isLarge = false }) {
   const canvasRef = useRef(null);

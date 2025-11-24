@@ -5,21 +5,21 @@ import unpluggedCableSvg from '../assets/unplugged-cable.svg';
 import useAppStore from '../store/useAppStore';
 
 /**
- * Vue affichée quand le robot n'est pas détecté via USB
+ * View displayed when robot is not detected via USB
  */
 export default function RobotNotDetectedView() {
   const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
   const { darkMode } = useAppStore();
   const [dots, setDots] = useState('');
 
-  // Animation des points suspensifs
+  // Animated ellipsis dots
   useEffect(() => {
     const interval = setInterval(() => {
       setDots(prev => {
         if (prev === '...') return '';
         return prev + '.';
       });
-    }, 500); // Changement toutes les 500ms (assez lent)
+    }, 500); // Change every 500ms (slow enough)
     
     return () => clearInterval(interval);
   }, []);
@@ -36,7 +36,7 @@ export default function RobotNotDetectedView() {
         position: 'relative',
       }}
     >
-      {/* Effet de scan en zig-zag continu (haut-bas-haut-bas) */}
+      {/* Continuous zig-zag scan effect (up-down-up-down) */}
       <Box
         sx={{
           position: 'absolute',
@@ -71,7 +71,7 @@ export default function RobotNotDetectedView() {
           zIndex: 2,
         }}
       >
-        {/* Illustration pleine largeur */}
+        {/* Full-width illustration */}
         <Box 
           sx={{ 
             width: '100%',
@@ -120,7 +120,7 @@ export default function RobotNotDetectedView() {
             Connect your Reachy Mini via <strong>USB</strong> to get started
           </Typography>
 
-          {/* Box invisible de même hauteur que le bouton "Start" (minHeight: 42 + py: 1.25) */}
+          {/* Invisible box with same height as "Start" button (minHeight: 42 + py: 1.25) */}
           <Box
             sx={{
               mt: 4,

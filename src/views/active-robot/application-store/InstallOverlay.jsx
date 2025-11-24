@@ -6,8 +6,8 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import FullscreenOverlay from '../../../components/FullscreenOverlay';
 
 /**
- * Overlay fullscreen pour l'installation d'une app
- * Affiche les détails de l'app, la progression et les logs
+ * Fullscreen overlay for app installation
+ * Displays app details, progress and logs
  */
 export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = 'install', resultState = null }) {
   const [elapsedTime, setElapsedTime] = useState(0);

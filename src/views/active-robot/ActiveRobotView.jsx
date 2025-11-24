@@ -13,7 +13,7 @@ import PowerButton from './PowerButton';
 import AudioControls from './audio/AudioControls';
 import { useRobotState } from '../../hooks/useRobotState';
 import useAppStore from '../../store/useAppStore';
-import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_EMOTIONS } from '../../constants/choreographies';
+import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
 import { buildApiUrl } from '../../config/daemon';
 
 
@@ -203,6 +203,9 @@ function ActiveRobotView({
     if (action.type === 'action') {
       // Actions like sleep/wake_up
       sendCommand(`/api/move/play/${action.name}`, action.label);
+    } else if (action.type === 'dance') {
+      // Dances
+      playRecordedMove(CHOREOGRAPHY_DATASETS.DANCES, action.name);
     } else {
       // Emotions
       playRecordedMove(CHOREOGRAPHY_DATASETS.EMOTIONS, action.name);
@@ -229,18 +232,8 @@ function ActiveRobotView({
     showToast(`${action.emoji} ${action.label}`, 'info');
   }, [sendCommand, playRecordedMove, showToast]);
 
-  // Quick Actions: All emotions from QUICK_EMOTIONS + 1 sleep action
-  const quickActions = [
-    // Sleep action
-    { name: 'goto_sleep', emoji: '😴', label: 'Sleep', type: 'action' },
-    // All emotions from QUICK_EMOTIONS
-    ...QUICK_EMOTIONS.map(emotion => ({
-      name: emotion.name,
-      emoji: emotion.emoji,
-      label: emotion.label,
-      type: 'emotion',
-    })),
-  ];
+  // Quick Actions: Curated mix of emotions, dances, and actions (no redundancy)
+  const quickActions = QUICK_ACTIONS;
 
   // Detect crash and log (no toast, we have the overlay)
   useEffect(() => {
@@ -508,7 +501,7 @@ function ActiveRobotView({
             darkMode={darkMode}
           />
 
-        {/* Audio Controls - Wrapper stable pour garantir le sizing correct */}
+        {/* Audio Controls - Stable wrapper to ensure correct sizing */}
         <Box sx={{ width: '100%' }}>
           <AudioControls
             volume={volume}
@@ -592,6 +585,7 @@ function ActiveRobotView({
           justifyContent: 'center !important',
           alignItems: 'center !important',
           width: '100%',
+          zIndex: 100000, // Above everything (toasts must be visible above all overlays)
           '& > *': {
             margin: '0 auto !important',
           },
@@ -607,6 +601,7 @@ function ActiveRobotView({
             boxShadow: darkMode 
               ? '0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)'
               : '0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1)',
+            zIndex: 100000, // Ensure toast content is above everything
           }}
         >
           {/* Main content */}

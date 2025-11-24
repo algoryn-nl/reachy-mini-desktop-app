@@ -1,7 +1,7 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, memo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createCellShadingMaterial, updateCellShadingMaterial, createXrayMaterial, updateXrayMaterial } from './utils/materials';
+import { createXrayMaterial } from './utils/materials';
 import { matrix4FromRowMajor } from './utils/matrixUtils';
 import robotModelCache from '../../utils/robotModelCache';
 
@@ -11,15 +11,16 @@ import robotModelCache from '../../utils/robotModelCache';
  * Manages 3D model loading, head and antenna animations
  */
 function URDFRobot({ 
-  headPose, // ✅ Matrice de pose (pour debug/comparaison, mais on utilise les joints)
-  headJoints, // ✅ Array de 7 valeurs [yaw_body, stewart_1, ..., stewart_6]
-  passiveJoints, // ✅ Array de 21 valeurs [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z] (optionnel, seulement si Placo actif)
+  headPose, // ✅ Pose matrix (for debug/comparison, but we use joints)
+  headJoints, // ✅ Array of 7 values [yaw_body, stewart_1, ..., stewart_6]
+  passiveJoints, // ✅ Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z] (optional, only if Placo active)
   yawBody, 
   antennas, 
   isActive, 
   isTransparent, 
   cellShading = { enabled: false, bands: 100, smoothShading: true },
   xrayOpacity = 0.5,
+  wireframe = false, // ✅ Wireframe mode
   onMeshesReady,
   onRobotReady, // Callback with robot reference
   forceLoad = false, // ✅ Force loading even if isActive=false
@@ -62,420 +63,64 @@ function URDFRobot({
     };
   }, [gl]);
   
-  // ✅ Material cache for each mesh (COMPLETE separation between cell shading and X-ray)
-  const materialsCache = useRef({
-    cellShading: new Map(), // Map<mesh, ShaderMaterial>
-    xray: new Map(),         // Map<mesh, ShaderMaterial> (now with improved shader)
-  });
-
-  // ✅ Function to create or retrieve cell shading material from cache
-  const getCellShadingMaterial = useCallback((mesh, cellShadingConfig) => {
-    const cache = materialsCache.current.cellShading;
-    
-    if (!cache.has(mesh)) {
-      const originalColor = mesh.userData.originalColor || 0xFF9500;
-      const material = createCellShadingMaterial(originalColor, {
-        bands: cellShadingConfig?.bands || 100,
-        smoothness: cellShadingConfig?.smoothness ?? 0.45,
-        rimIntensity: cellShadingConfig?.rimIntensity ?? 0.4,
-        specularIntensity: cellShadingConfig?.specularIntensity ?? 0.3,
-        ambientIntensity: cellShadingConfig?.ambientIntensity ?? 0.45,
-        contrastBoost: cellShadingConfig?.contrastBoost ?? 0.9,
-      });
-      cache.set(mesh, material);
-    }
-    
-    return cache.get(mesh);
-  }, []);
-
-  // ✅ Function to create or retrieve X-ray material from cache with discrete X-ray style colors
-  const getXrayMaterial = useCallback((mesh, opacity, colorOverride = null) => {
-    const cache = materialsCache.current.xray;
-    const cacheKey = `${mesh.uuid}_${colorOverride || 'default'}`;
-    
-    if (!cache.has(cacheKey)) {
-      // ✅ Determine object type BEFORE determining color
-        const isAntenna = mesh.userData?.isAntenna || false;
-        const isShellPiece = mesh.userData?.isShellPiece || false;
-        const isBigLens = (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('big_lens') ||
-                         (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('small_lens') ||
-                         (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('lens_d40') ||
-                         (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase().includes('lens_d30');
-        
-      // ✅ Discrete X-ray style colors (gray/light blue tones)
-      let xrayColor = colorOverride;
-      
-      if (!xrayColor) {
-        // ✅ Realistic X-ray palette with different tints based on material
-        // Medical X-ray style: different densities = different tints
-        if (isAntenna) {
-          // Antennas: dense metal = medium gray with slight blue tint
-          xrayColor = 0x5A6B7C; // Medium-blue gray (medium-high density)
-        } else if (isBigLens) {
-          // Lenses: glass/plastic = light gray with slight green tint
-          xrayColor = 0x6B7B7A; // Light-green gray (low-medium density)
-        } else if (isShellPiece) {
-          // Shells: thick plastic = medium gray with slight blue tint
-          xrayColor = 0x5A6570; // Medium gray (medium density)
-        } else {
-          // Color based on original luminance (X-ray style)
-          const originalColor = mesh.userData?.originalColor || 0xFF9500;
-          const r = (originalColor >> 16) & 0xFF;
-          const g = (originalColor >> 8) & 0xFF;
-          const b = originalColor & 0xFF;
-          
-          // Calculate luminance to map to realistic palette
-          const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
-          
-          // ✅ Realistic X-ray palette: darkened with subtle tint variations
-          // Darker = more realistic, with slight colored tints like real scans
-          if (luminance > 200) {
-            xrayColor = 0x6B757D; // Medium-light gray (medium-high density)
-          } else if (luminance > 150) {
-            xrayColor = 0x5A6570; // Medium gray (medium density)
-          } else if (luminance > 100) {
-            xrayColor = 0x4A5560; // Medium-dark gray (medium-low density)
-          } else if (luminance > 50) {
-            xrayColor = 0x3A4550; // Dark gray (low density)
-          } else {
-            xrayColor = 0x2A3540; // Very dark gray (very low density, almost transparent)
-          }
-        }
-      }
-      
-      // ✅ Use improved X-ray shader with rim lighting
-      // Rim color adapted based on material for more realism
-      const rimColor = isAntenna ? 0x8A9AAC : // Slightly blue for metal
-                       isBigLens ? 0x7A8A8A : // Slightly green for glass
-                       isShellPiece ? 0x7A8590 : // Neutral gray for plastic
-                       0x6A7580; // Neutral gray for other materials
-      
-      // ✅ Increased transparency for 3D printed parts (shell pieces)
-      // 3D printed parts are less dense, so more transparent in X-ray
-      const finalOpacity = isShellPiece ? opacity * 0.4 : opacity; // 60% more transparency for shells
-      
-      const material = createXrayMaterial(xrayColor, {
-        rimColor: rimColor, // Tint adapted to material
-        rimPower: 2.0,
-        rimIntensity: 0.25, // Reduced for more realistic look
-        opacity: finalOpacity, // Reduced opacity for 3D printed parts
-        edgeIntensity: 0.2, // Reduced for more discrete look
-        subsurfaceColor: isAntenna ? 0x4A5A6C : // Blue subsurface for metal
-                         isBigLens ? 0x5A6A6A : // Green subsurface for glass
-                         0x4A5560, // Neutral subsurface for others
-        subsurfaceIntensity: 0.15, // Reduced for more subtlety
-      });
-      cache.set(cacheKey, material);
-    } else {
-      // Update opacity if it changes
-      const material = cache.get(cacheKey);
-      if (material.uniforms) {
-        // ✅ Apply increased transparency for 3D printed parts
-        const isShellPiece = mesh.userData?.isShellPiece || false;
-        const finalOpacity = isShellPiece ? opacity * 0.3 : opacity;
-        // Shader material
-        updateXrayMaterial(material, { opacity: finalOpacity });
-      } else {
-        // MeshBasicMaterial (fallback)
-        const isShellPiece = mesh.userData?.isShellPiece || false;
-        const finalOpacity = isShellPiece ? opacity * 0.3 : opacity;
-        material.opacity = finalOpacity;
-      }
-    }
-    
-    return cache.get(cacheKey);
-  }, []);
-
-  // Function to apply materials (used on load AND on changes)
-  // ✅ COMPLETE SEPARATION: each mode has its own materials
-  const applyMaterials = useCallback((robotModel, transparent, cellShadingConfig, opacity) => {
-    let processedCount = 0;
-    let skippedCount = 0;
-    let antennaCount = 0;
-    
-    // ✅ First collect all main meshes (to avoid traversing outline meshes)
-    const mainMeshes = [];
+  // ✅ Simple function to apply materials
+  const applyMaterials = useCallback((robotModel, transparent, cellShadingConfig, opacity, wireframeMode) => {
     robotModel.traverse((child) => {
-      if (child.isMesh && !child.userData.isOutline) {
-        mainMeshes.push(child);
-      }
-    });
-    
-    // Traverse only main meshes
-    mainMeshes.forEach((child) => {
-      if (!child.material) {
-        console.warn('⚠️ Mesh without material:', child.name || 'unnamed');
-        skippedCount++;
-        return;
-      }
+      if (!child.isMesh || child.userData.isErrorMesh) return;
       
-      // ⚠️ Do not touch error meshes
-      if (child.userData.isErrorMesh) {
-        skippedCount++;
-        return;
-      }
+      const originalColor = child.userData?.originalColor || 0xFF9500;
+      // Check both userData and material name for lenses (fallback)
+      const materialName = (child.userData?.materialName || child.material?.name || '').toLowerCase();
+      const isBigLens = child.userData?.isBigLens || 
+                       materialName.includes('big_lens') ||
+                       materialName.includes('small_lens') ||
+                       materialName.includes('lens_d40') ||
+                       materialName.includes('lens_d30');
+      const isAntenna = child.userData?.isAntenna || false;
       
-      // ✅ BIG_LENS only: Always transparent (even in cell shading mode)
-      // Robust detection: mesh name, STL file name, parent name (recursive), material name, COLOR
-      const meshName = child.name || '';
-      const stlFileName = child.userData?.stlFileName || '';
-      const geometryUrl = child.geometry?.userData?.url || '';
-      const fileName = geometryUrl.split('/').pop() || '';
-      // ✅ Use material name stored in userData (more reliable than child.material?.name)
-      const materialName = child.userData?.materialName || child.material?.name || '';
-      const lensColor = child.userData?.originalColor || 0;
-      
-      // ✅ Traverse entire parent hierarchy to find "big_lens"
-      let parentName = '';
-      let currentParent = child.parent;
-      let depth = 0;
-      const parentNames = [];
-      while (currentParent && depth < 10) {
-        const pName = currentParent.name || '';
-        if (pName) {
-          parentNames.push(pName);
-          if (pName.toLowerCase().includes('big_lens')) {
-            parentName = pName;
-            break;
-          }
-        }
-        currentParent = currentParent.parent;
-        depth++;
-      }
-      
-      // ✅ Detection by EXACT COLOR: big_lens has a very specific gray color
-      // In URDF: rgba(0.439216 0.47451 0.501961 0.301961)
-      // Conversion: r=0.439216*255≈112, g=0.47451*255≈121, b=0.501961*255≈128
-      // Approximate hex: #707980 or #707f80
-      const r = (lensColor >> 16) & 0xFF;
-      const g = (lensColor >> 8) & 0xFF;
-      const b = lensColor & 0xFF;
-      
-      // ✅ EXACT COLOR of big_lens: very close to #707980
-      // Tolerance of ±10 for each component
-      const isExactLensColor = r >= 102 && r <= 122 &&  // 112 ± 10
-                               g >= 111 && g <= 131 &&  // 121 ± 10
-                               b >= 118 && b <= 138 &&  // 128 ± 10
-                               Math.abs(r - g) < 15 &&   // Uniform gray
-                               Math.abs(g - b) < 15;     // Uniform gray
-      
-      // ✅ Explicitly EXCLUDE eye_support and similar parts
-      const isEyeSupport = meshName.toLowerCase().includes('eye') && 
-                          (meshName.toLowerCase().includes('support') || meshName.toLowerCase().includes('mount'));
-      const isExcluded = isEyeSupport || 
-                        meshName.toLowerCase().includes('support') ||
-                        parentNames.some(p => p.toLowerCase().includes('eye') && p.toLowerCase().includes('support'));
-      
-      // ✅ STRICT detection: material containing "big_lens", "lens_d40", "small_lens" or "lens_d30"
-      // Materials "big_lens_d40_material", "small_lens_d30_material" are reliable criteria
-      const materialNameLower = materialName.toLowerCase();
-      const isBigLens = materialNameLower.includes('big_lens') || 
-                       materialNameLower.includes('lens_d40') ||
-                       materialNameLower.includes('small_lens') ||
-                       materialNameLower.includes('lens_d30'); // big_lens, small_lens or their variants
-      
-      // Log if detected by other means for debug (only warnings)
-      const detectedByName = meshName.toLowerCase().includes('big_lens') || 
-                            stlFileName.toLowerCase().includes('big_lens') ||
-                            fileName.toLowerCase().includes('big_lens') ||
-                            parentName.toLowerCase().includes('big_lens');
-      
-      if (!isBigLens && detectedByName) {
-        console.warn('⚠️ Big lens detected by name but not by material:', {
-          meshName,
-          materialName,
+      if (wireframeMode) {
+        // Wireframe mode: simple wireframe material
+        child.material = new THREE.MeshBasicMaterial({
+          color: originalColor,
+          wireframe: true,
+          transparent: false,
         });
-      }
-      
-      if (isBigLens) {
+        // Force material update
+        child.material.needsUpdate = true;
+      } else if (transparent) {
+        // X-ray mode: simple transparent material
+        let xrayColor = 0x5A6570;
+        if (isAntenna) xrayColor = 0x5A6B7C;
+        else if (isBigLens) xrayColor = 0x6B7B7A;
         
-        // ✅ BIG_LENS: Cell shading WITH transparency (no glass material)
-        // Apply cell shading like other parts, but with transparency
-        if (!transparent) {
-          const lensOpacity = 0.75; // Reduced opacity for normal mode (cell shading)
-          
-          // ✅ Create BLACK cell shading material for lenses
-          // Use createCellShadingMaterial directly with black color
-          const cellMaterial = createCellShadingMaterial(0x000000, { // Black color
-            bands: cellShadingConfig?.bands || 100,
-            smoothness: cellShadingConfig?.smoothness ?? 0.45,
-            rimIntensity: cellShadingConfig?.rimIntensity ?? 0.4,
-            specularIntensity: cellShadingConfig?.specularIntensity ?? 0.3,
-            ambientIntensity: cellShadingConfig?.ambientIntensity ?? 0.45,
-            contrastBoost: cellShadingConfig?.contrastBoost ?? 0.9,
-            opacity: lensOpacity, // Pass opacity during creation
+        child.material = createXrayMaterial(xrayColor, { opacity });
+      } else {
+        // Normal mode: simple opaque material with smooth shading
+        if (isBigLens) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.75,
+            flatShading: false, // ✅ Smooth shading
           });
-          
-          // Update cell shading parameters (use values directly from cellShadingConfig)
-          updateCellShadingMaterial(cellMaterial, {
-            bands: cellShadingConfig?.bands,
-            smoothness: cellShadingConfig?.smoothness,
-            rimIntensity: cellShadingConfig?.rimIntensity,
-            specularIntensity: cellShadingConfig?.specularIntensity,
-            ambientIntensity: cellShadingConfig?.ambientIntensity,
-            contrastBoost: cellShadingConfig?.contrastBoost,
-            opacity: lensOpacity, // Ensure opacity is properly defined
+        } else if (isAntenna) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            flatShading: false, // ✅ Smooth shading
           });
-          
-          
-          child.material = cellMaterial;
-          
-          // No outlines on big_lens
-          if (child.userData.outlineMesh) {
-            child.remove(child.userData.outlineMesh);
-            child.userData.outlineMesh.geometry.dispose();
-            child.userData.outlineMesh.material.dispose();
-            child.userData.outlineMesh = null;
-          }
         } else {
-          // In X-ray mode, use X-ray material with light gray color for lenses
-          const xrayMaterial = getXrayMaterial(child, opacity, 0x6B7B7A); // Light-green gray for lenses (X-ray style)
-          child.material = xrayMaterial;
-        }
-        
-        processedCount++;
-        return; // Skip rest of processing
-      }
-      
-      // ✅ ANTENNAS: ALL orange parts become black
-      const originalColor = child.userData.originalColor || 0xFF9500;
-      const vertexCount = child.geometry?.attributes?.position?.count || 0;
-      const isOrange = originalColor === 0xFF9500 || 
-                      (originalColor >= 0xFF8000 && originalColor <= 0xFFB000);
-      
-      // ALL orange parts = antennas (no size limit)
-      const isAntenna = child.userData.isAntenna || isOrange;
-      
-      
-      if (isAntenna) {
-        antennaCount++;
-        
-        if (transparent) {
-          // X-ray mode: Discrete blue-gray for antennas
-          const antennaMaterial = getXrayMaterial(child, opacity, 0x5A6B7C); // Medium-blue gray (metal density)
-          child.material = antennaMaterial;
-        } else {
-          // Normal mode: Opaque black
-          const antennaMaterial = new THREE.MeshBasicMaterial({
-            color: 0x1a1a1a, // Black
-            transparent: false,
-            opacity: 1.0,
-            side: THREE.FrontSide,
-            depthWrite: true,
+          child.material = new THREE.MeshStandardMaterial({
+            color: originalColor,
+            flatShading: false, // ✅ Smooth shading
+            // ✅ Reduce roughness for smoother gradients (less banding)
+            roughness: 0.7, // Slightly glossy to reduce harsh transitions
+            metalness: 0.0, // Non-metallic
           });
-          child.material = antennaMaterial;
         }
-        
-        
-          // No outlines on antennas
-        if (child.userData.outlineMesh) {
-          child.remove(child.userData.outlineMesh);
-          if (child.userData.outlineMesh.geometry) child.userData.outlineMesh.geometry.dispose();
-          if (child.userData.outlineMesh.material) child.userData.outlineMesh.material.dispose();
-          child.userData.outlineMesh = null;
-        }
-        
-        processedCount++;
-        return;
       }
-      
-      // ✅ CELL SHADING HD MODE (Normal)
-      if (!transparent) {
-        const cellMaterial = getCellShadingMaterial(child, cellShadingConfig);
-        
-        // Update parameters if changed (use values directly from cellShadingConfig)
-        // ✅ Always pass all values to force update
-        const updateParams = {};
-        if (cellShadingConfig?.bands !== undefined) updateParams.bands = cellShadingConfig.bands;
-        if (cellShadingConfig?.smoothness !== undefined) updateParams.smoothness = cellShadingConfig.smoothness;
-        if (cellShadingConfig?.rimIntensity !== undefined) updateParams.rimIntensity = cellShadingConfig.rimIntensity;
-        if (cellShadingConfig?.specularIntensity !== undefined) updateParams.specularIntensity = cellShadingConfig.specularIntensity;
-        if (cellShadingConfig?.ambientIntensity !== undefined) updateParams.ambientIntensity = cellShadingConfig.ambientIntensity;
-        if (cellShadingConfig?.contrastBoost !== undefined) updateParams.contrastBoost = cellShadingConfig.contrastBoost;
-        
-        updateCellShadingMaterial(cellMaterial, updateParams);
-        
-        child.material = cellMaterial;
-        
-          // ✅ AAA OUTLINES: "Backface Outline" technique (ONLY silhouette)
-          // Used in Zelda BOTW, Genshin Impact, Guilty Gear Strive
-          if (cellShadingConfig?.outlineEnabled) {
-            // Remove old outline if it exists
-            if (child.userData.outlineMesh) {
-              child.remove(child.userData.outlineMesh);
-              if (child.userData.outlineMesh.geometry) child.userData.outlineMesh.geometry.dispose();
-              if (child.userData.outlineMesh.material) child.userData.outlineMesh.material.dispose();
-              child.userData.outlineMesh = null;
-            }
-            
-            const outlineColor = cellShadingConfig?.outlineColor || '#000000';
-            const outlineThickness = (cellShadingConfig?.outlineThickness || 15.0) / 1000;
-            
-            // ✅ Backface outline: enlarged mesh with inverted faces
-            const outlineMaterial = new THREE.MeshBasicMaterial({
-              color: outlineColor,
-              side: THREE.BackSide, // Only back faces
-              depthTest: true,
-              depthWrite: true,
-            });
-            
-            const outlineMesh = new THREE.Mesh(child.geometry, outlineMaterial);
-            outlineMesh.scale.setScalar(1 + outlineThickness);
-            outlineMesh.renderOrder = -1;
-            outlineMesh.userData.isOutline = true;
-            
-            child.add(outlineMesh);
-            child.userData.outlineMesh = outlineMesh;
-          } else if (child.userData.outlineMesh) {
-            // Remove outline if disabled
-            child.remove(child.userData.outlineMesh);
-            if (child.userData.outlineMesh.geometry) child.userData.outlineMesh.geometry.dispose();
-            if (child.userData.outlineMesh.material) child.userData.outlineMesh.material.dispose();
-            child.userData.outlineMesh = null;
-          }
-      } 
-      // ✅ X-RAY MODE (Transparent)
-      else {
-        const xrayMaterial = getXrayMaterial(child, opacity);
-        child.material = xrayMaterial;
-        
-        // ✅ Fix flickering: use static renderOrder based on hierarchy
-        // Objects are naturally sorted by Three.js, we just avoid conflicts
-        if (!child.userData.renderOrderSet) {
-          child.renderOrder = 0; // Let Three.js handle automatic sorting
-          child.userData.renderOrderSet = true;
-        }
-        
-          // Remove outlines in X-ray mode
-          if (child.userData.outlineMesh) {
-            child.remove(child.userData.outlineMesh);
-            if (child.userData.outlineMesh.geometry) child.userData.outlineMesh.geometry.dispose();
-            if (child.userData.outlineMesh.material) child.userData.outlineMesh.material.dispose();
-            child.userData.outlineMesh = null;
-          }
-      }
-      
-      processedCount++;
     });
-    
-  }, [getCellShadingMaterial, getXrayMaterial]);
-
-  // Cleanup: Dispose all cached materials on component unmount
-  useEffect(() => {
-    return () => {
-      // Dispose cell shading materials
-      materialsCache.current.cellShading.forEach(material => {
-        if (material) material.dispose();
-      });
-      materialsCache.current.cellShading.clear();
-      
-      // Dispose X-ray materials
-      materialsCache.current.xray.forEach(material => {
-        if (material) material.dispose();
-      });
-      materialsCache.current.xray.clear();
-    };
   }, []);
+
 
   // STEP 1: Load URDF model from cache (preloaded at startup)
   useEffect(() => {
@@ -493,76 +138,9 @@ function URDFRobot({
       if (!isMounted) return;
       
       // Clone model for this instance
-      const robotModel = cachedModel.clone(true); // true = recursive clone
+      const robotModel = cachedModel.clone(true);
       
-      // ✅ Recalculate smooth normals after cloning to ensure smooth rendering
-      // Cloning can sometimes lose normals, so we recalculate them systematically
-      let normalsRecalculated = 0;
-      const sceneStlFiles = [];
-      
-      robotModel.traverse((child) => {
-        if (child.isMesh && child.geometry) {
-          // Log STL file name for each mesh in scene
-          const geometryUrl = child.geometry?.userData?.url || '';
-          const meshFileName = geometryUrl.split('/').pop() || child.name || 'unnamed';
-          const stlFileName = meshFileName.toLowerCase().endsWith('.stl') ? meshFileName : `${meshFileName}.stl`;
-          
-          if (!sceneStlFiles.includes(stlFileName)) {
-            sceneStlFiles.push(stlFileName);
-          }
-          
-          // Recalculate normals with wide threshold angle for optimal smooth shading
-          // 90° angle allows smoothing even fairly pronounced angles
-          child.geometry.computeVertexNormals(Math.PI / 2);
-          normalsRecalculated++;
-        }
-      });
-      
-      // ✅ Detect shells by BOUNDING BOX (shells are large)
-      let shellPieceCount = 0;
-      const boundingBoxSizes = [];
-      
-      robotModel.traverse((child) => {
-        if (child.isMesh) {
-          // Save originalColor if not already done
-          if (!child.userData.originalColor && child.material?.color) {
-            child.userData.originalColor = child.material.color.getHex();
-          }
-          
-          // Calculate bounding box
-          if (!child.geometry.boundingBox) {
-            child.geometry.computeBoundingBox();
-          }
-          
-          const bbox = child.geometry.boundingBox;
-          const size = new THREE.Vector3();
-          bbox.getSize(size);
-          
-          // Bounding box volume
-          const volume = size.x * size.y * size.z;
-          boundingBoxSizes.push(volume);
-          
-          // Shells have large volume (> 0.0003)
-          const isLargePiece = volume > 0.0003;
-          
-          child.userData.isShellPiece = isLargePiece;
-          child.userData.boundingBoxVolume = volume;
-          
-          if (isLargePiece) {
-            shellPieceCount++;
-          }
-        }
-      });
-
-      // ✅ Prepare initial materials (cell shading or X-ray based on current mode)
-      let meshCount = 0;
-      robotModel.traverse((child) => {
-        if (child.isMesh && child.material) {
-          meshCount++;
-        }
-      });
-      
-      // Collect all meshes for Outline effect
+      // Collect meshes
       const collectedMeshes = [];
       robotModel.traverse((child) => {
         if (child.isMesh) {
@@ -582,15 +160,15 @@ function URDFRobot({
       }
       
       // ✅ Model loaded, let useLayoutEffect apply materials
-      // ✅ IMPORTANT: Initialiser tous les joints à zéro pour éviter une position initiale incorrecte
-      // La plateforme Stewart nécessite que tous les joints soient initialisés correctement
+      // ✅ IMPORTANT: Initialize all joints to zero to avoid incorrect initial position
+      // The Stewart platform requires all joints to be initialized correctly
       if (robotModel && robotModel.joints) {
-        // Initialiser yaw_body à 0
+        // Initialize yaw_body to 0
         if (robotModel.joints['yaw_body']) {
           robotModel.setJointValue('yaw_body', 0);
         }
         
-        // Initialiser tous les joints stewart à 0
+        // Initialize all stewart joints to 0
         const stewartJointNames = ['stewart_1', 'stewart_2', 'stewart_3', 'stewart_4', 'stewart_5', 'stewart_6'];
         stewartJointNames.forEach(jointName => {
           if (robotModel.joints[jointName]) {
@@ -598,7 +176,7 @@ function URDFRobot({
           }
         });
         
-        // Initialiser les joints passifs à 0 si disponibles
+        // Initialize passive joints to 0 if available
         const passiveJointNames = [
           'passive_1_x', 'passive_1_y', 'passive_1_z',
           'passive_2_x', 'passive_2_y', 'passive_2_z',
@@ -614,7 +192,7 @@ function URDFRobot({
           }
         });
         
-        // ✅ Forcer la mise à jour des matrices après initialisation
+        // ✅ Force matrix update after initialization
         robotModel.traverse((child) => {
           if (child.isObject3D) {
             child.updateMatrix();
@@ -623,7 +201,7 @@ function URDFRobot({
         });
       }
       
-      // ✅ Attendre 500ms avant d'afficher le robot pour éviter l'accoup de la tête penchée
+      // ✅ Wait 500ms before displaying robot to avoid tilted head glitch
       displayTimeoutRef.current = setTimeout(() => {
         if (!isMounted) return;
         setRobot(robotModel);
@@ -662,7 +240,7 @@ function URDFRobot({
       robot.setJointValue('right_antenna', rightPos);
     }
     
-    // ✅ IMPORTANT: Initialiser lastAntennasRef pour éviter que useFrame ne réapplique les antennes
+    // ✅ IMPORTANT: Initialize lastAntennasRef to prevent useFrame from reapplying antennas
     lastAntennasRef.current = currentAntennas.slice();
     
     // Only log if antennas changed significantly (threshold: 0.01 rad)
@@ -674,7 +252,7 @@ function URDFRobot({
     }
   }, [robot, antennas]); // Triggers on load AND when antennas change
   
-  // ✅ Helper function pour comparer les arrays avec tolérance (évite les mises à jour inutiles)
+  // ✅ Helper function to compare arrays with tolerance (avoids unnecessary updates)
   // ✅ OPTIMIZED: Increased tolerance to 0.005 rad (~0.3°) to avoid micro-updates that cause frame drops
   // Early return on reference equality for better performance
   const arraysEqual = (a, b, tolerance = 0.005) => {
@@ -703,23 +281,23 @@ function URDFRobot({
       return; // Skip this frame - only process every 6th frame (~10 Hz)
     }
 
-    // STEP 1: Apply head joints (yaw_body + stewart_1 à stewart_6)
-    // ✅ Utiliser les joints directement comme dans le code Rerun (plus précis que la matrice de pose)
-    // Les joints respectent la cinématique de l'URDF
-    // ✅ IMPORTANT: URDFLoader met à jour automatiquement les matrices lors de setJointValue
-    // Ne PAS forcer updateMatrixWorld() pour éviter les conflits et le flickering
+    // STEP 1: Apply head joints (yaw_body + stewart_1 to stewart_6)
+    // ✅ Use joints directly like in Rerun code (more precise than pose matrix)
+    // Joints respect URDF kinematics
+    // ✅ IMPORTANT: URDFLoader automatically updates matrices on setJointValue
+    // Do NOT force updateMatrixWorld() to avoid conflicts and flickering
     if (headJoints && Array.isArray(headJoints) && headJoints.length === 7) {
       const headJointsChanged = !arraysEqual(headJoints, lastHeadJointsRef.current);
       
       if (headJointsChanged) {
-        // yaw_body (index 0) - Appliquer en premier
+        // yaw_body (index 0) - Apply first
         if (robot.joints['yaw_body']) {
           robot.setJointValue('yaw_body', headJoints[0]);
         } else {
           console.warn('⚠️ Joint yaw_body not found in robot model');
         }
         
-        // stewart_1 à stewart_6 (indices 1-6) - Appliquer ensuite
+        // stewart_1 to stewart_6 (indices 1-6) - Apply next
         const stewartJointNames = ['stewart_1', 'stewart_2', 'stewart_3', 'stewart_4', 'stewart_5', 'stewart_6'];
         let appliedCount = 0;
         const appliedValues = {};
@@ -744,7 +322,7 @@ function URDFRobot({
         lastHeadJointsRef.current = headJoints.slice();
       }
     } else if (yawBody !== lastYawBodyRef.current && yawBody !== undefined && robot.joints['yaw_body']) {
-      // ✅ Fallback: utiliser yawBody seul si headJoints n'est pas disponible
+      // ✅ Fallback: use yawBody alone if headJoints is not available
       // ✅ OPTIMIZED: Increased tolerance to match arraysEqual (0.005 rad)
       const yawChanged = Math.abs(yawBody - (lastYawBodyRef.current || 0)) > 0.005;
       if (yawChanged) {
@@ -753,15 +331,15 @@ function URDFRobot({
     }
     }
 
-    // STEP 1.5: Apply passive joints (21 valeurs : passive_1_x/y/z à passive_7_x/y/z)
-    // ✅ CRITIQUE: Les joints passifs sont nécessaires pour la cinématique complète de la plateforme Stewart
-    // Seulement disponibles si Placo est actif
+    // STEP 1.5: Apply passive joints (21 values: passive_1_x/y/z to passive_7_x/y/z)
+    // ✅ CRITICAL: Passive joints are necessary for complete Stewart platform kinematics
+    // Only available if Placo is active
     if (passiveJoints && (Array.isArray(passiveJoints) || (passiveJoints.array && Array.isArray(passiveJoints.array)))) {
       const passiveArray = Array.isArray(passiveJoints) ? passiveJoints : passiveJoints.array;
       const passiveJointsChanged = !arraysEqual(passiveArray, lastPassiveJointsRef.current);
     
       if (passiveJointsChanged && passiveArray.length >= 21) {
-        // ✅ Noms des joints passifs dans l'ordre exact du daemon
+        // ✅ Passive joint names in exact daemon order
         const passiveJointNames = [
           'passive_1_x', 'passive_1_y', 'passive_1_z',
           'passive_2_x', 'passive_2_y', 'passive_2_z',
@@ -772,7 +350,7 @@ function URDFRobot({
           'passive_7_x', 'passive_7_y', 'passive_7_z',
         ];
         
-        // Appliquer tous les joints passifs
+        // Apply all passive joints
         for (let i = 0; i < Math.min(passiveArray.length, passiveJointNames.length); i++) {
           const jointName = passiveJointNames[i];
           if (robot.joints[jointName]) {
@@ -784,23 +362,23 @@ function URDFRobot({
       }
     }
 
-    // ✅ IMPORTANT: Ne PAS forcer updateMatrixWorld() ici
-    // URDFLoader met à jour automatiquement les matrices lors de setJointValue()
-    // Forcer updateMatrixWorld() peut créer des conflits et causer du flickering
+    // ✅ IMPORTANT: Do NOT force updateMatrixWorld() here
+    // URDFLoader automatically updates matrices on setJointValue()
+    // Forcing updateMatrixWorld() can create conflicts and cause flickering
 
-    // STEP 2: Optionnel - Appliquer head_pose pour comparaison/debug (mais les joints sont prioritaires)
-    // ✅ La matrice de pose peut être utilisée pour vérifier la cohérence, mais les joints sont la source de vérité
+    // STEP 2: Optional - Apply head_pose for comparison/debug (but joints are priority)
+    // ✅ Pose matrix can be used to verify consistency, but joints are the source of truth
     if (headPose && headPose.length === 16) {
       const headPoseChanged = !arraysEqual(headPose, lastHeadPoseRef.current);
       if (headPoseChanged) {
-        lastHeadPoseRef.current = headPose.slice(); // Garder en cache pour comparaison
-        // Note: On n'applique plus la matrice directement car les joints sont plus précis
+        lastHeadPoseRef.current = headPose.slice(); // Keep in cache for comparison
+        // Note: We no longer apply the matrix directly as joints are more precise
       }
     }
 
-    // STEP 3: Update antennas - only if changed (avec tolérance pour éviter les mises à jour inutiles)
-    // ✅ IMPORTANT: Appliquer les antennes même si elles sont [0, 0] (repliées)
-    // Vérifier si antennas est défini (peut être null, undefined, ou un array)
+    // STEP 3: Update antennas - only if changed (with tolerance to avoid unnecessary updates)
+    // ✅ IMPORTANT: Apply antennas even if they are [0, 0] (folded)
+    // Check if antennas is defined (can be null, undefined, or an array)
     if (antennas !== null && antennas !== undefined && Array.isArray(antennas) && antennas.length >= 2) {
       // ✅ OPTIMIZED: Increased tolerance to match arraysEqual (0.005 rad) to avoid micro-updates
       const antennasChanged = !lastAntennasRef.current || 
@@ -815,7 +393,7 @@ function URDFRobot({
         robot.setJointValue('right_antenna', antennas[1]);
       }
       lastAntennasRef.current = antennas.slice(); // Copy for comparison
-        // Pas besoin de mettre à jour les matrices pour les antennes (elles sont indépendantes)
+        // No need to update matrices for antennas (they are independent)
       }
     }
     
@@ -846,7 +424,7 @@ function URDFRobot({
     
     const isInitialSetup = !isReady;
     
-    applyMaterials(robot, isTransparent, cellShading, xrayOpacity);
+    applyMaterials(robot, isTransparent, cellShading, xrayOpacity, wireframe);
     
     // Mark as ready after first material application
     if (isInitialSetup) {
@@ -856,18 +434,10 @@ function URDFRobot({
   }, [
     robot, 
     isTransparent, 
-    cellShading?.bands,
-    cellShading?.smoothness,
-    cellShading?.rimIntensity,
-    cellShading?.specularIntensity,
-    cellShading?.ambientIntensity,
-    cellShading?.contrastBoost,
-    cellShading?.outlineEnabled,
-    cellShading?.outlineThickness,
-    cellShading?.outlineColor,
     xrayOpacity, 
+    wireframe,
     applyMaterials
-  ]); // Use individual values to detect changes
+  ]);
 
   // Only render robot when EVERYTHING is ready (loaded + materials applied)
   return robot && isReady ? (
@@ -884,6 +454,7 @@ const URDFRobotMemo = memo(URDFRobot, (prevProps, nextProps) => {
   if (
     prevProps.isActive !== nextProps.isActive ||
     prevProps.isTransparent !== nextProps.isTransparent ||
+    prevProps.wireframe !== nextProps.wireframe ||
     prevProps.forceLoad !== nextProps.forceLoad ||
     prevProps.xrayOpacity !== nextProps.xrayOpacity ||
     prevProps.yawBody !== nextProps.yawBody

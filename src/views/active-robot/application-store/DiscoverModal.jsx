@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, Button, InputBase, CircularProgress, Tooltip, IconButton, Chip, Avatar, Checkbox, FormControlLabel } from '@mui/material';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -39,6 +40,7 @@ export default function DiscoverModal({
   selectedCategory,
   setSelectedCategory,
   totalAppsCount,
+  installedApps = [],
   onOpenCreateTutorial, // Callback to open Create App Tutorial modal
 }) {
   return (
@@ -597,6 +599,7 @@ export default function DiscoverModal({
                   const installJob = getJobInfo(app.name, 'install');
                   const isInstalling = isJobRunning(app.name, 'install');
                   const installFailed = installJob && installJob.status === 'failed';
+                  const isInstalled = installedApps.some(inst => inst.name === app.name);
                 
                 // Extract data from HF Space API
                 const cardData = app.extra?.cardData || {};
@@ -606,46 +609,6 @@ export default function DiscoverModal({
                 const emoji = cardData.emoji || '📦';
                 // Check if space is running - runtime.stage can be "RUNNING", "BUILDING", "STOPPED", etc.
                 const isRunning = app.extra?.runtime?.stage === 'RUNNING';
-                
-                // Map HF Spaces color names to hex codes
-                const hfColorMap = {
-                  'yellow': '#fbbf24',
-                  'pink': '#ec4899',
-                  'blue': '#3b82f6',
-                  'indigo': '#6366f1',
-                  'green': '#22c55e',
-                  'red': '#ef4444',
-                  'orange': '#f97316',
-                  'purple': '#a855f7',
-                  'cyan': '#06b6d4',
-                  'teal': '#14b8a6',
-                  'amber': '#f59e0b',
-                  'emerald': '#10b981',
-                  'violet': '#8b5cf6',
-                  'rose': '#f43f5e',
-                  'sky': '#0ea5e9',
-                  'lime': '#84cc16',
-                  'fuchsia': '#d946ef',
-                };
-                
-                // Gradient from HF Spaces API
-                // HF Spaces uses color names (e.g., "yellow", "pink") not hex codes
-                const colorFromName = cardData.colorFrom || null;
-                const colorToName = cardData.colorTo || null;
-                
-                let gradient;
-                if (colorFromName && colorToName) {
-                  // Convert color names to hex codes
-                  const colorFromHex = hfColorMap[colorFromName.toLowerCase()] || colorFromName;
-                  const colorToHex = hfColorMap[colorToName.toLowerCase()] || colorToName;
-                  // Build gradient from colorFrom/colorTo (HF Spaces format)
-                  gradient = `linear-gradient(135deg, ${colorFromHex} 0%, ${colorToHex} 100%)`;
-                } else {
-                  // Fallback gradient only if no data found
-                  gradient = darkMode 
-                    ? 'linear-gradient(135deg, #ff6b35 0%, #22c55e 100%)'
-                    : 'linear-gradient(135deg, #ff9500 0%, #16a34a 100%)';
-                }
                 
                 // Format date
                 const formattedDate = lastModified 
@@ -852,15 +815,25 @@ export default function DiscoverModal({
                         </Typography>
                       </Box>
                         
-                      {/* Install Button - Gradient */}
+                      {/* Install/Installed Button - Primary Outlined */}
                         <Button
+                          variant="outlined"
+                          color="primary"
                           size="small"
-                          disabled={isBusy}
+                          disabled={isBusy || isInstalled}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleInstall(app);
+                          if (!isInstalled) {
+                            handleInstall(app);
+                          }
                         }}
-                        endIcon={isInstalling ? <CircularProgress size={14} sx={{ color: '#ffffff' }} /> : <DownloadOutlinedIcon sx={{ fontSize: 14 }} />}
+                        endIcon={
+                          isInstalled 
+                            ? <CheckCircleOutlineIcon sx={{ fontSize: 14 }} />
+                            : isInstalling 
+                            ? <CircularProgress size={14} sx={{ color: '#FF9500' }} /> 
+                            : <DownloadOutlinedIcon sx={{ fontSize: 14 }} />
+                        }
                           sx={{
                           mt: 2.5,
                           width: '100%',
@@ -869,31 +842,46 @@ export default function DiscoverModal({
                             fontWeight: 600,
                             textTransform: 'none',
                           borderRadius: '10px',
-                          background: installFailed 
-                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(220, 38, 38, 0.8) 100%)'
+                          bgcolor: 'transparent',
+                          color: isInstalled
+                            ? (darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)')
+                            : installFailed 
+                            ? '#ef4444'
+                            : '#FF9500',
+                          border: isInstalled
+                            ? (darkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)')
+                            : installFailed 
+                            ? '1px solid #ef4444'
                             : isInstalling 
-                            ? 'linear-gradient(135deg, rgba(255, 149, 0, 0.8) 0%, rgba(255, 149, 0, 0.6) 100%)'
-                            : gradient,
-                          color: '#ffffff',
-                          border: 'none',
+                            ? '1px solid #FF9500'
+                            : '1px solid #FF9500',
                             transition: 'all 0.2s ease',
                             '&:hover': {
-                            background: installFailed 
-                              ? 'linear-gradient(135deg, rgba(239, 68, 68, 1) 0%, rgba(220, 38, 38, 1) 100%)'
-                              : isInstalling 
-                              ? 'linear-gradient(135deg, rgba(255, 149, 0, 1) 0%, rgba(255, 149, 0, 0.8) 100%)'
-                              : gradient,
-                            transform: 'scale(1.02)',
-                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                            bgcolor: isInstalled
+                              ? 'transparent'
+                              : installFailed 
+                              ? 'rgba(239, 68, 68, 0.08)'
+                              : 'rgba(255, 149, 0, 0.08)',
+                            borderColor: isInstalled
+                              ? (darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)')
+                              : installFailed 
+                              ? '#ef4444'
+                              : '#FF9500',
                             },
                             '&:disabled': {
-                            background: darkMode ? 'rgba(0, 0, 0, 0.15)' : 'rgba(0, 0, 0, 0.1)',
-                            color: darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)',
-                            opacity: 0.5,
+                            bgcolor: 'transparent',
+                            color: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                            borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.12)',
                             },
                           }}
                         >
-                        {isInstalling ? 'Installing...' : installFailed ? 'Retry Install' : 'Install'}
+                        {isInstalled 
+                          ? 'Installed' 
+                          : isInstalling 
+                          ? 'Installing...' 
+                          : installFailed 
+                          ? 'Retry Install' 
+                          : 'Install'}
                         </Button>
                     </Box>
                   </Box>

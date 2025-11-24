@@ -4,13 +4,12 @@ import { IconButton, Switch, Tooltip, Box, Typography } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import SettingsIcon from '@mui/icons-material/Settings';
 import ThreeSixtyOutlinedIcon from '@mui/icons-material/ThreeSixtyOutlined';
 import MyLocationOutlinedIcon from '@mui/icons-material/MyLocationOutlined';
 import CircleIcon from '@mui/icons-material/Circle';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import { Leva } from 'leva';
+// Leva removed - was never displayed
 import * as THREE from 'three';
 import Scene from './Scene';
 import useRobotWebSocket from './hooks/useRobotWebSocket';
@@ -25,14 +24,14 @@ import { FPSMeter } from '../FPSMeter';
 // ✅ Camera presets
 const CAMERA_PRESETS = {
   normal: {
-    position: [0, 0.25, 0.32 + .20], // Zoomed out: Z increased from 0.25 to 0.32
+    position: [0, 0.25, 0.52], // Zoomed out: Z = 0.32 + 0.20
     fov: 50,
     target: [0, 0.2, 0],
     minDistance: 0.2,
     maxDistance: 0.6,
   },
   scan: {
-    position: [0, 0.22, 0.42 + .20], // Zoomed out: Z increased from 0.35 to 0.42
+    position: [0, 0.22, 0.62], // Zoomed out: Z = 0.42 + 0.20
     fov: 55,
     target: [0, 0.12, 0],
     minDistance: 0.15,
@@ -42,8 +41,6 @@ const CAMERA_PRESETS = {
 
 export default function RobotViewer3D({ 
   isActive, 
-  enableDebug = false, 
-  forceLevaOpen = false,
   initialMode = 'normal', // 'normal' or 'xray'
   hideControls = false, // Hide control buttons
   forceLoad = false, // Force robot loading even if isActive=false
@@ -59,6 +56,7 @@ export default function RobotViewer3D({
   showCameraToggle = false, // Show toggle to switch between Follow and Free
   errorFocusMesh = null, // Mesh to focus on in case of error
   backgroundColor = '#e0e0e0', // Canvas background color
+  wireframe = false, // ✅ Wireframe mode
   // Robot props
   antennas = null, // Antenna positions [left, right] (null = default position)
   headPose = null, // Head position (null = default position)
@@ -78,16 +76,16 @@ export default function RobotViewer3D({
     ? CAMERA_PRESETS[cameraPreset] 
     : { ...CAMERA_PRESETS.normal, ...cameraPreset };
   // Custom hook for WebSocket connection to daemon
-  // ✅ IMPORTANT: Ne PAS se connecter au WebSocket si isActive=false ET qu'on passe explicitement headJoints=null
-  // Cela permet d'avoir un robot complètement statique (pour la vue de scan hardware)
-  // Si headJoints est explicitement null ET isActive=false, on ne se connecte JAMAIS au WebSocket
-  // headJoints === null signifie "robot statique", headJoints === undefined signifie "utiliser WebSocket"
+  // ✅ IMPORTANT: Do NOT connect to WebSocket if isActive=false AND headJoints=null is explicitly passed
+  // This allows having a completely static robot (for hardware scan view)
+  // If headJoints is explicitly null AND isActive=false, NEVER connect to WebSocket
+  // headJoints === null means "static robot", headJoints === undefined means "use WebSocket"
   const shouldConnectWebSocket = isActive || (forceLoad && headJoints !== null);
   const robotState = useRobotWebSocket(shouldConnectWebSocket);
   
   // ✅ Use provided props or those from WebSocket robotState
-  // Si headJoints est explicitement null, on n'utilise JAMAIS les données du WebSocket pour les mouvements
-  // Cela garantit que le robot reste statique dans la vue de scan
+  // If headJoints is explicitly null, NEVER use WebSocket data for movements
+  // This ensures the robot remains static in the scan view
   // ✅ OPTIMIZED: Memoize computed props to avoid recalculating on every render
   const finalAntennas = useMemo(() => 
     antennas !== null ? antennas : (shouldConnectWebSocket ? (robotState.antennas || [0, 0]) : [0, 0]),
@@ -112,7 +110,6 @@ export default function RobotViewer3D({
   );
   
   const [isTransparent, setIsTransparent] = useState(initialMode === 'xray');
-  const [showLevaControls, setShowLevaControls] = useState(forceLevaOpen);
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
   
   // ✅ Get darkMode from store
@@ -131,12 +128,12 @@ export default function RobotViewer3D({
   // - locked: Follows head position AND orientation (FPV)
   const [cameraMode, setCameraMode] = useState('free');
   
-  // Toggle entre les 2 modes
+  // Toggle between the 2 modes
   const toggleCameraMode = () => {
     setCameraMode(prev => prev === 'free' ? 'locked' : 'free');
   };
   
-  // Compute props pour Scene
+  // Compute props for Scene
   const useHeadFollow = cameraMode === 'locked';
   const lockToOrientation = cameraMode === 'locked';
   
@@ -217,9 +214,6 @@ export default function RobotViewer3D({
       position: 'relative',
       overflow: 'visible',
     }}>
-      {/* Leva component - OUTSIDE Canvas (React UI component) */}
-      <Leva hidden={!(enableDebug && showLevaControls)} />
-      
       <Canvas
         camera={{ position: cameraConfig.position, fov: cameraConfig.fov }}
         dpr={[1, 2, 3]} // ✅ HIGH QUALITY: Support retina displays up to 3x pixel ratio
@@ -231,6 +225,7 @@ export default function RobotViewer3D({
           powerPreference: 'high-performance',
           toneMapping: THREE.ACESFilmicToneMapping, // ✅ Professional tone mapping
           toneMappingExposure: 1.0,
+          outputEncoding: THREE.sRGBEncoding, // ✅ sRGB encoding for better color accuracy (reduces banding)
           stencil: false, // Disable stencil buffer for better performance
           depth: true, // Enable depth buffer
           logarithmicDepthBuffer: false, // Keep standard depth buffer for better performance
@@ -259,13 +254,13 @@ export default function RobotViewer3D({
         )}
                <Scene 
                 headPose={finalHeadPose}
-                headJoints={finalHeadJoints} // ✅ Utiliser les joints directement
+                headJoints={finalHeadJoints} // ✅ Use joints directly
                 passiveJoints={finalPassiveJoints} // 🚀 GAME-CHANGING: Pass passiveJoints from unified WebSocket
                 yawBody={finalYawBody}
                 antennas={finalAntennas} 
                 isActive={isActive} 
                 isTransparent={isTransparent}
-                showLevaControls={enableDebug && showLevaControls}
+                wireframe={wireframe} // ✅ Wireframe mode
                 forceLoad={forceLoad}
                 hideGrid={hideGrid}
                 showScanEffect={showScanEffect}
@@ -430,43 +425,6 @@ export default function RobotViewer3D({
             </IconButton>
           </Tooltip> */}
 
-          {/* Debug Settings (si enableDebug) */}
-          {enableDebug && !forceLevaOpen && (
-            <>
-              {/* Separator */}
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '14px',
-                  bgcolor: 'rgba(0, 0, 0, 0.1)',
-                  mx: 0.5,
-                }}
-              />
-
-              <Tooltip
-                title={showLevaControls ? 'Hide advanced settings' : 'Show advanced settings'}
-                placement="top"
-                arrow
-              >
-                <IconButton
-                  onClick={() => setShowLevaControls(!showLevaControls)}
-                  size="small"
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.2s ease',
-                    opacity: showLevaControls ? 1 : 0.7,
-                    '&:hover': {
-                      opacity: 1,
-                      bgcolor: 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  <SettingsIcon sx={{ fontSize: 16, color: showLevaControls ? '#FF9500' : '#666' }} />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
         </Box>
       )}
       

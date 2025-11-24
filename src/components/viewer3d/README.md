@@ -14,8 +14,6 @@ viewer3d/
 ├── hooks/
 │   └── useRobotWebSocket.js  # WebSocket hook for daemon connection
 │
-├── config/
-│   └── levaControls.js       # Centralized Leva controls configuration
 │
 ├── utils/
 │   └── materials.js          # Utilities for material creation/management
@@ -29,13 +27,13 @@ viewer3d/
 - Entry point of 3D viewer
 - Manages UI (Normal/X-Ray mode buttons, Settings)
 - Integrates CameraFeed
-- Props : `isActive`, `enableDebug`, `forceLevaOpen`
+- Props : `isActive`, `initialMode`, `hideControls`, etc.
 
 ### `Scene`
 - 3D scene configuration
 - 3-point lighting
 - Post-processing (SSAO)
-- Leva controls management
+- Hardcoded default values for lighting, materials, scene settings
 
 ### `URDFRobot`
 - URDF model loading from local assets
@@ -76,15 +74,6 @@ Connection : `ws://localhost:8000/api/state/ws/full`
 - `with_head_joints=true` - Stewart joints + yaw_body
 - `with_antenna_positions=true` - Antenna positions
 
-## 🎮 Leva Controls (Debug)
-
-5 control groups :
-1. **🎨 Cell Shading** - Enable, bands, smoothing
-2. **💡 Lighting** - Ambient, Key, Fill, Rim lights
-3. **🌫️ SSAO** - Ambient occlusion
-4. **👁️ X-Ray** - Transparent mode opacity
-5. **🌍 Scene** - Grid, distance fog
-
 ## 🚀 Usage
 
 ```jsx
@@ -92,8 +81,8 @@ import Viewer3D from './viewer3d';
 
 <Viewer3D 
   isActive={daemonActive}
-  enableDebug={false}
-  forceLevaOpen={false}
+  initialMode="normal" // or "xray"
+  hideControls={false}
 />
 ```
 

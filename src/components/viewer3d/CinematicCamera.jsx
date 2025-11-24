@@ -170,7 +170,7 @@ export default function CinematicCamera({
 
     cameraRef.current.position.set(x, height, z);
 
-    // Toujours regarder vers le centre du robot
+    // Always look towards the center of the robot
     const targetVec = new THREE.Vector3(target[0], target[1], target[2]);
     cameraRef.current.lookAt(targetVec);
   });

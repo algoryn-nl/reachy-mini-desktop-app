@@ -18,8 +18,8 @@ const arraysEqual = (a, b, tolerance = 0.005) => {
 
 /**
  * 🚀 GAME-CHANGING: Unified WebSocket hook for ALL robot data
- * Récupère en temps réel : head_pose, head_joints, antennas, passive_joints
- * Fusionne useRobotWebSocket + useRobotParts pour éviter le DOUBLE WebSocket
+ * Retrieves in real-time: head_pose, head_joints, antennas, passive_joints
+ * Merges useRobotWebSocket + useRobotParts to avoid DOUBLE WebSocket
  */
 export default function useRobotWebSocket(isActive) {
   const [robotState, setRobotState] = useState({
@@ -37,7 +37,7 @@ export default function useRobotWebSocket(isActive) {
     isMountedRef.current = true; // Reset mount state
     
     if (!isActive) {
-      // Fermer la connexion WebSocket si le daemon est inactif
+      // Close WebSocket connection if daemon is inactive
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -68,12 +68,12 @@ export default function useRobotWebSocket(isActive) {
 
             const newState = {};
             
-            // Extraire head_pose (matrice 4x4)
-            // Le daemon peut envoyer {m: [...]} ou directement un array
+            // Extract head_pose (4x4 matrix)
+            // Daemon can send {m: [...]} or directly an array
             if (data.head_pose) {
               const headPoseArray = Array.isArray(data.head_pose) 
                 ? data.head_pose 
-                : data.head_pose.m; // Le daemon envoie {m: [...]}
+                : data.head_pose.m; // Daemon sends {m: [...]}
               
               if (headPoseArray && headPoseArray.length === 16) {
                 newState.headPose = headPoseArray;
@@ -86,19 +86,19 @@ export default function useRobotWebSocket(isActive) {
               newState.yawBody = data.head_joints[0]; // Also extract yaw_body for backward compatibility
             }
             
-            // Positions des antennes [left, right]
+            // Antenna positions [left, right]
             if (data.antennas_position) {
               newState.antennas = data.antennas_position;
             }
             
-            // 🚀 GAME-CHANGING: Passive joints (21 values: passive_1_x/y/z à passive_7_x/y/z)
-            // Seulement disponibles si Placo est actif (kinematics_engine == "Placo")
+            // 🚀 GAME-CHANGING: Passive joints (21 values: passive_1_x/y/z to passive_7_x/y/z)
+            // Only available if Placo is active (kinematics_engine == "Placo")
             if (data.passive_joints !== null && data.passive_joints !== undefined) {
               if (Array.isArray(data.passive_joints) && data.passive_joints.length >= 21) {
                 newState.passiveJoints = data.passive_joints;
               }
             } else {
-              // Explicitement null si Placo n'est pas actif
+              // Explicitly null if Placo is not active
               newState.passiveJoints = null;
             }
             

@@ -15,14 +15,84 @@ struct DaemonState {
     logs: Mutex<VecDeque<String>>,
 }
 
-const DAEMON_ARGS: &[&str] = &[
-    "run",
-    "python",
-    "-m",
-    "reachy_mini.daemon.app.main",
-    "--kinematics-engine",
-    "Placo",
-];
+// Helper to fix mjpython shebang on macOS
+// mjpython's shebang points to binaries/.venv but we're in target/debug/.venv
+#[cfg(target_os = "macos")]
+fn fix_mjpython_shebang() -> Result<(), String> {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::env;
+    
+    // Find the current working directory (where uv-trampoline runs)
+    let current_dir = env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+    let mjpython_path = current_dir.join(".venv/bin/mjpython");
+    
+    if !mjpython_path.exists() {
+        return Ok(()); // mjpython doesn't exist, skip
+    }
+    
+    // Read mjpython content
+    let content = fs::read_to_string(&mjpython_path)
+        .map_err(|e| format!("Failed to read mjpython: {}", e))?;
+    
+    // Get the correct Python path (absolute path)
+    let python_path = current_dir.join(".venv/bin/python3");
+    let python_path_str = python_path.to_str()
+        .ok_or("Invalid Python path")?;
+    
+    // Check if shebang needs fixing (points to binaries/.venv)
+    if content.contains("binaries/.venv/bin/python3") {
+        // Fix the shebang on line 2
+        let lines: Vec<&str> = content.lines().collect();
+        if lines.len() >= 2 {
+            let mut new_lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+            new_lines[1] = format!("'''exec' '{}' \"$0\" \"$@\"", python_path_str);
+            let new_content = new_lines.join("\n");
+            
+            fs::write(&mjpython_path, new_content)
+                .map_err(|e| format!("Failed to write mjpython: {}", e))?;
+            
+            println!("[tauri] ✅ Fixed mjpython shebang to point to {}", python_path_str);
+        }
+    }
+    
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn fix_mjpython_shebang() -> Result<(), String> {
+    Ok(()) // No-op on non-macOS
+}
+
+// Helper to build daemon arguments
+// On macOS with simulation mode, we need to use mjpython (required by MuJoCo)
+fn build_daemon_args(sim_mode: bool) -> Vec<String> {
+    let python_cmd = if sim_mode {
+        #[cfg(target_os = "macos")]
+        {
+            // Fix mjpython shebang before using it
+            if let Err(e) = fix_mjpython_shebang() {
+                eprintln!("[tauri] ⚠️ Warning: Failed to fix mjpython shebang: {}", e);
+            }
+            "mjpython".to_string()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            "python".to_string()
+        }
+    } else {
+        "python".to_string()
+    };
+    
+    vec![
+        "run".to_string(),
+        python_cmd,
+        "-m".to_string(),
+        "reachy_mini.daemon.app.main".to_string(),
+        "--kinematics-engine".to_string(),
+        "Placo".to_string(),
+    ]
+}
 
 const MAX_LOGS: usize = 50;
 
@@ -116,7 +186,12 @@ fn kill_daemon(state: &State<DaemonState>) {
 // ============================================================================
 
 /// Spawn and monitor the embedded daemon sidecar
-fn spawn_and_monitor_sidecar(app_handle: tauri::AppHandle, state: &State<DaemonState>) -> Result<(), String> {
+/// 
+/// # Arguments
+/// * `app_handle` - Tauri app handle
+/// * `state` - Daemon state
+/// * `sim_mode` - If true, launch daemon in simulation mode (MuJoCo) with --sim flag
+fn spawn_and_monitor_sidecar(app_handle: tauri::AppHandle, state: &State<DaemonState>, sim_mode: bool) -> Result<(), String> {
     // Check if a sidecar process already exists
     let process_lock = state.process.lock().unwrap();
     if process_lock.is_some() {
@@ -125,12 +200,28 @@ fn spawn_and_monitor_sidecar(app_handle: tauri::AppHandle, state: &State<DaemonS
     }
     drop(process_lock);
     
-    // Spawn sidecar
+    // Build daemon arguments dynamically
+    let mut daemon_args = build_daemon_args(sim_mode);
+    if sim_mode {
+        #[cfg(target_os = "macos")]
+        {
+            println!("[tauri] 🎭 Launching daemon in simulation mode (MuJoCo) with mjpython");
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            println!("[tauri] 🎭 Launching daemon in simulation mode (MuJoCo)");
+        }
+        daemon_args.push("--sim".to_string());
+    }
+    
+    // Convert Vec<String> to Vec<&str> for args()
+    let daemon_args_refs: Vec<&str> = daemon_args.iter().map(|s| s.as_str()).collect();
+    
     let sidecar_command = app_handle
         .shell()
         .sidecar("uv-trampoline")
         .map_err(|e| e.to_string())?
-        .args(DAEMON_ARGS);
+        .args(daemon_args_refs);
     
     let (mut rx, child) = sidecar_command.spawn().map_err(|e| e.to_string())?;
 
@@ -169,17 +260,91 @@ fn spawn_and_monitor_sidecar(app_handle: tauri::AppHandle, state: &State<DaemonS
 // TAURI COMMANDS
 // ============================================================================
 
+/// Install MuJoCo dependencies for simulation mode
+/// Uses uv-trampoline to install mujoco and reachy-mini[mujoco] in the same environment as the daemon
+/// Monitors installation in background
 #[tauri::command]
-fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>) -> Result<String, String> {
+fn install_mujoco(app_handle: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_shell::process::CommandEvent;
+    
+    println!("[tauri] 🎭 Installing MuJoCo dependencies for simulation mode...");
+    
+    // Use uv-trampoline to run: uv pip install mujoco reachy-mini[mujoco]
+    // Install mujoco first, then reachy-mini[mujoco] to ensure all dependencies are available
+    // This ensures we install in the same Python environment as the daemon
+    let (mut rx, _child) = app_handle
+        .shell()
+        .sidecar("uv-trampoline")
+        .map_err(|e| format!("Failed to find uv-trampoline: {}", e))?
+        .args(&["pip", "install", "mujoco", "reachy-mini[mujoco]"])
+        .spawn()
+        .map_err(|e| format!("Failed to spawn uv-trampoline: {}", e))?;
+    
+    // Monitor output in background
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line_bytes) => {
+                    let line = String::from_utf8_lossy(&line_bytes);
+                    println!("[mujoco-install] {}", line);
+                }
+                CommandEvent::Stderr(line_bytes) => {
+                    let line = String::from_utf8_lossy(&line_bytes);
+                    eprintln!("[mujoco-install] {}", line);
+                }
+                CommandEvent::Terminated(_) => {
+                    println!("[tauri] ✅ MuJoCo installation completed");
+                }
+                _ => {}
+            }
+        }
+    });
+    
+    // Wait a bit for installation to start (it runs async)
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    
+    Ok("MuJoCo installation started".to_string())
+}
+
+#[tauri::command]
+fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>, sim_mode: Option<bool>) -> Result<String, String> {
+    let sim_mode = sim_mode.unwrap_or(false);
+    
+    // 🎭 If simulation mode, ensure MuJoCo is installed first
+    // Installation happens asynchronously, we wait a bit for it to complete
+    if sim_mode {
+        add_log(&state, "🎭 Installing MuJoCo dependencies for simulation mode...".to_string());
+        match install_mujoco(app_handle.clone()) {
+            Ok(_) => {
+                add_log(&state, "✅ MuJoCo installation started, waiting...".to_string());
+                // Wait a bit longer for installation to complete (mujoco can take time)
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
+            Err(e) => {
+                // Log warning but continue (MuJoCo might already be installed)
+                add_log(&state, format!("⚠️ MuJoCo installation: {}", e));
+                println!("[tauri] ⚠️ Continuing anyway - MuJoCo might already be installed");
+            }
+        }
+    }
+    
     // 1. ⚡ Aggressive cleanup of all existing daemons (including zombies)
+    if sim_mode {
+        add_log(&state, "🧹 Cleaning up existing daemons (simulation mode)...".to_string());
+    } else {
     add_log(&state, "🧹 Cleaning up existing daemons...".to_string());
+    }
     kill_daemon(&state);
     
     // 2. Spawn embedded daemon sidecar
-    spawn_and_monitor_sidecar(app_handle, &state)?;
+    spawn_and_monitor_sidecar(app_handle, &state, sim_mode)?;
     
     // 3. Log success
+    if sim_mode {
+        add_log(&state, "✓ Daemon started in simulation mode (MuJoCo) via embedded sidecar".to_string());
+    } else {
     add_log(&state, "✓ Daemon started via embedded sidecar".to_string());
+    }
     
     Ok("Daemon started successfully".to_string())
 }
@@ -271,7 +436,7 @@ pub fn run() {
             
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![start_daemon, stop_daemon, get_logs, check_usb_robot])
+        .invoke_handler(tauri::generate_handler![start_daemon, stop_daemon, get_logs, check_usb_robot, install_mujoco])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { .. } => {

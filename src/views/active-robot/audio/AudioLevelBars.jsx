@@ -59,9 +59,9 @@ export default function AudioLevelBars({ isActive, color = '#FF9500', barCount =
       const displayWidth = Math.floor(rect.width);
       const displayHeight = Math.floor(rect.height);
       
-      // ✅ Vérifier que les dimensions sont valides avant de mettre à jour
+      // ✅ Check that dimensions are valid before updating
       if (displayWidth <= 0 || displayHeight <= 0) {
-        // Dimensions invalides, ne pas mettre à jour (layout pas encore calculé)
+        // Invalid dimensions, do not update (layout not yet calculated)
         console.warn('⚠️ AudioLevelBars: Invalid dimensions', { displayWidth, displayHeight });
         return;
       }

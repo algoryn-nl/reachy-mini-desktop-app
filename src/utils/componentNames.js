@@ -27,11 +27,11 @@ const COMPONENT_NAMES = [
 ];
 
 /**
- * Génère un nom lisible pour un composant
- * @param {THREE.Mesh} mesh - Le mesh à nommer
- * @param {number} index - Index du mesh dans la liste
- * @param {number} total - Nombre total de meshes
- * @returns {string} Nom lisible du composant
+ * Generates a readable name for a component
+ * @param {THREE.Mesh} mesh - The mesh to name
+ * @param {number} index - Index of the mesh in the list
+ * @param {number} total - Total number of meshes
+ * @returns {string} Readable component name
  */
 export function getComponentName(mesh, index, total) {
   // Use a name from the list based on index
@@ -41,8 +41,8 @@ export function getComponentName(mesh, index, total) {
 }
 
 /**
- * Détermine le groupe/composant d'un mesh basé sur son nom réel
- * Même logique que dans ScanAnnotations.jsx pour cohérence
+ * Determines the group/component of a mesh based on its real name
+ * Same logic as ScanAnnotations.jsx for consistency
  */
 function getComponentGroup(mesh) {
   if (!mesh) return null;
@@ -92,7 +92,7 @@ function getComponentGroup(mesh) {
 
 /**
  * Generates a short name for quick display based on actual mesh name
- * Utilise maintenant les mêmes groupes que ScanAnnotations pour cohérence
+ * Now uses the same groups as ScanAnnotations for consistency
  */
 export function getShortComponentName(mesh, index, total) {
   if (!mesh) {
@@ -124,18 +124,18 @@ export function getShortComponentName(mesh, index, total) {
     return getGenericName(index);
   }
   
-  // Nettoyer le nom
+  // Clean the name
   name = name
-    .replace(/_visual.*$/, '') // Enlever _visual_0, _visual_1, etc.
-    .replace(/_collision.*$/, '') // Enlever _collision
-    .replace(/_\d+$/, '') // Enlever les chiffres en fin
-    .replace(/_/g, ' ') // Remplacer underscores par espaces
+    .replace(/_visual.*$/, '') // Remove _visual_0, _visual_1, etc.
+    .replace(/_collision.*$/, '') // Remove _collision
+    .replace(/_\d+$/, '') // Remove trailing numbers
+    .replace(/_/g, ' ') // Replace underscores with spaces
     .trim()
-    .replace(/\b\w/g, l => l.toUpperCase()); // Capitaliser chaque mot
+    .replace(/\b\w/g, l => l.toUpperCase()); // Capitalize each word
   
-  // Si le nom est trop long, le raccourcir
+  // If the name is too long, shorten it
   if (name.length > 25) {
-    // Prendre les 3 premiers mots
+    // Take the first 3 words
     const words = name.split(' ');
     name = words.slice(0, 3).join(' ');
   }
@@ -144,8 +144,8 @@ export function getShortComponentName(mesh, index, total) {
 }
 
 /**
- * Génère un nom générique basé sur l'index
- * Plus joli que "Component 1"
+ * Generates a generic name based on index
+ * Nicer than "Component 1"
  */
 function getGenericName(index) {
   const categories = [
