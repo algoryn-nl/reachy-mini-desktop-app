@@ -12,7 +12,7 @@ import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 // Leva removed - was never displayed
 import * as THREE from 'three';
 import Scene from './Scene';
-import useRobotWebSocket from './hooks/useRobotWebSocket';
+import useRobotWebSocket from '../../hooks/useRobotWebSocket';
 import useAppStore from '../../store/useAppStore';
 import SettingsOverlay from './SettingsOverlay';
 import { FPSMeter } from '../FPSMeter';

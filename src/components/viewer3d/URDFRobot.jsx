@@ -1,8 +1,8 @@
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, memo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createXrayMaterial } from './utils/materials';
-import { matrix4FromRowMajor } from './utils/matrixUtils';
+import { createXrayMaterial } from '../../utils/viewer3d/materials';
+import { matrix4FromRowMajor } from '../../utils/viewer3d/matrixUtils';
 import robotModelCache from '../../utils/robotModelCache';
 
 /**

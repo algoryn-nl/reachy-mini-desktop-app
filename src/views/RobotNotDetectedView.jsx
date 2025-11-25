@@ -44,7 +44,7 @@ export default function RobotNotDetectedView() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: 'calc(100vh - 44px)',
+          height: '100vh', // TopBar is fixed, doesn't take space
           position: 'relative',
           zIndex: 2,
         }}

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Script pour signer tous les binaires dans l'app bundle macOS avant la notarisation
+# Script to sign all binaries in macOS app bundle before notarization
 # Usage: ./scripts/sign-all-binaries.sh <path-to-app-bundle> <signing-identity>
 #
-# Ce script signe récursivement tous les binaires Mach-O dans le bundle :
-# - Les binaires dans Resources (uvx, uv, etc.)
-# - Les bibliothèques Python (.so, .dylib) dans .venv
-# - Les binaires dans cpython-*
-# - L'app bundle principal avec --deep (en dernier)
+# This script recursively signs all Mach-O binaries in the bundle:
+# - Binaries in Resources (uvx, uv, etc.)
+# - Python libraries (.so, .dylib) in .venv
+# - Binaries in cpython-*
+# - Main app bundle with --deep (last)
 
 set -eu
 
@@ -27,17 +27,17 @@ fi
 echo "🔐 Signing all binaries in $APP_BUNDLE"
 echo "   Signing identity: $SIGNING_IDENTITY"
 
-# Compteur d'erreurs
+# Error counter
 ERROR_COUNT=0
 
-# Fonction pour signer un binaire
+# Function to sign a binary
 sign_binary() {
     local binary="$1"
     if [ ! -f "$binary" ]; then
         return 0
     fi
     
-    # Vérifier si c'est un binaire Mach-O (peut être exécutable ou non)
+    # Check if it's a Mach-O binary (may be executable or not)
     if file "$binary" 2>/dev/null | grep -qE "(Mach-O|dynamically linked|shared library)"; then
         echo "   Signing: $binary"
         if codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" \
@@ -60,14 +60,14 @@ RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
 if [ -d "$RESOURCES_DIR" ]; then
     echo "📦 Signing binaries in Resources..."
     
-    # Signer uvx et uv
+    # Sign uvx and uv
     for binary_name in uvx uv; do
         if [ -f "$RESOURCES_DIR/$binary_name" ]; then
             sign_binary "$RESOURCES_DIR/$binary_name"
         fi
     done
     
-    # Signer uv-trampoline (dans MacOS)
+    # Sign uv-trampoline (in MacOS)
     MACOS_DIR="$APP_BUNDLE/Contents/MacOS"
     if [ -d "$MACOS_DIR" ]; then
         find "$MACOS_DIR" -type f -perm +111 | while read -r binary; do
@@ -75,21 +75,21 @@ if [ -d "$RESOURCES_DIR" ]; then
         done
     fi
     
-    # Signer tous les binaires dans .venv
+    # Sign all binaries in .venv
     if [ -d "$RESOURCES_DIR/.venv" ]; then
         echo "📦 Signing all binaries in .venv..."
         
-        # Signer tous les .dylib
+        # Sign all .dylib
         find "$RESOURCES_DIR/.venv" -name "*.dylib" -type f | while read -r dylib; do
             sign_binary "$dylib"
         done
         
-        # Signer tous les .so (extensions Python natives) - y compris ceux dans les sous-dossiers
+        # Sign all .so (native Python extensions) - including those in subdirectories
         find "$RESOURCES_DIR/.venv" -name "*.so" -type f | while read -r so_file; do
             sign_binary "$so_file"
         done
         
-        # Signer tous les binaires exécutables dans .venv/bin
+        # Sign all executable binaries in .venv/bin
         if [ -d "$RESOURCES_DIR/.venv/bin" ]; then
             find "$RESOURCES_DIR/.venv/bin" -type f -perm +111 | while read -r binary; do
                 sign_binary "$binary"
@@ -98,7 +98,7 @@ if [ -d "$RESOURCES_DIR" ]; then
         
     fi
     
-    # Signer les binaires dans cpython (pour toutes les architectures)
+    # Sign binaries in cpython (for all architectures)
     for cpython_dir in "$RESOURCES_DIR"/cpython-*; do
         if [ -d "$cpython_dir" ]; then
             echo "📦 Signing binaries in $(basename "$cpython_dir")..."
@@ -109,7 +109,7 @@ if [ -d "$RESOURCES_DIR" ]; then
     done
 fi
 
-# Signer l'app bundle principal (doit être fait en dernier avec --deep)
+# Sign main app bundle (must be done last with --deep)
 echo "📦 Signing main app bundle with --deep..."
 if ! codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" \
     --options runtime \
@@ -120,21 +120,21 @@ if ! codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" \
     exit 1
 fi
 
-# Vérifier la signature
+# Verify signature
 echo "✅ Verifying signature..."
 if ! codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"; then
     echo "❌ Signature verification failed"
     exit 1
 fi
 
-# Afficher un résumé
+# Display summary
 if [ $ERROR_COUNT -gt 0 ]; then
     echo "⚠️  Warning: $ERROR_COUNT binaries failed to sign (may not be critical)"
 else
     echo "✅ All binaries signed successfully!"
 fi
 
-# Lister tous les binaires signés pour vérification
+# List all signed binaries for verification
 echo ""
 echo "📋 Signed binaries summary:"
 codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" 2>&1 | grep -E "^$APP_BUNDLE" | head -20 || true

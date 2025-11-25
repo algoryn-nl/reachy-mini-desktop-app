@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { createXrayMaterial } from '../utils/materials';
+import { createXrayMaterial } from '../../../utils/viewer3d/materials';
 
 /**
  * Effect to highlight one or more error meshes

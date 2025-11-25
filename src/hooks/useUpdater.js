@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { extractErrorMessage, formatUserErrorMessage, isRecoverableError as checkRecoverableError } from '../utils/errorUtils';
+import { isDevMode } from '../utils/devMode';
 
 /**
  * Hook to manage automatic application updates
@@ -9,7 +11,6 @@ import { relaunch } from '@tauri-apps/plugin-process';
  * @param {object} options - Configuration options
  * @param {boolean} options.autoCheck - Automatically check on startup (default: true)
  * @param {number} options.checkInterval - Check interval in ms (default: 3600000 = 1h)
- * @param {boolean} options.silent - Silent mode (no notification if no update)
  * @param {number} options.maxRetries - Maximum number of retries on error (default: 3)
  * @param {number} options.retryDelay - Initial delay between retries in ms (default: 1000)
  * @returns {object} State and update functions
@@ -17,7 +18,6 @@ import { relaunch } from '@tauri-apps/plugin-process';
 export const useUpdater = ({
   autoCheck = true,
   checkInterval = 3600000, // 1 hour by default
-  silent = false,
   maxRetries = 3,
   retryDelay = 1000,
 } = {}) => {
@@ -28,29 +28,11 @@ export const useUpdater = ({
   const [error, setError] = useState(null);
   const retryCountRef = useRef(0);
   const lastCheckTimeRef = useRef(null);
+  const isCheckingRef = useRef(false); // Prevent multiple simultaneous checks
 
-  /**
-   * Detects if an error is recoverable (network, timeout)
-   */
+  // Use centralized error utility (DRY)
   const isRecoverableError = useCallback((err) => {
-    if (!err) return false;
-    const errorMsg = err.message?.toLowerCase() || '';
-    const errorName = err.name?.toLowerCase() || '';
-    
-    // Recoverable errors: network, timeout, connection
-    const recoverablePatterns = [
-      'network',
-      'timeout',
-      'connection',
-      'fetch',
-      'econnrefused',
-      'enotfound',
-      'etimedout',
-    ];
-    
-    return recoverablePatterns.some(pattern => 
-      errorMsg.includes(pattern) || errorName.includes(pattern)
-    );
+    return checkRecoverableError(err);
   }, []);
 
   /**
@@ -64,6 +46,21 @@ export const useUpdater = ({
    * Checks if an update is available with automatic retry
    */
   const checkForUpdates = useCallback(async (retryCount = 0) => {
+    // Prevent retry if already at max
+    if (retryCount > maxRetries) {
+      console.warn('⚠️ Max retries reached, stopping update check');
+      setIsChecking(false);
+      isCheckingRef.current = false;
+      return null;
+    }
+
+    // Prevent multiple simultaneous checks
+    if (isCheckingRef.current && retryCount === 0) {
+      console.warn('⚠️ Update check already in progress, skipping');
+      return null;
+    }
+
+    isCheckingRef.current = true;
     setIsChecking(true);
     setError(null);
 
@@ -73,6 +70,7 @@ export const useUpdater = ({
       // Reset retry count on success
       retryCountRef.current = 0;
       lastCheckTimeRef.current = Date.now();
+      isCheckingRef.current = false;
       
       if (update) {
         setUpdateAvailable(update);
@@ -82,29 +80,52 @@ export const useUpdater = ({
         return null;
       }
     } catch (err) {
-      console.error(`❌ Error checking for updates (attempt ${retryCount + 1}/${maxRetries}):`, err);
-      console.error('❌ Error details:', err.message, err.stack);
+      // Extract error message using centralized utility (DRY)
+      const errorMessage = extractErrorMessage(err);
+      const errorString = errorMessage.toLowerCase();
       
-      // Automatic retry for recoverable errors
+      console.error(`❌ Error checking for updates (attempt ${retryCount + 1}/${maxRetries}):`, errorMessage);
+      
+      // Automatic retry for recoverable errors (only if under max retries)
       if (isRecoverableError(err) && retryCount < maxRetries) {
         const delay = retryDelay * Math.pow(2, retryCount); // Exponential backoff
         
+        console.log(`🔄 Retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
         await sleep(delay);
         retryCountRef.current = retryCount + 1;
         return checkForUpdates(retryCount + 1);
       }
       
       // Non-recoverable error or max retries reached
-      const errorMessage = isRecoverableError(err)
-        ? `Network error while checking for updates (${retryCount + 1}/${maxRetries} attempts)`
-        : err.message || 'Error checking for updates';
+      // In dev mode, be more lenient - don't show errors for missing update server
+      const isDev = isDevMode();
+      const isMissingUpdateServer = errorString.includes('release json') || 
+                                    errorString.includes('could not fetch') ||
+                                    errorString.includes('404');
       
-      setError(errorMessage);
-      return null;
-    } finally {
+      let userErrorMessage = null;
+      
+      // In dev mode, silently ignore missing update server (normal case)
+      if (isDev && isMissingUpdateServer) {
+        console.log('ℹ️ Update server not available (dev mode - this is normal)');
+        // Don't set error in dev mode for missing server
+      } else if (isRecoverableError(err) || isMissingUpdateServer) {
+        // Production: show user-friendly message
+        userErrorMessage = `Unable to check for updates. Please check your internet connection.`;
+      } else {
+        // Other errors: format and show
+        userErrorMessage = formatUserErrorMessage(errorMessage);
+      }
+      
+      // Only set error if we've exhausted retries and have a message (don't show error during retries)
+      if (retryCount >= maxRetries && userErrorMessage) {
+        setError(userErrorMessage);
+      }
+      isCheckingRef.current = false;
       setIsChecking(false);
+      return null;
     }
-  }, [silent, maxRetries, retryDelay, isRecoverableError, sleep]);
+  }, [maxRetries, retryDelay, isRecoverableError, sleep]);
 
   /**
    * Downloads and installs the update with robust error handling
@@ -119,14 +140,26 @@ export const useUpdater = ({
     setDownloadProgress(0);
     setError(null);
 
-    try {
-      let lastProgress = 0;
-      let lastUpdateTime = Date.now();
-      let progressTimeout = null;
-      let animationFrameId = null;
-      let targetProgress = 0;
-      let currentDisplayProgress = 0;
+    let lastProgress = 0;
+    let lastUpdateTime = Date.now();
+    let progressTimeout = null;
+    let animationFrameId = null;
+    let targetProgress = 0;
+    let currentDisplayProgress = 0;
 
+    // Cleanup helper (production-grade)
+    const cleanup = () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      if (progressTimeout) {
+        clearTimeout(progressTimeout);
+        progressTimeout = null;
+      }
+    };
+
+    try {
       // Animation function for smooth interpolation
       const animateProgress = () => {
         if (currentDisplayProgress < targetProgress) {
@@ -191,16 +224,10 @@ export const useUpdater = ({
             break;
           
           case 'Finished':
-            // Stop animation
-            if (animationFrameId) {
-              cancelAnimationFrame(animationFrameId);
-              animationFrameId = null;
-            }
+            // Stop animation and cleanup
+            cleanup();
             setDownloadProgress(100);
             targetProgress = 100;
-            if (progressTimeout) {
-              clearTimeout(progressTimeout);
-            }
             break;
           
           default:
@@ -229,19 +256,8 @@ export const useUpdater = ({
     } catch (err) {
       console.error(`❌ Error installing update (attempt ${retryCount + 1}/${maxRetries}):`, err);
       
-      // Extract error message and clean it
-      let errorMessage = err.message || err.toString() || 'Error installing update';
-      // Remove backticks and extra formatting
-      errorMessage = errorMessage.replace(/`/g, '').trim();
-      
-      // Handle specific error cases
-      if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
-        errorMessage = 'Update file not found on server. The update may not be available yet.';
-      } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
-        errorMessage = 'Access denied. Please check your update server configuration.';
-      } else if (errorMessage.includes('500') || errorMessage.includes('Internal Server Error')) {
-        errorMessage = 'Server error. Please try again later.';
-      }
+      // Extract and format error message using centralized utilities (DRY)
+      let errorMessage = formatUserErrorMessage(extractErrorMessage(err));
       
       // Automatic retry for recoverable errors during download
       if (isRecoverableError(err) && retryCount < maxRetries) {
@@ -256,16 +272,14 @@ export const useUpdater = ({
         errorMessage = `Network error while downloading update (${retryCount + 1}/${maxRetries} attempts). Please try again later.`;
       }
       
-          setError(errorMessage);
-          setIsDownloading(false);
-          setDownloadProgress(0);
-          // Clean up animation on error
-          if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-          }
-        }
-      }, [maxRetries, retryDelay, isRecoverableError, sleep]);
+      setError(errorMessage);
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      
+      // Clean up on error (production-grade)
+      cleanup();
+    }
+  }, [maxRetries, retryDelay, isRecoverableError, sleep]);
 
   /**
    * Installe la mise à jour disponible
@@ -285,7 +299,7 @@ export const useUpdater = ({
 
   // Automatic check on startup (with delay to avoid blocking startup)
   useEffect(() => {
-    if (autoCheck) {
+    if (autoCheck && !isCheckingRef.current) {
       // Wait for app to be fully loaded before checking
       const timeout = setTimeout(() => {
         checkForUpdates();

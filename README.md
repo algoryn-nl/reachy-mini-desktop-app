@@ -11,8 +11,19 @@ A modern desktop application for controlling and monitoring your Reachy Mini rob
 
 - 🤖 **Robot Control** - Start, stop, and monitor your Reachy Mini daemon
 - 📊 **Real-time Monitoring** - Live 3D visualization of robot state
+- 🏪 **Application Store** - Discover, install, and manage apps from Hugging Face Spaces
+  - Browse official and community apps
+  - Search and filter by categories
+  - One-click installation and removal
+  - Start and stop apps directly from the interface
+- 📚 **Create Your Own Apps** - Tutorials and guides to build custom applications
+  - Learn how to interact with the daemon API
+  - Build apps with the Python SDK
+  - Deploy and share on Hugging Face Spaces
 - 🔄 **Auto Updates** - Seamless automatic updates with progress tracking
 - 🎨 **Modern UI** - Clean, intuitive interface built with Material-UI
+  - Dark mode support
+  - Responsive design
 - 🔌 **USB Detection** - Automatic detection of Reachy Mini via USB
 - 🎭 **Simulation Mode** - Test and develop without hardware using MuJoCo simulation
 - 📱 **Cross-platform** - Works on macOS and Windows
@@ -72,6 +83,17 @@ REACHY_MINI_SOURCE=develop bash ./build_sidecar_unix.sh
 - [Testing Guide](./docs/TESTING_GUIDE.md) - How to test the application
 - [Architecture](./docs/STATE_MACHINE.md) - Application state machine and architecture
 
+### Application Store
+
+The application includes a built-in store for discovering and installing apps:
+
+- **Discover Apps**: Browse apps from Hugging Face Spaces tagged with `reachy_mini`
+- **Install & Manage**: Install, uninstall, start, and stop apps with a simple interface
+- **Search & Filter**: Find apps by name or filter by categories
+- **Create Apps**: Access tutorials to learn how to build your own Reachy Mini applications
+
+Apps are managed through the FastAPI daemon API, which handles installation and execution.
+
 ## 🛠️ Development
 
 ### Available Scripts
@@ -124,15 +146,23 @@ localStorage.removeItem('simMode')
 
 ```
 tauri-app/
-├── src/                    # Frontend React code
-│   ├── components/         # React components
-│   ├── hooks/             # Custom React hooks
-│   └── store/             # State management
-├── src-tauri/             # Rust backend
-│   ├── src/               # Rust source code
-│   └── tauri.conf.json    # Tauri configuration
-├── scripts/               # Build and utility scripts
-└── docs/                  # Documentation
+├── src/                              # Frontend React code
+│   ├── components/                   # React components
+│   │   └── viewer3d/                # 3D robot visualization
+│   ├── hooks/                        # Custom React hooks
+│   │   └── useApps.js               # App management hook
+│   ├── store/                        # State management (Zustand)
+│   ├── views/                        # Main views
+│   │   └── active-robot/
+│   │       └── application-store/    # Application store UI
+│   └── utils/                        # Utility functions
+├── src-tauri/                        # Rust backend
+│   ├── src/                          # Rust source code
+│   ├── tauri.conf.json               # Tauri configuration
+│   └── capabilities/                 # Tauri security capabilities
+├── scripts/                          # Build and utility scripts
+├── uv-wrapper/                       # UV wrapper for Python package management
+└── docs/                             # Documentation
 ```
 
 ## 🔄 Updates

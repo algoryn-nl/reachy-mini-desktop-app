@@ -28,7 +28,7 @@ export default function TransitionView() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: 'calc(100vh - 44px)',
+          height: '100vh', // TopBar is fixed, doesn't take space
         }}
       >
         <CircularProgress 

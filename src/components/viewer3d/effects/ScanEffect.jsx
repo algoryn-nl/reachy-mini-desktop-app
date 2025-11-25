@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { DAEMON_CONFIG } from '../../../config/daemon';
-import { createXrayMaterial } from '../utils/materials';
+import { createXrayMaterial } from '../../../utils/viewer3d/materials';
 
 /**
  * Optimized progressive scan effect for robot meshes

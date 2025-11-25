@@ -1,54 +1,54 @@
 #!/bin/bash
 
-# Script de test du sidecar daemon embarqué
+# Script to test the embedded sidecar daemon
 
 set -e
 
-echo "🧪 Test du Sidecar Daemon Embarqué"
+echo "🧪 Testing Embedded Sidecar Daemon"
 echo "===================================="
 
 cd "$(dirname "$0")/.."
 
-# Couleurs pour les messages
+# Colors for messages
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# 1. Build du sidecar
+# 1. Build sidecar
 echo ""
-echo "📦 Étape 1: Build du sidecar..."
+echo "📦 Step 1: Building sidecar..."
 if yarn build:sidecar-macos; then
-    echo -e "${GREEN}✅ Sidecar build réussi${NC}"
+    echo -e "${GREEN}✅ Sidecar build successful${NC}"
 else
-    echo -e "${RED}❌ Échec du build du sidecar${NC}"
+    echo -e "${RED}❌ Sidecar build failed${NC}"
     exit 1
 fi
 
-# 2. Vérifier que les fichiers existent
+# 2. Check that files exist
 echo ""
-echo "🔍 Étape 2: Vérification des fichiers..."
+echo "🔍 Step 2: Checking files..."
 BINARIES_DIR="src-tauri/binaries"
 
 if [ ! -d "$BINARIES_DIR" ]; then
-    echo -e "${RED}❌ Dossier binaries/ introuvable${NC}"
+    echo -e "${RED}❌ binaries/ directory not found${NC}"
     exit 1
 fi
 
-# Vérifier les fichiers requis
+# Check required files
 MISSING_FILES=()
 
-# Vérifier uv
+# Check uv
 if [ ! -f "$BINARIES_DIR/uv" ]; then
     MISSING_FILES+=("uv")
 fi
 
-# Vérifier .venv
+# Check .venv
 if [ ! -d "$BINARIES_DIR/.venv" ]; then
     MISSING_FILES+=(".venv")
 fi
 
-# Vérifier uv-trampoline (peut avoir différents noms selon le triplet)
+# Check uv-trampoline (may have different names depending on triplet)
 TRAMPOLINE_FOUND=false
 for file in "$BINARIES_DIR"/uv-trampoline-*; do
     if [ -f "$file" ]; then
@@ -62,64 +62,64 @@ if [ "$TRAMPOLINE_FOUND" = false ]; then
 fi
 
 if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-    echo -e "${RED}❌ Fichiers manquants: ${MISSING_FILES[*]}${NC}"
+    echo -e "${RED}❌ Missing files: ${MISSING_FILES[*]}${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Tous les fichiers requis sont présents${NC}"
+echo -e "${GREEN}✅ All required files are present${NC}"
 
-# 3. Tester uv
+# 3. Test uv
 echo ""
-echo "🔧 Étape 3: Test de uv..."
+echo "🔧 Step 3: Testing uv..."
 cd "$BINARIES_DIR"
 if ./uv --version > /dev/null 2>&1; then
     UV_VERSION=$(./uv --version)
-    echo -e "${GREEN}✅ uv fonctionne: $UV_VERSION${NC}"
+    echo -e "${GREEN}✅ uv works: $UV_VERSION${NC}"
 else
-    echo -e "${RED}❌ uv ne fonctionne pas${NC}"
+    echo -e "${RED}❌ uv does not work${NC}"
     exit 1
 fi
 
-# 4. Tester Python
+# 4. Test Python
 echo ""
-echo "🐍 Étape 4: Test de Python embarqué..."
+echo "🐍 Step 4: Testing embedded Python..."
 if ./uv python list > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Python embarqué détecté${NC}"
+    echo -e "${GREEN}✅ Embedded Python detected${NC}"
 else
-    echo -e "${RED}❌ Python embarqué introuvable${NC}"
+    echo -e "${RED}❌ Embedded Python not found${NC}"
     exit 1
 fi
 
-# 5. Vérifier le venv
+# 5. Check venv
 echo ""
-echo "📦 Étape 5: Vérification du venv..."
+echo "📦 Step 5: Checking venv..."
 if [ -d ".venv" ] && [ -f ".venv/pyvenv.cfg" ]; then
-    echo -e "${GREEN}✅ Venv présent${NC}"
+    echo -e "${GREEN}✅ Venv present${NC}"
 else
-    echo -e "${RED}❌ Venv introuvable ou invalide${NC}"
+    echo -e "${RED}❌ Venv not found or invalid${NC}"
     exit 1
 fi
 
-# 6. Vérifier reachy-mini
+# 6. Check reachy-mini
 echo ""
-echo "🤖 Étape 6: Vérification de reachy-mini..."
+echo "🤖 Step 6: Checking reachy-mini..."
 if ./uv pip list | grep -q "reachy-mini"; then
     DAEMON_VERSION=$(./uv pip list | grep "^reachy-mini " | awk '{print $2}')
-    echo -e "${GREEN}✅ reachy-mini installé: $DAEMON_VERSION${NC}"
+    echo -e "${GREEN}✅ reachy-mini installed: $DAEMON_VERSION${NC}"
 else
-    echo -e "${RED}❌ reachy-mini non installé${NC}"
+    echo -e "${RED}❌ reachy-mini not installed${NC}"
     exit 1
 fi
 
-# 7. Test du trampoline (optionnel, nécessite le robot)
+# 7. Test trampoline (optional, requires robot)
 echo ""
-echo "🚀 Étape 7: Test du trampoline..."
+echo "🚀 Step 7: Testing trampoline..."
 TRAMPOLINE=$(ls uv-trampoline-* 2>/dev/null | head -n 1)
 if [ -n "$TRAMPOLINE" ] && [ -x "$TRAMPOLINE" ]; then
-    echo -e "${GREEN}✅ Trampoline trouvé: $TRAMPOLINE${NC}"
-    echo -e "${YELLOW}⚠️  Test complet nécessite un robot connecté${NC}"
+    echo -e "${GREEN}✅ Trampoline found: $TRAMPOLINE${NC}"
+    echo -e "${YELLOW}⚠️  Full test requires a connected robot${NC}"
 else
-    echo -e "${RED}❌ Trampoline introuvable ou non exécutable${NC}"
+    echo -e "${RED}❌ Trampoline not found or not executable${NC}"
     exit 1
 fi
 
@@ -127,6 +127,5 @@ cd - > /dev/null
 
 echo ""
 echo -e "${GREEN}====================================${NC}"
-echo -e "${GREEN}✅ Tous les tests du sidecar sont passés !${NC}"
+echo -e "${GREEN}✅ All sidecar tests passed!${NC}"
 echo -e "${GREEN}====================================${NC}"
-

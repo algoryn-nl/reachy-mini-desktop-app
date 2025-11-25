@@ -56,6 +56,12 @@ export const DAEMON_CONFIG = {
     STOP_DAEMON_DELAY: 2000,     // Delay after stopping daemon before resetting state
   },
   
+  // Minimum display times for views (UX smoothness)
+  MIN_DISPLAY_TIMES: {
+    UPDATE_CHECK: 2500,          // Minimum time to show update check (2.5s)
+    USB_CHECK: 2000,              // Minimum time to show USB check (2s)
+  },
+  
   // API endpoints
   ENDPOINTS: {
     BASE_URL: 'http://localhost:8000',

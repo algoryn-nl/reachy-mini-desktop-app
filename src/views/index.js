@@ -8,4 +8,5 @@ export { default as ReadyToStartView } from './ReadyToStartView';
 export { default as TransitionView } from './TransitionView';
 export { default as ActiveRobotView } from './active-robot/ActiveRobotView';
 export { default as ClosingView } from './ClosingView';
+export { default as UpdateView } from './UpdateView';
 

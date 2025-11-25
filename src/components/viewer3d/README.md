@@ -6,19 +6,16 @@
 
 ```
 viewer3d/
-├── components/
-│   ├── RobotViewer3D.jsx    # Main component with Canvas and UI
-│   ├── Scene.jsx             # 3D scene (lights, environment, post-processing)
-│   └── URDFRobot.jsx         # URDF model loading and animation
-│
-├── hooks/
-│   └── useRobotWebSocket.js  # WebSocket hook for daemon connection
-│
-│
-├── utils/
-│   └── materials.js          # Utilities for material creation/management
-│
+├── Viewer3D.jsx              # Main component with Canvas and UI
+├── Scene.jsx                 # 3D scene (lights, environment, post-processing)
+├── URDFRobot.jsx             # URDF model loading and animation
+├── effects/                  # Visual effects (Scan, Error, Particles)
 └── index.js                  # Public module exports
+
+Note: Hooks and utils are centralized:
+- src/hooks/useRobotWebSocket.js  # WebSocket hook for daemon connection
+- src/utils/viewer3d/materials.js # Material creation utilities
+- src/utils/viewer3d/matrixUtils.js # Matrix conversion utilities
 ```
 
 ## 🎯 Main Components
@@ -56,7 +53,7 @@ Hook to manage WebSocket connection to Reachy daemon.
 
 ## 🎨 Material System
 
-The `utils/materials.js` module provides :
+The `src/utils/viewer3d/materials.js` module provides :
 - `createCellShadingGradient(bands)` - Gradient for cell shading (4 bands by default)
 - `createNormalMaterial(color, gradient)` - Normal material (null gradient by default = standard rendering)
 - `createXRayMaterial(color, gradient, opacity)` - Transparent material

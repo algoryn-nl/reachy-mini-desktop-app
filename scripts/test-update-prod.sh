@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script pour tester la mise à jour en mode production
-# Ce script build l'app, crée une mise à jour, et lance le serveur de test
+# Script to test update in production mode
+# This script builds the app, creates an update, and launches the test server
 
 set -e
 
@@ -16,48 +16,48 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}🧪 Test de mise à jour en mode production${NC}"
+echo -e "${BLUE}🧪 Testing update in production mode${NC}"
 echo -e "${BLUE}===========================================${NC}"
 echo ""
 
-# Étape 1: Vérifier que nous sommes prêts
-echo -e "${YELLOW}📋 Étape 1: Vérification des prérequis...${NC}"
+# Step 1: Check that we're ready
+echo -e "${YELLOW}📋 Step 1: Checking prerequisites...${NC}"
 
-# Vérifier que la clé de signature existe
+# Check that signing key exists
 PRIVATE_KEY="${HOME}/.tauri/reachy-mini.key"
 if [ ! -f "$PRIVATE_KEY" ]; then
-    echo -e "${RED}❌ Clé privée non trouvée: ${PRIVATE_KEY}${NC}"
-    echo -e "${YELLOW}   Générer avec: yarn tauri signer generate -w ${PRIVATE_KEY} --ci${NC}"
+    echo -e "${RED}❌ Private key not found: ${PRIVATE_KEY}${NC}"
+    echo -e "${YELLOW}   Generate with: yarn tauri signer generate -w ${PRIVATE_KEY} --ci${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Clé de signature trouvée${NC}"
+echo -e "${GREEN}✅ Signing key found${NC}"
 
-# Vérifier la version actuelle
+# Check current version
 CURRENT_VERSION=$(grep -o '"version": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
-echo -e "${GREEN}✅ Version actuelle: ${CURRENT_VERSION}${NC}"
+echo -e "${GREEN}✅ Current version: ${CURRENT_VERSION}${NC}"
 
-# Calculer la version de mise à jour (incrémenter le patch)
+# Calculate update version (increment patch)
 IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
 MAJOR="${VERSION_PARTS[0]}"
 MINOR="${VERSION_PARTS[1]}"
 PATCH="${VERSION_PARTS[2]}"
 UPDATE_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
-echo -e "${BLUE}   Version de mise à jour: ${UPDATE_VERSION}${NC}"
+echo -e "${BLUE}   Update version: ${UPDATE_VERSION}${NC}"
 echo ""
 
-# Étape 2: Build de l'app en mode production
-echo -e "${YELLOW}📦 Étape 2: Build de l'application en mode production...${NC}"
-echo -e "${BLUE}   Cela peut prendre plusieurs minutes...${NC}"
+# Step 2: Build app in production mode
+echo -e "${YELLOW}📦 Step 2: Building application in production mode...${NC}"
+echo -e "${BLUE}   This may take several minutes...${NC}"
 
 if ! yarn tauri:build; then
-    echo -e "${RED}❌ Erreur lors du build${NC}"
+    echo -e "${RED}❌ Build error${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Build terminé${NC}"
+echo -e "${GREEN}✅ Build completed${NC}"
 echo ""
 
-# Trouver le bundle créé
+# Find created bundle
 BUNDLE_PATH=""
 BUNDLE_DIR="src-tauri/target/release/bundle"
 
@@ -65,73 +65,73 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
     BUNDLE_PATH="${BUNDLE_DIR}/macos/Reachy Mini Control.app"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    # Linux - trouver le premier AppImage
+    # Linux - find first AppImage
     BUNDLE_PATH=$(find "${BUNDLE_DIR}/appimage" -name "*.AppImage" 2>/dev/null | head -1)
     if [ -z "$BUNDLE_PATH" ]; then
-        echo -e "${RED}❌ Aucun AppImage trouvé dans ${BUNDLE_DIR}/appimage${NC}"
+        echo -e "${RED}❌ No AppImage found in ${BUNDLE_DIR}/appimage${NC}"
         exit 1
     fi
 else
-    # Windows - trouver le premier MSI
+    # Windows - find first MSI
     BUNDLE_PATH=$(find "${BUNDLE_DIR}/msi" -name "*.msi" 2>/dev/null | head -1)
     if [ -z "$BUNDLE_PATH" ]; then
-        echo -e "${RED}❌ Aucun MSI trouvé dans ${BUNDLE_DIR}/msi${NC}"
+        echo -e "${RED}❌ No MSI found in ${BUNDLE_DIR}/msi${NC}"
         exit 1
     fi
 fi
 
 if [ ! -e "$BUNDLE_PATH" ]; then
-    echo -e "${RED}❌ Bundle non trouvé: ${BUNDLE_PATH}${NC}"
-    echo -e "${YELLOW}   Vérifiez que le build s'est bien terminé${NC}"
+    echo -e "${RED}❌ Bundle not found: ${BUNDLE_PATH}${NC}"
+    echo -e "${YELLOW}   Check that the build completed successfully${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Bundle trouvé: ${BUNDLE_PATH}${NC}"
+echo -e "${GREEN}✅ Bundle found: ${BUNDLE_PATH}${NC}"
 echo ""
 
-# Étape 3: Mettre à jour la version dans tauri.conf.json pour la mise à jour
-echo -e "${YELLOW}📝 Étape 3: Préparation de la mise à jour...${NC}"
+# Step 3: Update version in tauri.conf.json for the update
+echo -e "${YELLOW}📝 Step 3: Preparing update...${NC}"
 
-# Sauvegarder la version actuelle
+# Backup current version
 BACKUP_FILE="src-tauri/tauri.conf.json.backup"
 cp src-tauri/tauri.conf.json "$BACKUP_FILE"
-echo -e "${BLUE}   Backup créé: ${BACKUP_FILE}${NC}"
+echo -e "${BLUE}   Backup created: ${BACKUP_FILE}${NC}"
 
-# Mettre à jour la version dans tauri.conf.json temporairement
+# Temporarily update version in tauri.conf.json
 if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${UPDATE_VERSION}\"/" src-tauri/tauri.conf.json
 else
     sed -i "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${UPDATE_VERSION}\"/" src-tauri/tauri.conf.json
 fi
 
-echo -e "${GREEN}✅ Version mise à jour dans tauri.conf.json: ${UPDATE_VERSION}${NC}"
+echo -e "${GREEN}✅ Version updated in tauri.conf.json: ${UPDATE_VERSION}${NC}"
 echo ""
 
-# Étape 4: Build de la mise à jour
-echo -e "${YELLOW}🔨 Étape 4: Build de la mise à jour...${NC}"
+# Step 4: Build update
+echo -e "${YELLOW}🔨 Step 4: Building update...${NC}"
 
 if ! yarn build:update:dev "$UPDATE_VERSION"; then
-    # Restaurer la version originale en cas d'erreur
+    # Restore original version on error
     mv "$BACKUP_FILE" src-tauri/tauri.conf.json
-    echo -e "${RED}❌ Erreur lors du build de la mise à jour${NC}"
+    echo -e "${RED}❌ Error building update${NC}"
     exit 1
 fi
 
-# Restaurer la version originale
+# Restore original version
 mv "$BACKUP_FILE" src-tauri/tauri.conf.json
-echo -e "${GREEN}✅ Version restaurée dans tauri.conf.json: ${CURRENT_VERSION}${NC}"
+echo -e "${GREEN}✅ Version restored in tauri.conf.json: ${CURRENT_VERSION}${NC}"
 echo ""
 
-# Étape 5: Vérifier que les fichiers de mise à jour existent
-echo -e "${YELLOW}🔍 Étape 5: Vérification des fichiers de mise à jour...${NC}"
+# Step 5: Check that update files exist
+echo -e "${YELLOW}🔍 Step 5: Checking update files...${NC}"
 
 UPDATE_DIR="test-updates"
 if [ ! -d "$UPDATE_DIR" ]; then
-    echo -e "${RED}❌ Répertoire de mise à jour non trouvé: ${UPDATE_DIR}${NC}"
+    echo -e "${RED}❌ Update directory not found: ${UPDATE_DIR}${NC}"
     exit 1
 fi
 
-# Trouver le répertoire de la plateforme
+# Find platform directory
 PLATFORM=""
 if [[ "$OSTYPE" == "darwin"* ]]; then
     ARCH=$(uname -m)
@@ -153,26 +153,26 @@ fi
 
 UPDATE_JSON="${UPDATE_DIR}/${PLATFORM}/${CURRENT_VERSION}/update.json"
 if [ ! -f "$UPDATE_JSON" ]; then
-    echo -e "${RED}❌ Fichier update.json non trouvé: ${UPDATE_JSON}${NC}"
+    echo -e "${RED}❌ update.json file not found: ${UPDATE_JSON}${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Fichiers de mise à jour trouvés${NC}"
+echo -e "${GREEN}✅ Update files found${NC}"
 echo -e "${BLUE}   Platform: ${PLATFORM}${NC}"
 echo -e "${BLUE}   Update JSON: ${UPDATE_JSON}${NC}"
 echo ""
 
-# Étape 6: Instructions pour tester
-echo -e "${GREEN}✅ Tout est prêt pour tester !${NC}"
+# Step 6: Test instructions
+echo -e "${GREEN}✅ Everything is ready for testing!${NC}"
 echo ""
 echo -e "${BLUE}===========================================${NC}"
-echo -e "${BLUE}📋 Instructions de test:${NC}"
+echo -e "${BLUE}📋 Test Instructions:${NC}"
 echo -e "${BLUE}===========================================${NC}"
 echo ""
-echo -e "${YELLOW}1.${NC} Ouvrir un nouveau terminal et lancer le serveur de mises à jour:"
+echo -e "${YELLOW}1.${NC} Open a new terminal and launch the update server:"
 echo -e "   ${GREEN}cd ${PROJECT_DIR} && yarn serve:updates${NC}"
 echo ""
-echo -e "${YELLOW}2.${NC} Lancer l'application construite:"
+echo -e "${YELLOW}2.${NC} Launch the built application:"
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo -e "   ${GREEN}open \"${PROJECT_DIR}/${BUNDLE_PATH}\"${NC}"
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -181,17 +181,16 @@ else
     echo -e "   ${GREEN}${PROJECT_DIR}/${BUNDLE_PATH}${NC}"
 fi
 echo ""
-echo -e "${YELLOW}3.${NC} Dans l'application:"
-echo -e "   - L'app devrait détecter automatiquement la mise à jour ${UPDATE_VERSION}"
-echo -e "   - Cliquer sur 'Install Update'"
-echo -e "   - L'app devrait télécharger, installer et redémarrer automatiquement"
+echo -e "${YELLOW}3.${NC} In the application:"
+echo -e "   - The app should automatically detect update ${UPDATE_VERSION}"
+echo -e "   - Click on 'Install Update'"
+echo -e "   - The app should download, install and restart automatically"
 echo ""
-echo -e "${YELLOW}4.${NC} Vérifier que l'app a bien été mise à jour:"
-echo -e "   - L'app devrait redémarrer avec la version ${UPDATE_VERSION}"
+echo -e "${YELLOW}4.${NC} Verify that the app has been updated:"
+echo -e "   - The app should restart with version ${UPDATE_VERSION}"
 echo ""
 echo -e "${BLUE}===========================================${NC}"
 echo ""
-echo -e "${YELLOW}⚠️  Note:${NC} Le serveur de mises à jour doit rester actif pendant le test"
-echo -e "${YELLOW}⚠️  Note:${NC} L'endpoint dans tauri.conf.json doit pointer vers http://localhost:8080"
+echo -e "${YELLOW}⚠️  Note:${NC} The update server must remain active during the test"
+echo -e "${YELLOW}⚠️  Note:${NC} The endpoint in tauri.conf.json must point to http://localhost:8080"
 echo ""
-
