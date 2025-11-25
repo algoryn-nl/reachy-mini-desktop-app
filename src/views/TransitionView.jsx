@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../utils/windowUtils';
 import useAppStore from '../store/useAppStore';
 
 /**
@@ -8,7 +8,7 @@ import useAppStore from '../store/useAppStore';
  * Displayed during window resize
  */
 export default function TransitionView() {
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   const { darkMode } = useAppStore();
 
   return (

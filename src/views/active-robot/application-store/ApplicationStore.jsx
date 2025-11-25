@@ -8,6 +8,7 @@ import ReachyBox from '../../../assets/reachy-update-box.svg';
 import useAppStore from '../../../store/useAppStore';
 import { useApps } from '../../../hooks/useApps';
 import { useAppHandlers } from './useAppHandlers';
+import { useAppInstallation } from './useAppInstallation';
 import InstalledAppsSection from './InstalledAppsSection';
 import DiscoverModal from './DiscoverModal';
 import CreateAppTutorialModal from './CreateAppTutorialModal';
@@ -72,12 +73,26 @@ export default function ApplicationStore({
     setSelectedCategory(null);
   }, [officialOnly]);
   
-  // Hook to manage handlers and logic
+  // ✅ REFACTORED: Separate hooks for different responsibilities
+  
+  // Hook to manage installation lifecycle (tracking, overlay, completion)
+  useAppInstallation({
+    activeJobs,
+    showToast,
+    refreshApps: fetchAvailableApps,
+    onInstallSuccess: () => {
+      // Close discover modal when installation succeeds
+      const discoverIsOpen = modalStack[modalStack.length - 1] === 'discover';
+      if (discoverIsOpen) {
+        closeModal();
+      }
+    },
+  });
+  
+  // Hook to manage app actions (install, uninstall, start)
   const {
     expandedApp,
     setExpandedApp,
-    appSettings,
-    updateAppSetting,
     startingApp,
     handleInstall,
     handleUninstall,
@@ -92,7 +107,6 @@ export default function ApplicationStore({
     startApp,
     stopCurrentApp,
     showToast,
-    refreshApps: fetchAvailableApps,
   });
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,10 +132,26 @@ export default function ApplicationStore({
   const discoverModalOpen = modalStack[modalStack.length - 1] === 'discover';
   const createAppTutorialModalOpen = modalStack[modalStack.length - 1] === 'createTutorial';
 
-  // Retrieve the info of the app being installed for the overlay
-  const installingApp = installingAppName 
-    ? [...availableApps, ...installedApps].find(app => app.name === installingAppName)
-    : null;
+  // ✅ Get installing app info (with fallback if not in list yet)
+  const installingApp = useMemo(() => {
+    if (!installingAppName) return null;
+    
+    // Try to find in available apps first
+    const found = availableApps.find(app => app.name === installingAppName);
+    if (found) return found;
+    
+    // Fallback: Create minimal app object
+    return {
+      name: installingAppName,
+      id: installingAppName,
+      description: '',
+      url: null,
+      source_kind: 'local',
+      isInstalled: false,
+      extra: {},
+    };
+  }, [installingAppName, availableApps]);
+  
   
   // Retrieve the current installation job - Convert Map to array
   const activeJobsArray = Array.from(activeJobs.values());
@@ -200,7 +230,7 @@ export default function ApplicationStore({
     
     // Filter by category
     if (selectedCategory) {
-      notInstalled = notInstalled.filter(app => {
+      apps = apps.filter(app => {
         // Get tags from both root level and cardData
         const rootTags = app.extra?.tags || [];
         const cardDataTags = app.extra?.cardData?.tags || [];
@@ -225,7 +255,7 @@ export default function ApplicationStore({
     // Filter by search query
     if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase();
-      notInstalled = notInstalled.filter(app => 
+      apps = apps.filter(app => 
       app.name.toLowerCase().includes(query) ||
       (app.description && app.description.toLowerCase().includes(query))
     );
@@ -414,8 +444,6 @@ export default function ApplicationStore({
         darkMode={effectiveDarkMode}
         expandedApp={expandedApp}
         setExpandedApp={setExpandedApp}
-        appSettings={appSettings}
-        updateAppSetting={updateAppSetting}
         startingApp={startingApp}
         currentApp={currentApp}
         isBusy={effectiveIsBusy}
@@ -530,7 +558,8 @@ export default function ApplicationStore({
       />
 
       {/* Fullscreen overlay for installations */}
-      {installingApp && (
+      {/* ✅ Show overlay if installingAppName is set (even if app not found in availableApps) */}
+      {installingAppName && installingApp && (
         <InstallOverlay
           appInfo={installingApp}
           jobInfo={installingJob || { type: installJobType || 'install', status: 'starting', logs: [] }}

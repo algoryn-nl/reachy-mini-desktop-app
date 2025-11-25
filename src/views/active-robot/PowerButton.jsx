@@ -25,7 +25,7 @@ export default function PowerButton({
         height: 36,
         border: darkMode ? '1px solid rgba(255, 149, 0, 0.5)' : '1px solid rgba(255, 149, 0, 0.4)',
         backdropFilter: 'blur(10px)',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         opacity: isReady ? 1 : 0.4,
         boxShadow: darkMode 
           ? '0 2px 8px rgba(255, 149, 0, 0.2)' 

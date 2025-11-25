@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert, LinearProgress, ButtonGroup, Switch, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../../utils/windowUtils';
 import { open } from '@tauri-apps/plugin-shell';
 import Viewer3D from '../../components/viewer3d';
 import CameraFeed from './camera/CameraFeed';
@@ -14,7 +14,7 @@ import AudioControls from './audio/AudioControls';
 import { useRobotState } from '../../hooks/useRobotState';
 import useAppStore from '../../store/useAppStore';
 import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
-import { buildApiUrl } from '../../config/daemon';
+import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
 
 
 function ActiveRobotView({ 
@@ -31,7 +31,7 @@ function ActiveRobotView({
   onAppsReady, // ✅ Callback to notify when apps are loaded
 }) {
   // Use mock if available, otherwise the real API
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   
   // ✅ OPTIMIZED: Separate selectors (Zustand optimizes these internally)
   // Using separate selectors avoids creating new objects on each render
@@ -62,47 +62,44 @@ function ActiveRobotView({
   useEffect(() => {
     if (!isActive) return;
 
-    const fetchVolume = async () => {
+    // Helper function to fetch volume value
+    const fetchVolumeValue = async (endpoint, setter, label) => {
       try {
-        const response = await fetch(buildApiUrl('/api/volume/current'));
+        const response = await fetchWithTimeout(
+          buildApiUrl(endpoint),
+          {},
+          DAEMON_CONFIG.TIMEOUTS.VERSION,
+          { silent: true }
+        );
         if (response.ok) {
           const data = await response.json();
           if (data.volume !== undefined) {
-            setVolume(data.volume);
+            setter(data.volume);
           }
         }
       } catch (err) {
-        console.warn('Failed to fetch volume:', err);
+        console.warn(`Failed to fetch ${label}:`, err);
       }
     };
 
-    const fetchMicrophoneVolume = async () => {
-      try {
-        const response = await fetch(buildApiUrl('/api/volume/microphone/current'));
-        if (response.ok) {
-          const data = await response.json();
-          if (data.volume !== undefined) {
-            setMicrophoneVolume(data.volume);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to fetch microphone volume:', err);
-      }
-    };
-
-    fetchVolume();
-    fetchMicrophoneVolume();
+    fetchVolumeValue('/api/volume/current', setVolume, 'volume');
+    fetchVolumeValue('/api/volume/microphone/current', setMicrophoneVolume, 'microphone volume');
   }, [isActive]);
 
   // Update volume via API
   const handleVolumeChange = useCallback(async (newVolume) => {
     setVolume(newVolume);
     try {
-      await fetch(buildApiUrl('/api/volume/set'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume: newVolume }),
-      });
+      await fetchWithTimeout(
+        buildApiUrl('/api/volume/set'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volume: newVolume }),
+        },
+        DAEMON_CONFIG.TIMEOUTS.VERSION,
+        { silent: true }
+      );
     } catch (err) {
       console.warn('Failed to set volume:', err);
     }
@@ -112,11 +109,16 @@ function ActiveRobotView({
   const handleMicrophoneChange = useCallback(async (enabled) => {
     setMicrophoneVolume(enabled ? 50 : 0);
     try {
-      await fetch(buildApiUrl('/api/volume/microphone/set'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume: enabled ? 50 : 0 }),
-      });
+      await fetchWithTimeout(
+        buildApiUrl('/api/volume/microphone/set'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volume: enabled ? 50 : 0 }),
+        },
+        DAEMON_CONFIG.TIMEOUTS.VERSION,
+        { silent: true }
+      );
     } catch (err) {
       console.warn('Failed to set microphone:', err);
     }
@@ -126,11 +128,16 @@ function ActiveRobotView({
   const handleMicrophoneVolumeChange = async (newVolume) => {
     setMicrophoneVolume(newVolume);
     try {
-      await fetch(buildApiUrl('/api/volume/microphone/set'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume: newVolume }),
-      });
+      await fetchWithTimeout(
+        buildApiUrl('/api/volume/microphone/set'),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volume: newVolume }),
+        },
+        DAEMON_CONFIG.TIMEOUTS.VERSION,
+        { silent: true }
+      );
     } catch (err) {
       console.warn('Failed to set microphone volume:', err);
     }
@@ -450,7 +457,6 @@ function ActiveRobotView({
         <Box
           sx={{
             width: '100%',
-            height: 'auto',
             position: 'relative',
             mb: 1,
             overflow: 'visible',

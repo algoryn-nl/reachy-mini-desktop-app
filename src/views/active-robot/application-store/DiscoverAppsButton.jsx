@@ -23,7 +23,7 @@ export default function DiscoverAppsButton({ onClick, darkMode }) {
         bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : '#ffffff',
         border: '1px solid #FF9500',
         cursor: 'pointer',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         overflow: 'visible',
         // Pulse animation - subtle and integrated

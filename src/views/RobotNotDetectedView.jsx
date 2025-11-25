@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import unpluggedCableSvg from '../assets/unplugged-cable.svg';
+import { getAppWindow } from '../utils/windowUtils';
+import unpluggedCableLeftSvg from '../assets/unplugged-cable-left.svg';
+import unpluggedCableRightSvg from '../assets/unplugged-cable-right.svg';
 import useAppStore from '../store/useAppStore';
 
 /**
  * View displayed when robot is not detected via USB
  */
 export default function RobotNotDetectedView() {
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   const { darkMode } = useAppStore();
   const [dots, setDots] = useState('');
 
@@ -36,29 +37,6 @@ export default function RobotNotDetectedView() {
         position: 'relative',
       }}
     >
-      {/* Continuous zig-zag scan effect (up-down-up-down) */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          pointerEvents: 'none',
-          zIndex: 1,
-          background: 'linear-gradient(180deg, transparent 0%, transparent 35%, rgba(255, 149, 0, 0.08) 43%, rgba(255, 149, 0, 0.16) 50%, rgba(255, 149, 0, 0.08) 57%, transparent 65%, transparent 100%)',
-          backgroundSize: '100% 150%',
-          animation: 'scanZigZag 2s linear infinite alternate',
-          '@keyframes scanZigZag': {
-            '0%': {
-              backgroundPosition: '0% 100%',
-            },
-            '100%': {
-              backgroundPosition: '0% 0%',
-            },
-          },
-        }}
-      />
       {/* Robot Not Detected Content */}
       <Box
         sx={{
@@ -71,7 +49,7 @@ export default function RobotNotDetectedView() {
           zIndex: 2,
         }}
       >
-        {/* Full-width illustration */}
+        {/* Full-width illustration with overlapping cables */}
         <Box 
           sx={{ 
             width: '100%',
@@ -80,20 +58,62 @@ export default function RobotNotDetectedView() {
             px: 0,
             display: 'flex',
             justifyContent: 'center',
-            overflow: 'hidden',
+            overflow: 'visible',
+            position: 'relative',
           }}
         >
-          <img 
-            src={unpluggedCableSvg} 
-            alt="USB Unplugged" 
-            style={{ 
+          <Box
+            sx={{
               width: '100%',
               maxWidth: '450px',
               height: 'auto',
-              opacity: .9,
-            }} 
-          />
+              position: 'relative',
+              overflow: 'visible',
+            }}
+          >
+            {/* Câble gauche avec animation */}
+            <img 
+              src={unpluggedCableLeftSvg} 
+              alt="USB Cable Left" 
+              style={{ 
+                width: '105%',
+                height: 'auto',
+                opacity: .9,
+                position: 'absolute',
+                top: 0,
+                left: '-2.5%',
+                animation: 'plugAnimation 2.5s ease-in-out infinite',
+              }} 
+            />
+            
+            {/* Câble droit statique */}
+            <img 
+              src={unpluggedCableRightSvg} 
+              alt="USB Cable Right" 
+              style={{ 
+                width: '105%',
+                height: 'auto',
+                opacity: .9,
+                position: 'relative',
+                left: '-2.5%',
+              }} 
+            />
+          </Box>
         </Box>
+        
+        {/* Animation CSS pour le câble gauche */}
+        <style>
+          {`
+            @keyframes plugAnimation {
+              0%, 100% {
+                transform: translateX(0px);
+              }
+              50% {
+                transform: translateX(8px);
+              }
+            }
+          `}
+        </style>
         
         <Box sx={{ px: 4 }}>
           <Typography

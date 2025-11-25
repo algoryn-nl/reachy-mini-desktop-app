@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../utils/windowUtils';
 import HardwareScanView from './HardwareScanView';
 import useAppStore from '../store/useAppStore';
 import { DAEMON_CONFIG } from '../config/daemon';
@@ -10,7 +10,7 @@ import { DAEMON_CONFIG } from '../config/daemon';
  * Wrapper around HardwareScanView that handles the transition logic
  */
 function StartingView({ startupError, startDaemon }) {
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   const { darkMode } = useAppStore();
   
   const handleScanComplete = useCallback(() => {

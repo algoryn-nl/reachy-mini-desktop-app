@@ -1,9 +1,7 @@
-import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView } from '../views';
 import useAppStore from '../store/useAppStore';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { getVersion } from '@tauri-apps/api/app';
 import AppTopBar from './AppTopBar';
 import { useDaemon } from '../hooks/useDaemon';
 import { useDaemonHealthCheck } from '../hooks/useDaemonHealthCheck';

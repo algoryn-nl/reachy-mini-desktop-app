@@ -75,9 +75,14 @@ const useAppStore = create((set) => ({
   isAppRunning: false,
   isInstalling: false,
   currentAppName: null, // Name of currently running app
-  installingAppName: null, // Name of app being installed
-  installJobType: null, // Job type: 'install' or 'remove'
-  installResult: null, // Installation result: 'success', 'failed', null
+  
+  // ✅ REFACTORED: Installation state (previously scattered in refs)
+  installingAppName: null,        // Name of app being installed
+  installJobType: null,            // Job type: 'install' or 'remove'
+  installResult: null,             // Installation result: 'success', 'failed', null
+  installStartTime: null,          // Timestamp when installation started (for minimum display duration)
+  processedJobs: [],              // Array of processed job keys to avoid loops (Set not serializable in Zustand)
+  jobSeenOnce: false,              // Flag to track if we've seen the job at least once
   
   // Visual Effects (3D particles)
   activeEffect: null, // Active effect type ('sleep', 'love', etc.)
@@ -235,16 +240,24 @@ const useAppStore = create((set) => ({
     set({ currentAppName: null });
   },
   
-  // Installation locking management
+  // ✅ REFACTORED: Installation management (state + actions)
   lockForInstall: (appName, jobType = 'install') => {
     const state = useAppStore.getState();
     state.transitionTo.busy('installing');
     set({
       installingAppName: appName,
-      installJobType: jobType, // 'install' or 'remove'
+      installJobType: jobType,
       installResult: null,
+      installStartTime: Date.now(),
+      jobSeenOnce: false,
+      // processedJobs: clear the specific job key
     });
+    // Clear the processed job for this app
+    const jobKey = `${appName}_${jobType}`;
+    const processedJobs = state.processedJobs.filter(key => key !== jobKey);
+    set({ processedJobs });
   },
+  
   unlockInstall: () => {
     const state = useAppStore.getState();
     state.transitionTo.ready();
@@ -252,11 +265,28 @@ const useAppStore = create((set) => ({
       installingAppName: null,
       installJobType: null,
       installResult: null,
+      installStartTime: null,
+      jobSeenOnce: false,
+      processedJobs: [], // Clear all processed jobs
     });
   },
+  
   setInstallResult: (result) => set({
     installResult: result, // 'success', 'failed' or null
   }),
+  
+  markJobAsSeen: () => set({
+    jobSeenOnce: true,
+  }),
+  
+  markJobAsProcessed: (appName, jobType) => {
+    const state = useAppStore.getState();
+    const jobKey = `${appName}_${jobType}`;
+    const processedJobs = state.processedJobs.includes(jobKey) 
+      ? state.processedJobs 
+      : [...state.processedJobs, jobKey];
+    set({ processedJobs });
+  },
   
   // Specific helpers for logs (business logic)
   addFrontendLog: (message) => set((state) => ({ 

@@ -21,54 +21,118 @@ export function useApps(isActive, official = true) {
   const jobPollingIntervals = useRef(new Map());
   
   /**
-   * Fetch official apps directly from Hugging Face
+   * ✅ OPTIMIZED: Fetch official apps using daemon API (which filters by tag "reachy mini")
+   * The daemon returns apps with complete metadata from /api/spaces, filtered correctly
+   * This is more reliable than fetching /api/spaces directly (which has pagination/limits)
    */
   const fetchOfficialApps = useCallback(async () => {
     const OFFICIAL_APP_LIST_URL = 'https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store/raw/main/app-list.json';
-    const HF_SPACES_API_URL = 'https://huggingface.co/api/spaces';
     
     try {
-      // 1. Fetch the list of official app IDs
+      // 1. Fetch the list of official app IDs (authorized list)
       const listResponse = await fetch(OFFICIAL_APP_LIST_URL);
       if (!listResponse.ok) {
         throw new Error(`Failed to fetch official app list: ${listResponse.status}`);
       }
       const authorizedIds = await listResponse.json();
       
-      if (!Array.isArray(authorizedIds)) {
+      if (!Array.isArray(authorizedIds) || authorizedIds.length === 0) {
         return [];
       }
       
-      // 2. Fetch data for each space in parallel
-      const spacePromises = authorizedIds.map(async (spaceId) => {
-        try {
-          const spaceResponse = await fetch(`${HF_SPACES_API_URL}/${spaceId}`);
-          if (spaceResponse.ok) {
-            return await spaceResponse.json();
-          }
-          return null;
-        } catch (err) {
-          console.warn(`⚠️ Failed to fetch space ${spaceId}:`, err.message);
-          return null;
-        }
-      });
-      
-      const spacesData = await Promise.all(spacePromises);
-      
-      // 3. Build AppInfo list
-      const apps = [];
-      for (const item of spacesData) {
-        if (!item || !item.id) continue;
+      // 2. Fetch apps from daemon with source_kind=hf_space
+      // The daemon filters by tag "reachy mini" and returns complete metadata
+      let daemonSpaces = [];
+      try {
+        const daemonUrl = buildApiUrl('/api/apps/list-available/hf_space');
+        const daemonResponse = await fetchWithTimeout(
+          daemonUrl,
+          {},
+          DAEMON_CONFIG.TIMEOUTS.APPS_LIST,
+          { silent: true }
+        );
         
-        apps.push({
-          name: item.id.split('/').pop(),
-          id: item.id,
-          description: item.cardData?.short_description || '',
-          url: `https://huggingface.co/spaces/${item.id}`,
-          source_kind: 'hf_space',
-          extra: item,
-        });
+        if (daemonResponse.ok) {
+          daemonSpaces = await daemonResponse.json();
+          console.log(`✅ Fetched ${daemonSpaces.length} hf_space apps from daemon (with complete metadata)`);
+        } else {
+          console.warn(`⚠️ Daemon returned ${daemonResponse.status}, falling back to /api/spaces`);
+        }
+      } catch (daemonErr) {
+        console.warn('⚠️ Daemon not available, falling back to /api/spaces:', daemonErr.message);
       }
+      
+      // 3. Create a map of spaces by ID for fast lookup
+      const spacesMap = new Map();
+      for (const space of daemonSpaces) {
+        if (space && space.id) {
+          spacesMap.set(space.id, space);
+        }
+        // Also index by name (daemon might use name instead of full ID)
+        if (space && space.name) {
+          const fullId = space.id || `${space.extra?.id || space.name}`;
+          if (fullId.includes('/')) {
+            spacesMap.set(fullId, space);
+          }
+        }
+      }
+      
+      // 4. Build AppInfo list - GUARANTEE all official apps are included
+      const apps = [];
+      for (const officialId of authorizedIds) {
+        // Try to find by full ID first
+        let space = spacesMap.get(officialId);
+        
+        // If not found, try to find by name (extract name from ID)
+        if (!space) {
+          const officialName = officialId.split('/').pop();
+          space = daemonSpaces.find(s => 
+            s.name === officialName || 
+            s.id === officialId ||
+            s.extra?.id === officialId
+          );
+        }
+        
+        if (space) {
+          // ✅ App found in daemon response - use full metadata
+          // The daemon already has the complete space object from /api/spaces
+          // The space object from daemon IS the full /api/spaces response
+          const spaceData = space.extra || space;
+          
+          apps.push({
+            name: space.name || officialId.split('/').pop(),
+            id: space.id || spaceData.id || officialId,
+            description: space.description || spaceData.cardData?.short_description || '',
+            url: space.url || `https://huggingface.co/spaces/${space.id || spaceData.id || officialId}`,
+            source_kind: 'hf_space',
+            extra: spaceData, // ✅ Keep full space data from /api/spaces (cardData, likes, lastModified, etc.)
+          });
+          
+          console.log(`✅ Official app ${officialId} found in daemon:`, {
+            name: space.name,
+            id: space.id || spaceData.id,
+            hasCardData: !!spaceData.cardData,
+            hasLikes: spaceData.likes !== undefined,
+            hasLastModified: !!spaceData.lastModified,
+          });
+        } else {
+          // ⚠️ App not found in daemon - create minimal entry (shouldn't happen)
+          console.warn(`⚠️ Official app ${officialId} not found in daemon response`);
+          apps.push({
+            name: officialId.split('/').pop(),
+            id: officialId,
+            description: '',
+            url: `https://huggingface.co/spaces/${officialId}`,
+            source_kind: 'hf_space',
+            extra: {
+              id: officialId,
+              cardData: {},
+            },
+          });
+        }
+      }
+      
+      console.log(`✅ Built ${apps.length} official apps (${spacesMap.size} found in daemon)`);
       
       return apps;
     } catch (error) {
@@ -90,22 +154,11 @@ export function useApps(isActive, official = true) {
       let installedAppsFromDaemon = [];
       
       if (officialParam) {
-        // Fetch official apps directly from Hugging Face
-        console.log(`🔄 Fetching official apps directly from HF`);
+        // ✅ Fetch official apps from HF official app store JSON
+        // Source de vérité : https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store/raw/main/app-list.json
+        console.log(`🔄 Fetching official apps from HF app store`);
         daemonApps = await fetchOfficialApps();
-        console.log(`✅ Fetched ${daemonApps.length} official apps`);
-        console.log('📦 Raw official apps data:', JSON.stringify(daemonApps, null, 2));
-        
-        // Log first app structure for debugging
-        if (daemonApps.length > 0) {
-          console.log('🔍 First official app structure:', {
-            name: daemonApps[0].name,
-            id: daemonApps[0].id,
-            extra: daemonApps[0].extra,
-            hasRuntime: !!daemonApps[0].extra?.runtime,
-            runtime: daemonApps[0].extra?.runtime,
-          });
-        }
+        console.log(`✅ Fetched ${daemonApps.length} official apps from HF app store`);
         
         // Also fetch installed apps from daemon
         try {
@@ -117,7 +170,12 @@ export function useApps(isActive, official = true) {
             { silent: true }
           );
           if (installedResponse.ok) {
-            installedAppsFromDaemon = await installedResponse.json();
+            const rawInstalledApps = await installedResponse.json();
+            // ✅ Keep source_kind from daemon (or default to 'local' if not set)
+            installedAppsFromDaemon = rawInstalledApps.map(app => ({
+              ...app,
+              source_kind: app.source_kind || 'local',
+            }));
             console.log(`✅ Fetched ${installedAppsFromDaemon.length} installed apps from daemon`);
           }
         } catch (err) {
@@ -138,18 +196,6 @@ export function useApps(isActive, official = true) {
         if (response.ok) {
           daemonApps = await response.json();
             console.log(`✅ Fetched ${daemonApps.length} apps from daemon`);
-            console.log('📦 Raw apps data from daemon:', JSON.stringify(daemonApps, null, 2));
-            
-            // Log first app structure for debugging
-            if (daemonApps.length > 0) {
-              console.log('🔍 First app structure:', {
-                name: daemonApps[0].name,
-                id: daemonApps[0].id,
-                extra: daemonApps[0].extra,
-                hasRuntime: !!daemonApps[0].extra?.runtime,
-                runtime: daemonApps[0].extra?.runtime,
-              });
-            }
             
             // Enrich non-official apps with runtime data from Hugging Face API
             // (backend doesn't provide runtime for non-official apps)
@@ -204,9 +250,26 @@ export function useApps(isActive, official = true) {
         }
       }
       
-      // Combine official apps with installed apps if needed
+      // ✅ REFACTORED: Create a set of installed app names for fast lookup
+      // This is used to set the isInstalled flag on apps
+      const installedAppNames = new Set(
+        installedAppsFromDaemon.map(app => app.name?.toLowerCase()).filter(Boolean)
+      );
+      
+      // ✅ For official mode: Only add installed apps that are NOT official
+      // Official apps are ALWAYS in the list (from fetchOfficialApps)
+      // We just mark them as installed if they're in installedAppsFromDaemon
       if (officialParam && installedAppsFromDaemon.length > 0) {
-        daemonApps = [...daemonApps, ...installedAppsFromDaemon];
+        const daemonAppNames = new Set(daemonApps.map(app => app.name?.toLowerCase()));
+        const uniqueInstalledApps = installedAppsFromDaemon
+          .filter(installedApp => !daemonAppNames.has(installedApp.name?.toLowerCase()))
+          .map(installedApp => ({
+            ...installedApp,
+            source_kind: installedApp.source_kind || 'local',
+          }));
+        
+        // Only add non-official installed apps
+        daemonApps = [...daemonApps, ...uniqueInstalledApps];
       }
       
       // 2. Fetch metadata from Hugging Face dataset (to enrich with likes, downloads, etc.)
@@ -266,39 +329,80 @@ export function useApps(isActive, official = true) {
       
       // 4. Enrich daemon apps with HF metadata
       const enrichedApps = daemonApps.map(daemonApp => {
-        // Find corresponding HF metadata (try multiple matching strategies)
-        // Priority: id > normalized id > name > normalized name > variants
-        const normalizedDaemonName = daemonApp.name ? daemonApp.name.replace(/[_-]/g, '').toLowerCase() : null;
-        const normalizedDaemonId = daemonApp.id ? daemonApp.id.replace(/[_-]/g, '').toLowerCase() : null;
-        const daemonNameWithDashes = daemonApp.name ? daemonApp.name.replace(/_/g, '-') : null;
-        const daemonNameWithUnderscores = daemonApp.name ? daemonApp.name.replace(/-/g, '_') : null;
-        const daemonIdWithDashes = daemonApp.id ? daemonApp.id.replace(/_/g, '-') : null;
-        const daemonIdWithUnderscores = daemonApp.id ? daemonApp.id.replace(/-/g, '_') : null;
+        // ✅ PRIORITY: For official apps, metadata already comes from /api/spaces in daemonApp.extra
+        // Check if this is an official app with metadata from /api/spaces
+        // Official apps from fetchOfficialApps have: 
+        // - source_kind: 'hf_space'
+        // - extra.id (full space ID like "pollen-robotics/app-name")
+        // - extra.cardData (from /api/spaces)
+        // - extra.likes, extra.lastModified, etc.
+        const isOfficialAppWithSpacesData = daemonApp.source_kind === 'hf_space' &&
+          daemonApp.extra && 
+          daemonApp.extra.id && 
+          daemonApp.extra.id.includes('/'); // Full ID format: "pollen-robotics/app-name"
         
-        const hfMetadata = 
-          // Try by id first (most reliable)
-          hfMetadataMap.get(daemonApp.id) ||
-          hfMetadataMap.get(daemonApp.id?.toLowerCase()) ||
-          hfMetadataMap.get(normalizedDaemonId) ||
-          hfMetadataMap.get(daemonIdWithDashes) ||
-          hfMetadataMap.get(daemonIdWithDashes?.toLowerCase()) ||
-          hfMetadataMap.get(daemonIdWithUnderscores) ||
-          hfMetadataMap.get(daemonIdWithUnderscores?.toLowerCase()) ||
-          // Then try by name
-          hfMetadataMap.get(daemonApp.name) ||
-          hfMetadataMap.get(daemonApp.name?.toLowerCase()) ||
-          hfMetadataMap.get(normalizedDaemonName) ||
-          hfMetadataMap.get(daemonNameWithDashes) ||
-          hfMetadataMap.get(daemonNameWithDashes?.toLowerCase()) ||
-          hfMetadataMap.get(daemonNameWithUnderscores) ||
-          hfMetadataMap.get(daemonNameWithUnderscores?.toLowerCase()) ||
-          // Fallback: try to find by partial match (contains)
-          (daemonApp.name ? hfApps.find(hfApp => 
-            (hfApp.id && (hfApp.id.toLowerCase().includes(daemonApp.name.toLowerCase()) || 
-                          daemonApp.name.toLowerCase().includes(hfApp.id.toLowerCase()))) ||
-            (hfApp.name && (hfApp.name.toLowerCase().includes(daemonApp.name.toLowerCase()) || 
-                            daemonApp.name.toLowerCase().includes(hfApp.name.toLowerCase())))
-          ) : null);
+        let hfMetadata = null;
+        
+        // ✅ For official apps: use metadata directly from /api/spaces (already in daemonApp.extra)
+        if (isOfficialAppWithSpacesData) {
+          // Extract metadata from the space object structure (from /api/spaces)
+          // daemonApp.extra IS the full space object from /api/spaces
+          const spaceData = daemonApp.extra;
+          hfMetadata = {
+            id: spaceData.id,
+            name: spaceData.id?.split('/').pop(),
+            description: spaceData.cardData?.short_description,
+            icon: spaceData.cardData?.emoji,
+            likes: spaceData.likes,
+            lastModified: spaceData.lastModified,
+            runtime: spaceData.runtime,
+            // Keep full space data for reference
+            _spaceData: spaceData,
+          };
+          console.log(`✅ Using /api/spaces metadata for official app: ${daemonApp.name}`, {
+            id: spaceData.id,
+            hasCardData: !!spaceData.cardData,
+            hasLastModified: !!spaceData.lastModified,
+            likes: spaceData.likes,
+            cardData: spaceData.cardData,
+            fullSpaceData: spaceData, // Debug: show full structure
+          });
+        } else {
+          // Only search in hfMetadataMap for non-official apps
+          // Find corresponding HF metadata (try multiple matching strategies)
+          // Priority: id > normalized id > name > normalized name > variants
+          const normalizedDaemonName = daemonApp.name ? daemonApp.name.replace(/[_-]/g, '').toLowerCase() : null;
+          const normalizedDaemonId = daemonApp.id ? daemonApp.id.replace(/[_-]/g, '').toLowerCase() : null;
+          const daemonNameWithDashes = daemonApp.name ? daemonApp.name.replace(/_/g, '-') : null;
+          const daemonNameWithUnderscores = daemonApp.name ? daemonApp.name.replace(/-/g, '_') : null;
+          const daemonIdWithDashes = daemonApp.id ? daemonApp.id.replace(/_/g, '-') : null;
+          const daemonIdWithUnderscores = daemonApp.id ? daemonApp.id.replace(/-/g, '_') : null;
+          
+          hfMetadata = 
+            // Try by id first (most reliable)
+            hfMetadataMap.get(daemonApp.id) ||
+            hfMetadataMap.get(daemonApp.id?.toLowerCase()) ||
+            hfMetadataMap.get(normalizedDaemonId) ||
+            hfMetadataMap.get(daemonIdWithDashes) ||
+            hfMetadataMap.get(daemonIdWithDashes?.toLowerCase()) ||
+            hfMetadataMap.get(daemonIdWithUnderscores) ||
+            hfMetadataMap.get(daemonIdWithUnderscores?.toLowerCase()) ||
+            // Then try by name
+            hfMetadataMap.get(daemonApp.name) ||
+            hfMetadataMap.get(daemonApp.name?.toLowerCase()) ||
+            hfMetadataMap.get(normalizedDaemonName) ||
+            hfMetadataMap.get(daemonNameWithDashes) ||
+            hfMetadataMap.get(daemonNameWithDashes?.toLowerCase()) ||
+            hfMetadataMap.get(daemonNameWithUnderscores) ||
+            hfMetadataMap.get(daemonNameWithUnderscores?.toLowerCase()) ||
+            // Fallback: try to find by partial match (contains)
+            (daemonApp.name ? hfApps.find(hfApp => 
+              (hfApp.id && (hfApp.id.toLowerCase().includes(daemonApp.name.toLowerCase()) || 
+                            daemonApp.name.toLowerCase().includes(hfApp.id.toLowerCase()))) ||
+              (hfApp.name && (hfApp.name.toLowerCase().includes(daemonApp.name.toLowerCase()) || 
+                              daemonApp.name.toLowerCase().includes(hfApp.name.toLowerCase())))
+            ) : null);
+        }
         
         
         // Consolidate runtime: priority is daemonApp.extra.runtime (from backend or fetchOfficialApps)
@@ -314,39 +418,61 @@ export function useApps(isActive, official = true) {
           });
         }
         
+        // ✅ REFACTORED: Determine if app is installed (check by name)
+        const isInstalled = installedAppNames.has(daemonApp.name?.toLowerCase());
+        
         // Build enriched app
+        // ✅ For official apps: metadata comes from /api/spaces (in daemonApp.extra)
+        // ✅ For non-official apps: metadata comes from hfMetadata (from fetchHuggingFaceAppList)
+        
+        // ✅ For official apps: daemonApp.extra IS the full space object from /api/spaces
+        // It contains: id, cardData, likes, lastModified, tags, etc.
+        const isOfficialApp = isOfficialAppWithSpacesData;
+        const spaceData = isOfficialApp ? daemonApp.extra : null;
+        
         const enrichedApp = {
           name: daemonApp.name,
           id: hfMetadata?.id || daemonApp.id || daemonApp.name,
-          description: daemonApp.description || hfMetadata?.description || '',
-          url: daemonApp.url || (hfMetadata?.id 
-            ? `https://huggingface.co/spaces/${hfMetadata.id}` 
-            : null),
-          source_kind: daemonApp.source_kind,
+          description: daemonApp.description || 
+                      hfMetadata?.description || 
+                      spaceData?.cardData?.short_description || 
+                      '',
+          url: daemonApp.url || 
+               (hfMetadata?.id ? `https://huggingface.co/spaces/${hfMetadata.id}` : null) ||
+               (spaceData?.id ? `https://huggingface.co/spaces/${spaceData.id}` : null),
+          // ✅ source_kind: source uniquement ('hf_space', 'local', etc.)
+          source_kind: daemonApp.source_kind || 'local',
+          // ✅ isInstalled: état d'installation séparé
+          isInstalled,
           extra: {
-            // Spread daemonApp.extra first (to preserve any existing data)
+            // ✅ Spread daemonApp.extra first (contains full /api/spaces data for official apps)
             ...daemonApp.extra,
-            // Preserve cardData from daemon (contains colorFrom, colorTo, etc.) and enrich with emoji
-            // Priority: HF metadata > daemon extra.cardData > daemon icon > fallback
+            // ✅ For official apps: preserve ALL metadata from /api/spaces
+            // cardData contains: emoji, colorFrom, colorTo, short_description, tags, etc.
             cardData: {
-              // Preserve all existing cardData fields (colorFrom, colorTo, title, etc.)
-              ...(daemonApp.extra?.cardData || {}),
-              // Override emoji only if we have a better source
-              emoji: hfMetadata?.icon || 
+              // ✅ Spread existing cardData (from /api/spaces for official apps)
+              ...(spaceData?.cardData || daemonApp.extra?.cardData || {}),
+              // Only override if missing
+              emoji: spaceData?.cardData?.emoji || 
                      daemonApp.extra?.cardData?.emoji || 
+                     hfMetadata?.icon || 
                      daemonApp.icon || 
-                     daemonApp.emoji || // Also check for emoji field directly
-                     daemonApp.extra?.cardData?.emoji || // Fallback to existing emoji
+                     daemonApp.emoji || 
                      '📦',
+              short_description: spaceData?.cardData?.short_description || 
+                                daemonApp.extra?.cardData?.short_description || 
+                                hfMetadata?.description || 
+                                daemonApp.description || 
+                                '',
             },
-            // Add HF metadata if available (but don't override if daemon already has it)
-            ...(hfMetadata && {
-              likes: hfMetadata.likes || daemonApp.extra?.likes || 0,
-              downloads: hfMetadata.downloads || daemonApp.extra?.downloads || 0,
-              lastModified: hfMetadata.lastModified || daemonApp.extra?.lastModified || new Date().toISOString(),
-            }),
-            // Explicitly set runtime from consolidated value (preserves runtime for both official and non-official apps)
-            // This must come after the spread to ensure it's not overridden
+            // ✅ Metadata: priority is /api/spaces (for official apps) > hfMetadata (for others)
+            // Use nullish coalescing to preserve 0 values
+            likes: spaceData?.likes ?? daemonApp.extra?.likes ?? hfMetadata?.likes ?? 0,
+            downloads: spaceData?.downloads ?? daemonApp.extra?.downloads ?? hfMetadata?.downloads ?? 0,
+            lastModified: spaceData?.lastModified ?? daemonApp.extra?.lastModified ?? hfMetadata?.lastModified ?? new Date().toISOString(),
+            // Preserve tags from /api/spaces
+            tags: spaceData?.tags ?? daemonApp.extra?.tags ?? [],
+            // Explicitly set runtime from consolidated value
             runtime: consolidatedRuntime,
           },
           // Daemon data (version, path if installed)
@@ -354,12 +480,23 @@ export function useApps(isActive, official = true) {
           ...(daemonApp.path && { path: daemonApp.path }),
         };
         
+        // Debug: log final metadata for official apps
+        if (isOfficialApp) {
+          console.log(`📊 Final metadata for official app ${daemonApp.name}:`, {
+            likes: enrichedApp.extra.likes,
+            lastModified: enrichedApp.extra.lastModified,
+            hasCardData: !!enrichedApp.extra.cardData,
+            emoji: enrichedApp.extra.cardData?.emoji,
+            description: enrichedApp.description,
+          });
+        }
+        
         return enrichedApp;
       });
       
-      // 5. Separate installed and available apps
-      const installed = enrichedApps.filter(app => app.source_kind === 'installed');
-      const available = enrichedApps.filter(app => app.source_kind !== 'installed');
+      // ✅ REFACTORED: Separate installed and available apps using isInstalled flag
+      const installed = enrichedApps.filter(app => app.isInstalled);
+      const available = enrichedApps.filter(app => !app.isInstalled);
       
       // 6. For installed apps that don't have emoji or lastModified, try to find it from available apps
       // (available apps have the correct Hugging Face metadata)

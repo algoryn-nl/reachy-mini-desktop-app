@@ -599,7 +599,8 @@ export default function DiscoverModal({
                   const installJob = getJobInfo(app.name, 'install');
                   const isInstalling = isJobRunning(app.name, 'install');
                   const installFailed = installJob && installJob.status === 'failed';
-                  const isInstalled = installedApps.some(inst => inst.name === app.name);
+                  // ✅ REFACTORED: Use isInstalled flag from app object
+                  const isInstalled = app.isInstalled || false;
                 
                 // Extract data from HF Space API
                 const cardData = app.extra?.cardData || {};

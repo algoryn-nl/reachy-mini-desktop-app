@@ -466,7 +466,7 @@ export default function RobotViewer3D({
               status.color === '#999' ? 'rgba(153, 153, 153, 0.25)' : 'rgba(0, 0, 0, 0.12)'
             }`,
             backdropFilter: 'blur(10px)',
-            transition: 'all 0.3s ease',
+            transition: 'none',
             // z-index hierarchy: 10 = UI controls (status tag)
             zIndex: 10,
           }}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../utils/windowUtils';
 import { getVersion } from '@tauri-apps/api/app';
 import useAppStore from '../store/useAppStore';
 import { isSimulationMode } from '../utils/simulationMode';
@@ -12,7 +12,7 @@ import { isSimulationMode } from '../utils/simulationMode';
 export default function AppTopBar() {
   const { darkMode } = useAppStore();
   const [currentVersion, setCurrentVersion] = useState('');
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   const simMode = isSimulationMode();
 
   useEffect(() => {

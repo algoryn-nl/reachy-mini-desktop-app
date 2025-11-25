@@ -91,17 +91,33 @@ fn main() {
         
         let deps_str = deps.join(" ");
         #[cfg(not(target_os = "windows"))]
-        run_command(&format!(
-            "UV_PYTHON_INSTALL_DIR=. UV_WORKING_DIR=. ./uv pip install {}",
-            deps_str
-        ))
-        .expect("Failed to install dependencies");
+        {
+            // For GitHub installs, configure git to skip LFS smudge to avoid errors with missing LFS files
+            let git_lfs_skip = if args.reachy_mini_source == "develop" {
+                "GIT_LFS_SKIP_SMUDGE=1 "
+            } else {
+                ""
+            };
+            run_command(&format!(
+                "{}UV_PYTHON_INSTALL_DIR=. UV_WORKING_DIR=. ./uv pip install {}",
+                git_lfs_skip, deps_str
+            ))
+            .expect("Failed to install dependencies");
+        }
         #[cfg(target_os = "windows")]
-        run_command(&format!(
-            "$env:UV_PYTHON_INSTALL_DIR = '.'; $env:UV_WORKING_DIR = '.'; ./uv.exe pip install {}",
-            deps_str
-        ))
-        .expect("Failed to install dependencies");
+        {
+            // For GitHub installs, configure git to skip LFS smudge to avoid errors with missing LFS files
+            let git_lfs_skip = if args.reachy_mini_source == "develop" {
+                "$env:GIT_LFS_SKIP_SMUDGE='1'; "
+            } else {
+                ""
+            };
+            run_command(&format!(
+                "{}$env:UV_PYTHON_INSTALL_DIR = '.'; $env:UV_WORKING_DIR = '.'; ./uv.exe pip install {}",
+                git_lfs_skip, deps_str
+            ))
+            .expect("Failed to install dependencies");
+        }
     }
 }
 

@@ -174,7 +174,7 @@ export default function DiscoverAppsSection({
           </Box>
         ) : (
           filteredApps.map((app) => {
-          // Note: filteredApps only contains NOT installed apps
+          // ✅ REFACTORED: filteredApps contains all apps (installed ones have isInstalled flag)
           const installJob = getJobInfo(app.name, 'install');
           const isInstalling = isJobRunning(app.name, 'install');
           const installFailed = installJob && installJob.status === 'failed';

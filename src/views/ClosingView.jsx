@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../utils/windowUtils';
 import useAppStore from '../store/useAppStore';
 
 // 💤 Random messages for closing
@@ -22,7 +22,7 @@ const CLOSING_MESSAGES = [
  * Displays a random message from a list
  */
 export default function ClosingView() {
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   const { darkMode } = useAppStore();
   
   // Choose a random message (memoized to not change during display)

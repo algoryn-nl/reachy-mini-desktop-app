@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../utils/windowUtils';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { moveWindow, Position } from '@tauri-apps/plugin-positioner';
 
@@ -15,7 +15,7 @@ async function resizeWindowInstantly(targetWidth, targetHeight) {
   }
 
   try {
-    const appWindow = getCurrentWindow();
+    const appWindow = getAppWindow();
     
     // Obtenir la taille actuelle
     const currentSize = await appWindow.innerSize();
@@ -66,7 +66,7 @@ export function useWindowResize(view) {
       
       // Set size immediately
       if (window.__TAURI__) {
-        const appWindow = getCurrentWindow();
+        const appWindow = getAppWindow();
         appWindow.setSize(new LogicalSize(targetSize.width, targetSize.height))
           .catch(err => console.error('❌ Failed to set initial size:', err));
       }

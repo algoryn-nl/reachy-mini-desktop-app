@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Typography, Button, CircularProgress, LinearProgress } from '@mui/material';
 import SystemUpdateIcon from '@mui/icons-material/SystemUpdate';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getAppWindow } from '../utils/windowUtils';
 import reachyBusteSvg from '../assets/reachy-buste.svg';
 import reachyUpdateBoxSvg from '../assets/reachy-update-box.svg';
 import useAppStore from '../store/useAppStore';
@@ -46,7 +46,7 @@ export default function ReadyToStartView({
   onDismissUpdate,
   onCheckUpdates,
 }) {
-  const appWindow = window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
+  const appWindow = getAppWindow();
   const { darkMode } = useAppStore();
   const [isButtonLoading, setIsButtonLoading] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, Chip, Collapse, Switch, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, Chip, Collapse, CircularProgress } from '@mui/material';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
@@ -14,8 +14,6 @@ export default function InstalledAppsSection({
   darkMode,
   expandedApp,
   setExpandedApp,
-  appSettings,
-  updateAppSetting,
   startingApp,
   currentApp,
   isBusy,
@@ -112,10 +110,10 @@ export default function InstalledAppsSection({
 
       {/* Installed Apps List */}
       {installedApps.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2.5 }}>
+        <>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
           {installedApps.map(app => {
             const isExpanded = expandedApp === app.name;
-            const settings = appSettings[app.name] || {};
             const isRemoving = isJobRunning(app.name, 'remove');
             
             // Handle all current app states (with protections)
@@ -356,53 +354,6 @@ export default function InstalledAppsSection({
                         borderTop: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
                       }}
                     >
-                      {/* Auto-start toggle */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          p: 1.5,
-                          borderRadius: '10px',
-                          bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
-                          border: darkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
-                        }}
-                      >
-                        <Box>
-                          <Typography
-                            sx={{
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: darkMode ? '#f5f5f5' : '#333',
-                              mb: 0.25,
-                            }}
-                          >
-                            Auto-start on boot
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontSize: 10,
-                              color: darkMode ? '#888' : '#999',
-                            }}
-                          >
-                            Launch automatically when robot starts
-                          </Typography>
-                        </Box>
-                        <Switch
-                          checked={settings.autoStart || false}
-                          onChange={(e) => updateAppSetting(app.name, 'autoStart', e.target.checked)}
-                          disabled={isCurrentlyRunning}
-                          sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#FF9500',
-                            },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#FF9500',
-                            },
-                          }}
-                        />
-                      </Box>
-
                       {/* Uninstall button */}
                       <Button
                         fullWidth
@@ -441,6 +392,54 @@ export default function InstalledAppsSection({
             );
           })}
         </Box>
+
+          {/* Compact version: Discover apps / Build your own */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1.5,
+              px: 2,
+              py: 1.5,
+              borderRadius: '12px',
+              bgcolor: 'transparent',
+              border: darkMode 
+                ? '1px dashed rgba(255, 255, 255, 0.2)' 
+                : '1px dashed rgba(0, 0, 0, 0.2)',
+              mb: 2.5,
+            }}
+          >
+            {/* Discover apps button */}
+            <DiscoverAppsButton onClick={onOpenDiscover} darkMode={darkMode} />
+            
+            {/* Build your own link */}
+            <Typography
+              component="button"
+              onClick={onOpenCreateTutorial}
+              sx={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: darkMode ? '#666' : '#999',
+                textDecoration: 'underline',
+                textDecorationColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                textUnderlineOffset: '2px',
+                cursor: 'pointer',
+                bgcolor: 'transparent',
+                border: 'none',
+                p: 0,
+                transition: 'color 0.2s ease, textDecorationColor 0.2s ease',
+                '&:hover': {
+                  color: darkMode ? '#888' : '#777',
+                  textDecorationColor: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                },
+              }}
+            >
+              or build your own
+            </Typography>
+          </Box>
+        </>
       )}
 
     </Box>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo, cloneElement } from 'react';
+import React, { useState, useCallback, useRef, useMemo, cloneElement, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Box, IconButton } from '@mui/material';
 
@@ -21,8 +21,14 @@ export default function ViewportSwapper({
   initialSwapped = false, // Initial swap state
 }) {
   const [isSwapped, setIsSwapped] = useState(initialSwapped);
+  const [isMounted, setIsMounted] = useState(false);
   const mainViewportRef = useRef(null);
   const smallViewportRef = useRef(null);
+  
+  // ✅ Force re-render after mount to ensure refs are available for portals
+  useLayoutEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   // Camera aspect ratio (640x480 = 4:3)
   const cameraAspectRatio = 640 / 480; // 1.333...
@@ -142,7 +148,8 @@ export default function ViewportSwapper({
       
       {/* Portals: teleport views to containers */}
       {/* ✅ OPTIMIZED: Both views are rendered but small 3D view uses frameloop="demand" */}
-      {mainViewportRef.current && createPortal(
+      {/* ✅ FIX: Only render portals after mount to ensure refs are available */}
+      {isMounted && mainViewportRef.current && createPortal(
         <Box 
           sx={{ 
             width: '100%', 
@@ -155,7 +162,7 @@ export default function ViewportSwapper({
         mainViewportRef.current
       )}
       
-      {smallViewportRef.current && createPortal(
+      {isMounted && smallViewportRef.current && createPortal(
         <Box 
           sx={{ 
             width: '100%', 

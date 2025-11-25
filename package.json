@@ -12,6 +12,8 @@
     "tauri:build": "tauri build",
     "build:sidecar-macos": "bash ./build_sidecar_unix.sh",
     "build:sidecar-linux": "bash ./build_sidecar_unix.sh",
+    "build:sidecar-macos:develop": "REACHY_MINI_SOURCE=develop bash ./build_sidecar_unix.sh",
+    "build:sidecar-linux:develop": "REACHY_MINI_SOURCE=develop bash ./build_sidecar_unix.sh",
     "build:update:dev": "bash ./scripts/build-update.sh dev",
     "build:update:prod": "bash ./scripts/build-update.sh prod",
     "serve:updates": "bash ./scripts/serve-updates.sh",
