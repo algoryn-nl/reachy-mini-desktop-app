@@ -186,20 +186,57 @@ if [[ "$PLATFORM" == darwin-* ]]; then
     cd "$PROJECT_DIR"
 elif [[ "$PLATFORM" == windows-* ]]; then
     # Find MSI file - try multiple methods for cross-platform compatibility
+    # On Windows, paths might be absolute (D:\...) or relative
     MSI_DIR="$BUNDLE_DIR/msi"
-    if [ ! -d "$MSI_DIR" ]; then
-        echo -e "${RED}❌ MSI directory not found: ${MSI_DIR}${NC}"
-        echo -e "${YELLOW}   Looking for MSI files in: ${BUNDLE_DIR}${NC}"
-        ls -la "$BUNDLE_DIR" || true
-        exit 1
+    
+    # Debug: show current directory and what we're looking for
+    echo -e "${BLUE}🔍 Debug: Current directory: $(pwd)${NC}"
+    echo -e "${BLUE}🔍 Debug: Looking for MSI in: ${MSI_DIR}${NC}"
+    echo -e "${BLUE}🔍 Debug: Absolute path: $(cd "$PROJECT_DIR" && cd "$MSI_DIR" 2>/dev/null && pwd || echo "not found")${NC}"
+    
+    # Try to find MSI with multiple path strategies
+    BUNDLE_FILE=""
+    
+    # Strategy 1: Relative path from PROJECT_DIR
+    if [ -d "$PROJECT_DIR/$MSI_DIR" ]; then
+        MSI_DIR="$PROJECT_DIR/$MSI_DIR"
     fi
     
-    # Try find first (works on Unix-like systems)
+    # Strategy 2: Check if MSI_DIR exists (might already be absolute on Windows)
+    if [ ! -d "$MSI_DIR" ]; then
+        # Try with PROJECT_DIR prefix
+        if [ -d "$PROJECT_DIR/$MSI_DIR" ]; then
+            MSI_DIR="$PROJECT_DIR/$MSI_DIR"
+        else
+            echo -e "${RED}❌ MSI directory not found: ${MSI_DIR}${NC}"
+            echo -e "${YELLOW}   Tried: ${MSI_DIR}${NC}"
+            echo -e "${YELLOW}   Tried: ${PROJECT_DIR}/${MSI_DIR}${NC}"
+            echo -e "${YELLOW}   Looking for MSI files in bundle directory: ${BUNDLE_DIR}${NC}"
+            if [ -d "$PROJECT_DIR/$BUNDLE_DIR" ]; then
+                ls -la "$PROJECT_DIR/$BUNDLE_DIR" || true
+            elif [ -d "$BUNDLE_DIR" ]; then
+                ls -la "$BUNDLE_DIR" || true
+            fi
+            exit 1
+        fi
+    fi
+    
+    # Try find first (works on Unix-like systems and Git Bash on Windows)
     BUNDLE_FILE=$(find "$MSI_DIR" -name "*.msi" 2>/dev/null | head -1)
     
     # If find failed, try ls (works on Windows with Git Bash)
-    if [ -z "$BUNDLE_FILE" ]; then
+    if [ -z "$BUNDLE_FILE" ] || [ ! -f "$BUNDLE_FILE" ]; then
         BUNDLE_FILE=$(ls "$MSI_DIR"/*.msi 2>/dev/null | head -1)
+    fi
+    
+    # If still not found, try with wildcard expansion
+    if [ -z "$BUNDLE_FILE" ] || [ ! -f "$BUNDLE_FILE" ]; then
+        for msi in "$MSI_DIR"/*.msi; do
+            if [ -f "$msi" ]; then
+                BUNDLE_FILE="$msi"
+                break
+            fi
+        done
     fi
     
     if [ -z "$BUNDLE_FILE" ] || [ ! -f "$BUNDLE_FILE" ]; then
