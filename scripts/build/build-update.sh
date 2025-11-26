@@ -86,40 +86,66 @@ fi
 
 echo -e "${BLUE}📦 Platform: ${PLATFORM}${NC}"
 
-# 1. Build the application
+# Determine bundle directory first (before building)
+# Adjust BUNDLE_DIR if target was specified
+if [ -n "$TARGET_TRIPLET" ]; then
+    if [ "$ENV" = "dev" ]; then
+        BUNDLE_DIR="src-tauri/target/$TARGET_TRIPLET/debug/bundle"
+    else
+        BUNDLE_DIR="src-tauri/target/$TARGET_TRIPLET/release/bundle"
+    fi
+else
+    if [ "$ENV" = "dev" ]; then
+        BUNDLE_DIR="src-tauri/target/debug/bundle"
+    else
+        BUNDLE_DIR="src-tauri/target/release/bundle"
+    fi
+fi
+
+# 1. Build the application (only if bundle doesn't exist)
 echo ""
 echo -e "${BLUE}🔨 Step 1: Building application...${NC}"
 
-# Use TARGET_TRIPLET from environment if provided (for cross-compilation)
-TARGET_ARG=""
-if [ -n "$TARGET_TRIPLET" ]; then
-    TARGET_ARG="--target $TARGET_TRIPLET"
-    echo -e "${BLUE}   Target: ${TARGET_TRIPLET}${NC}"
+# Check if bundle already exists (e.g., built by CI/CD)
+BUNDLE_EXISTS=false
+if [[ "$PLATFORM" == darwin-* ]]; then
+    if [ -d "$BUNDLE_DIR/macos/Reachy Mini Control.app" ]; then
+        BUNDLE_EXISTS=true
+    fi
+elif [[ "$PLATFORM" == windows-* ]]; then
+    if [ -d "$BUNDLE_DIR/msi" ] && [ -n "$(find "$BUNDLE_DIR/msi" -name "*.msi" 2>/dev/null | head -1)" ]; then
+        BUNDLE_EXISTS=true
+    fi
+elif [[ "$PLATFORM" == linux-* ]]; then
+    if [ -d "$BUNDLE_DIR/appimage" ] && [ -n "$(find "$BUNDLE_DIR/appimage" -name "*.AppImage" 2>/dev/null | head -1)" ]; then
+        BUNDLE_EXISTS=true
+    fi
 fi
 
-if [ "$ENV" = "dev" ]; then
-    echo -e "${YELLOW}   Building in debug mode...${NC}"
-    if [ -n "$TARGET_ARG" ]; then
-        yarn tauri build --debug $TARGET_ARG
-    else
-        yarn tauri build --debug
-    fi
-    BUNDLE_DIR="src-tauri/target/debug/bundle"
+if [ "$BUNDLE_EXISTS" = true ]; then
+    echo -e "${GREEN}✅ Bundle already exists, skipping build${NC}"
 else
-    echo -e "${YELLOW}   Building in release mode...${NC}"
-    if [ -n "$TARGET_ARG" ]; then
-        yarn tauri build $TARGET_ARG
-    else
-        yarn tauri build
+    # Use TARGET_TRIPLET from environment if provided (for cross-compilation)
+    TARGET_ARG=""
+    if [ -n "$TARGET_TRIPLET" ]; then
+        TARGET_ARG="--target $TARGET_TRIPLET"
+        echo -e "${BLUE}   Target: ${TARGET_TRIPLET}${NC}"
     fi
-    BUNDLE_DIR="src-tauri/target/release/bundle"
-fi
 
-# Adjust BUNDLE_DIR if target was specified
-if [ -n "$TARGET_TRIPLET" ]; then
-    BUNDLE_DIR="src-tauri/target/$TARGET_TRIPLET/release/bundle"
     if [ "$ENV" = "dev" ]; then
-        BUNDLE_DIR="src-tauri/target/$TARGET_TRIPLET/debug/bundle"
+        echo -e "${YELLOW}   Building in debug mode...${NC}"
+        if [ -n "$TARGET_ARG" ]; then
+            yarn tauri build --debug $TARGET_ARG
+        else
+            yarn tauri build --debug
+        fi
+    else
+        echo -e "${YELLOW}   Building in release mode...${NC}"
+        if [ -n "$TARGET_ARG" ]; then
+            yarn tauri build $TARGET_ARG
+        else
+            yarn tauri build
+        fi
     fi
 fi
 
@@ -187,11 +213,31 @@ elif [[ "$PLATFORM" == windows-* ]]; then
     cp "$BUNDLE_FILE" "$OUTPUT_DIR/"
     BUNDLE_FILE="$OUTPUT_DIR/$(basename "$BUNDLE_FILE")"
 elif [[ "$PLATFORM" == linux-* ]]; then
-    BUNDLE_FILE=$(find "$BUNDLE_DIR/appimage" -name "*.AppImage" | head -1)
-    if [ -z "$BUNDLE_FILE" ]; then
-        echo -e "${RED}❌ AppImage bundle not found${NC}"
+    # Find AppImage file - try multiple methods for robustness
+    APPIMAGE_DIR="$BUNDLE_DIR/appimage"
+    if [ ! -d "$APPIMAGE_DIR" ]; then
+        echo -e "${RED}❌ AppImage directory not found: ${APPIMAGE_DIR}${NC}"
+        echo -e "${YELLOW}   Looking for AppImage files in: ${BUNDLE_DIR}${NC}"
+        ls -la "$BUNDLE_DIR" || true
         exit 1
     fi
+    
+    # Try find first (works on Unix-like systems)
+    BUNDLE_FILE=$(find "$APPIMAGE_DIR" -name "*.AppImage" 2>/dev/null | head -1)
+    
+    # If find failed, try ls as fallback
+    if [ -z "$BUNDLE_FILE" ]; then
+        BUNDLE_FILE=$(ls "$APPIMAGE_DIR"/*.AppImage 2>/dev/null | head -1)
+    fi
+    
+    if [ -z "$BUNDLE_FILE" ] || [ ! -f "$BUNDLE_FILE" ]; then
+        echo -e "${RED}❌ AppImage bundle not found in: ${APPIMAGE_DIR}${NC}"
+        echo -e "${YELLOW}   Contents of AppImage directory:${NC}"
+        ls -la "$APPIMAGE_DIR" || true
+        exit 1
+    fi
+    
+    echo -e "${BLUE}📦 Found AppImage: ${BUNDLE_FILE}${NC}"
     cp "$BUNDLE_FILE" "$OUTPUT_DIR/"
     BUNDLE_FILE="$OUTPUT_DIR/$(basename "$BUNDLE_FILE")"
 fi
