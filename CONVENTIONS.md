@@ -6,6 +6,54 @@ This document defines code, organization, and structure conventions for the Reac
 
 ---
 
+## 🌍 Language Convention
+
+### English Only
+
+**✅ All code, comments, documentation, and messages MUST be in English:**
+
+- **Code**: Variable names, function names, class names
+- **Comments**: Inline comments, JSDoc comments, block comments
+- **Documentation**: README files, code documentation, API docs
+- **Messages**: Console logs, error messages, user-facing strings
+- **Git commits**: Commit messages and descriptions
+- **File names**: Use English names (e.g., `useRobotState.js`, not `useEtatRobot.js`)
+
+**❌ Do NOT use:**
+- French, Spanish, or any other language in code
+- Mixed languages (e.g., English code with French comments)
+- Non-English variable names or function names
+
+**Examples:**
+
+```javascript
+// ✅ GOOD
+/**
+ * Fetches the robot's current power state
+ * @returns {object} Power state with isOn and isMoving flags
+ */
+export function useRobotPowerState() {
+  const [isOn, setIsOn] = useState(false);
+  // Check if motors are active
+  return { isOn, isMoving };
+}
+
+// ❌ BAD
+/**
+ * Récupère l'état d'alimentation du robot
+ * @returns {object} État avec isOn et isMoving
+ */
+export function useEtatRobot() {
+  const [estAllume, setEstAllume] = useState(false);
+  // Vérifie si les moteurs sont actifs
+  return { estAllume, enMouvement };
+}
+```
+
+**Exception**: User-facing UI text can be localized, but the code itself (variable names, comments) must remain in English.
+
+---
+
 ## 📁 Folder Structure
 
 ### Main Organization
@@ -320,6 +368,7 @@ useEffect(() => {
 - ✅ Document complex functions with JSDoc
 - ✅ Explain the "why" not the "what"
 - ✅ Use emojis for important sections (✅, ⚠️, 🚀, etc.)
+- ✅ **All comments MUST be in English**
 
 **Example:**
 ```javascript
@@ -331,6 +380,10 @@ useEffect(() => {
  * @returns {object} Robot power state { isOn, isMoving }
  */
 export function useRobotPowerState(isActive) {
+  // Check if daemon is running before polling
+  if (!isActive) return { isOn: false, isMoving: false };
+  
+  // Poll every 500ms for real-time updates
   // ...
 }
 ```
@@ -345,7 +398,8 @@ export function useRobotPowerState(isActive) {
 - [ ] Appropriate error handling
 - [ ] No magic values (use constants)
 - [ ] DRY code (no duplication)
-- [ ] Comments for complex parts
+- [ ] Comments for complex parts (in English)
+- [ ] All code, comments, and variable names in English
 - [ ] No linter errors
 
 ---
@@ -355,6 +409,7 @@ export function useRobotPowerState(isActive) {
 - **2024**: Hooks organized into subfolders by category
 - **2024**: Renamed `useRobotState` → `useRobotPowerState` for clarity
 - **2024**: Centralized hooks and utils (moved from `viewer3d/`)
+- **2024**: **English-only convention** - All code, comments, and documentation must be in English
 
 ---
 

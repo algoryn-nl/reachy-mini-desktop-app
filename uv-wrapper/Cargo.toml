@@ -14,3 +14,6 @@ path = "src/bin/uv-trampoline.rs"
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+signal-hook = "0.3"
+

@@ -1,12 +1,17 @@
 use std::{env, process::Command};
 
+/// Gets the folder containing the current executable
+/// 
+/// Returns the parent directory of the executable, or the current directory
+/// if the executable cannot be located (robust fallback)
 pub fn get_current_folder() -> std::path::PathBuf {
     env::current_exe()
         .ok()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| {
+            // Fallback: use current directory if we can't find the executable
+            env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+        })
 }
 
 pub fn lookup_bin_folder(possible_folders: &[&str], bin: &str) -> Option<std::path::PathBuf> {
@@ -39,29 +44,42 @@ pub fn run_command(cmd: &str) -> Result<std::process::ExitStatus, std::io::Error
     Command::new("sh").arg("-c").arg(cmd).status()
 }
 
-pub fn find_cpython_folder(uv_folder: &std::path::Path) -> String {
-    let entries =
-        std::fs::read_dir(uv_folder).expect("Failed to read uv folder for cpython lookup");
+pub fn find_cpython_folder(uv_folder: &std::path::Path) -> Result<String, String> {
+    let entries = std::fs::read_dir(uv_folder)
+        .map_err(|e| format!("Unable to read uv folder for cpython lookup: {}", e))?;
 
     for entry in entries {
-        let entry = entry.expect("Failed to read entry in uv folder for cpython lookup");
+        let entry = entry
+            .map_err(|e| format!("Unable to read entry in uv folder: {}", e))?;
         let file_name = entry.file_name();
         let file_name_str = file_name.to_string_lossy();
 
         if file_name_str.starts_with("cpython-") && entry.path().is_dir() {
-            return file_name_str.to_string();
+            return Ok(file_name_str.to_string());
         }
     }
 
-    panic!("Failed to find cpython folder in uv folder");
+    Err(format!(
+        "Unable to find cpython folder in {:?}",
+        uv_folder
+    ))
 }
 
-pub fn patching_pyvenv_cfg(uv_folder: &std::path::Path, cpython_folder: &str) {
+pub fn patching_pyvenv_cfg(uv_folder: &std::path::Path, cpython_folder: &str) -> Result<(), String> {
     let pyvenv_cfg_path = uv_folder.join(".venv").join("pyvenv.cfg");
-    println!("Patching pyvenv.cfg at {:?}", pyvenv_cfg_path);
+    
+    // Check if file exists before trying to patch it
+    if !pyvenv_cfg_path.exists() {
+        return Err(format!(
+            "pyvenv.cfg file does not exist at {:?}",
+            pyvenv_cfg_path
+        ));
+    }
+    
+    println!("🔧 Patching pyvenv.cfg at {:?}", pyvenv_cfg_path);
 
-    let content =
-        std::fs::read_to_string(&pyvenv_cfg_path).expect("Failed to read pyvenv.cfg for patching");
+    let content = std::fs::read_to_string(&pyvenv_cfg_path)
+        .map_err(|e| format!("Unable to read pyvenv.cfg for patching: {}", e))?;
 
     #[cfg(target_os = "windows")]
     let home = uv_folder.join(cpython_folder);
@@ -80,6 +98,9 @@ pub fn patching_pyvenv_cfg(uv_folder: &std::path::Path, cpython_folder: &str) {
         .collect::<Vec<String>>()
         .join("\n");
 
-    std::fs::write(&pyvenv_cfg_path, new_content).expect("Failed to write patched pyenv.cfg");
+    std::fs::write(&pyvenv_cfg_path, new_content)
+        .map_err(|e| format!("Unable to write patched pyvenv.cfg: {}", e))?;
+    
+    Ok(())
 }
 

@@ -14,7 +14,15 @@ fi
 mkdir -p "$DST_DIR"
 
 # Get Rust target triplet
-TRIPLET=$(rustc -Vv | grep "host:" | awk '{print $2}')
+# Use TARGET_TRIPLET from environment if provided (for cross-compilation in CI)
+# Otherwise, detect from rustc
+if [ -n "$TARGET_TRIPLET" ]; then
+    TRIPLET="$TARGET_TRIPLET"
+    echo "🔍 Using TARGET_TRIPLET from environment: $TRIPLET"
+else
+    TRIPLET=$(rustc -Vv | grep "host:" | awk '{print $2}')
+    echo "🔍 Detected target triplet: $TRIPLET"
+fi
 
 cd uv-wrapper
 
@@ -34,10 +42,14 @@ echo "📦 Installing sidecar with REACHY_MINI_SOURCE=$REACHY_MINI_SOURCE..."
 
 # Build uv-trampoline
 echo "🔨 Building uv-trampoline..."
-cargo build --release --bin uv-trampoline
-
-# Copy uv-trampoline with target triplet suffix
-cp "target/release/uv-trampoline" "../$DST_DIR/uv-trampoline-$TRIPLET"
+# Use TARGET_TRIPLET for cross-compilation if provided
+if [ -n "$TARGET_TRIPLET" ]; then
+    cargo build --release --bin uv-trampoline --target "$TARGET_TRIPLET"
+    cp "target/$TARGET_TRIPLET/release/uv-trampoline" "../$DST_DIR/uv-trampoline-$TRIPLET"
+else
+    cargo build --release --bin uv-trampoline
+    cp "target/release/uv-trampoline" "../$DST_DIR/uv-trampoline-$TRIPLET"
+fi
 
 # Make it executable
 chmod +x "../$DST_DIR/uv-trampoline-$TRIPLET"

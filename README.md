@@ -1,6 +1,6 @@
 # Reachy Mini Control
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.2.6-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg)
 ![Tauri](https://img.shields.io/badge/tauri-2.0-FFC131?logo=tauri&logoColor=white)
@@ -52,17 +52,20 @@ yarn tauri:dev
 
 ### Building
 
-```bash
-# Build for production (uses PyPI release by default)
-yarn tauri:build
+**Important**: You must build the sidecar before building the application.
 
-# Build with develop branch from GitHub
-REACHY_MINI_SOURCE=develop yarn build:sidecar-macos
-# or for Linux
-REACHY_MINI_SOURCE=develop yarn build:sidecar-linux
+```bash
+# 1. Build the sidecar (required first step)
+yarn build:sidecar-macos    # macOS
+yarn build:sidecar-linux    # Linux
+
+# 2. Build the application
+yarn tauri:build            # Build for production (uses PyPI release by default)
 
 # Build for specific platform
 yarn tauri build --target aarch64-apple-darwin
+yarn tauri build --target x86_64-apple-darwin
+yarn tauri build --target x86_64-pc-windows-msvc
 ```
 
 #### Installing the daemon from different sources
@@ -80,6 +83,9 @@ REACHY_MINI_SOURCE=develop bash ./scripts/build/build-sidecar-unix.sh
 ## 📖 Documentation
 
 - [Project Conventions](./CONVENTIONS.md) - Coding standards, naming conventions, and project structure
+- [Build Process](./RAPPORT_BUILD.md) - Detailed documentation of the build process, sidecar, signing, and CI/CD
+- [Release Files](./RELEASE_FILES.md) - Documentation of all release-related files and their roles
+- [Scripts Directory](./scripts/README.md) - Organization and usage of build scripts
 - [Update Pipelines](./docs/UPDATE_PIPELINES.md) - Dev and production update workflows
 - [Testing Guide](./docs/TESTING_GUIDE.md) - How to test the application
 - [Architecture](./docs/STATE_MACHINE.md) - Application state machine and architecture
@@ -99,13 +105,42 @@ Apps are managed through the FastAPI daemon API, which handles installation and 
 
 ### Available Scripts
 
+**Development:**
 ```bash
-yarn dev              # Start Vite dev server
-yarn tauri:dev        # Run Tauri app in dev mode
-yarn tauri:dev:sim    # Run Tauri app in simulation mode (skip USB detection)
-yarn tauri:build      # Build production bundle
-yarn build:update:dev # Build update for local testing
-yarn serve:updates    # Serve updates locally for testing
+yarn dev                    # Start Vite dev server
+yarn tauri:dev              # Run Tauri app in dev mode
+yarn tauri:dev:sim          # Run Tauri app in simulation mode (skip USB detection)
+```
+
+**Building:**
+```bash
+yarn build:sidecar-macos    # Build sidecar for macOS (PyPI)
+yarn build:sidecar-linux    # Build sidecar for Linux (PyPI)
+yarn build:sidecar-macos:develop    # Build sidecar with GitHub develop branch
+yarn build:sidecar-linux:develop    # Build sidecar with GitHub develop branch
+yarn tauri:build            # Build production bundle (requires sidecar built first)
+```
+
+**Updates:**
+```bash
+yarn build:update:dev       # Build update files for local testing
+yarn build:update:prod      # Build update files for production
+yarn serve:updates          # Serve updates locally for testing
+```
+
+**Testing:**
+```bash
+yarn test:sidecar          # Test the sidecar build
+yarn test:app              # Test the complete application
+yarn test:updater          # Test the update system
+yarn test:update-prod      # Test production updates
+yarn test:all              # Run all tests
+```
+
+**Daemon Management:**
+```bash
+yarn check-daemon          # Check daemon status and health
+yarn kill-daemon           # Stop all running daemon processes
 ```
 
 ### 🎭 Simulation Mode
@@ -136,10 +171,10 @@ localStorage.setItem('simMode', 'true')
 
 **Disable simulation mode:**
 ```bash
-# Supprimer la variable d'environnement
+# Remove the environment variable
 yarn tauri:dev
 
-# Ou via localStorage
+# Or via localStorage
 localStorage.removeItem('simMode')
 ```
 
@@ -175,10 +210,17 @@ tauri-app/
 │   ├── src/                          # Rust source code
 │   ├── tauri.conf.json               # Tauri configuration
 │   └── capabilities/                 # Tauri security capabilities
-├── scripts/                          # Build and utility scripts
+├── scripts/                          # Build and utility scripts (organized by category)
+│   ├── build/                        # Build scripts (sidecar, updates)
+│   ├── signing/                      # Code signing scripts (macOS)
+│   ├── test/                         # Test scripts
+│   ├── daemon/                       # Daemon management scripts
+│   └── utils/                        # Utility scripts
 ├── uv-wrapper/                       # UV wrapper for Python package management
 ├── CONVENTIONS.md                    # Project conventions and coding standards
-└── docs/                             # Documentation
+├── RAPPORT_BUILD.md                  # Detailed build process documentation
+├── RELEASE_FILES.md                  # Release files and their roles
+└── docs/                             # Additional documentation
 ```
 
 **Key Architecture Points:**

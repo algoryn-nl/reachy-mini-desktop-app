@@ -47,3 +47,27 @@ keys/
 test-updates/
 mock-updates/
 releases/
+
+# Rust build artifacts
+# Cargo build directories
+target/
+**/target/
+
+# Rust incremental compilation
+**/*.rs.bin
+**/*.rmeta
+**/*.rlib
+**/*.d
+
+# Rust debug symbols
+**/*.pdb
+**/*.dSYM/
+
+# Cargo registry cache
+.cargo/registry/
+.cargo/git/
+
+# Generated sidecar binaries and Python environment
+# These are built by build-sidecar scripts
+src-tauri/binaries/
+**/binaries/
