@@ -12,10 +12,12 @@ use signal_hook::{consts::TERM_SIGNALS, flag::register};
 /// The uv installation script can install the executable:
 /// - Directly in the current directory (UV_INSTALL_DIR=.)
 /// - In a bin/ subdirectory (default behavior of some installers)
+/// - In a binaries/ subdirectory (alternative naming, especially in Tauri context)
 fn get_possible_bin_folders() -> Vec<&'static str> {
     let mut folders = vec![
-        ".",      // Same directory as uv-trampoline (direct installation)
-        "./bin", // bin/ subdirectory (if installer creates a subdirectory)
+        ".",           // Same directory as uv-trampoline (direct installation)
+        "./bin",       // bin/ subdirectory (if installer creates a subdirectory)
+        "./binaries",  // binaries/ subdirectory (alternative naming, Tauri context)
     ];
     
     // On macOS, apps are in a bundle with structure App.app/Contents/Resources
@@ -23,6 +25,10 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
     {
         folders.push("../Resources");
         folders.push("../Resources/bin");
+        folders.push("../Resources/binaries");
+        folders.push("../../Resources");
+        folders.push("../../Resources/bin");
+        folders.push("../../Resources/binaries");
     }
     
     // On Windows, binaries can be in the same directory or in a subdirectory
@@ -30,6 +36,10 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
     {
         folders.push("..");
         folders.push("../bin");
+        folders.push("../binaries");
+        folders.push("../..");
+        folders.push("../../bin");
+        folders.push("../../binaries");
     }
     
     // On Linux, structure similar to Windows
@@ -37,6 +47,10 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
     {
         folders.push("..");
         folders.push("../bin");
+        folders.push("../binaries");
+        folders.push("../..");
+        folders.push("../../bin");
+        folders.push("../../binaries");
     }
     
     folders
@@ -128,7 +142,7 @@ fn main() -> ExitCode {
         }
         
         // Wait loop with signal checking
-        loop {
+    loop {
             // Check if a termination signal was received
             if term_now.load(Ordering::Relaxed) {
                 eprintln!("🛑 Termination signal received, stopping child process...");
@@ -136,7 +150,7 @@ fn main() -> ExitCode {
                 break;
             }
             
-            match child.try_wait() {
+        match child.try_wait() {
                 Ok(Some(status)) => {
                     let exit_code = status.code().unwrap_or(1);
                     if exit_code != 0 {
