@@ -96,25 +96,32 @@ function URDFRobot({
         child.material = createXrayMaterial(xrayColor, { opacity });
       } else {
         // Normal mode: simple opaque material with smooth shading
+        // Normal mode: flat shading classique
+        // Pour un vrai flat shading, on doit calculer les normales par face (pas par vertex)
+        // Supprimer les normales existantes et laisser Three.js les calculer par face
+        if (child.geometry.attributes.normal) {
+          child.geometry.deleteAttribute('normal');
+        }
+        // Three.js calculera automatiquement les normales par face avec flatShading: true
+        
         if (isBigLens) {
           child.material = new THREE.MeshStandardMaterial({
             color: 0x000000,
             transparent: true,
             opacity: 0.75,
-            flatShading: false, // ✅ Smooth shading
+            flatShading: true, // ✅ Flat shading classique - normales par face
           });
         } else if (isAntenna) {
           child.material = new THREE.MeshStandardMaterial({
             color: 0x1a1a1a,
-            flatShading: false, // ✅ Smooth shading
+            flatShading: true, // ✅ Flat shading classique - normales par face
           });
         } else {
           child.material = new THREE.MeshStandardMaterial({
             color: originalColor,
-            flatShading: false, // ✅ Smooth shading
-            // ✅ Reduce roughness for smoother gradients (less banding)
-            roughness: 0.7, // Slightly glossy to reduce harsh transitions
-            metalness: 0.0, // Non-metallic
+            flatShading: true, // ✅ Flat shading classique - normales par face
+            roughness: 0.7,
+            metalness: 0.0,
           });
         }
       }
@@ -442,7 +449,7 @@ function URDFRobot({
   // Only render robot when EVERYTHING is ready (loaded + materials applied)
   return robot && isReady ? (
     <group position={[0, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
-      <primitive ref={groupRef} object={robot} scale={1} rotation={[-Math.PI / 2, 0, 0]} />
+      <primitive ref={groupRef} object={robot} scale={[-1, 1, 1]} rotation={[-Math.PI / 2, 0, Math.PI]} />
     </group>
   ) : null;
 }

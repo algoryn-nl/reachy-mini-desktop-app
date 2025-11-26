@@ -151,10 +151,9 @@ export default function Joystick2D({ label, valueX, valueY, onChange, onDragEnd,
         sx={{
           width: size,
           height: size,
-          borderRadius: '10px',
-          bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.02)',
-          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
           overflow: 'hidden',
+          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          borderRadius: '10px',
           cursor: disabled ? 'not-allowed' : (isDragging ? 'grabbing' : 'grab'),
           opacity: disabled ? 0.5 : 1,
           position: 'relative',
@@ -162,7 +161,6 @@ export default function Joystick2D({ label, valueX, valueY, onChange, onDragEnd,
           transition: 'all 0.2s ease',
           '&:hover': {
             borderColor: 'rgba(255, 149, 0, 0.5)',
-            boxShadow: darkMode ? '0 0 16px rgba(255, 149, 0, 0.3)' : '0 0 12px rgba(255, 149, 0, 0.2)',
           }
         }}
         onMouseDown={handleMouseDown}
@@ -177,14 +175,6 @@ export default function Joystick2D({ label, valueX, valueY, onChange, onDragEnd,
               <path d="M 10 0 L 0 0 0 10" fill="none" stroke={darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'} strokeWidth="0.5"/>
             </pattern>
           </defs>
-          
-          {/* Grid pattern overlay */}
-          <rect 
-            width={size} 
-            height={size} 
-            fill={`url(#grid-${label})`}
-            rx="10"
-          />
           
           {/* Center crosshair - primary color */}
           <g opacity={0.25}>

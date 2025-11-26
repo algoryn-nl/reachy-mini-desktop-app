@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import URDFLoader from 'urdf-loader';
 import urdfFile from '../assets/robot-3d/reachy-mini.urdf?raw';
 
@@ -360,108 +359,14 @@ class RobotModelCache {
             }
             
 
-            // ✅ Smooth shading like Blender auto smooth
-            // STL files have duplicate vertices at face boundaries → need to merge them
+            // ✅ Flat shading: STL files have separate vertices per face = perfect for flat shading
+            // No processing needed - just remove any existing normals
+            // Three.js will compute face normals automatically with flatShading: true
             if (child.geometry) {
-              // Remove existing normals (STL may have hard-edge normals)
+              // Remove any existing normals - they will be computed per-face by Three.js
               if (child.geometry.attributes.normal) {
                 child.geometry.deleteAttribute('normal');
               }
-              
-              // ✅ CRITICAL: STL files have SEPARATE vertices for each face → flat shading
-              // Blender "Smooth by Angle" modifier does: 1) Merge vertices 2) Calculate normals by angle
-              // We must do the same here
-              
-              const vertexCountBefore = child.geometry.attributes.position.count;
-              const wasIndexed = child.geometry.index !== null;
-              
-              // Convert to non-indexed FIRST (required for mergeVertices input)
-              if (wasIndexed) {
-                child.geometry = child.geometry.toNonIndexed();
-              }
-              
-              // ✅ CRITICAL: Blender "Smooth by Angle" works because vertices are SHARED between faces
-              // STL files have SEPARATE vertices for each face → must merge them FIRST
-              // mergeVertices creates indexed geometry with shared vertices → THEN computeVertexNormals can work
-              
-              let mergedGeometry;
-              const thresholds = [0.0001, 0.001, 0.01]; // Try progressively larger thresholds
-              let mergeSucceeded = false;
-              
-              for (const threshold of thresholds) {
-                try {
-                  mergedGeometry = mergeVertices(child.geometry, threshold);
-                  const vertexCountAfter = mergedGeometry.attributes.position.count;
-                  const isNowIndexed = mergedGeometry.index !== null;
-                  
-                  // ✅ Verify merge actually worked
-                  if (vertexCountAfter < vertexCountBefore && isNowIndexed) {
-                    // Silent success - merge is working (80-90% reduction confirmed in logs)
-                    child.geometry = mergedGeometry;
-                    mergeSucceeded = true;
-                    break;
-                  } else if (isNowIndexed && vertexCountAfter === vertexCountBefore) {
-                    // Vertices already merged or threshold too small - silent success
-                    child.geometry = mergedGeometry;
-                    mergeSucceeded = true;
-                    break;
-                  }
-                } catch (e) {
-                  // Try next threshold
-                  continue;
-                }
-              }
-              
-              if (!mergeSucceeded) {
-                console.error(`❌ ${child.name || 'mesh'}: Failed to merge vertices with all thresholds - smooth shading will NOT work correctly`);
-              }
-              
-              // ✅ Calculate smooth normals with angle (like Blender "Smooth by Angle" modifier at 40°)
-              // Blender algorithm: For each edge, calculate dihedral angle between face normals
-              // If angle < threshold → edge is smooth → vertices share normals
-              // If angle >= threshold → edge is sharp → vertices keep separate normals
-              // CRITICAL: Must be called AFTER mergeVertices so vertices are shared
-              const smoothAngle = (40 * Math.PI) / 180; // 40 degrees in radians (same as Blender)
-              
-              // ✅ CRITICAL: computeVertexNormals with angle (like Blender "Smooth by Angle")
-              // Requires indexed geometry (from mergeVertices) to work correctly
-              if (child.geometry.index === null) {
-                console.error(`❌ ${child.name || 'mesh'}: NOT indexed before computeVertexNormals - smooth by angle will fail!`);
-              }
-              
-              // Calculate smooth normals with angle threshold
-              child.geometry.computeVertexNormals(smoothAngle);
-              
-              // ✅ Verify normals exist
-              if (!child.geometry.attributes.normal) {
-                console.error(`❌ ${child.name || 'mesh'}: computeVertexNormals failed!`);
-                child.geometry.computeVertexNormals(); // Fallback without angle
-              }
-              
-              // ✅ Normalize normals to ensure they're unit vectors (fixes shading inconsistencies)
-              // ✅ Use higher precision calculations to reduce banding artefacts
-              const normals = child.geometry.attributes.normal;
-              if (normals) {
-                const normalArray = normals.array;
-                for (let i = 0; i < normals.count; i++) {
-                  const idx = i * 3;
-                  const x = normalArray[idx];
-                  const y = normalArray[idx + 1];
-                  const z = normalArray[idx + 2];
-                  const length = Math.sqrt(x * x + y * y + z * z);
-                  // ✅ Higher precision threshold and normalization
-                  if (length > 1e-6) {
-                    const invLength = 1.0 / length;
-                    normalArray[idx] = x * invLength;
-                    normalArray[idx + 1] = y * invLength;
-                    normalArray[idx + 2] = z * invLength;
-                  }
-                }
-                normals.needsUpdate = true;
-              }
-              
-              // ✅ Ensure geometry is clean after processing
-              child.geometry.attributes.position.needsUpdate = true;
             }
 
             // Save original color
