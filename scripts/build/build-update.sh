@@ -6,8 +6,13 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_DIR"
+
+# Debug: verify we're in the right directory
+echo -e "${BLUE}🔍 Script directory: ${SCRIPT_DIR}${NC}"
+echo -e "${BLUE}🔍 Project directory: ${PROJECT_DIR}${NC}"
+echo -e "${BLUE}🔍 Current directory: $(pwd)${NC}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -191,8 +196,17 @@ elif [[ "$PLATFORM" == windows-* ]]; then
     
     # Debug: show current directory and what we're looking for
     echo -e "${BLUE}🔍 Debug: Current directory: $(pwd)${NC}"
+    echo -e "${BLUE}🔍 Debug: PROJECT_DIR: ${PROJECT_DIR}${NC}"
+    echo -e "${BLUE}🔍 Debug: BUNDLE_DIR: ${BUNDLE_DIR}${NC}"
     echo -e "${BLUE}🔍 Debug: Looking for MSI in: ${MSI_DIR}${NC}"
-    echo -e "${BLUE}🔍 Debug: Absolute path: $(cd "$PROJECT_DIR" && cd "$MSI_DIR" 2>/dev/null && pwd || echo "not found")${NC}"
+    
+    # Try absolute path from PROJECT_DIR first
+    ABS_MSI_DIR="$PROJECT_DIR/$MSI_DIR"
+    echo -e "${BLUE}🔍 Debug: Absolute MSI path: ${ABS_MSI_DIR}${NC}"
+    if [ -d "$ABS_MSI_DIR" ]; then
+        echo -e "${BLUE}✅ Found MSI directory at: ${ABS_MSI_DIR}${NC}"
+        MSI_DIR="$ABS_MSI_DIR"
+    fi
     
     # Try to find MSI with multiple path strategies
     BUNDLE_FILE=""
