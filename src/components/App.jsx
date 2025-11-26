@@ -1,16 +1,13 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { Box } from '@mui/material';
+
 import { RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView, UpdateView } from '../views';
-import useAppStore from '../store/useAppStore';
 import AppTopBar from './AppTopBar';
-import { useDaemon } from '../hooks/useDaemon';
-import { useDaemonHealthCheck } from '../hooks/useDaemonHealthCheck';
-import { useUsbDetection } from '../hooks/useUsbDetection';
-import { useRobotCommands } from '../hooks/useRobotCommands';
-import { useLogs } from '../hooks/useLogs';
-import { useWindowResize } from '../hooks/useWindowResize';
-import { useUpdater } from '../hooks/useUpdater';
+import { useDaemon, useDaemonHealthCheck } from '../hooks/daemon';
+import { useUsbDetection, useLogs, useWindowResize, useUpdater } from '../hooks/system';
+import { useRobotCommands, useRobotState } from '../hooks/robot';
 import { DAEMON_CONFIG, setAppStoreInstance } from '../config/daemon';
+import useAppStore from '../store/useAppStore';
 
 function App() {
   // Initialize the store in daemon.js for centralized logging
@@ -35,7 +32,7 @@ function App() {
     dismissUpdate,
   } = useUpdater({
     autoCheck: true,
-    checkInterval: 3600000, // Check every hour
+    checkInterval: DAEMON_CONFIG.UPDATE_CHECK.INTERVAL,
     silent: false,
   });
   
@@ -172,7 +169,10 @@ function App() {
     return false;
   }, [shouldShowUpdateView, isActive, isStarting, isStopping, usbCheckStartTime, isFirstCheck]);
   
-  // 🏥 Centralized health check (SINGLE place for crash detection)
+  // 🎯 Centralized robot state polling (SINGLE place for /api/state/full calls)
+  useRobotState(isActive);
+  
+  // 🏥 Centralized health check (monitors robotStateFull updates for crash detection)
   useDaemonHealthCheck();
   
   
@@ -353,11 +353,11 @@ function App() {
     return (
       <>
         <AppTopBar />
-        <ReadyToStartView 
-          startDaemon={startDaemon} 
-          isStarting={isStarting} 
-          usbPortName={usbPortName}
-        />
+      <ReadyToStartView 
+        startDaemon={startDaemon} 
+        isStarting={isStarting} 
+        usbPortName={usbPortName}
+      />
       </>
     );
   }

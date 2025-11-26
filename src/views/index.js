@@ -2,11 +2,11 @@
  * Main export for views module
  * Views for different application states
  */
-export { default as RobotNotDetectedView } from './RobotNotDetectedView';
-export { default as StartingView } from './StartingView';
-export { default as ReadyToStartView } from './ReadyToStartView';
-export { default as TransitionView } from './TransitionView';
+export { default as RobotNotDetectedView } from './robot-not-detected';
+export { default as StartingView } from './starting';
+export { default as ReadyToStartView } from './ready-to-start';
+export { default as TransitionView } from './transition';
 export { default as ActiveRobotView } from './active-robot/ActiveRobotView';
-export { default as ClosingView } from './ClosingView';
-export { default as UpdateView } from './UpdateView';
+export { default as ClosingView } from './closing';
+export { default as UpdateView } from './update';
 

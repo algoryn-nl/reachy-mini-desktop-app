@@ -41,6 +41,13 @@ export const DAEMON_CONFIG = {
     JOB_CLEANUP_DELAY: 10000,  // 10s before cleaning up a failed job
   },
   
+  // Log management
+  LOGS: {
+    MAX_FRONTEND: 50,    // Max frontend logs (user actions, API calls)
+    MAX_APP: 100,        // Max app logs (more verbose than frontend)
+    MAX_DISPLAY: 500,    // Max logs to display in console (performance)
+  },
+  
   // Animation/transition durations
   ANIMATIONS: {
     MODEL_LOAD_TIME: 1000,       // ⚡ 3D model loading time (margin)
@@ -60,6 +67,30 @@ export const DAEMON_CONFIG = {
   MIN_DISPLAY_TIMES: {
     UPDATE_CHECK: 2500,          // Minimum time to show update check (2.5s)
     USB_CHECK: 2000,              // Minimum time to show USB check (2s)
+    USB_CHECK_FIRST: 1500,        // Minimum delay for first USB check (1.5s)
+    APP_UNINSTALL: 4000,         // Minimum display time for uninstall result (4s)
+  },
+  
+  // Update check intervals
+  UPDATE_CHECK: {
+    INTERVAL: 3600000,            // Check for updates every hour (1h)
+    STARTUP_DELAY: 2000,          // Delay before first check on startup (2s)
+    RETRY_DELAY: 1000,            // Delay between retry attempts (1s)
+  },
+  
+  // Robot movement and commands
+  MOVEMENT: {
+    CONTINUOUS_MOVE_TIMEOUT: 200, // Timeout for continuous move requests (200ms)
+    MOVEMENT_DETECTION_TIMEOUT: 800, // Timeout to detect if robot is moving (800ms)
+    COMMAND_LOCK_DURATION: 2000,   // Default lock duration for commands (2s)
+    RECORDED_MOVE_LOCK_DURATION: 5000, // Lock duration for recorded moves (5s)
+  },
+  
+  // App installation delays
+  APP_INSTALLATION: {
+    RESULT_DISPLAY_DELAY: 3000,   // Delay after showing success state before closing (3s)
+    HANDLER_DELAY: 500,            // Small delay in app handlers (500ms)
+    REFRESH_DELAY: 500,            // Delay before refreshing app list (500ms)
   },
   
   // API endpoints

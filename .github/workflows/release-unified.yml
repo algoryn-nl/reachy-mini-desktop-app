@@ -53,13 +53,13 @@ jobs:
         if: matrix.os != 'windows-latest'
         shell: bash
         run: |
-          TARGET_TRIPLET=${{ matrix.target }} bash ./build_sidecar_unix.sh || echo "Sidecar build skipped"
+          TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-sidecar-unix.sh || echo "Sidecar build skipped"
 
       - name: Build sidecar (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          pwsh -File ./build_sidecar_windows.ps1 || echo "Sidecar build skipped"
+          pwsh -File ./scripts/build/build-sidecar-windows.ps1 || echo "Sidecar build skipped"
 
       - name: Setup Apple Code Signing (macOS only)
         if: matrix.os == 'macos-latest'
@@ -320,8 +320,8 @@ jobs:
             echo "❌ App bundle not found: $APP_BUNDLE"
             exit 1
           fi
-          chmod +x scripts/sign-all-binaries.sh
-          bash scripts/sign-all-binaries.sh "$APP_BUNDLE" "$APPLE_SIGNING_IDENTITY"
+          chmod +x scripts/signing/sign-all-binaries.sh
+          bash scripts/signing/sign-all-binaries.sh "$APP_BUNDLE" "$APPLE_SIGNING_IDENTITY"
           
           # Verify all binaries are signed
           echo "🔍 Verifying all binaries are signed..."
@@ -392,7 +392,7 @@ jobs:
         run: |
           export RELEASE_URL_BASE
           export TARGET_TRIPLET
-          bash ./scripts/build-update.sh prod "${{ steps.version.outputs.version }}"
+          bash ./scripts/build/build-update.sh prod "${{ steps.version.outputs.version }}"
 
       - name: Upload update artifacts
         uses: actions/upload-artifact@v4

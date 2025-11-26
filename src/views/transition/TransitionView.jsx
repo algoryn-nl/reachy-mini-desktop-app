@@ -1,0 +1,43 @@
+import React from 'react';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import { getAppWindow } from '../../utils/windowUtils';
+import useAppStore from '../../store/useAppStore';
+
+/**
+ * Transition view between StartingView and ActiveRobotView
+ * Displayed during window resize
+ */
+export default function TransitionView() {
+  const appWindow = getAppWindow();
+  const { darkMode } = useAppStore();
+
+  return (
+    <Box
+      sx={{
+        width: '100vw',
+        height: '100vh',
+        background: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(253, 252, 250, 0.85)',
+        backdropFilter: 'blur(40px)',
+        WebkitBackdropFilter: 'blur(40px)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Centered spinner */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh', // TopBar is fixed, doesn't take space
+        }}
+      >
+        <CircularProgress 
+          size={32} 
+          thickness={3} 
+          sx={{ color: darkMode ? '#666' : '#999' }} 
+        />
+      </Box>
+    </Box>
+  );
+}
+

@@ -12,7 +12,7 @@ import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 // Leva removed - was never displayed
 import * as THREE from 'three';
 import Scene from './Scene';
-import useRobotWebSocket from '../../hooks/useRobotWebSocket';
+import { useRobotWebSocket } from '../../hooks/robot';
 import useAppStore from '../../store/useAppStore';
 import SettingsOverlay from './SettingsOverlay';
 import { FPSMeter } from '../FPSMeter';
@@ -47,6 +47,7 @@ export default function RobotViewer3D({
   hideGrid = false, // Hide floor grid
   hideBorder = false, // Hide canvas border
   showScanEffect = false, // Show scan effect
+  usePremiumScan = false, // Use premium world-class scan effect
   onScanComplete = null, // Callback when scan is complete
   onScanMesh = null, // Callback for each scanned mesh
   onMeshesReady = null, // Callback when robot meshes are ready
@@ -264,6 +265,7 @@ export default function RobotViewer3D({
                 forceLoad={forceLoad}
                 hideGrid={hideGrid}
                 showScanEffect={showScanEffect}
+                usePremiumScan={usePremiumScan}
                 onScanComplete={onScanComplete}
                 onScanMesh={onScanMesh}
                 onMeshesReady={onMeshesReady}

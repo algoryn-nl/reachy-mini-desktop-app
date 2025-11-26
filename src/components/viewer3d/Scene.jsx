@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import URDFRobot from './URDFRobot';
 // Leva removed - using hardcoded default values
 import ScanEffect from './effects/ScanEffect';
+import PremiumScanEffect from './effects/PremiumScanEffect';
 import ScanAnnotations from './effects/ScanAnnotations';
 import ErrorHighlight from './effects/ErrorHighlight';
 import ParticleEffect from './effects/ParticleEffect';
@@ -29,6 +30,7 @@ function Scene({
   forceLoad = false, 
   hideGrid = false,
   showScanEffect = false, // Display the scan effect
+  usePremiumScan = false, // Use premium world-class scan effect
   onScanComplete = null, // Callback when scan is complete
   onScanMesh = null, // Callback for each scanned mesh
   onMeshesReady = null, // Callback when robot meshes are ready
@@ -326,10 +328,29 @@ function Scene({
       {/* Scan effect during loading */}
       {showScanEffect && (
         <>
-        <ScanEffect 
-          meshes={outlineMeshes}
+        {usePremiumScan ? (
+          <PremiumScanEffect 
+            meshes={outlineMeshes}
+            scanColor="#00ff88"
+            enabled={true}
+            onScanMesh={(mesh, index, total) => {
+              // Call parent callback if provided (no annotations for premium scan)
+              if (onScanMesh) {
+                onScanMesh(mesh, index, total);
+              }
+            }}
+            onComplete={() => {
+              if (onScanComplete) {
+                onScanComplete();
+              }
+            }}
+          />
+        ) : (
+          <>
+          <ScanEffect 
+            meshes={outlineMeshes}
             scanColor="#16a34a"
-          enabled={true}
+            enabled={true}
             onScanMesh={(mesh, index, total) => {
               // Update currently scanned mesh for annotations
               setCurrentScannedMesh(mesh);
@@ -346,11 +367,13 @@ function Scene({
               }
             }}
           />
-          {/* SF annotations for scanned components */}
+          {/* SF annotations for scanned components (only for regular scan) */}
           <ScanAnnotations 
             enabled={showScanEffect}
             currentScannedMesh={currentScannedMesh}
-        />
+          />
+          </>
+        )}
         </>
       )}
       

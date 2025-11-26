@@ -11,7 +11,8 @@ import ApplicationStore from './application-store';
 import RobotHeader from './RobotHeader';
 import PowerButton from './PowerButton';
 import AudioControls from './audio/AudioControls';
-import { useRobotState } from '../../hooks/useRobotState';
+import { useRobotPowerState, useRobotMovementStatus } from '../../hooks/robot';
+import { useAudioControls, useAppLogs } from '../../hooks/system';
 import useAppStore from '../../store/useAppStore';
 import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
@@ -45,103 +46,36 @@ function ActiveRobotView({
   // ✅ Computed helpers
   const isBusy = useAppStore(state => state.isBusy());
   const isReady = useAppStore(state => state.isReady());
+  const currentAppName = useAppStore(state => state.currentAppName);
+  const isAppRunning = useAppStore(state => state.isAppRunning);
   
   // Get complete robot state from daemon API
-  const { isOn, isMoving } = useRobotState(); // ✅ No params: consumes centralized robotStateFull
+  const { isOn, isMoving } = useRobotPowerState(isActive); // ✅ Robot power state (motors on/off, movement)
+  
+  // ✅ Centralized app logs system - listens to sidecar stdout/stderr and adds to store
+  useAppLogs(currentAppName, isAppRunning);
+  
+  // ✅ Monitor active movements and update store status (robotStatus: 'busy', busyReason: 'moving')
+  useRobotMovementStatus(isActive);
   
   // Toast notifications
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [toastProgress, setToastProgress] = useState(100);
   
-  // Volume control - Connected to API
-  const [volume, setVolume] = useState(50);
-  const [microphoneVolume, setMicrophoneVolume] = useState(50);
-  
-  
-  // Load volume from API
-  useEffect(() => {
-    if (!isActive) return;
-
-    // Helper function to fetch volume value
-    const fetchVolumeValue = async (endpoint, setter, label) => {
-      try {
-        const response = await fetchWithTimeout(
-          buildApiUrl(endpoint),
-          {},
-          DAEMON_CONFIG.TIMEOUTS.VERSION,
-          { silent: true }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          if (data.volume !== undefined) {
-            setter(data.volume);
-          }
-        }
-      } catch (err) {
-        console.warn(`Failed to fetch ${label}:`, err);
-      }
-    };
-
-    fetchVolumeValue('/api/volume/current', setVolume, 'volume');
-    fetchVolumeValue('/api/volume/microphone/current', setMicrophoneVolume, 'microphone volume');
-  }, [isActive]);
-
-  // Update volume via API
-  const handleVolumeChange = useCallback(async (newVolume) => {
-    setVolume(newVolume);
-    try {
-      await fetchWithTimeout(
-        buildApiUrl('/api/volume/set'),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ volume: newVolume }),
-        },
-        DAEMON_CONFIG.TIMEOUTS.VERSION,
-        { silent: true }
-      );
-    } catch (err) {
-      console.warn('Failed to set volume:', err);
-    }
-  }, []);
-
-  // Update microphone via API (toggle)
-  const handleMicrophoneChange = useCallback(async (enabled) => {
-    setMicrophoneVolume(enabled ? 50 : 0);
-    try {
-      await fetchWithTimeout(
-        buildApiUrl('/api/volume/microphone/set'),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ volume: enabled ? 50 : 0 }),
-        },
-        DAEMON_CONFIG.TIMEOUTS.VERSION,
-        { silent: true }
-      );
-    } catch (err) {
-      console.warn('Failed to set microphone:', err);
-    }
-  }, []);
-
-  // Update microphone volume via API (slider)
-  const handleMicrophoneVolumeChange = async (newVolume) => {
-    setMicrophoneVolume(newVolume);
-    try {
-      await fetchWithTimeout(
-        buildApiUrl('/api/volume/microphone/set'),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ volume: newVolume }),
-        },
-        DAEMON_CONFIG.TIMEOUTS.VERSION,
-        { silent: true }
-      );
-    } catch (err) {
-      console.warn('Failed to set microphone volume:', err);
-    }
-  };
+  // Audio controls - Extracted to hook
+  const {
+    volume,
+    microphoneVolume,
+    speakerDevice,
+    microphoneDevice,
+    speakerPlatform,
+    microphonePlatform,
+    handleVolumeChange,
+    handleMicrophoneChange,
+    handleMicrophoneVolumeChange,
+    handleSpeakerMute,
+    handleMicrophoneMute,
+  } = useAudioControls(isActive);
   
   // ✅ Apps loading state: notify parent when ready
   const [appsLoading, setAppsLoading] = useState(true);
@@ -512,8 +446,15 @@ function ActiveRobotView({
           <AudioControls
             volume={volume}
             microphoneVolume={microphoneVolume}
+            speakerDevice={speakerDevice}
+            microphoneDevice={microphoneDevice}
+            speakerPlatform={speakerPlatform}
+            microphonePlatform={microphonePlatform}
             onVolumeChange={handleVolumeChange}
             onMicrophoneChange={handleMicrophoneChange}
+            onMicrophoneVolumeChange={handleMicrophoneVolumeChange}
+            onSpeakerMute={handleSpeakerMute}
+            onMicrophoneMute={handleMicrophoneMute}
             darkMode={darkMode}
           />
         </Box>

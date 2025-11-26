@@ -139,7 +139,7 @@ export default function ScanEffect({
     // ✅ SINGLE requestAnimationFrame loop for all meshes
         const animate = () => {
       const currentTime = Date.now();
-      const highlightDuration = 500; // 500ms per mesh highlight
+      const highlightDuration = 600; // 600ms per mesh highlight (slightly longer for better visibility)
 
       let activeMeshes = 0;
 
@@ -165,63 +165,81 @@ export default function ScanEffect({
 
         const progress = Math.min(meshElapsed / highlightDuration, 1.0);
           
-        // Phase 1: Intense scan (0-40%)
-          if (progress < 0.4) {
+        // Phase 1: Intense scan (0-50%) - Extended for better visibility
+          if (progress < 0.5) {
           meshData.state = 'scanning';
           activeMeshes++;
             
             if (!mesh.userData.scanMaterial) {
               const scanColorHex = new THREE.Color(scanColor).getHex();
-              const darkGreenHex = new THREE.Color(scanColor).multiplyScalar(0.7).getHex();
+              const brightGreenHex = new THREE.Color(scanColor).multiplyScalar(1.1).getHex();
+              const darkGreenHex = new THREE.Color(scanColor).multiplyScalar(0.6).getHex();
               mesh.userData.scanMaterial = createXrayMaterial(darkGreenHex, {
-              rimColor: scanColorHex,
-              rimPower: 1.5,
-              rimIntensity: 0.6,
-              opacity: 0.8,
-              edgeIntensity: 0.4,
-                subsurfaceColor: darkGreenHex,
-                subsurfaceIntensity: 0.25,
+              rimColor: brightGreenHex, // Brighter rim for more visibility
+              rimPower: 1.2, // Softer rim for smoother glow
+              rimIntensity: 0.8, // Increased intensity
+              opacity: 0.85,
+              edgeIntensity: 0.5, // More visible edges
+                subsurfaceColor: scanColorHex, // Brighter subsurface
+                subsurfaceIntensity: 0.35, // More subsurface scattering
               });
             }
           
             mesh.material = mesh.userData.scanMaterial;
             
             if (mesh.material.uniforms) {
-            const scanProgress = progress / 0.4;
-            const pulse = Math.sin(scanProgress * Math.PI * 2);
-            mesh.material.uniforms.rimIntensity.value = 0.6 + (pulse * 0.2);
-            mesh.material.uniforms.opacity.value = 0.75 + (pulse * 0.1);
+            const scanProgress = progress / 0.5;
+            // Smoother pulse with multiple frequencies for richer effect
+            const pulse1 = Math.sin(scanProgress * Math.PI * 3); // Fast pulse
+            const pulse2 = Math.sin(scanProgress * Math.PI * 1.5); // Slow pulse
+            const combinedPulse = (pulse1 * 0.6 + pulse2 * 0.4) * 0.5; // Combined and normalized
+            
+            // More dynamic rim intensity with smoother transitions
+            mesh.material.uniforms.rimIntensity.value = 0.8 + (combinedPulse * 0.3);
+            // Opacity pulse for breathing effect
+            mesh.material.uniforms.opacity.value = 0.85 + (combinedPulse * 0.12);
+            // Edge intensity also pulses for more visibility
+            mesh.material.uniforms.edgeIntensity.value = 0.5 + (combinedPulse * 0.15);
+            // Subsurface also pulses for depth
+            mesh.material.uniforms.subsurfaceIntensity.value = 0.35 + (combinedPulse * 0.1);
             mesh.material.needsUpdate = true;
           }
         }
-        // Phase 2: Transition to X-ray (40-100%)
+        // Phase 2: Transition to X-ray (50-100%)
         else if (progress < 1.0) {
           meshData.state = 'transitioning';
           activeMeshes++;
 
-          const transitionProgress = (progress - 0.4) / 0.6;
-          const easeOut = 1 - Math.pow(1 - transitionProgress, 3);
+          const transitionProgress = (progress - 0.5) / 0.5;
+          // Smoother easing curve for more elegant transition
+          const easeOut = 1 - Math.pow(1 - transitionProgress, 2.5);
 
           if (mesh.material.uniforms) {
-            const darkGreenColor = new THREE.Color(scanColor).multiplyScalar(0.7);
+            // Start from brighter scan color for smoother transition
+            const brightGreenColor = new THREE.Color(scanColor).multiplyScalar(0.85);
             const xrayColorVec = new THREE.Color(targetXrayColor);
-            const lerpedColor = darkGreenColor.clone().lerp(xrayColorVec, easeOut);
+            const lerpedColor = brightGreenColor.clone().lerp(xrayColorVec, easeOut);
             mesh.material.uniforms.baseColor.value.copy(lerpedColor);
 
             const rimColor = isAntenna ? 0x8A9AAC :
                            isBigLens ? 0x7A8A8A :
                            isShellPiece ? 0x7A8590 :
                            0x6A7580;
-            const scanRimColor = new THREE.Color(scanColor);
+            // Start from brighter scan rim for smoother fade
+            const scanRimColor = new THREE.Color(scanColor).multiplyScalar(1.1);
             const xrayRimColor = new THREE.Color(rimColor);
             const lerpedRimColor = scanRimColor.clone().lerp(xrayRimColor, easeOut);
             mesh.material.uniforms.rimColor.value.copy(lerpedRimColor);
 
-            mesh.material.uniforms.opacity.value = THREE.MathUtils.lerp(1.0, finalOpacity, easeOut);
-            mesh.material.uniforms.rimIntensity.value = THREE.MathUtils.lerp(0.8, 0.25, easeOut);
-            mesh.material.uniforms.edgeIntensity.value = THREE.MathUtils.lerp(0.5, 0.2, easeOut);
+            // Smoother opacity transition
+            mesh.material.uniforms.opacity.value = THREE.MathUtils.lerp(0.95, finalOpacity, easeOut);
+            // More gradual rim intensity fade
+            mesh.material.uniforms.rimIntensity.value = THREE.MathUtils.lerp(0.9, 0.25, easeOut);
+            // Smoother edge fade
+            mesh.material.uniforms.edgeIntensity.value = THREE.MathUtils.lerp(0.55, 0.2, easeOut);
 
-            const scanSubsurfaceColor = new THREE.Color(scanColor).multiplyScalar(0.6);
+            // Brighter scan subsurface for better visibility during transition
+            const scanSubsurfaceColor = new THREE.Color(scanColor).multiplyScalar(0.75);
             const xraySubsurfaceColor = new THREE.Color(
               isAntenna ? 0x4A5A6C :
               isBigLens ? 0x5A6A6A :
@@ -229,7 +247,8 @@ export default function ScanEffect({
             );
             const lerpedSubsurfaceColor = scanSubsurfaceColor.clone().lerp(xraySubsurfaceColor, easeOut);
             mesh.material.uniforms.subsurfaceColor.value.copy(lerpedSubsurfaceColor);
-            mesh.material.uniforms.subsurfaceIntensity.value = THREE.MathUtils.lerp(0.3, 0.15, easeOut);
+            // Smoother subsurface fade
+            mesh.material.uniforms.subsurfaceIntensity.value = THREE.MathUtils.lerp(0.4, 0.15, easeOut);
             mesh.material.needsUpdate = true;
           }
             

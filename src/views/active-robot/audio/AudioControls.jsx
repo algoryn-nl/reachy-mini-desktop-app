@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Typography, IconButton, Slider, Tooltip } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AudioLevelBars from './AudioLevelBars';
 
@@ -11,8 +13,15 @@ import AudioLevelBars from './AudioLevelBars';
 function AudioControls({
   volume,
   microphoneVolume,
+  speakerDevice,
+  microphoneDevice,
+  speakerPlatform,
+  microphonePlatform,
   onVolumeChange,
   onMicrophoneChange,
+  onMicrophoneVolumeChange,
+  onSpeakerMute,
+  onMicrophoneMute,
   darkMode,
 }) {
   return (
@@ -70,25 +79,57 @@ function AudioControls({
             p: 1.5,
             pb: 0,
           }}>
-            {/* Port name with ellipsis */}
-            <Typography sx={{ 
-              fontSize: 9,
-              fontWeight: 500, 
-              color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
-              fontFamily: 'SF Mono, Monaco, Menlo, monospace',
-              letterSpacing: '0.02em',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-              minWidth: 0, // ✅ Allows flex item to shrink below content size
-            }}>
-              Built-in Speaker
-            </Typography>
+            {/* Device name and platform */}
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <Typography sx={{ 
+                fontSize: 9,
+                fontWeight: 500, 
+                color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
+                fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+                letterSpacing: '0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {speakerDevice || 'Built-in Speaker'}
+              </Typography>
+              {speakerPlatform && (
+                <Typography sx={{ 
+                  fontSize: 8,
+                  fontWeight: 400, 
+                  color: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                  fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+                  letterSpacing: '0.02em',
+                }}>
+                  {speakerPlatform}
+                </Typography>
+              )}
+            </Box>
             
-            {/* Small slider aligned to the right */}
-            <Box sx={{ width: 60, height: 24, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-              <Slider
+            {/* Mute button and slider */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+              <IconButton
+                onClick={onSpeakerMute}
+                size="small"
+                sx={{
+                  width: 20,
+                  height: 20,
+                  padding: 0,
+                  color: volume > 0 ? (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)') : (darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'),
+                  '&:hover': {
+                    color: volume > 0 ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'),
+                    bgcolor: 'transparent',
+                  },
+                }}
+              >
+                {volume > 0 ? (
+                  <VolumeUpIcon sx={{ fontSize: 14 }} />
+                ) : (
+                  <VolumeOffIcon sx={{ fontSize: 14 }} />
+                )}
+              </IconButton>
+              <Box sx={{ width: 60, height: 24, display: 'flex', alignItems: 'center' }}>
+                <Slider
                 value={volume}
                 onChange={(e, val) => onVolumeChange(val)}
                 size="small"
@@ -124,6 +165,7 @@ function AudioControls({
                   },
                 }}
               />
+            </Box>
             </Box>
           </Box>
           
@@ -163,7 +205,7 @@ function AudioControls({
           <Typography sx={{ fontSize: 11, fontWeight: 600, color: darkMode ? '#888' : '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Microphone
           </Typography>
-          <Tooltip title="Enable or disable the robot's microphone" arrow placement="top">
+          <Tooltip title="Adjust the robot's microphone input volume" arrow placement="top">
             <InfoOutlinedIcon sx={{ fontSize: 12, color: darkMode ? '#666' : '#999', opacity: 0.6, cursor: 'help' }} />
           </Tooltip>
         </Box>
@@ -194,49 +236,101 @@ function AudioControls({
             p: 1.5,
             pb: 0,
           }}>
-            {/* Port name with ellipsis */}
-            <Typography sx={{ 
-              fontSize: 9, 
-              fontWeight: 500, 
-              color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
-              fontFamily: 'SF Mono, Monaco, Menlo, monospace',
-              letterSpacing: '0.02em',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-              minWidth: 0, // ✅ Allows flex item to shrink below content size
-            }}>
-              USB Microphone
-            </Typography>
-            
-            {/* Small toggle button aligned to the right */}
-            <IconButton
-              onClick={() => onMicrophoneChange(microphoneVolume === 0)}
-              size="small"
-              sx={{
-                width: 24,
-                height: 24,
-                borderRadius: '6px',
-                border: `1px solid ${microphoneVolume > 0 ? '#FF9500' : (darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.4)')}`,
-                bgcolor: 'transparent',
-                color: microphoneVolume > 0 ? '#FF9500' : (darkMode ? 'rgba(255, 149, 0, 0.5)' : 'rgba(255, 149, 0, 0.6)'),
-                padding: 0,
-                transition: 'all 0.2s ease',
-                flexShrink: 0,
-                '&:hover': {
-                  bgcolor: darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.08)',
-                  borderColor: '#FF9500',
-                  transform: 'scale(1.05)',
-                },
-              }}
-            >
-              {microphoneVolume > 0 ? (
-                <MicIcon sx={{ fontSize: 12 }} />
-              ) : (
-                <MicOffIcon sx={{ fontSize: 12 }} />
+            {/* Device name and platform */}
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <Typography sx={{ 
+                fontSize: 9, 
+                fontWeight: 500, 
+                color: darkMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
+                fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+                letterSpacing: '0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {microphoneDevice || 'USB Microphone'}
+              </Typography>
+              {microphonePlatform && (
+                <Typography sx={{ 
+                  fontSize: 8,
+                  fontWeight: 400, 
+                  color: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                  fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+                  letterSpacing: '0.02em',
+                }}>
+                  {microphonePlatform}
+                </Typography>
               )}
-            </IconButton>
+            </Box>
+            
+            {/* Mute button and slider */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+              <IconButton
+                onClick={onMicrophoneMute}
+                size="small"
+                sx={{
+                  width: 20,
+                  height: 20,
+                  padding: 0,
+                  color: microphoneVolume > 0 ? (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)') : (darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'),
+                  '&:hover': {
+                    color: microphoneVolume > 0 ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'),
+                    bgcolor: 'transparent',
+                  },
+                }}
+              >
+                {microphoneVolume > 0 ? (
+                  <MicIcon sx={{ fontSize: 14 }} />
+                ) : (
+                  <MicOffIcon sx={{ fontSize: 14 }} />
+                )}
+              </IconButton>
+              <Box sx={{ width: 60, height: 24, display: 'flex', alignItems: 'center' }}>
+                <Slider
+                value={microphoneVolume}
+                onChange={(e, val) => {
+                  if (onMicrophoneVolumeChange) {
+                    onMicrophoneVolumeChange(val);
+                  } else if (onMicrophoneChange) {
+                    // Fallback: toggle behavior if onMicrophoneVolumeChange not provided
+                    onMicrophoneChange(val > 0);
+                  }
+                }}
+                size="small"
+                sx={{
+                  mb: 0,
+                  color: '#FF9500',
+                  height: 3,
+                  '& .MuiSlider-thumb': {
+                    width: 12,
+                    height: 12,
+                    backgroundColor: '#FF9500',
+                    border: `1.5px solid ${darkMode ? '#1a1a1a' : '#fff'}`,
+                    boxShadow: 'none',
+                    '&:hover': {
+                      boxShadow: '0 0 0 6px rgba(255, 149, 0, 0.12)',
+                    },
+                    '&.Mui-focusVisible': {
+                      boxShadow: '0 0 0 6px rgba(255, 149, 0, 0.16)',
+                    },
+                    '&.Mui-active': {
+                      boxShadow: '0 0 0 6px rgba(255, 149, 0, 0.16)',
+                    },
+                  },
+                  '& .MuiSlider-track': {
+                    backgroundColor: '#FF9500',
+                    border: 'none',
+                    height: 1.5,
+                  },
+                  '& .MuiSlider-rail': {
+                    backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+                    height: 1.5,
+                    opacity: 1,
+                  },
+                }}
+              />
+            </Box>
+            </Box>
           </Box>
           
           {/* Audio visualizer - Integrated at the bottom of the card */}

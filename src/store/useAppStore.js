@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DAEMON_CONFIG } from '../config/daemon';
 
 // Detect system preference
 const getSystemPreference = () => {
@@ -54,7 +55,7 @@ const useAppStore = create((set) => ({
   usbPortName: null,
   isFirstCheck: true,
   
-  // 🎯 Centralized robot state (polled by useRobotStateFull)
+  // 🎯 Centralized robot state (polled by useRobotState)
   // All components should consume this instead of polling separately
   robotStateFull: {
     data: null,        // Full state data from /api/state/full
@@ -62,9 +63,13 @@ const useAppStore = create((set) => ({
     error: null,       // Error message if any
   },
   
-  // Logs
-  logs: [],
-  frontendLogs: [],
+  // 🎯 Centralized active moves (polled by useRobotState)
+  activeMoves: [],     // Array of active move UUIDs from /api/move/running
+  
+  // Logs - Centralized system
+  logs: [],              // Daemon logs (from Tauri IPC)
+  frontendLogs: [],      // Frontend action logs (API calls, user actions)
+  appLogs: [],           // App logs (from running apps via sidecar stdout/stderr)
   
   // Activity Lock - Global lock for all actions
   // isCommandRunning: quick actions in progress
@@ -178,11 +183,19 @@ const useAppStore = create((set) => ({
     
     crashed: () => {
         lastLoggedStatus = 'crashed';
+      const state = useAppStore.getState();
+      
+      // ✅ Cleanup: If daemon crashes, all apps are stopped too
+      if (state.isAppRunning) {
+        state.unlockApp();
+      }
+      
       set({
         robotStatus: 'crashed',
         busyReason: null,
         isActive: false,
         isDaemonCrashed: true,
+        // isAppRunning already cleaned by unlockApp() above
       });
     },
   },
@@ -291,7 +304,7 @@ const useAppStore = create((set) => ({
   // Specific helpers for logs (business logic)
   addFrontendLog: (message) => set((state) => ({ 
     frontendLogs: [
-      ...state.frontendLogs.slice(-50), // Keep max 50 logs
+      ...state.frontendLogs.slice(-DAEMON_CONFIG.LOGS.MAX_FRONTEND), // Keep max logs
       {
         timestamp: new Date().toLocaleTimeString('en-GB', { 
           hour: '2-digit', 
@@ -305,6 +318,51 @@ const useAppStore = create((set) => ({
     ]
   })),
   
+  // Add app log to centralized system
+  addAppLog: (message, appName, level = 'info') => {
+    const newLog = {
+      timestamp: new Date().toLocaleTimeString('en-GB', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false
+      }),
+      message,
+      source: 'app',
+      appName,
+      level, // 'info', 'warning', 'error'
+    };
+    
+    set((state) => {
+      // ✅ Deduplication: Check if the last log is the same (avoid duplicates)
+      const lastLog = state.appLogs[state.appLogs.length - 1];
+      const isDuplicate = lastLog && 
+        lastLog.message === message && 
+        lastLog.appName === appName &&
+        // Allow same message if timestamp is different (at least 1 second apart)
+        lastLog.timestamp === newLog.timestamp;
+      
+      if (isDuplicate) {
+        // Don't add duplicate
+        return state;
+      }
+      
+      return {
+        appLogs: [
+          ...state.appLogs.slice(-DAEMON_CONFIG.LOGS.MAX_APP), // Keep max app logs
+          newLog
+        ]
+      };
+    });
+  },
+  
+  // Clear app logs (when app stops)
+  clearAppLogs: (appName) => set((state) => ({
+    appLogs: appName 
+      ? state.appLogs.filter(log => log.appName !== appName)
+      : [] // Clear all if no appName provided
+  })),
+  
   // Legacy setters (backwards compatible, sync with robotStatus)
   setIsActive: (value) => {
     const state = useAppStore.getState();
@@ -316,6 +374,11 @@ const useAppStore = create((set) => ({
     } else if (!value && state.robotStatus !== 'starting' && state.robotStatus !== 'stopping') {
       // Daemon becomes inactive → ready-to-start
       state.transitionTo.readyToStart();
+      
+      // ✅ Cleanup: If daemon stops, all apps are stopped too
+      if (state.isAppRunning) {
+        state.unlockApp();
+      }
     }
     set({ isActive: value });
   },
@@ -362,6 +425,7 @@ const useAppStore = create((set) => ({
     }
     return { robotStateFull: value };
   }),
+  setActiveMoves: (value) => set({ activeMoves: value }),
   setLogs: (logs) => set({ logs }),
   
   setIsCommandRunning: (value) => {

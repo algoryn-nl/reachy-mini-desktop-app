@@ -74,11 +74,12 @@ By default, the `reachy-mini` package is installed from PyPI (latest stable rele
 
 Example to build the sidecar with the develop version:
 ```bash
-REACHY_MINI_SOURCE=develop bash ./build_sidecar_unix.sh
+REACHY_MINI_SOURCE=develop bash ./scripts/build/build-sidecar-unix.sh
 ```
 
 ## 📖 Documentation
 
+- [Project Conventions](./CONVENTIONS.md) - Coding standards, naming conventions, and project structure
 - [Update Pipelines](./docs/UPDATE_PIPELINES.md) - Dev and production update workflows
 - [Testing Guide](./docs/TESTING_GUIDE.md) - How to test the application
 - [Architecture](./docs/STATE_MACHINE.md) - Application state machine and architecture
@@ -147,23 +148,45 @@ localStorage.removeItem('simMode')
 ```
 tauri-app/
 ├── src/                              # Frontend React code
-│   ├── components/                   # React components
+│   ├── components/                   # Reusable React components
 │   │   └── viewer3d/                # 3D robot visualization
-│   ├── hooks/                        # Custom React hooks
-│   │   └── useApps.js               # App management hook
+│   ├── hooks/                        # Custom React hooks (organized by category)
+│   │   ├── apps/                    # Application-related hooks
+│   │   ├── daemon/                  # Daemon-related hooks
+│   │   ├── robot/                   # Robot-related hooks
+│   │   └── system/                  # System hooks (updates, USB, logs, window)
+│   ├── views/                        # Main application views
+│   │   ├── update/                  # Update view
+│   │   ├── robot-not-detected/      # USB detection view
+│   │   ├── ready-to-start/          # Ready to start view
+│   │   ├── starting/                # Daemon startup view
+│   │   ├── transition/              # Transition view
+│   │   ├── closing/                 # Closing view
+│   │   └── active-robot/             # Active robot view
+│   │       ├── application-store/    # Application store UI
+│   │       ├── audio/                # Audio controls
+│   │       └── camera/               # Camera feed
 │   ├── store/                        # State management (Zustand)
-│   ├── views/                        # Main views
-│   │   └── active-robot/
-│   │       └── application-store/    # Application store UI
-│   └── utils/                        # Utility functions
+│   ├── utils/                        # Utility functions
+│   │   └── viewer3d/                # 3D-specific utilities
+│   ├── config/                       # Centralized configuration
+│   └── constants/                    # Shared constants
 ├── src-tauri/                        # Rust backend
 │   ├── src/                          # Rust source code
 │   ├── tauri.conf.json               # Tauri configuration
 │   └── capabilities/                 # Tauri security capabilities
 ├── scripts/                          # Build and utility scripts
 ├── uv-wrapper/                       # UV wrapper for Python package management
+├── CONVENTIONS.md                    # Project conventions and coding standards
 └── docs/                             # Documentation
 ```
+
+**Key Architecture Points:**
+- **Hooks** are organized by domain (apps, daemon, robot, system) for better maintainability
+- **Views** are organized in dedicated folders with their associated components
+- **Utils** are centralized with domain-specific utilities in subfolders (e.g., `viewer3d/`)
+- **Config** centralizes all configuration constants (timeouts, intervals, etc.)
+- See [CONVENTIONS.md](./CONVENTIONS.md) for detailed coding standards and conventions
 
 ## 🔄 Updates
 
