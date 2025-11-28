@@ -438,19 +438,45 @@ jobs:
           echo "✅ ZIP created: $ABS_ZIP_PATH ($(du -h "$ZIP_NAME" | cut -f1))"
           
           echo "📦 Submitting app for notarization..."
-          xcrun notarytool submit "$ABS_ZIP_PATH" \
+          NOTARIZATION_OUTPUT=$(xcrun notarytool submit "$ABS_ZIP_PATH" \
             --key "$APPLE_API_KEY_PATH" \
             --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" \
             --wait \
-            --timeout 30m
+            --timeout 30m 2>&1) || NOTARIZATION_EXIT_CODE=$?
           
-          echo "✅ Notarization successful!"
+          echo "$NOTARIZATION_OUTPUT"
           
-          # Staple the notarization ticket
-          echo "📎 Stapling notarization ticket..."
-          xcrun stapler staple "$APP_BUNDLE"
-          xcrun stapler validate "$APP_BUNDLE"
+          # Check if notarization was successful
+          if echo "$NOTARIZATION_OUTPUT" | grep -q "status: Accepted"; then
+            echo "✅ Notarization successful!"
+            
+            # Return to project root for stapler (APP_BUNDLE is relative to root)
+            cd "$GITHUB_WORKSPACE"
+            
+            # Staple the notarization ticket
+            echo "📎 Stapling notarization ticket..."
+            xcrun stapler staple "$APP_BUNDLE"
+            xcrun stapler validate "$APP_BUNDLE"
+          else
+            echo "❌ Notarization failed!"
+            echo ""
+            echo "🔍 Checking notarization logs..."
+            
+            # Extract submission ID if available
+            SUBMISSION_ID=$(echo "$NOTARIZATION_OUTPUT" | grep -oE "id: [a-f0-9-]+" | head -1 | cut -d' ' -f2 || echo "")
+            
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "   Submission ID: $SUBMISSION_ID"
+              echo "   Fetching logs..."
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key "$APPLE_API_KEY_PATH" \
+                --key-id "$APPLE_API_KEY" \
+                --issuer "$APPLE_API_ISSUER" || true
+            fi
+            
+            exit 1
+          fi
 
       - name: Create GitHub Release
         if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin'
