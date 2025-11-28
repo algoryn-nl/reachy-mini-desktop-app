@@ -284,15 +284,41 @@ jobs:
       - name: Build Tauri app (macOS)
         if: matrix.os == 'macos-latest'
         env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Don't pass APPLE_SIGNING_IDENTITY to prevent Tauri from auto-signing
+          # We'll sign manually after build with our script that signs ALL binaries
+          # signingIdentity is set to "-" in tauri.macos.conf.json to disable auto-signing
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Don't pass notarization variables to avoid automatic notarization
-          # We'll do it manually after signing all binaries
         shell: bash
         working-directory: src-tauri
         run: |
-          # Build without automatic notarization
+          # Explicitly unset any signing/notarization variables to prevent Tauri from auto-signing/notarizing
+          # These might be set in GITHUB_ENV from previous steps
+          unset APPLE_SIGNING_IDENTITY || true
+          unset APPLE_API_ISSUER || true
+          unset APPLE_API_KEY || true
+          unset APPLE_API_KEY_PATH || true
+          
+          # Temporarily remove the signing keychain from search list to prevent Tauri from auto-detecting it
+          # We'll add it back for manual signing
+          if [ -n "$KEYCHAIN_PATH" ]; then
+            echo "🔒 Temporarily removing signing keychain from search list..."
+            EXISTING_KEYCHAINS=$(security list-keychains -d user | grep -v "$KEYCHAIN_PATH" | sed 's/^[[:space:]]*//' | tr '\n' ' ')
+            security list-keychains -d user -s $EXISTING_KEYCHAINS || true
+          fi
+          
+          echo "🔍 Verifying no auto-signing/notarization variables are set..."
+          env | grep -E "APPLE_(SIGNING|API)" || echo "✅ No auto-signing/notarization variables found"
+          
+          # Build without automatic signing/notarization
+          # signingIdentity is set to "-" in tauri.macos.conf.json
           yarn tauri build --target ${{ matrix.target }}
+          
+          # Restore keychain to search list for manual signing step
+          if [ -n "$KEYCHAIN_PATH" ]; then
+            echo "🔓 Restoring signing keychain to search list..."
+            EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/^[[:space:]]*//' | tr '\n' ' ')
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $EXISTING_KEYCHAINS || true
+          fi
 
       - name: Build Tauri app (Windows)
         if: matrix.os == 'windows-latest'
@@ -349,6 +375,17 @@ jobs:
             echo "❌ App bundle not found: $APP_BUNDLE"
             exit 1
           fi
+          
+          # Ensure signing keychain is in search list for manual signing
+          if [ -n "$KEYCHAIN_PATH" ]; then
+            echo "🔓 Ensuring signing keychain is in search list..."
+            EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/^[[:space:]]*//' | tr '\n' ' ')
+            if ! echo "$EXISTING_KEYCHAINS" | grep -q "$KEYCHAIN_PATH"; then
+              security list-keychains -d user -s "$KEYCHAIN_PATH" $EXISTING_KEYCHAINS || true
+            fi
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
+          fi
+          
           chmod +x scripts/signing/sign-all-binaries.sh
           bash scripts/signing/sign-all-binaries.sh "$APP_BUNDLE" "$APPLE_SIGNING_IDENTITY"
           
