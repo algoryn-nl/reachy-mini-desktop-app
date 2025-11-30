@@ -9,7 +9,7 @@ import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import ReachyBox from '../../../assets/reachy-update-box.svg';
 import useAppStore from '../../../store/useAppStore';
 import { useApps, useAppHandlers, useAppInstallation } from '../../../hooks/apps';
-import { Section as InstalledAppsSection } from './installed';
+import { InstalledAppsSection } from './installed';
 import { Modal as DiscoverModal } from './discover';
 import { CreateAppTutorial as CreateAppTutorialModal } from './modals';
 import { Overlay as InstallOverlay } from './installation';

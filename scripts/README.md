@@ -1,38 +1,40 @@
 # Scripts Directory
 
-Ce répertoire contient tous les scripts utilitaires du projet, organisés par catégorie.
+This directory contains all utility scripts for the project, organized by category.
 
 ## Structure
 
 ```
 scripts/
-├── build/              # Scripts de build
-│   ├── build-sidecar-unix.sh      # Build sidecar Python (macOS/Linux)
-│   ├── build-sidecar-windows.ps1  # Build sidecar Python (Windows)
-│   └── build-update.sh             # Génération des fichiers de mise à jour
+├── build/              # Build scripts
+│   ├── build-sidecar-unix.sh      # Build Python sidecar (macOS/Linux)
+│   ├── build-sidecar-windows.ps1  # Build Python sidecar (Windows)
+│   └── build-update.sh             # Generate update files
 │
-├── signing/            # Scripts de signature et certificats
-│   ├── sign-all-binaries.sh       # Signature de tous les binaires macOS
-│   ├── setup-apple-signing.sh     # Configuration signature Apple locale
-│   └── prepare-github-secrets.sh  # Préparation des secrets GitHub Actions
+├── signing/            # Signing and certificate scripts
+│   ├── sign-all-binaries.sh       # Sign all macOS binaries
+│   ├── setup-apple-signing.sh     # Configure local Apple signing
+│   └── prepare-github-secrets.sh  # Prepare GitHub Actions secrets
 │
-├── test/               # Scripts de test
-│   ├── test-app.sh                # Test de l'application complète
-│   ├── test-daemon-develop.sh      # Test avec version develop du daemon
-│   ├── test-sidecar.sh             # Test du sidecar Python
-│   ├── test-update-prod.sh         # Test des mises à jour en production
-│   └── test-updater.sh             # Test du système de mise à jour
+├── test/               # Test scripts
+│   ├── test-app.sh                # Test complete application
+│   ├── test-daemon-develop.sh      # Test with develop version of daemon
+│   ├── test-sidecar.sh             # Test Python sidecar
+│   ├── test-update-prod.sh         # Test production updates
+│   └── test-updater.sh             # Test update system
 │
-├── daemon/             # Scripts de gestion du daemon
-│   ├── check-daemon.sh             # Vérification de l'état du daemon
-│   └── kill-daemon.sh               # Arrêt du daemon
+├── daemon/             # Daemon management scripts
+│   ├── check-daemon.sh             # Check daemon status
+│   └── kill-daemon.sh               # Stop daemon
 │
-└── utils/              # Scripts utilitaires
-    ├── serve-updates.sh             # Serveur local pour tester les mises à jour
-    └── remove-black-background.py  # Utilitaire de traitement d'images
+└── utils/              # Utility scripts
+    ├── serve-updates.sh             # Local server for testing updates
+    ├── remove-black-background.py  # Image processing utility
+    ├── check-network-permissions.sh # Check network permissions
+    └── fix-app-signature.sh        # Fix app signature issues
 ```
 
-## Utilisation
+## Usage
 
 ### Build
 
@@ -41,59 +43,59 @@ scripts/
 yarn build:sidecar-macos
 yarn build:sidecar-linux
 
-# Build avec version develop
+# Build with develop version
 yarn build:sidecar-macos:develop
 
-# Build mises à jour
+# Build updates
 yarn build:update:dev
 yarn build:update:prod
 ```
 
-### Signature (macOS)
+### Signing (macOS)
 
 ```bash
-# Configuration locale
+# Local configuration
 source scripts/signing/setup-apple-signing.sh
 
-# Préparation secrets GitHub
+# Prepare GitHub secrets
 bash scripts/signing/prepare-github-secrets.sh
 
-# Signature manuelle
+# Manual signing
 bash scripts/signing/sign-all-binaries.sh "path/to/app" "Developer ID Application: ..."
 ```
 
-### Tests
+### Testing
 
 ```bash
-# Tests individuels
+# Individual tests
 yarn test:sidecar
 yarn test:app
 yarn test:updater
 
-# Tous les tests
+# All tests
 yarn test:all
 ```
 
 ### Daemon
 
 ```bash
-# Vérifier l'état
+# Check status
 yarn check-daemon
 
-# Arrêter le daemon
+# Stop daemon
 yarn kill-daemon
 ```
 
-### Utilitaires
+### Utilities
 
 ```bash
-# Servir les mises à jour localement
+# Serve updates locally
 yarn serve:updates
 ```
 
 ## Notes
 
-- Tous les scripts sont exécutables et peuvent être appelés directement
-- Les scripts utilisent des chemins relatifs depuis la racine du projet
-- Les scripts de test nécessitent parfois des prérequis (sidecar buildé, etc.)
+- All scripts are executable and can be called directly
+- Scripts use relative paths from the project root
+- Test scripts sometimes require prerequisites (built sidecar, etc.)
 

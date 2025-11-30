@@ -4,7 +4,7 @@ import { Box, Typography, Chip } from '@mui/material';
 /**
  * Category filters component for Discover Modal
  */
-export default function DiscoverModalCategoryFilters({
+export default function CategoryFilters({
   darkMode,
   categories,
   selectedCategory,

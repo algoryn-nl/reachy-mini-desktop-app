@@ -1,4 +1,4 @@
-// Constantes pour les types de périphériques d'entrée
+// Constants for input device types
 export const INPUT_DEVICE_TYPES = {
   KEYBOARD: 'keyboard',
   GAMEPAD: 'gamepad',

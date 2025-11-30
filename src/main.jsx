@@ -82,16 +82,16 @@ function ThemeWrapper({ children }) {
       MuiCircularProgress: {
         styleOverrides: {
           root: {
-            // ✅ S'assurer que le SVG s'affiche correctement
+            // ✅ Ensure SVG displays correctly
             display: 'block',
           },
           svg: {
-            // ✅ S'assurer que le SVG ne soit pas clippé
+            // ✅ Ensure SVG is not clipped
             display: 'block',
             overflow: 'visible',
           },
           circle: {
-            // ✅ S'assurer que le cercle soit visible
+            // ✅ Ensure circle is visible
             strokeLinecap: 'round',
           },
         },

@@ -9,7 +9,7 @@ import { open } from '@tauri-apps/plugin-shell';
 /**
  * App card component for Discover Modal
  */
-export default function DiscoverModalAppCard({
+export default function AppCard({
   app,
   darkMode,
   isBusy,

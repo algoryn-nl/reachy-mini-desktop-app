@@ -1,2 +1,2 @@
-export { default as Section } from './Section';
+export { default as InstalledAppsSection } from './InstalledAppsSection';
 export { default as AppLogs } from './AppLogs';

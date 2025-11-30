@@ -64,7 +64,7 @@ export default function AudioLevelBars({ isActive, color = '#FF9500', barCount =
     }
   }, [dimensions]);
     
-  // ✅ Initialiser les paramètres de variation et le random seed
+  // ✅ Initialize variation parameters and random seed
   useEffect(() => {
     if (!seedRef.current) {
       seedRef.current = instanceSeedRef.current;

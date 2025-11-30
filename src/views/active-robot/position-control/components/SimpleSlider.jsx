@@ -26,7 +26,7 @@ export default function SimpleSlider({ label, value, onChange, min = -1, max = 1
     // Normalize value from [min, max] to [0, 1]
     const normalized = (value - min) / (max - min);
     
-    // Fixed curve (bombée vers le haut, plus arquée)
+    // Fixed curve (bulged upward, more arched)
     // Inverted: start from right, end at left (like yaw reverse)
     // Coordinates adjusted for padding in viewBox
     const startX = width - padding;

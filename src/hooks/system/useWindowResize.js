@@ -59,7 +59,7 @@ export function useWindowResize(view) {
       return;
     }
 
-    // Premier render : initialiser sans animer
+    // First render: initialize without animating
     if (!isInitialized.current) {
       isInitialized.current = true;
       previousView.current = view;

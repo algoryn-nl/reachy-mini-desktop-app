@@ -1,12 +1,12 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import hfLogo from '../../../../../assets/hf-logo.svg';
-import Reachies from '../../../../../assets/reachies.svg';
+import hfLogo from '@assets/hf-logo.svg';
+import Reachies from '@assets/reachies.svg';
 
 /**
  * Header section for Discover Modal
  */
-export default function DiscoverModalHeader({ darkMode }) {
+export default function Header({ darkMode }) {
   return (
     <Box sx={{ mb: 0 }}>
       {/* Main header row */}

@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
- * Hook personnalisé useResizeObserver - Meilleures pratiques 2025
+ * Custom useResizeObserver hook - Best practices 2025
  * 
- * Utilise ResizeObserver avec les entries pour obtenir les dimensions directement
- * Évite les problèmes de timing avec flexbox et les layouts asynchrones
- * Gère spécialement les resize de fenêtre Tauri qui peuvent être asynchrones
+ * Uses ResizeObserver with entries to get dimensions directly
+ * Avoids timing issues with flexbox and asynchronous layouts
+ * Specifically handles Tauri window resizes which can be asynchronous
  * 
- * @param {React.RefObject} ref - Référence à l'élément à observer
- * @param {Object} options - Options pour ResizeObserver
- * @param {string} options.box - Type de box à observer ('border-box', 'content-box', 'device-pixel-content-box')
- * @returns {Object} - { width, height } en pixels (0 si non disponible)
+ * @param {React.RefObject} ref - Reference to the element to observe
+ * @param {Object} options - Options for ResizeObserver
+ * @param {string} options.box - Type of box to observe ('border-box', 'content-box', 'device-pixel-content-box')
+ * @returns {Object} - { width, height } in pixels (0 if not available)
  */
 export function useResizeObserver(ref, options = {}) {
   const { box = 'border-box' } = options;
@@ -19,9 +19,9 @@ export function useResizeObserver(ref, options = {}) {
   const rafRef = useRef(null);
   const isWindowResizingRef = useRef(false);
 
-  // Callback pour mettre à jour la taille de manière optimisée
+  // Callback to update size in an optimized way
   const updateSize = useCallback((entries) => {
-    // Utiliser requestAnimationFrame pour synchroniser avec le rendu
+    // Use requestAnimationFrame to synchronize with rendering
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
     }
@@ -31,39 +31,39 @@ export function useResizeObserver(ref, options = {}) {
 
       const entry = entries[0];
       
-      // Utiliser les dimensions de l'entry directement (plus fiable que getBoundingClientRect)
-      // borderBoxSize est préféré car il inclut padding et border
+      // Use entry dimensions directly (more reliable than getBoundingClientRect)
+      // borderBoxSize is preferred as it includes padding and border
       let width = 0;
       let height = 0;
 
       if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
-        // API moderne avec borderBoxSize (meilleure précision)
+        // Modern API with borderBoxSize (better precision)
         const borderBox = entry.borderBoxSize[0];
         width = borderBox.inlineSize;
         height = borderBox.blockSize;
       } else if (entry.contentBoxSize && entry.contentBoxSize.length > 0) {
-        // Fallback sur contentBoxSize
+        // Fallback to contentBoxSize
         const contentBox = entry.contentBoxSize[0];
         width = contentBox.inlineSize;
         height = contentBox.blockSize;
       } else {
-        // Fallback sur contentRect (ancienne API, moins précise)
+        // Fallback to contentRect (old API, less precise)
         width = entry.contentRect.width;
         height = entry.contentRect.height;
       }
 
-      // Arrondir pour éviter les problèmes de subpixel
+      // Round to avoid subpixel issues
       width = Math.floor(width);
       height = Math.floor(height);
 
-      // ✅ Si on est en train de resizer la fenêtre (Tauri), utiliser un double RAF
-      // pour laisser le layout se stabiliser complètement
+      // ✅ If we're resizing the window (Tauri), use double RAF
+      // to let the layout stabilize completely
       if (isWindowResizingRef.current) {
-        // Double RAF pour laisser le layout se stabiliser après resize Tauri
+        // Double RAF to let layout stabilize after Tauri resize
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             setSize(prev => {
-              // Ne mettre à jour que si les dimensions ont changé et sont valides
+              // Only update if dimensions changed and are valid
               if (prev.width !== width || prev.height !== height) {
                 if (width > 0 && height > 0) {
                   return { width, height };
@@ -74,9 +74,9 @@ export function useResizeObserver(ref, options = {}) {
           });
         });
       } else {
-        // Mise à jour normale
+        // Normal update
         setSize(prev => {
-          // Ne mettre à jour que si les dimensions ont changé
+          // Only update if dimensions changed
           if (prev.width === width && prev.height === height) {
             return prev;
           }
@@ -93,13 +93,13 @@ export function useResizeObserver(ref, options = {}) {
       return;
     }
 
-    // Créer l'observer avec les options
+    // Create observer with options
     observerRef.current = new ResizeObserver(updateSize);
     
-    // Observer l'élément avec la box spécifiée
+    // Observe element with specified box
     observerRef.current.observe(element, { box });
 
-    // ✅ Initialisation immédiate
+    // ✅ Immediate initialization
     const initializeSize = () => {
       const rect = element.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
@@ -109,31 +109,31 @@ export function useResizeObserver(ref, options = {}) {
       }
     };
 
-    // Initialisation immédiate
+    // Immediate initialization
     initializeSize();
 
-    // ✅ Re-vérification après quelques frames pour gérer les layouts asynchrones
-    // Particulièrement important après un resize de fenêtre Tauri
+    // ✅ Re-check after a few frames to handle asynchronous layouts
+    // Particularly important after a Tauri window resize
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         initializeSize();
       });
     });
 
-    // ✅ Écouter les resize de fenêtre pour gérer les resize Tauri asynchrones
-    // Marquer qu'on est en train de resizer pour utiliser un double RAF
+    // ✅ Listen to window resize to handle asynchronous Tauri resizes
+    // Mark that we're resizing to use double RAF
     let resizeTimeout = null;
     const handleWindowResize = () => {
-      // Marquer qu'on est en train de resizer
+      // Mark that we're resizing
       isWindowResizingRef.current = true;
       
-      // Réinitialiser le flag après un court délai
+      // Reset flag after a short delay
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
       }
       resizeTimeout = setTimeout(() => {
         isWindowResizingRef.current = false;
-      }, 200); // 200ms devrait être suffisant pour que Tauri termine le resize
+      }, 200); // 200ms should be enough for Tauri to finish the resize
     };
 
     window.addEventListener('resize', handleWindowResize);
@@ -151,7 +151,7 @@ export function useResizeObserver(ref, options = {}) {
         observerRef.current.disconnect();
         observerRef.current = null;
       }
-      // Réinitialiser les refs
+      // Reset refs
       isWindowResizingRef.current = false;
     };
   }, [ref, box, updateSize]);
@@ -160,10 +160,10 @@ export function useResizeObserver(ref, options = {}) {
 }
 
 /**
- * Hook pour obtenir les dimensions avec device pixel ratio
- * Utile pour les canvas qui ont besoin de dimensions précises
+ * Hook to get dimensions with device pixel ratio
+ * Useful for canvases that need precise dimensions
  * 
- * @param {React.RefObject} ref - Référence à l'élément à observer
+ * @param {React.RefObject} ref - Reference to the element to observe
  * @returns {Object} - { width, height, dpr, scaledWidth, scaledHeight }
  */
 export function useResizeObserverWithDPR(ref) {
@@ -171,7 +171,7 @@ export function useResizeObserverWithDPR(ref) {
   const [dpr, setDpr] = useState(1);
 
   useEffect(() => {
-    // Mettre à jour le DPR si nécessaire
+    // Update DPR if necessary
     const updateDPR = () => {
       const newDpr = window.devicePixelRatio || 1;
       setDpr(newDpr);
@@ -179,7 +179,7 @@ export function useResizeObserverWithDPR(ref) {
 
     updateDPR();
     
-    // Écouter les changements de DPR (peu fréquent mais possible)
+    // Listen to DPR changes (rare but possible)
     const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
     mediaQuery.addEventListener('change', updateDPR);
 

@@ -160,7 +160,7 @@ export function useApps(isActive, official = true) {
       
       if (officialParam) {
         // ✅ Fetch official apps from HF official app store JSON
-        // Source de vérité : https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store/raw/main/app-list.json
+        // Source of truth: https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store/raw/main/app-list.json
         console.log(`🔄 Fetching official apps from HF app store`);
         daemonApps = await fetchOfficialApps();
         console.log(`✅ Fetched ${daemonApps.length} official apps from HF app store`);

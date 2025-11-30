@@ -7,7 +7,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 /**
  * Search bar component for Discover Modal
  */
-export default function DiscoverModalSearchBar({
+export default function SearchBar({
   darkMode,
   searchQuery,
   setSearchQuery,
@@ -115,7 +115,7 @@ export default function DiscoverModalSearchBar({
             }}
           >
             {isFiltered 
-              ? `${filteredApps.length}/${totalAppsCount}`  // ✅ Show "filtré/total" when filtered
+              ? `${filteredApps.length}/${totalAppsCount}`  // ✅ Show "filtered/total" when filtered
               : filteredApps.length  // ✅ Show just number when no filter or at max
             }
           </Typography>

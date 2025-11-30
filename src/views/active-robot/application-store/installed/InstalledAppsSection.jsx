@@ -4,7 +4,7 @@ import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import DiscoverAppsButton from '../discover/Button';
-import ReachiesCarousel from '../../../../components/ReachiesCarousel';
+import ReachiesCarousel from '@components/ReachiesCarousel';
 
 /**
  * Section displaying installed apps with call-to-actions for discovery and creation

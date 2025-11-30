@@ -3,7 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
-import FullscreenOverlay from '../../../../components/FullscreenOverlay';
+import FullscreenOverlay from '@components/FullscreenOverlay';
 
 /**
  * Fullscreen overlay for app installation

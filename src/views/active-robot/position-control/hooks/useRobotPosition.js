@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../../../config/daemon';
-import useAppStore from '../../../../store/useAppStore';
+import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '@config/daemon';
+import useAppStore from '@store/useAppStore';
 import { formatPoseForLog, hasSignificantChange } from '../utils';
-import { getInputManager } from '../../../../utils/InputManager';
+import { getInputManager } from '@utils/InputManager';
 import { 
   ROBOT_POSITION_RANGES, 
   INPUT_SENSITIVITY, 
@@ -11,7 +11,7 @@ import {
   EXTENDED_ROBOT_RANGES,
   INPUT_SMOOTHING_FACTORS,
   INPUT_MAPPING_FACTORS,
-} from '../../../../utils/inputConstants';
+} from '@utils/inputConstants';
 import {
   hasActiveInput,
   isHeadPoseZero,
@@ -19,15 +19,15 @@ import {
   clamp,
   createZeroHeadPose,
   createZeroAntennas,
-} from '../../../../utils/inputHelpers';
+} from '@utils/inputHelpers';
 import {
   smoothInputs,
   getDeltaTime,
-} from '../../../../utils/inputSmoothing';
+} from '@utils/inputSmoothing';
 import { useRobotAPI } from './useRobotAPI';
 import { useRobotSmoothing } from './useRobotSmoothing';
 import { useRobotSync } from './useRobotSync';
-import { mapInputToRobot } from '../../../../utils/inputMappings';
+import { mapInputToRobot } from '@utils/inputMappings';
 
 /**
  * Hook to manage robot position control logic

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { TargetSmoothingManager } from '../../../../utils/targetSmoothing';
-import { ROBOT_POSITION_RANGES, EXTENDED_ROBOT_RANGES } from '../../../../utils/inputConstants';
-import { clamp } from '../../../../utils/inputHelpers';
-import { mapRobotToAPI } from '../../../../utils/inputMappings';
+import { TargetSmoothingManager } from '@utils/targetSmoothing';
+import { ROBOT_POSITION_RANGES, EXTENDED_ROBOT_RANGES } from '@utils/inputConstants';
+import { clamp } from '@utils/inputHelpers';
+import { mapRobotToAPI } from '@utils/inputMappings';
 
 /**
  * Hook for managing robot position smoothing

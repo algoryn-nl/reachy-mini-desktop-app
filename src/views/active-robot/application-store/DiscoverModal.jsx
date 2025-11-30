@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
 import { Box, CircularProgress, IconButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import FullscreenOverlay from '../../../components/FullscreenOverlay';
-import DiscoverModalHeader from './DiscoverModalHeader';
-import DiscoverModalSearchBar from './DiscoverModalSearchBar';
-import DiscoverModalCategoryFilters from './DiscoverModalCategoryFilters';
-import DiscoverModalAppCard from './DiscoverModalAppCard';
-import DiscoverModalEmptyState from './DiscoverModalEmptyState';
-import DiscoverModalFooter from './DiscoverModalFooter';
+import FullscreenOverlay from '@components/FullscreenOverlay';
+import Header from './discover/components/Header';
+import SearchBar from './discover/components/SearchBar';
+import CategoryFilters from './discover/components/CategoryFilters';
+import AppCard from './discover/components/AppCard';
+import EmptyState from './discover/components/EmptyState';
+import Footer from './discover/components/Footer';
 
 /**
  * Modal overlay for discovering and installing apps from Hugging Face
@@ -90,10 +90,10 @@ export default function DiscoverModal({
         </IconButton>
 
         {/* Header */}
-        <DiscoverModalHeader darkMode={darkMode} />
+        <Header darkMode={darkMode} />
 
         {/* Search Bar */}
-        <DiscoverModalSearchBar
+        <SearchBar
           darkMode={darkMode}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -106,7 +106,7 @@ export default function DiscoverModal({
         />
 
         {/* Category Filters */}
-        <DiscoverModalCategoryFilters
+        <CategoryFilters
           darkMode={darkMode}
           categories={categories}
           selectedCategory={selectedCategory}
@@ -151,7 +151,7 @@ export default function DiscoverModal({
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 2.5, width: '100%', mb: 0 }}>
               {filteredApps.length === 0 ? (
-                <DiscoverModalEmptyState
+                <EmptyState
                   darkMode={darkMode}
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
@@ -165,7 +165,7 @@ export default function DiscoverModal({
                     const isInstalled = app.isInstalled || false;
                     
                     return (
-                      <DiscoverModalAppCard
+                      <AppCard
                         key={`${app.name}-${selectedCategory || 'all'}-${searchQuery || ''}-${index}`}
                         app={app}
                         darkMode={darkMode}
@@ -183,7 +183,7 @@ export default function DiscoverModal({
                   
                   {/* Footer */}
                   {filteredApps.length > 0 && (
-                    <DiscoverModalFooter
+                    <Footer
                       darkMode={darkMode}
                       onOpenCreateTutorial={onOpenCreateTutorial}
                     />

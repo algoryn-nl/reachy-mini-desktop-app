@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Box, CircularProgress, IconButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import FullscreenOverlay from '../../../../components/FullscreenOverlay';
+import FullscreenOverlay from '@components/FullscreenOverlay';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import CategoryFilters from './components/CategoryFilters';

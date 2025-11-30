@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box, Typography, Button } from '@mui/material';
-import ReachyDetective from '../../../../../assets/reachy-detective.svg';
+import ReachyDetective from '@assets/reachy-detective.svg';
 
 /**
  * Footer component for Discover Modal
  */
-export default function DiscoverModalFooter({
+export default function Footer({
   darkMode,
   onOpenCreateTutorial,
 }) {

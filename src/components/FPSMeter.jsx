@@ -67,7 +67,7 @@ export function FPSMeter({ darkMode }) {
   );
 }
 
-// Default export for backward compatibility (used in App.jsx)
+// Default export - wrapper that gets darkMode from store (for backward compatibility)
 export default function FPSMeterWrapper() {
   const { darkMode } = useAppStore();
   return <FPSMeter darkMode={darkMode} />;

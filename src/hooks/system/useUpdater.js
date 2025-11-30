@@ -301,7 +301,7 @@ export const useUpdater = ({
       }, [maxRetries, retryDelay, isRecoverableError, sleep]);
 
   /**
-   * Installe la mise à jour disponible
+   * Installs the available update
    */
   const installUpdate = useCallback(async () => {
     if (updateAvailable) {
@@ -310,7 +310,7 @@ export const useUpdater = ({
   }, [updateAvailable, downloadAndInstall]);
 
   /**
-   * Ignore la mise à jour disponible
+   * Dismisses the available update
    */
   const dismissUpdate = useCallback(() => {
     setUpdateAvailable(null);

@@ -6,9 +6,9 @@ import { DAEMON_CONFIG } from '../../config/daemon';
 import { useInternetHealthcheck } from '../../hooks/system/useInternetHealthcheck';
 
 /**
- * Vue dédiée pour les mises à jour
- * Affiche "Checking for updates..." pendant au moins 2-3 secondes
- * Installe automatiquement si une mise à jour est disponible
+ * Update view component
+ * Displays "Checking for updates..." for at least 2-3 seconds
+ * Automatically installs if an update is available
  */
 export default function UpdateView({
   isChecking,
@@ -23,7 +23,7 @@ export default function UpdateView({
   const checkStartTimeRef = useRef(Date.now());
   const { isOnline: isInternetOnline, hasChecked: hasInternetChecked } = useInternetHealthcheck({ interval: 5000, timeout: 5000 });
 
-  // Timer pour garantir l'affichage minimum (utilise config centralisée)
+  // Timer to guarantee minimum display time (uses centralized config)
   useEffect(() => {
     checkStartTimeRef.current = Date.now();
     setMinDisplayTimeElapsed(false);
@@ -33,12 +33,12 @@ export default function UpdateView({
     }, DAEMON_CONFIG.MIN_DISPLAY_TIMES.UPDATE_CHECK);
 
     return () => clearTimeout(timer);
-  }, []); // Se déclenche une seule fois au montage du composant
+  }, []); // Triggers only once on component mount
 
-  // Installation automatique si mise à jour disponible et temps minimum écoulé
+  // Automatic installation if update available and minimum time elapsed
   useEffect(() => {
     if (updateAvailable && !isDownloading && !updateError && minDisplayTimeElapsed && onInstallUpdate) {
-      // Petit délai pour que l'UI se mette à jour
+      // Small delay to let UI update
       const installTimer = setTimeout(() => {
         onInstallUpdate();
       }, 300);
@@ -103,7 +103,7 @@ export default function UpdateView({
         }}
       >
         {isChecking && !updateAvailable ? (
-          // État: Vérification en cours - design subtil et centré
+          // State: Checking in progress - subtle and centered design
           <Box
             sx={{
               display: 'flex',
@@ -134,7 +134,7 @@ export default function UpdateView({
             </Typography>
           </Box>
         ) : updateAvailable ? (
-          // État: Mise à jour disponible (installation automatique)
+          // State: Update available (automatic installation)
           <>
             <Box sx={{ mb: 4 }}>
               <img
@@ -239,7 +239,7 @@ export default function UpdateView({
             )}
           </>
         ) : updateError ? (
-          // État: Erreur - afficher message d'erreur clair, surtout pour erreurs réseau
+          // State: Error - display clear error message, especially for network errors
           <>
             <Box
               sx={{
