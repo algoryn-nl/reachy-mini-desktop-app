@@ -468,13 +468,36 @@ echo -e "${BLUE}📄 Step 3: Generating update metadata...${NC}"
 JSON_DIR="$OUTPUT_DIR/$PLATFORM/$VERSION"
 mkdir -p "$JSON_DIR"
 
-# File name according to platform
+# File name according to platform (must match the actual filenames uploaded to GitHub Releases)
 if [[ "$PLATFORM" == darwin-* ]]; then
-    FILE_NAME="reachy-mini-control_${VERSION}_${PLATFORM}.app.tar.gz"
+    # Determine architecture suffix from TARGET_TRIPLET
+    if [ -n "$TARGET_TRIPLET" ]; then
+        if [[ "$TARGET_TRIPLET" == *"aarch64"* ]]; then
+            ARCH_SUFFIX="arm64"
+        else
+            ARCH_SUFFIX="x64"
+        fi
+    else
+        # Fallback: detect from PLATFORM
+        if [[ "$PLATFORM" == *"aarch64"* ]]; then
+            ARCH_SUFFIX="arm64"
+        else
+            ARCH_SUFFIX="x64"
+        fi
+    fi
+    # macOS uses ZIP format: Reachy.Mini.Control_${VERSION}_${ARCH_SUFFIX}.zip
+    FILE_NAME="Reachy.Mini.Control_${VERSION}_${ARCH_SUFFIX}.zip"
 elif [[ "$PLATFORM" == windows-* ]]; then
-    FILE_NAME="reachy-mini-control_${VERSION}_${PLATFORM}-setup.msi"
+    # Windows MSI: Tauri generates names based on productName, typically:
+    # Reachy Mini Control_${VERSION}_x64-setup.msi (with spaces converted)
+    # But GitHub might have different naming. Use the actual filename from bundle if available.
+    # For now, use a pattern that matches common Tauri MSI naming
+    FILE_NAME="Reachy.Mini.Control_${VERSION}_x64-setup.msi"
 elif [[ "$PLATFORM" == linux-* ]]; then
-    FILE_NAME="reachy-mini-control_${VERSION}_${PLATFORM}.AppImage"
+    # Linux AppImage: Tauri generates names based on productName
+    # Typically: Reachy Mini Control_${VERSION}_x86_64.AppImage
+    # But GitHub might have different naming. Use the actual filename from bundle if available.
+    FILE_NAME="Reachy.Mini.Control_${VERSION}_x86_64.AppImage"
 fi
 
 # File URL (dev = localhost, prod = to be configured)
@@ -483,7 +506,9 @@ if [ "$ENV" = "dev" ]; then
 else
     # For prod, use environment variable or default value
     if [ -n "$RELEASE_URL_BASE" ]; then
-        FILE_URL="${RELEASE_URL_BASE}/${FILE_NAME}"
+        # RELEASE_URL_BASE should end with /v, we need to add version and filename
+        # Format: https://github.com/user/repo/releases/download/v{VERSION}/filename
+        FILE_URL="${RELEASE_URL_BASE}${VERSION}/${FILE_NAME}"
     else
         FILE_URL="https://releases.example.com/${FILE_NAME}"
         echo -e "${YELLOW}⚠️  Production URL to be configured via RELEASE_URL_BASE or in script${NC}"
