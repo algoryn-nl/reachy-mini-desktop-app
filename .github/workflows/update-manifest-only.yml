@@ -33,67 +33,17 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "✅ Using version: $VERSION"
 
-      - name: Download update artifacts from release
-        uses: actions/download-artifact@v4
-        with:
-          pattern: update-*
-          merge-multiple: true
-          path: update-artifacts
-        continue-on-error: true
-
-      - name: Download update.json files from GitHub Release
-        if: failure()
+      - name: Download latest.json from GitHub Release
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          mkdir -p update-artifacts
-          
-          # Download update.json files from the release
-          PLATFORMS=("darwin-x86_64" "darwin-aarch64" "windows-x86_64" "linux-x86_64")
-          
-          for PLATFORM in "${PLATFORMS[@]}"; do
-            URL="https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v${VERSION}/${PLATFORM}/${VERSION}/update.json"
-            echo "📥 Downloading ${PLATFORM} update.json..."
-            mkdir -p "update-artifacts/${PLATFORM}/${VERSION}"
-            curl -L -s -f "$URL" -o "update-artifacts/${PLATFORM}/${VERSION}/update.json" || {
-              echo "⚠️ Failed to download ${PLATFORM} update.json (may not exist)"
-            }
-          done
-
-      - name: Merge update.json files into latest.json
-        run: |
-          sudo apt-get update && sudo apt-get install -y jq
-          
-          UPDATE_FILES=$(find update-artifacts -name "update.json" -type f)
-          
-          if [ -z "$UPDATE_FILES" ]; then
-            echo "❌ No update.json files found"
-            echo "💡 Make sure the release v${{ steps.version.outputs.version }} exists with update.json files"
+          URL="https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v${VERSION}/latest.json"
+          echo "📥 Downloading latest.json from release..."
+          curl -L -s -f "$URL" -o latest.json || {
+            echo "❌ Failed to download latest.json from release"
+            echo "💡 Make sure the release v${VERSION} exists with latest.json"
             exit 1
-          fi
-          
-          echo "✅ Found update.json files:"
-          echo "$UPDATE_FILES"
-          
-          FIRST_FILE=$(echo "$UPDATE_FILES" | head -n1)
-          VERSION=$(jq -r '.version' "$FIRST_FILE")
-          NOTES=$(jq -r '.notes' "$FIRST_FILE")
-          PUB_DATE=$(jq -r '.pub_date' "$FIRST_FILE")
-          
-          MERGED_PLATFORMS="{}"
-          for FILE in $UPDATE_FILES; do
-            PLATFORM_DATA=$(jq -c '.platforms' "$FILE")
-            MERGED_PLATFORMS=$(echo "$MERGED_PLATFORMS" | jq --argjson platforms "$PLATFORM_DATA" '. + $platforms')
-          done
-          
-          MERGED_JSON=$(jq -n \
-            --arg version "$VERSION" \
-            --arg notes "$NOTES" \
-            --arg pub_date "$PUB_DATE" \
-            --argjson platforms "$MERGED_PLATFORMS" \
-            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: $platforms}')
-          
-          echo "$MERGED_JSON" > latest.json
-          echo "✅ Generated latest.json:"
+          }
+          echo "✅ Downloaded latest.json:"
           cat latest.json
 
       - name: Upload latest.json to release
