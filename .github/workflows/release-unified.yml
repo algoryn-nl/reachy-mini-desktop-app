@@ -157,21 +157,58 @@ jobs:
         shell: bash
         env:
           TAURI_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
-          TAURI_PUBLIC_KEY: ${{ secrets.TAURI_PUBLIC_KEY }}
         run: |
           mkdir -p ~/.tauri
           if [ -n "$TAURI_SIGNING_KEY" ]; then
             CLEANED_KEY=$(echo -n "$TAURI_SIGNING_KEY" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             printf '%s' "$CLEANED_KEY" > ~/.tauri/reachy-mini.key
             chmod 600 ~/.tauri/reachy-mini.key
-            if [ -n "$TAURI_PUBLIC_KEY" ]; then
-              CLEANED_PUBKEY=$(echo -n "$TAURI_PUBLIC_KEY" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-              printf '%s' "$CLEANED_PUBKEY" > ~/.tauri/reachy-mini.key.pub
+            
+            # ✅ Extract public key from tauri.conf.json (standard practice - ensures they match)
+            echo "🔑 Extracting public key from tauri.conf.json..."
+            
+            # The public key in tauri.conf.json is base64-encoded
+            # We decode it to get the raw public key format that minisign expects
+            PUBKEY=$(grep -o '"pubkey": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
+            if [ -n "$PUBKEY" ]; then
+              # Decode base64 to get raw public key format (what minisign expects)
+              echo "$PUBKEY" | base64 -d > ~/.tauri/reachy-mini.key.pub
+              echo "✅ Extracted public key from tauri.conf.json (decoded from base64)"
             else
-              PUBKEY=$(grep -o '"pubkey": "[^"]*"' src-tauri/tauri.conf.json | cut -d'"' -f4)
-              if [ -n "$PUBKEY" ]; then
-                printf '%s' "$PUBKEY" > ~/.tauri/reachy-mini.key.pub
+              echo "❌ No public key found in tauri.conf.json"
+              exit 1
+            fi
+            
+            # ✅ Verify the key pair matches by testing signature
+            if [ -f ~/.tauri/reachy-mini.key.pub ]; then
+              echo "🔍 Verifying key pair match..."
+              TEST_FILE="/tmp/test-key-match-$$.txt"
+              echo "test" > "$TEST_FILE"
+              if yarn tauri signer sign -f ~/.tauri/reachy-mini.key -p "" "$TEST_FILE" 2>/dev/null; then
+                # Try to verify with the extracted public key using minisign
+                if command -v minisign &> /dev/null && [ -f "$TEST_FILE.sig" ]; then
+                  if minisign -V -p ~/.tauri/reachy-mini.key.pub -m "$TEST_FILE" -x "$TEST_FILE.sig" 2>/dev/null; then
+                    echo "✅ Key pair verified - public key matches private key"
+                  else
+                    echo "⚠️ Warning: Public key verification failed - keys may not match"
+                    echo "   This could cause 'invalid encoding in minisign data' errors"
+                  fi
+                fi
+                rm -f "$TEST_FILE" "$TEST_FILE.sig" 2>/dev/null || true
+              else
+                echo "⚠️ Could not test key pair (private key may require password)"
               fi
+            fi
+            
+            # ✅ Verify the private key is valid by attempting a test sign
+            echo "🔍 Verifying private key validity..."
+            TEST_FILE="/tmp/test-sign-verify-$$.txt"
+            echo "test" > "$TEST_FILE"
+            if yarn tauri signer sign -f ~/.tauri/reachy-mini.key -p "" "$TEST_FILE" 2>/dev/null; then
+              echo "✅ Private key is valid and can sign files"
+              rm -f "$TEST_FILE" "$TEST_FILE.sig" 2>/dev/null || true
+            else
+              echo "⚠️ Warning: Could not verify private key (may require password or key mismatch)"
             fi
           else
             echo "⚠️ No signing key provided, generating temporary key..."
