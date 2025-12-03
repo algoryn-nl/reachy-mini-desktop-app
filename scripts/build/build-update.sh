@@ -487,8 +487,8 @@ else
     # ✅ Verify the signature is not empty and is valid base64
     if [ -z "$SIGNATURE" ]; then
         echo -e "${RED}❌ Signature encoding resulted in empty string${NC}"
-        exit 1
-    fi
+            exit 1
+        fi
     
     # Verify it's valid base64 (should only contain A-Z, a-z, 0-9, +, /, =)
     if ! echo "$SIGNATURE" | grep -qE '^[A-Za-z0-9+/=]+$'; then
