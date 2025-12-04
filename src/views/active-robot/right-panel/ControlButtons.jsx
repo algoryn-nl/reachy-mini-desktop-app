@@ -40,7 +40,7 @@ export default function ControlButtons({
     borderRadius: '14px',
     bgcolor: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'white',
     border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
-    p: 2.5,
+    p: 2.1,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',

@@ -325,6 +325,7 @@ const useAppStore = create(
   hardwareError: null, // Hardware error detected during scan
   isDaemonCrashed: false, // Daemon crashed/stuck detected
   consecutiveTimeouts: 0, // Counter of consecutive timeouts
+  startupTimeoutId: null, // Timeout ID for startup timeout (30s)
   
   // Robot state
   isUsbConnected: false,
@@ -773,6 +774,16 @@ const useAppStore = create(
   markDaemonCrashed: () => {
     const state = useAppStore.getState();
     state.transitionTo.crashed();
+  },
+  
+  // Startup timeout management
+  setStartupTimeout: (timeoutId) => set({ startupTimeoutId: timeoutId }),
+  clearStartupTimeout: () => {
+    const state = useAppStore.getState();
+    if (state.startupTimeoutId !== null) {
+      clearTimeout(state.startupTimeoutId);
+      set({ startupTimeoutId: null });
+    }
   },
   
   // Trigger 3D visual effect

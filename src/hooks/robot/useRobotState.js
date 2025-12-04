@@ -19,6 +19,7 @@ export function useRobotState(isActive) {
     incrementTimeouts,
     resetTimeouts,
     setIsActive,
+    clearStartupTimeout,
   } = useAppStore();
   
   useEffect(() => {
@@ -63,6 +64,8 @@ export function useRobotState(isActive) {
             // ✅ Success → reset timeout counter for health check
             resetTimeouts();
             setIsActive(true);
+            // ✅ Clear startup timeout since daemon is now active
+            clearStartupTimeout();
           } else {
             // Response but not OK → not a timeout, don't increment
             console.warn('⚠️ Daemon responded but not OK:', stateResponse.status);

@@ -117,7 +117,7 @@ export default function InstalledAppsSection({
               display: 'flex', 
               flexDirection: 'column', 
               gap: 1, 
-              mb: 2,
+              mb: 0,
               minHeight: '280px', // Same height as empty state box
               borderRadius: '14px',
               bgcolor: 'transparent',

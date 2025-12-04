@@ -7,6 +7,7 @@ import useAppStore from '../../store/useAppStore';
 import { invoke } from '@tauri-apps/api/core';
 import { HARDWARE_ERROR_CONFIGS, getErrorMeshes } from '../../utils/hardwareErrors';
 import { getTotalScanParts, getCurrentScanPart, mapMeshToScanPart } from '../../utils/scanParts';
+import { useDaemonStartupLogs } from '../../hooks/daemon/useDaemonStartupLogs';
 
 /**
  * Generate text shadow for better readability on transparent backgrounds
@@ -31,8 +32,9 @@ function HardwareScanView({
   onScanComplete: onScanCompleteCallback,
   startDaemon,
 }) {
-  const { setHardwareError, darkMode, setIsStarting } = useAppStore();
+  const { setHardwareError, darkMode, setIsStarting, isStarting } = useAppStore();
   const theme = useTheme();
+  const { logs: startupLogs, hasError: hasStartupError, lastMessage } = useDaemonStartupLogs(isStarting);
   const totalScanParts = getTotalScanParts(); // Static total from scan parts list
   const [scanProgress, setScanProgress] = useState({ current: 0, total: totalScanParts });
   const [currentPart, setCurrentPart] = useState(null);
@@ -193,6 +195,7 @@ function HardwareScanView({
         px: 4,
         gap: 1.5,
         bgcolor: 'transparent',
+        position: 'relative', // For absolute positioning of logs
       }}
     >
       <Box
@@ -434,6 +437,58 @@ function HardwareScanView({
           </Box>
         )}
       </Box>
+
+      {/* ✅ Daemon startup logs - fixed at the bottom, discrete */}
+      {isStarting && startupLogs.length > 0 && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc(100% - 32px)',
+            maxWidth: '420px',
+            maxHeight: '40px', // ~3 lines
+            overflowY: 'hidden', // Hide scrollbar by default
+            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.05)',
+            borderRadius: '6px',
+            px: 1,
+            py: 0.75,
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            opacity: 0.25, // Discreet by default
+            transition: 'opacity 0.3s ease-in-out',
+            zIndex: 1000,
+            '&:hover': {
+              opacity: 1, // Full opacity on hover
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+            {startupLogs.slice(-3).map((log, idx) => (
+              <Typography
+                key={idx}
+                sx={{
+                  fontSize: 9, // Smaller font size
+                  fontFamily: 'monospace',
+                  color: log.level === 'error' 
+                    ? '#ef4444' 
+                    : log.level === 'warning'
+                    ? '#f59e0b'
+                    : darkMode ? '#ccc' : '#666',
+                  lineHeight: 1.4,
+                  whiteSpace: 'nowrap', // Prevent wrapping
+                  overflow: 'hidden', // Hide overflow
+                  textOverflow: 'ellipsis', // Show ellipsis for truncated text
+                }}
+              >
+                {log.message}
+              </Typography>
+            ))}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -20,7 +20,9 @@ export const useDaemon = () => {
     setDaemonVersion,
     setStartupError,
     setHardwareError,
-    addFrontendLog
+    addFrontendLog,
+    setStartupTimeout,
+    clearStartupTimeout
   } = useAppStore();
 
   // ✅ checkStatus removed - useDaemonHealthCheck handles all status checking
@@ -50,6 +52,42 @@ export const useDaemon = () => {
       // ✅ No incrementTimeouts() here, handled by useDaemonHealthCheck
     }
   }, [setDaemonVersion]);
+
+  // ✅ Listen to sidecar termination events to detect immediate crashes
+  useEffect(() => {
+    let unlistenTerminated;
+    
+    const setupTerminationListener = async () => {
+      try {
+        unlistenTerminated = await listen('sidecar-terminated', (event) => {
+          // Only process if daemon is starting
+          if (!isStarting) {
+            return;
+          }
+          
+          const status = typeof event.payload === 'string' 
+            ? event.payload 
+            : event.payload?.toString() || 'unknown';
+          
+          console.error('❌ Daemon process terminated during startup:', status);
+          setStartupError(`Daemon process terminated unexpectedly (status: ${status})`);
+          setIsStarting(false);
+          clearStartupTimeout(); // Clear timeout since we detected the crash
+          addFrontendLog(`❌ Daemon crashed during startup: ${status}`);
+        });
+      } catch (error) {
+        console.error('Failed to setup sidecar-terminated listener:', error);
+      }
+    };
+    
+    setupTerminationListener();
+    
+    return () => {
+      if (unlistenTerminated) {
+        unlistenTerminated();
+      }
+    };
+  }, [isStarting, setStartupError, setIsStarting, clearStartupTimeout, addFrontendLog]);
 
   // Listen to sidecar stderr events to detect hardware errors
   // Only process errors when daemon is starting
@@ -128,6 +166,7 @@ export const useDaemon = () => {
           // Wait to see the spinner in the button
           await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
           setIsStarting(true);
+          // Daemon already active, no need for startup timeout
           return;
         }
       } catch (e) {
@@ -148,11 +187,25 @@ export const useDaemon = () => {
         console.error('❌ Daemon startup error:', e);
         setStartupError(e.message || 'Error starting the daemon');
         setIsStarting(false);
+        clearStartupTimeout(); // Clear timeout on immediate error
       });
       
       // Wait to see the spinner in the button, then switch to scan view
       await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
       setIsStarting(true);
+      
+      // ✅ Set explicit startup timeout (30 seconds)
+      // If daemon doesn't become active within 30s, show error
+      const timeoutId = setTimeout(() => {
+        const currentState = useAppStore.getState();
+        if (!currentState.isActive && currentState.isStarting) {
+          console.error('❌ Daemon startup timed out after 30s');
+          setStartupError('Daemon did not become active within 30 seconds. Please check the robot connection.');
+          setIsStarting(false);
+          addFrontendLog('❌ Daemon startup timeout (30s)');
+        }
+      }, 30000); // 30 seconds
+      setStartupTimeout(timeoutId);
       
       // ✅ useDaemonHealthCheck will detect when daemon is ready automatically
       // It polls every 1.33s and updates isActive when daemon responds
@@ -161,11 +214,14 @@ export const useDaemon = () => {
       console.error('❌ Daemon startup error:', e);
       setStartupError(e.message || 'Error starting the daemon');
       setIsStarting(false);
+      clearStartupTimeout(); // Clear timeout on immediate error
     }
-  }, [setIsStarting, setIsActive, setStartupError, setHardwareError, setIsTransitioning, addFrontendLog]);
+  }, [setIsStarting, setIsActive, setStartupError, setHardwareError, setIsTransitioning, addFrontendLog, setStartupTimeout, clearStartupTimeout]);
 
   const stopDaemon = useCallback(async () => {
     setIsStopping(true);
+    // ✅ Clear startup timeout if daemon is being stopped
+    clearStartupTimeout();
     try {
       // First send robot to sleep position
       try {
@@ -191,7 +247,7 @@ export const useDaemon = () => {
       console.error(e);
       setIsStopping(false);
     }
-  }, [setIsStopping]);
+  }, [setIsStopping, clearStartupTimeout]);
 
   return {
     isActive,
