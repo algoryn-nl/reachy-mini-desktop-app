@@ -29,8 +29,13 @@ export function useDaemonStartupLogs(isStarting) {
   }, [isStarting]);
 
   useEffect(() => {
-    if (!isStarting) {
-      // Cleanup listeners when not starting
+    // ✅ Keep listeners active even when not starting if there's a hardware error
+    // This ensures logs continue to be captured during error state
+    const currentState = useAppStore.getState();
+    const shouldKeepListening = isStarting || currentState.hardwareError;
+    
+    if (!shouldKeepListening) {
+      // Cleanup listeners when not starting and no error
       if (unlistenStdoutRef.current) {
         unlistenStdoutRef.current();
         unlistenStdoutRef.current = null;

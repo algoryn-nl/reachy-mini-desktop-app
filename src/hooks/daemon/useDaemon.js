@@ -5,6 +5,8 @@ import useAppStore from '../../store/useAppStore';
 import { DAEMON_CONFIG, fetchWithTimeout, fetchWithTimeoutSkipInstall, buildApiUrl } from '../../config/daemon';
 import { isSimulationMode } from '../../utils/simulationMode';
 import { findErrorConfig, createErrorFromConfig } from '../../utils/hardwareErrors';
+import { useDaemonEventBus } from './useDaemonEventBus';
+import { handleDaemonError } from '../../utils/daemonErrorHandler';
 
 export const useDaemon = () => {
   const { 
@@ -12,11 +14,8 @@ export const useDaemon = () => {
     isStarting,
     isStopping,
     startupError,
-    isDaemonCrashed,
-    setIsActive, 
     setIsStarting, 
     setIsStopping,
-    setIsTransitioning,
     setDaemonVersion,
     setStartupError,
     setHardwareError,
@@ -24,6 +23,79 @@ export const useDaemon = () => {
     setStartupTimeout,
     clearStartupTimeout
   } = useAppStore();
+  
+  // ✅ Event Bus for centralized event handling
+  const eventBus = useDaemonEventBus();
+  
+  // ✅ Register event handlers (centralized error handling)
+  useEffect(() => {
+    // Handle daemon start success
+    const unsubStartSuccess = eventBus.on('daemon:start:success', (data) => {
+      // Daemon started successfully - no action needed here
+      // useRobotState will detect when it becomes active
+      if (data?.simMode) {
+        addFrontendLog('🎭 Daemon started in simulation mode (MuJoCo)');
+      }
+    });
+    
+    // Handle daemon start error
+    const unsubStartError = eventBus.on('daemon:start:error', (error) => {
+      handleDaemonError('startup', error);
+      clearStartupTimeout();
+    });
+    
+    // Handle daemon start timeout
+    const unsubStartTimeout = eventBus.on('daemon:start:timeout', () => {
+      const currentState = useAppStore.getState();
+      if (!currentState.isActive && currentState.isStarting) {
+        handleDaemonError('timeout', {
+          message: 'Daemon did not become active within 30 seconds. Please check the robot connection.'
+        });
+      }
+    });
+    
+    // Handle daemon crash
+    const unsubCrash = eventBus.on('daemon:crash', (data) => {
+      const currentState = useAppStore.getState();
+      if (currentState.isStarting) {
+        handleDaemonError('crash', {
+          message: `Daemon process terminated unexpectedly (status: ${data.status})`
+        }, { status: data.status });
+        clearStartupTimeout();
+      }
+    });
+    
+    // Handle hardware error from stderr
+    const unsubHardwareError = eventBus.on('daemon:hardware:error', (data) => {
+      const currentState = useAppStore.getState();
+      const shouldProcess = currentState.isStarting || currentState.hardwareError;
+      
+      if (!shouldProcess) {
+        return;
+      }
+      
+      if (data.errorConfig) {
+        // Specific error config found
+        const errorObject = createErrorFromConfig(data.errorConfig, data.errorLine);
+        setHardwareError(errorObject);
+        setIsStarting(true);
+      } else if (data.isGeneric) {
+        // Generic runtime error - don't override specific error if already set
+        const currentError = currentState.hardwareError;
+        if (!currentError || !currentError.type) {
+          handleDaemonError('hardware', data.errorLine);
+        }
+      }
+    });
+    
+    return () => {
+      unsubStartSuccess();
+      unsubStartError();
+      unsubStartTimeout();
+      unsubCrash();
+      unsubHardwareError();
+    };
+  }, [eventBus, setHardwareError, setIsStarting, clearStartupTimeout, addFrontendLog]);
 
   // ✅ checkStatus removed - useDaemonHealthCheck handles all status checking
   // It polls every 1.33s, updates isActive, and handles crash detection
@@ -54,6 +126,7 @@ export const useDaemon = () => {
   }, [setDaemonVersion]);
 
   // ✅ Listen to sidecar termination events to detect immediate crashes
+  // Migrated to Event Bus: emits 'daemon:crash' event
   useEffect(() => {
     let unlistenTerminated;
     
@@ -69,11 +142,8 @@ export const useDaemon = () => {
             ? event.payload 
             : event.payload?.toString() || 'unknown';
           
-          console.error('❌ Daemon process terminated during startup:', status);
-          setStartupError(`Daemon process terminated unexpectedly (status: ${status})`);
-          setIsStarting(false);
-          clearStartupTimeout(); // Clear timeout since we detected the crash
-          addFrontendLog(`❌ Daemon crashed during startup: ${status}`);
+          // ✅ Emit event to bus instead of handling directly
+          eventBus.emit('daemon:crash', { status });
         });
       } catch (error) {
         console.error('Failed to setup sidecar-terminated listener:', error);
@@ -87,18 +157,22 @@ export const useDaemon = () => {
         unlistenTerminated();
       }
     };
-  }, [isStarting, setStartupError, setIsStarting, clearStartupTimeout, addFrontendLog]);
+  }, [isStarting, eventBus]);
 
   // Listen to sidecar stderr events to detect hardware errors
-  // Only process errors when daemon is starting
+  // Migrated to Event Bus: emits 'daemon:hardware:error' event
   useEffect(() => {
     let unlistenStderr;
     
     const setupStderrListener = async () => {
       try {
         unlistenStderr = await listen('sidecar-stderr', (event) => {
-          // Only process errors when starting
-          if (!isStarting) {
+          // ✅ Process errors when starting OR when there's already a hardware error
+          // This ensures we re-detect errors even after a restart
+          const currentState = useAppStore.getState();
+          const shouldProcess = isStarting || currentState.hardwareError;
+          
+          if (!shouldProcess) {
             return;
           }
           
@@ -111,24 +185,16 @@ export const useDaemon = () => {
           const errorConfig = findErrorConfig(errorLine);
           
           if (errorConfig) {
-            console.warn(`⚠️ Hardware error detected (${errorConfig.type}):`, errorLine);
-            const errorObject = createErrorFromConfig(errorConfig, errorLine);
-            setHardwareError(errorObject);
-            // Keep isStarting = true to stay on StartingView/scan view
+            // ✅ Emit event to bus instead of handling directly
+            eventBus.emit('daemon:hardware:error', { errorConfig, errorLine });
           } else if (errorLine.includes('RuntimeError')) {
             // Generic runtime error - no specific config found
-            console.warn('⚠️ Generic hardware runtime error detected:', errorLine);
-            // Don't override specific error if already set
-            const currentError = useAppStore.getState().hardwareError;
-            if (!currentError || !currentError.type) {
-              setHardwareError({
-                type: 'hardware',
-                message: errorLine,
-                messageParts: null,
-                code: null,
-                cameraPreset: 'scan',
-              });
-            }
+            // ✅ Emit as generic hardware error
+            eventBus.emit('daemon:hardware:error', { 
+              errorConfig: null, 
+              errorLine,
+              isGeneric: true 
+            });
           }
         });
       } catch (error) {
@@ -143,9 +209,12 @@ export const useDaemon = () => {
         unlistenStderr();
       }
     };
-  }, [isStarting, setHardwareError, setIsStarting]);
+  }, [isStarting, eventBus]); // Note: hardwareError checked inside listener via getState()
 
   const startDaemon = useCallback(async () => {
+    // ✅ Emit start attempt event
+    eventBus.emit('daemon:start:attempt');
+    
     // First reset errors but don't change view yet
     setStartupError(null);
     setHardwareError(null);
@@ -166,6 +235,8 @@ export const useDaemon = () => {
           // Wait to see the spinner in the button
           await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
           setIsStarting(true);
+          // ✅ Emit success event for existing daemon
+          eventBus.emit('daemon:start:success', { existing: true });
           // Daemon already active, no need for startup timeout
           return;
         }
@@ -179,15 +250,11 @@ export const useDaemon = () => {
       // Launch new daemon (non-blocking - we don't wait for it)
       // Pass sim_mode parameter to backend
       invoke('start_daemon', { simMode: simMode }).then(() => {
-        // Daemon started
-        if (simMode) {
-          addFrontendLog('🎭 Daemon started in simulation mode (MuJoCo)');
-        }
+        // ✅ Emit success event (handler will log sim mode message)
+        eventBus.emit('daemon:start:success', { existing: false, simMode });
       }).catch((e) => {
-        console.error('❌ Daemon startup error:', e);
-        setStartupError(e.message || 'Error starting the daemon');
-        setIsStarting(false);
-        clearStartupTimeout(); // Clear timeout on immediate error
+        // ✅ Emit error event instead of handling directly
+        eventBus.emit('daemon:start:error', e);
       });
       
       // Wait to see the spinner in the button, then switch to scan view
@@ -199,10 +266,8 @@ export const useDaemon = () => {
       const timeoutId = setTimeout(() => {
         const currentState = useAppStore.getState();
         if (!currentState.isActive && currentState.isStarting) {
-          console.error('❌ Daemon startup timed out after 30s');
-          setStartupError('Daemon did not become active within 30 seconds. Please check the robot connection.');
-          setIsStarting(false);
-          addFrontendLog('❌ Daemon startup timeout (30s)');
+          // ✅ Emit timeout event instead of handling directly
+          eventBus.emit('daemon:start:timeout');
         }
       }, 30000); // 30 seconds
       setStartupTimeout(timeoutId);
@@ -211,12 +276,10 @@ export const useDaemon = () => {
       // It polls every 1.33s and updates isActive when daemon responds
       // No need for manual polling or checkStatus calls
     } catch (e) {
-      console.error('❌ Daemon startup error:', e);
-      setStartupError(e.message || 'Error starting the daemon');
-      setIsStarting(false);
-      clearStartupTimeout(); // Clear timeout on immediate error
+      // ✅ Emit error event instead of handling directly
+      eventBus.emit('daemon:start:error', e);
     }
-  }, [setIsStarting, setIsActive, setStartupError, setHardwareError, setIsTransitioning, addFrontendLog, setStartupTimeout, clearStartupTimeout]);
+  }, [eventBus, setIsStarting, setStartupTimeout, addFrontendLog]);
 
   const stopDaemon = useCallback(async () => {
     setIsStopping(true);

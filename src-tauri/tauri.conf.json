@@ -56,7 +56,7 @@
       ],
       "dangerousInsecureTransportProtocol": false,
       "dangerousAllowDowngrades": false,
-      "dialog": true,
+      "dialog": false,
       "pubkey": "ZFc1MGNuVnpkR1ZrSUdOdmJXMWxiblE2SUcxcGJtbHphV2R1SUhCMVlteHBZeUJyWlhrNklETkJOREZCUVVGR1FrRkNPVFkyTlFwU1YxSnNiSEYyTjNGb2NXdEJNMnBrZGxoQlZVcFhORmt3WmtjMWRXZEhLMDlOY2tsWU5HdGhSMWRIYlZSMWFEUTBObEl4UjNveVVnbz0="
     }
   }

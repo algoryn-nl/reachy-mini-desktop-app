@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useAppStore from '../../store/useAppStore';
 import { DAEMON_CONFIG, fetchWithTimeoutSkipInstall, buildApiUrl } from '../../config/daemon';
+import { useDaemonEventBus } from '../daemon/useDaemonEventBus';
 
 /**
  * 🎯 Centralized hook for robot state polling
@@ -14,13 +15,22 @@ import { DAEMON_CONFIG, fetchWithTimeoutSkipInstall, buildApiUrl } from '../../c
 export function useRobotState(isActive) {
   const { 
     isDaemonCrashed,
+    hardwareError,
     setRobotStateFull,
     setActiveMoves,
     incrementTimeouts,
     resetTimeouts,
     setIsActive,
     clearStartupTimeout,
+    setHardwareError,
   } = useAppStore();
+  
+  // ✅ Event Bus for centralized event handling
+  const eventBus = useDaemonEventBus();
+  
+  // Track consecutive successful responses to clear hardwareError
+  // If daemon responds successfully multiple times, it means the error is resolved
+  const consecutiveSuccessRef = useRef(0);
   
   useEffect(() => {
     if (!isActive) {
@@ -63,9 +73,38 @@ export function useRobotState(isActive) {
             
             // ✅ Success → reset timeout counter for health check
             resetTimeouts();
-            setIsActive(true);
-            // ✅ Clear startup timeout since daemon is now active
-            clearStartupTimeout();
+            
+            // ✅ Emit health success event to bus
+            eventBus.emit('daemon:health:success', { data });
+            
+            // ✅ CRITICAL: Don't set isActive to true if there's a hardware error
+            // This prevents transitioning to active view when there's an error
+            const currentState = useAppStore.getState();
+            
+            // ✅ CRITICAL: If daemon is still starting, don't clear hardwareError yet
+            // Wait for startup to complete (isStarting = false) before clearing errors
+            // This prevents clearing errors if daemon responds briefly before crashing
+            if (!currentState.hardwareError) {
+              setIsActive(true);
+              // ✅ Clear startup timeout since daemon is now active
+              clearStartupTimeout();
+              consecutiveSuccessRef.current = 0; // Reset counter
+            } else if (!currentState.isStarting) {
+              // ✅ Only clear hardwareError if daemon is NOT starting anymore
+              // This means startup completed, so if daemon responds successfully,
+              // the error was resolved. Increment success counter.
+              // After 3 successful responses (~1.5s), clear the error
+              consecutiveSuccessRef.current += 1;
+              if (consecutiveSuccessRef.current >= 3) {
+                console.log('✅ Daemon responding successfully multiple times after startup, clearing hardwareError');
+                setHardwareError(null);
+                setIsActive(true);
+                clearStartupTimeout();
+                consecutiveSuccessRef.current = 0;
+              }
+            }
+            // If isStarting = true and hardwareError exists, don't clear it yet
+            // Wait for startup to complete (either success or failure)
           } else {
             // Response but not OK → not a timeout, don't increment
             console.warn('⚠️ Daemon responded but not OK:', stateResponse.status);
@@ -89,6 +128,8 @@ export function useRobotState(isActive) {
           if (error.name === 'TimeoutError' || error.message?.includes('timed out')) {
             console.warn('⚠️ Robot state fetch timeout, incrementing counter');
             incrementTimeouts();
+            // ✅ Emit health failure event to bus
+            eventBus.emit('daemon:health:failure', { error: 'Timeout', type: 'timeout' });
             setRobotStateFull(prev => ({
               ...prev,
               error: 'Timeout',
@@ -96,6 +137,8 @@ export function useRobotState(isActive) {
           } else {
             // Other error
             console.warn('⚠️ Robot state fetch error:', error.message);
+            // ✅ Emit health failure event to bus
+            eventBus.emit('daemon:health:failure', { error: error.message, type: 'error' });
             setRobotStateFull(prev => ({
               ...prev,
               error: error.message,

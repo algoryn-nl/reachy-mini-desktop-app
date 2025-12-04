@@ -454,6 +454,14 @@ const useAppStore = create(
     },
     
     ready: () => {
+      const state = useAppStore.getState();
+      // ✅ CRITICAL: Don't transition to ready if there's a hardware error
+      // This prevents bypassing the error state in scan view
+      if (state.hardwareError) {
+        console.warn('⚠️ Cannot transition to ready while hardwareError is present');
+        return; // Don't transition, stay in error state
+      }
+      
         lastLoggedStatus = 'ready';
       set({
         robotStatus: 'ready',
@@ -681,6 +689,14 @@ const useAppStore = create(
   // Legacy setters (backwards compatible, sync with robotStatus)
   setIsActive: (value) => {
     const state = useAppStore.getState();
+    
+    // ✅ CRITICAL: Don't allow becoming active if there's a hardware error
+    // This prevents bypassing the error state in scan view
+    if (value && state.hardwareError) {
+      console.warn('⚠️ Cannot set isActive=true while hardwareError is present');
+      return; // Early return, don't update state
+    }
+    
     if (value && !state.isStarting && !state.isStopping) {
       // Daemon becomes active → ready (unless already busy)
       if (state.robotStatus !== 'busy') {

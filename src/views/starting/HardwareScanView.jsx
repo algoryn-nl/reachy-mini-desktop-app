@@ -90,19 +90,24 @@ function HardwareScanView({
       await invoke('stop_daemon');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Reset all error states
+      // Reset scan progress and visual states (but NOT hardwareError yet)
+      // hardwareError will be reset by startDaemon, and re-set if error persists
       setScanError(null);
       setErrorMesh(null);
       setScanProgress({ current: 0, total: totalScanParts });
       setCurrentPart(null);
       setScanComplete(false);
-      setHardwareError(null);
       scannedPartsRef.current.clear(); // Reset scanned parts tracking
+      
+      // ✅ Don't reset hardwareError here - let startDaemon handle it
+      // If the error persists, it will be re-detected by the stderr listener
       
       // If startDaemon is provided, use it instead of reloading
       if (startDaemon) {
         setIsStarting(true);
         await startDaemon();
+        // ✅ startDaemon will reset hardwareError, and if error persists,
+        // it will be re-detected by sidecar-stderr listener or timeout
         setIsRetrying(false);
       } else {
         // Fallback to reload if startDaemon not available
@@ -111,14 +116,19 @@ function HardwareScanView({
     } catch (err) {
       console.error('Failed to retry:', err);
       setIsRetrying(false);
-      // If startDaemon fails, reload as fallback
-      if (startDaemon) {
-        window.location.reload();
-      }
+      // ✅ Keep scan view active - don't reload, let the error be handled by startDaemon
+      // startDaemon will set hardwareError if it fails, keeping us in scan view
     }
-  }, [setHardwareError, setIsStarting, startDaemon]);
+  }, [setIsStarting, startDaemon]);
   
   const handleScanComplete = useCallback(() => {
+    // ✅ Don't mark scan as complete if there's an error - stay in error state
+    const currentState = useAppStore.getState();
+    if (currentState.hardwareError || (startupError && typeof startupError === 'object' && startupError.type)) {
+      console.warn('⚠️ Scan visual completed but error detected, not completing scan');
+      return; // Don't complete scan, stay in error state
+    }
+    
     setScanProgress(prev => ({ ...prev, current: prev.total }));
     setCurrentPart(null);
     setScanComplete(true);
@@ -126,7 +136,7 @@ function HardwareScanView({
     if (onScanCompleteCallback) {
       onScanCompleteCallback();
     }
-  }, [onScanCompleteCallback]);
+  }, [onScanCompleteCallback, startupError]);
   
   // Track which parts have been scanned to calculate progress
   const scannedPartsRef = useRef(new Set());
@@ -201,7 +211,7 @@ function HardwareScanView({
       <Box
         sx={{
           width: '100%',
-          maxWidth: '450px',
+          maxWidth: '300px', // Reduced by 1/3: 450px * 2/3 = 300px
           position: 'relative',
           bgcolor: 'transparent',
         }}
@@ -209,7 +219,7 @@ function HardwareScanView({
         <Box
           sx={{
             width: '100%',
-            height: '480px',
+            height: '320px', // Reduced by 1/3: 480px * 2/3 = 320px
             position: 'relative',
             bgcolor: 'transparent',
           }}
@@ -438,8 +448,9 @@ function HardwareScanView({
         )}
       </Box>
 
-      {/* ✅ Daemon startup logs - fixed at the bottom, discrete */}
-      {isStarting && startupLogs.length > 0 && (
+      {/* ✅ Daemon startup logs - fixed at the bottom, discrete, scrollable */}
+      {/* Always show logs if available, even if not starting (error state) */}
+      {startupLogs.length > 0 && (
         <Box
           sx={{
             position: 'fixed',
@@ -448,8 +459,9 @@ function HardwareScanView({
             transform: 'translateX(-50%)',
             width: 'calc(100% - 32px)',
             maxWidth: '420px',
-            maxHeight: '40px', // ~3 lines
-            overflowY: 'hidden', // Hide scrollbar by default
+            maxHeight: '60px', // ~3 lines, scrollable if more content
+            overflowY: 'auto', // Enable scrolling
+            overflowX: 'hidden',
             bgcolor: darkMode ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.05)',
             borderRadius: '6px',
             px: 1,
@@ -463,10 +475,24 @@ function HardwareScanView({
             '&:hover': {
               opacity: 1, // Full opacity on hover
             },
+            // Custom scrollbar styling
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+              borderRadius: '3px',
+              '&:hover': {
+                background: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+              },
+            },
           }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-            {startupLogs.slice(-3).map((log, idx) => (
+            {startupLogs.map((log, idx) => (
               <Typography
                 key={idx}
                 sx={{
@@ -478,9 +504,7 @@ function HardwareScanView({
                     ? '#f59e0b'
                     : darkMode ? '#ccc' : '#666',
                   lineHeight: 1.4,
-                  whiteSpace: 'nowrap', // Prevent wrapping
-                  overflow: 'hidden', // Hide overflow
-                  textOverflow: 'ellipsis', // Show ellipsis for truncated text
+                  wordBreak: 'break-word', // Allow wrapping for long lines
                 }}
               >
                 {log.message}
