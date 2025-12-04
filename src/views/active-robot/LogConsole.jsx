@@ -235,7 +235,7 @@ function LogConsole({
       heightStyle.height = defaultHeight;
     }
   }
-  
+
   return (
     <Box
       ref={scrollRef}
@@ -274,7 +274,7 @@ function LogConsole({
       }}
     >
       {normalizedLogs.length === 0 ? (
-          <Box
+        <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -349,20 +349,20 @@ function LogConsole({
                 {displayMessage}
               </Typography>
               {showTimestamp && (
-                <Typography
-                  sx={{
+              <Typography
+                sx={{
                     fontSize: fontSize - 1,
-                    color: darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)',
-                    fontFamily: 'inherit',
+                  color: darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)',
+                  fontFamily: 'inherit',
                     lineHeight: compact ? 1.4 : 1.6,
-                    fontWeight: 400,
-                    opacity: 0.8,
-                    flexShrink: 0,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {timestamp}
-                </Typography>
+                  fontWeight: 400,
+                  opacity: 0.8,
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {timestamp}
+            </Typography>
               )}
             </Box>
           );

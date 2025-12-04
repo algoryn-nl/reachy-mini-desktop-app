@@ -476,7 +476,7 @@ function HardwareScanView({
             showTimestamp={false}
             height="auto"
             maxHeight="60px"
-            sx={{
+                sx={{
               bgcolor: darkMode ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.05)',
               border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
               backdropFilter: 'blur(8px)',
