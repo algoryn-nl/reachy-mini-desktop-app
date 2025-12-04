@@ -16,12 +16,17 @@ jobs:
       contents: read
       pages: write
       id-token: write
+      actions: read
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Download latest.json artifact from workflow
+        uses: dawidd6/action-download-artifact@v3
         with:
-          ref: main
+          run_id: ${{ github.event.workflow_run.id }}
+          name: latest-json-pages
+          path: docs
+          if_no_artifact_found: fail
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Verify latest.json exists
         run: |
