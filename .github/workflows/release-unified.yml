@@ -497,6 +497,8 @@ jobs:
 
       - name: Create DMG installer (macOS only)
         if: matrix.os == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         shell: bash
         run: |
           APP_BUNDLE="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Reachy Mini Control.app"
@@ -505,6 +507,16 @@ jobs:
           if [ ! -d "$APP_BUNDLE" ]; then
             echo "❌ App bundle not found: $APP_BUNDLE"
             exit 1
+          fi
+          
+          # Ensure signing keychain is in search list for DMG signing
+          if [ -n "$KEYCHAIN_PATH" ]; then
+            echo "🔓 Ensuring signing keychain is in search list for DMG signing..."
+            EXISTING_KEYCHAINS=$(security list-keychains -d user | sed 's/^[[:space:]]*//' | tr '\n' ' ')
+            if ! echo "$EXISTING_KEYCHAINS" | grep -q "$KEYCHAIN_PATH"; then
+              security list-keychains -d user -s "$KEYCHAIN_PATH" $EXISTING_KEYCHAINS || true
+            fi
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
           fi
           
           cd "$BUNDLE_DIR"
@@ -536,12 +548,15 @@ jobs:
           fi
           
           # Sign the DMG (required before notarization)
-          echo "✍️ Signing DMG..."
-          if ! codesign --force --sign "${{ secrets.APPLE_CERTIFICATE_NAME }}" \
+          # Use the same signing identity as the app
+          echo "✍️ Signing DMG with identity: $APPLE_SIGNING_IDENTITY"
+          if ! codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
             --timestamp \
             --options runtime \
             "$DMG_TEMP_NAME"; then
             echo "❌ DMG signing failed"
+            echo "   Available identities:"
+            security find-identity -v -p codesigning || true
             exit 1
           fi
           
