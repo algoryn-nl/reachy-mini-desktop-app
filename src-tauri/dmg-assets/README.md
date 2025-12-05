@@ -2,12 +2,16 @@
 
 ## Dimensions de l'image
 
-- **Taille de base** : 800×600 px (pour écrans standard)
-- **Taille Retina (recommandée)** : 1600×1200 px (pour écrans Retina, meilleure qualité)
-- **Format** : PNG (avec transparence possible)
-- **Résolution** : 72 DPI (le script détecte automatiquement la taille et ajuste la fenêtre)
+**⚠️ IMPORTANT : Pour éviter le décalage, utilisez une image légèrement plus grande que la fenêtre !**
 
-**Note** : Le script détecte automatiquement la résolution de l'image et ajuste la taille de la fenêtre. Pour une meilleure qualité sur les écrans Retina, utilisez une image 2x (1600×1200 px). macOS utilisera automatiquement la bonne résolution selon l'écran.
+- **Fenêtre** : 800×600 points (taille logique standard)
+- **Image recommandée** : **864×664 pixels** (800+64 × 600+64)
+  - Les +64 pixels compensent les marges internes du Finder
+  - C'est la méthode standard recommandée par la communauté
+- **Format** : PNG (avec transparence possible)
+- **Résolution** : 72 DPI
+
+**Note** : Le Finder a des marges internes qui causent un décalage si l'image fait exactement 800×600. En utilisant 864×664 px, l'image remplit correctement la fenêtre sans décalage.
 
 ## Système de coordonnées
 
@@ -29,7 +33,7 @@ Image Y = Hauteur de l'image - macOS Y
 
 ### Positions standard pour les icônes
 
-**Pour une image 800×600 px (standard)** :
+**Pour une image 864×664 px (recommandée, compense les marges du Finder)** :
 - **Icône de l'app** :
   - Position dans ton image (haut gauche) : **x=200, y=236**
   - Coordonnées macOS (bas gauche) : x=200, y=236
@@ -58,7 +62,7 @@ Image Y = Hauteur de l'image - macOS Y
   - Position dans ton image (haut gauche) : **x=1650, y=708**
   - Le script utilisera une fenêtre de 800×600 points, icônes à x=550, y=236
 
-## Guide visuel pour créer l'image (800×600 px)
+## Guide visuel pour créer l'image (864×664 px recommandé)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -86,7 +90,8 @@ Image Y = Hauteur de l'image - macOS Y
 ## Conseils pour créer l'image
 
 1. **Crée une image** dans ton éditeur :
-   - **800×600 px** pour standard (ou **1600×1200 px** pour Retina, meilleure qualité)
+   - **864×664 px** (recommandé, compense les marges du Finder)
+   - Ou **800×600 px** si tu acceptes les petites marges
 2. **Place des guides visuels** aux positions standard :
    - **App** : x=200, y=236 (depuis le haut gauche) pour 800×600
    - **Applications** : x=550, y=236 (depuis le haut gauche) pour 800×600

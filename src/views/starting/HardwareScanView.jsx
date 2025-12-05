@@ -9,6 +9,7 @@ import { HARDWARE_ERROR_CONFIGS, getErrorMeshes } from '../../utils/hardwareErro
 import { getTotalScanParts, getCurrentScanPart, mapMeshToScanPart } from '../../utils/scanParts';
 import { useDaemonStartupLogs } from '../../hooks/daemon/useDaemonStartupLogs';
 import LogConsole from '../active-robot/LogConsole';
+import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '../../config/daemon';
 
 /**
  * Generate text shadow for better readability on transparent backgrounds
@@ -43,8 +44,10 @@ function HardwareScanView({
   const [errorMesh, setErrorMesh] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
+  const [waitingForDaemon, setWaitingForDaemon] = useState(false);
   const [allMeshes, setAllMeshes] = useState([]);
   const robotRefRef = useRef(null);
+  const healthCheckIntervalRef = useRef(null);
   
   // Memoize text shadow based on dark mode
   const textShadow = useMemo(() => {
@@ -98,7 +101,14 @@ function HardwareScanView({
       setScanProgress({ current: 0, total: totalScanParts });
       setCurrentPart(null);
       setScanComplete(false);
+      setWaitingForDaemon(false);
       scannedPartsRef.current.clear(); // Reset scanned parts tracking
+      
+      // Clear healthcheck interval if active
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+        healthCheckIntervalRef.current = null;
+      }
       
       // ✅ Don't reset hardwareError here - let startDaemon handle it
       // If the error persists, it will be re-detected by the stderr listener
@@ -122,6 +132,86 @@ function HardwareScanView({
     }
   }, [setIsStarting, startDaemon]);
   
+  /**
+   * Check daemon health status
+   * Returns true if daemon is ready, false otherwise
+   */
+  const checkDaemonHealth = useCallback(async () => {
+    try {
+      const healthCheck = await fetchWithTimeout(
+        buildApiUrl('/api/daemon/status'),
+        {},
+        DAEMON_CONFIG.TIMEOUTS.STARTUP_CHECK,
+        { silent: true }
+      );
+      
+      return healthCheck.ok;
+    } catch (err) {
+      return false;
+    }
+  }, []);
+
+  /**
+   * Start polling daemon health after scan completes
+   * Only proceed to transition when healthcheck is valid
+   */
+  const startDaemonHealthCheck = useCallback(() => {
+    // Clear any existing interval
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current);
+      healthCheckIntervalRef.current = null;
+    }
+
+    setWaitingForDaemon(true);
+    let attemptCount = 0;
+    const MAX_ATTEMPTS = 30; // 30 attempts × 500ms = 15s max wait
+    const CHECK_INTERVAL = 500; // Check every 500ms
+
+    const checkHealth = async () => {
+      attemptCount++;
+      
+      const isHealthy = await checkDaemonHealth();
+      
+      if (isHealthy) {
+        // ✅ Daemon is ready, proceed to transition
+        console.log(`✅ Daemon healthcheck passed after ${attemptCount} attempts`);
+        setWaitingForDaemon(false);
+        
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current);
+          healthCheckIntervalRef.current = null;
+        }
+        
+        // Now we can safely call the callback
+        if (onScanCompleteCallback) {
+          onScanCompleteCallback();
+        }
+        return;
+      }
+
+      // If max attempts reached, continue anyway (retry logic elsewhere will handle it)
+      if (attemptCount >= MAX_ATTEMPTS) {
+        console.warn(`⚠️ Daemon healthcheck timeout after ${MAX_ATTEMPTS} attempts, proceeding anyway...`);
+        setWaitingForDaemon(false);
+        
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current);
+          healthCheckIntervalRef.current = null;
+        }
+        
+        // Proceed anyway - the app fetching logic will retry
+        if (onScanCompleteCallback) {
+          onScanCompleteCallback();
+        }
+        return;
+      }
+    };
+
+    // Start checking immediately, then every interval
+    checkHealth();
+    healthCheckIntervalRef.current = setInterval(checkHealth, CHECK_INTERVAL);
+  }, [checkDaemonHealth, onScanCompleteCallback]);
+  
   const handleScanComplete = useCallback(() => {
     // ✅ Don't mark scan as complete if there's an error - stay in error state
     const currentState = useAppStore.getState();
@@ -134,10 +224,10 @@ function HardwareScanView({
     setCurrentPart(null);
     setScanComplete(true);
     
-    if (onScanCompleteCallback) {
-      onScanCompleteCallback();
-    }
-  }, [onScanCompleteCallback, startupError]);
+    // ✅ NEW: Wait for daemon healthcheck before proceeding
+    // This ensures daemon is ready before fetching apps
+    startDaemonHealthCheck();
+  }, [startupError, startDaemonHealthCheck]);
   
   // Track which parts have been scanned to calculate progress
   const scannedPartsRef = useRef(new Set());
@@ -195,6 +285,16 @@ function HardwareScanView({
       setCurrentPart(null);
     }
   }, [scanComplete, startupError, scanError]);
+
+  // Cleanup healthcheck interval on unmount
+  useEffect(() => {
+    return () => {
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+        healthCheckIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <Box
@@ -385,10 +485,10 @@ function HardwareScanView({
                 textTransform: 'uppercase',
                   }}
             >
-              {scanComplete ? 'Scan Complete' : 'Scanning Hardware'}
+              {waitingForDaemon ? 'Starting Software' : scanComplete ? 'Scan Complete' : 'Scanning Hardware'}
             </Typography>
             
-            {!scanComplete && scanProgress.total > 0 && (
+            {!scanComplete && !waitingForDaemon && scanProgress.total > 0 && (
               <>
                 <Box sx={{ margin: "auto", width: '100%', maxWidth: '300px' }}>
                   <LinearProgress 
@@ -430,7 +530,23 @@ function HardwareScanView({
               </>
             )}
             
-            {scanComplete && (
+            {waitingForDaemon && (
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: darkMode ? '#f5f5f5' : '#333',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <Box component="span" sx={{ fontWeight: 700 }}>Hardware scan</Box> completed. Starting software...
+                </Typography>
+              </Box>
+            )}
+            
+            {scanComplete && !waitingForDaemon && (
               <Box sx={{ textAlign: 'center' }}>
                 <Typography
                   component="span"
