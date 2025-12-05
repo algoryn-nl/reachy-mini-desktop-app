@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '@config/daemon';
 import useAppStore from '@store/useAppStore';
+import { invoke } from '@tauri-apps/api/core';
 
 /**
  * Hook for managing app installation/uninstallation jobs
@@ -192,6 +193,21 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
             addFrontendLog(`❌ ${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} FAILED: ${errorSummary}`);
           } else {
             addFrontendLog(`✓ ${jobInfo.type === 'install' ? 'Installed' : 'Uninstalled'} ${jobInfo.appName}`);
+            
+            // ✅ macOS: Re-sign Python binaries after successful installation
+            // This fixes Team ID mismatch issues with pip-installed packages
+            // The Rust command handles platform detection, so safe to call on all platforms
+            if (jobInfo.type === 'install') {
+              invoke('sign_python_binaries')
+                .then((result) => {
+                  console.log('[AppJobs] Python binaries re-signed:', result);
+                  // Don't log to frontend to avoid noise, but log to console for debugging
+                })
+                .catch((err) => {
+                  console.warn('[AppJobs] Failed to re-sign Python binaries:', err);
+                  // Non-critical error, don't fail the installation
+                });
+            }
           }
         }
         
