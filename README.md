@@ -58,6 +58,7 @@ yarn tauri:dev
 # 1. Build the sidecar (required first step)
 yarn build:sidecar-macos    # macOS
 yarn build:sidecar-linux    # Linux
+yarn build:sidecar-windows  # Windows
 
 # 2. Build the application
 yarn tauri:build            # Build for production (uses PyPI release by default)
@@ -116,8 +117,10 @@ yarn tauri:dev:sim          # Run Tauri app in simulation mode (skip USB detecti
 ```bash
 yarn build:sidecar-macos    # Build sidecar for macOS (PyPI)
 yarn build:sidecar-linux    # Build sidecar for Linux (PyPI)
-yarn build:sidecar-macos:develop    # Build sidecar with GitHub develop branch
-yarn build:sidecar-linux:develop    # Build sidecar with GitHub develop branch
+yarn build:sidecar-windows  # Build sidecar for Windows (PyPI)
+yarn build:sidecar-macos:develop    # Build sidecar with GitHub develop branch (macOS)
+yarn build:sidecar-linux:develop    # Build sidecar with GitHub develop branch (Linux)
+yarn build:sidecar-windows:develop  # Build sidecar with GitHub develop branch (Windows)
 yarn tauri:build            # Build production bundle (requires sidecar built first)
 ```
 
