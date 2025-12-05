@@ -164,26 +164,129 @@ fn main() -> ExitCode {
                         .arg(&python_path)
                         .output();
                     
-                    let needs_signing = match check_signature {
-                        Ok(output) => {
-                            let output_str = String::from_utf8_lossy(&output.stderr);
-                            // If already signed with Developer ID, don't re-sign
-                            // Only sign if unsigned or signed with ad-hoc
-                            !output_str.contains("Authority=") || output_str.contains("adhoc")
+                    // In production, always check and re-sign if needed
+                    // Even if signed, might have wrong Team ID
+                    let needs_signing = if is_production {
+                        // In production, always re-sign to ensure correct Team ID
+                        true
+                    } else {
+                        // In dev, only sign if unsigned or ad-hoc
+                        match check_signature {
+                            Ok(output) => {
+                                let output_str = String::from_utf8_lossy(&output.stderr);
+                                !output_str.contains("Authority=") || output_str.contains("adhoc")
+                            }
+                            Err(_) => true, // Not signed, needs signing
                         }
-                        Err(_) => true, // Not signed, needs signing
                     };
                     
                     if needs_signing {
                         println!("🔐 Pre-signing Python binaries for macOS Library Validation...");
                         
                         if is_production {
-                            // Production: Try to detect Developer ID from app bundle
-                            // But in practice, binaries should already be signed at build time
-                            // This is a fallback in case they're not
-                            println!("   ℹ️  Production mode detected - binaries should already be signed");
-                            // Don't sign in production - they should be signed at build time
-                            // If they're not, sign_python_binaries will handle it after app install
+                            // Production: Detect Developer ID from app bundle and re-sign
+                            // Even if binaries are signed, they might have wrong Team ID
+                            // We need to ensure they match the app bundle's Developer ID
+                            let app_bundle_path = std::env::current_exe()
+                                .ok()
+                                .and_then(|exe| {
+                                    let mut path = exe;
+                                    // Navigate up: MacOS -> Contents -> .app
+                                    for _ in 0..3 {
+                                        path = path.parent()?.to_path_buf();
+                                    }
+                                    Some(path)
+                                });
+                            
+                            let signing_identity = if let Some(app_bundle) = app_bundle_path {
+                                // Try to detect Developer ID from app bundle
+                                let detect_output = Command::new("codesign")
+                                    .arg("-d")
+                                    .arg("-v")
+                                    .arg(&app_bundle)
+                                    .output();
+                                
+                                match detect_output {
+                                    Ok(output) => {
+                                        let output_str = String::from_utf8_lossy(&output.stderr);
+                                        // Look for "Authority=" line
+                                        let identity = output_str
+                                            .lines()
+                                            .find(|line| line.contains("Authority="))
+                                            .and_then(|line| {
+                                                line.split("Authority=").nth(1).map(|s| s.trim().to_string())
+                                            });
+                                        
+                                        if let Some(id) = identity {
+                                            println!("   ✅ Detected Developer ID: {}", id);
+                                            id
+                                        } else {
+                                            println!("   ⚠️  No Developer ID found, using ad-hoc");
+                                            "-".to_string()
+                                        }
+                                    }
+                                    Err(_) => {
+                                        println!("   ⚠️  Failed to detect Developer ID, using ad-hoc");
+                                        "-".to_string()
+                                    }
+                                }
+                            } else {
+                                println!("   ⚠️  Could not find app bundle, using ad-hoc");
+                                "-".to_string()
+                            };
+                            
+                            // Sign python3 with detected identity
+                            let sign_python_result = Command::new("codesign")
+                                .arg("--force")
+                                .arg("--sign")
+                                .arg(&signing_identity)
+                                .arg("--options")
+                                .arg("runtime")
+                                .arg("--timestamp")
+                                .arg(&python_path)
+                                .output();
+                            
+                            match sign_python_result {
+                                Ok(output) => {
+                                    if output.status.success() {
+                                        println!("   ✓ Signed python3 executable with Developer ID");
+                                    } else {
+                                        let error = String::from_utf8_lossy(&output.stderr);
+                                        eprintln!("   ⚠️  Failed to sign python3: {}", error);
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("   ⚠️  Error signing python3: {}", e);
+                                }
+                            }
+                            
+                            // Sign libpython3.12.dylib with same identity
+                            let libpython = venv_dir.join("lib/libpython3.12.dylib");
+                            if libpython.exists() {
+                                let sign_lib_result = Command::new("codesign")
+                                    .arg("--force")
+                                    .arg("--sign")
+                                    .arg(&signing_identity)
+                                    .arg("--options")
+                                    .arg("runtime")
+                                    .arg("--timestamp")
+                                    .arg(&libpython)
+                                    .output();
+                                
+                                match sign_lib_result {
+                                    Ok(output) => {
+                                        if output.status.success() {
+                                            println!("   ✓ Signed libpython3.12.dylib with Developer ID");
+                                        } else {
+                                            let error = String::from_utf8_lossy(&output.stderr);
+                                            eprintln!("   ⚠️  Failed to sign libpython3.12.dylib: {}", error);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("   ⚠️  Error signing libpython3.12.dylib: {}", e);
+                                    }
+                                }
+                            }
                         } else {
                             // Dev mode: Sign with ad-hoc and disable Library Validation
                             let entitlements = r#"<?xml version="1.0" encoding="UTF-8"?>
