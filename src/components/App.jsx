@@ -21,18 +21,42 @@ function App() {
   
   // 🔐 Permissions check (macOS only)
   // Blocks the app until camera and microphone permissions are granted
-  const { allGranted: permissionsGranted, cameraGranted, microphoneGranted } = usePermissions({ checkInterval: 2000 });
+  const { allGranted: permissionsGranted, cameraGranted, microphoneGranted, hasChecked } = usePermissions({ checkInterval: 2000 });
   const [isRestarting, setIsRestarting] = useState(false);
   const restartTimerRef = useRef(null);
   const restartStartedRef = useRef(false);
+  // Track if permissions were already granted on the first check (mount)
+  const permissionsGrantedOnFirstCheckRef = useRef(null);
+  
+  // Check if permissions were already granted on first check (to avoid restart loop)
+  useEffect(() => {
+    if (hasChecked && permissionsGrantedOnFirstCheckRef.current === null) {
+      // First check completed - remember if permissions were already granted
+      permissionsGrantedOnFirstCheckRef.current = permissionsGranted;
+      if (permissionsGranted) {
+        console.log('[App] ✅ Permissions already granted on first check - no restart needed');
+      } else {
+        console.log('[App] ❌ Permissions not granted on first check - will restart when granted');
+      }
+    }
+  }, [hasChecked, permissionsGranted]);
   
   // Handle restart when permissions are granted
   useEffect(() => {
-    // Only start restart flow once when permissions are granted
-    if (permissionsGranted && !restartStartedRef.current) {
+    // Only start restart flow if:
+    // 1. Permissions are granted
+    // 2. We haven't started the restart yet
+    // 3. Permissions were NOT already granted on first check (to avoid restart loop)
+    if (
+      permissionsGranted && 
+      !restartStartedRef.current && 
+      permissionsGrantedOnFirstCheckRef.current === false
+    ) {
       restartStartedRef.current = true;
       const isDev = isDevMode();
       setIsRestarting(true);
+      
+      console.log('[App] 🔄 Permissions just granted - restarting app...');
       
       if (isDev) {
         // Dev mode: show restart UI for 3 seconds, then continue (simulate restart)
