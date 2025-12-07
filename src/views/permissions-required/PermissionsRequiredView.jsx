@@ -182,7 +182,7 @@ const permissionsViewReducer = (state, action) => {
 export default function PermissionsRequiredView({ isRestarting: externalIsRestarting }) {
   const { darkMode } = useAppStore();
   // Use the hook for real-time permission detection
-  const { cameraGranted, microphoneGranted } = usePermissions({ checkInterval: 2000 });
+  const { cameraGranted, microphoneGranted, refresh: refreshPermissions } = usePermissions({ checkInterval: 2000 });
   
   const [state, dispatch] = useReducer(permissionsViewReducer, {
     cameraRequested: false,
@@ -240,7 +240,8 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       logInfo(`[Permissions] Tauri API available: ${typeof invoke === 'function'}`);
       try {
         logInfo('[Permissions] Attempting to invoke plugin command...');
-        const testResult = await invoke('check_camera_permission');
+        // Format: plugin:macos-permissions|check_camera_permission (with underscores, no params)
+        const testResult = await invoke('plugin:macos-permissions|check_camera_permission');
         logSuccess(`[Permissions] ✅ Plugin is available, camera check result: ${testResult} (type: ${typeof testResult})`);
       } catch (error) {
         logError(`[Permissions] ❌ Plugin not available or error: ${error.message}`);
@@ -263,8 +264,10 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     logInfo(`[Permissions] 🔐 Starting ${type} permission request flow...`);
     logInfo(`[Permissions] Timestamp: ${new Date().toISOString()}`);
     try {
-      const checkCommand = `check_${type}_permission`;
-      const requestCommand = `request_${type}_permission`;
+      // Use tauri-plugin-macos-permissions format
+      // Format: plugin:macos-permissions|check_camera_permission (with underscores, no params)
+      const checkCommand = `plugin:macos-permissions|check_${type}_permission`;
+      const requestCommand = `plugin:macos-permissions|request_${type}_permission`;
       const settingsCommand = `open_${type}_settings`;
       
       logInfo(`[Permissions] 📋 Step 1: Checking ${type} permission status...`);
@@ -274,11 +277,22 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       const startTime = Date.now();
       let currentStatus;
       try {
+        // Plugin uses command names directly, no params
+        logInfo(`[Permissions] 🔍 Invoking plugin command: ${checkCommand}`);
+        console.log(`[Permissions] 🔍 Invoking plugin command: ${checkCommand}`);
         currentStatus = await invoke(checkCommand);
+        console.log(`[Permissions] ✅ Plugin returned: ${currentStatus} (type: ${typeof currentStatus})`);
       } catch (checkError) {
-        logError(`[Permissions] ❌ Check command failed: ${checkError.message}`);
-        logError(`[Permissions] Check error name: ${checkError.name}`);
-        logError(`[Permissions] Check error code: ${checkError.code || 'N/A'}`);
+        console.error(`[Permissions] ❌ Plugin command failed: ${checkCommand}`, checkError);
+        logError(`[Permissions] ❌ Check command failed`);
+        logError(`[Permissions] Error object: ${JSON.stringify(checkError)}`);
+        logError(`[Permissions] Error message: ${checkError?.message || 'undefined'}`);
+        logError(`[Permissions] Error name: ${checkError?.name || 'undefined'}`);
+        logError(`[Permissions] Error code: ${checkError?.code || 'N/A'}`);
+        logError(`[Permissions] Error toString: ${String(checkError)}`);
+        if (checkError?.stack) {
+          logError(`[Permissions] Stack: ${checkError.stack.substring(0, 500)}`);
+        }
         throw checkError; // Re-throw to be caught by outer catch
       }
       const checkDuration = Date.now() - startTime;
@@ -298,8 +312,13 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       const requestStartTime = Date.now();
       let result;
       try {
+        // Plugin uses command names directly, no params
+        logInfo(`[Permissions] 🔍 Invoking plugin command: ${requestCommand}`);
+        console.log(`[Permissions] 🔍 Invoking plugin command: ${requestCommand}`);
         result = await invoke(requestCommand);
+        console.log(`[Permissions] ✅ Plugin returned: ${result} (type: ${typeof result})`);
       } catch (requestError) {
+        console.error(`[Permissions] ❌ Plugin command failed: ${requestCommand}`, requestError);
         logError(`[Permissions] ❌ Request command failed: ${requestError.message}`);
         logError(`[Permissions] Request error name: ${requestError.name}`);
         logError(`[Permissions] Request error code: ${requestError.code || 'N/A'}`);
@@ -322,6 +341,41 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
         // Popup shown, waiting for user response
         logInfo(`[Permissions] ⏳ ${type} permission popup shown, waiting for user response...`);
         logInfo(`[Permissions] This is expected behavior - macOS is showing the permission dialog`);
+        
+        // Start aggressive polling after popup is shown
+        // Check immediately, then every 500ms for 10 seconds, then back to normal interval
+        let checkCount = 0;
+        const maxChecks = 20; // 10 seconds at 500ms intervals
+        const checkCommand = type === 'camera' 
+          ? 'plugin:macos-permissions|check_camera_permission'
+          : 'plugin:macos-permissions|check_microphone_permission';
+        
+        const aggressiveInterval = setInterval(async () => {
+          checkCount++;
+          logInfo(`[Permissions] 🔄 Aggressive polling: checking ${type} permission (attempt ${checkCount}/${maxChecks})...`);
+          
+          // Refresh all permissions via hook
+          await refreshPermissions();
+          
+          // Also check the specific permission directly
+          try {
+            const currentStatus = await invoke(checkCommand);
+            if (currentStatus === true) {
+              logSuccess(`[Permissions] ✅ ${type} permission granted! Stopping aggressive polling.`);
+              clearInterval(aggressiveInterval);
+              // Force one more refresh to update UI
+              await refreshPermissions();
+            }
+          } catch (error) {
+            // Ignore errors during polling
+          }
+          
+          if (checkCount >= maxChecks) {
+            logInfo(`[Permissions] ⏱️ Aggressive polling completed, returning to normal interval`);
+            clearInterval(aggressiveInterval);
+          }
+        }, 500); // Check every 500ms
+        
         return;
       }
       

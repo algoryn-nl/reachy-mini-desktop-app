@@ -141,7 +141,7 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        // Removed tauri-plugin-macos-permissions - using custom implementation instead
+        .plugin(tauri_plugin_macos_permissions::init())
         .manage(DaemonState {
             process: std::sync::Mutex::new(None),
             logs: std::sync::Mutex::new(std::collections::VecDeque::new()),
