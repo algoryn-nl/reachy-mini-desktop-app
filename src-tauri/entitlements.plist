@@ -38,6 +38,14 @@
 	<!-- Autoriser l'accès USB -->
 	<key>com.apple.security.device.usb</key>
 	<true/>
+	
+	<!-- Autoriser l'accès à la caméra (nécessaire pour demander la permission) -->
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	
+	<!-- Autoriser l'accès au microphone (nécessaire pour demander la permission) -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>
 

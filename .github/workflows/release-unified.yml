@@ -495,6 +495,91 @@ jobs:
             exit 1
           }
 
+      - name: Notarize and Staple App (macOS only)
+        if: matrix.os == 'macos-latest'
+        env:
+          APPLE_API_ISSUER: ${{ env.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ env.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+        shell: bash
+        run: |
+          APP_BUNDLE="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Reachy Mini Control.app"
+          BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          
+          if [ ! -d "$APP_BUNDLE" ]; then
+            echo "❌ App bundle not found: $APP_BUNDLE"
+            exit 1
+          fi
+          
+          cd "$BUNDLE_DIR"
+          
+          # Get absolute path for notarytool
+          APP_BUNDLE_NAME="Reachy Mini Control.app"
+          ABS_APP_BUNDLE="$(pwd)/$APP_BUNDLE_NAME"
+          echo "📦 Submitting app bundle for notarization..."
+          echo "   App: $ABS_APP_BUNDLE"
+          
+          # Create a ZIP of the app for notarization (Apple requires ZIP format for app bundles)
+          APP_ZIP_NAME="Reachy.Mini.Control.app.zip"
+          rm -f "$APP_ZIP_NAME"
+          ditto -c -k --norsrc --keepParent "$APP_BUNDLE_NAME" "$APP_ZIP_NAME"
+          ABS_APP_ZIP="$(pwd)/$APP_ZIP_NAME"
+          
+          echo "📦 Submitting app ZIP for notarization..."
+          echo "   ZIP: $ABS_APP_ZIP ($(du -h "$APP_ZIP_NAME" | cut -f1))"
+          
+          NOTARIZATION_OUTPUT=$(xcrun notarytool submit "$ABS_APP_ZIP" \
+            --key "$APPLE_API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait \
+            --timeout 30m 2>&1) || NOTARIZATION_EXIT_CODE=$?
+          
+          echo "$NOTARIZATION_OUTPUT"
+          
+          # Check if notarization was successful
+          if echo "$NOTARIZATION_OUTPUT" | grep -q "status: Accepted"; then
+            echo "✅ App notarization successful!"
+            
+            # Staple the notarization ticket to the app bundle
+            echo "📎 Stapling notarization ticket to app bundle..."
+            if ! xcrun stapler staple "$APP_BUNDLE_NAME"; then
+              echo "❌ Failed to staple notarization ticket to app bundle"
+              exit 1
+            fi
+            
+            # Validate that the ticket was stapled correctly
+            echo "🔍 Validating stapled ticket on app..."
+            if ! xcrun stapler validate "$APP_BUNDLE_NAME"; then
+              echo "❌ Ticket validation failed - ticket may not be stapled correctly"
+              exit 1
+            fi
+            echo "✅ Ticket successfully stapled and validated on app bundle"
+            
+            # Clean up ZIP file
+            rm -f "$APP_ZIP_NAME"
+          else
+            echo "❌ App notarization failed!"
+            echo ""
+            echo "🔍 Checking notarization logs..."
+            
+            # Extract submission ID if available
+            SUBMISSION_ID=$(echo "$NOTARIZATION_OUTPUT" | grep -oE "id: [a-f0-9-]+" | head -1 | cut -d' ' -f2 || echo "")
+            
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "   Submission ID: $SUBMISSION_ID"
+              echo "   Fetching logs..."
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key "$APPLE_API_KEY_PATH" \
+                --key-id "$APPLE_API_KEY" \
+                --issuer "$APPLE_API_ISSUER" || true
+            fi
+            
+            # Clean up ZIP file
+            rm -f "$APP_ZIP_NAME"
+            exit 1
+          fi
+
       - name: Install create-dmg (macOS only)
         if: matrix.os == 'macos-latest'
         run: |
