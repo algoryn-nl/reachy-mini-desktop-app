@@ -174,7 +174,7 @@ export default function InstalledAppsSection({
                   }}
                   onClick={() => setExpandedApp(isExpanded ? null : app.name)}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0, overflow: 'hidden', pr: 1 }}>
                     <Box
                       sx={{
                         fontSize: 28,
@@ -192,7 +192,7 @@ export default function InstalledAppsSection({
                       {app.extra?.cardData?.emoji || app.icon || '📦'}
                     </Box>
                     
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.3 }}>
                         <Typography
                           sx={{
@@ -200,6 +200,11 @@ export default function InstalledAppsSection({
                             fontWeight: 600,
                             color: darkMode ? '#f5f5f5' : '#333',
                             letterSpacing: '-0.2px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            minWidth: 0,
                           }}
                         >
                           {app.name}

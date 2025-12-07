@@ -121,7 +121,7 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
             
             // Log to LogConsole
             if (job.appName) {
-              addFrontendLog(`❌ ${job.type === 'install' ? 'Install' : 'Uninstall'} ${job.appName} TIMEOUT - Daemon non responsive`);
+              addFrontendLog(`${job.type === 'install' ? 'Install' : 'Uninstall'} ${job.appName} timeout - daemon not responsive`);
             }
             
             // Mark job as failed instead of deleting it
@@ -190,9 +190,9 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
           if (finalStatus === 'failed') {
             console.error('❌ Job failed with logs:', jobStatus.logs);
             const errorSummary = jobStatus.logs?.slice(-2).join(' | ') || 'Unknown error';
-            addFrontendLog(`❌ ${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} FAILED: ${errorSummary}`);
+            addFrontendLog(`${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} failed: ${errorSummary}`);
           } else {
-            addFrontendLog(`✓ ${jobInfo.type === 'install' ? 'Installed' : 'Uninstalled'} ${jobInfo.appName}`);
+            addFrontendLog(`${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} completed`);
             
             // ✅ macOS: Re-sign Python binaries after successful installation
             // This fixes Team ID mismatch issues with pip-installed packages

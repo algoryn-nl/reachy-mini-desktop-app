@@ -119,7 +119,7 @@ if [ -d "$RESOURCES_DIR" ]; then
                     echo "   Applying entitlements to Python executable: $binary"
                     sign_binary "$binary" "$PYTHON_ENTITLEMENTS"
                 else
-                    sign_binary "$binary"
+                sign_binary "$binary"
                 fi
             done
         fi
@@ -153,13 +153,13 @@ ENTITLEMENTS_FILE="$PROJECT_DIR/src-tauri/entitlements.plist"
 if [ ! -f "$ENTITLEMENTS_FILE" ]; then
     echo "⚠️  Warning: Entitlements file not found: $ENTITLEMENTS_FILE"
     echo "   Signing without entitlements (not recommended)"
-    if ! codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" \
-        --options runtime \
-        --timestamp \
-        --deep \
-        "$APP_BUNDLE"; then
-        echo "❌ Failed to sign main app bundle"
-        exit 1
+if ! codesign --force --verify --verbose --sign "$SIGNING_IDENTITY" \
+    --options runtime \
+    --timestamp \
+    --deep \
+    "$APP_BUNDLE"; then
+    echo "❌ Failed to sign main app bundle"
+    exit 1
     fi
 else
     echo "   Using entitlements: $ENTITLEMENTS_FILE"

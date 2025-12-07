@@ -14,7 +14,7 @@ const handlePermissionError = (err, action, appName, addFrontendLog, setAppsErro
       ? `Permission denied: Please accept system permissions to ${action} ${appName}`
       : `System permission popup detected: Please accept permissions to continue ${action} ${appName}`;
     
-    addFrontendLog(`🔒 ${userMessage}`);
+    addFrontendLog(userMessage);
     setAppsError(userMessage);
     
     const userFriendlyError = new Error(userMessage);
@@ -332,7 +332,7 @@ export function useAppsStore(isActive, official = true) {
         if (store.isAppRunning && store.busyReason === 'app-running') {
           const lastAppName = store.currentAppName || 'unknown';
           console.warn(`⚠️ App crash detected: currentApp is null but store thinks "${lastAppName}" is running`);
-          store.addFrontendLog(`⚠️ App ${lastAppName} stopped unexpectedly`);
+          store.addFrontendLog(`App ${lastAppName} stopped unexpectedly`);
           store.unlockApp();
         }
       }
@@ -388,7 +388,7 @@ export function useAppsStore(isActive, official = true) {
       const permissionErr = handlePermissionError(err, 'install', appInfo.name, addFrontendLog, setAppsError);
       if (permissionErr) throw permissionErr;
       
-      addFrontendLog(`❌ Failed to start install ${appInfo.name}: ${err.message}`);
+      addFrontendLog(`Failed to start install ${appInfo.name} (${err.message})`);
       setAppsError(err.message);
       throw err;
     }
@@ -433,7 +433,7 @@ export function useAppsStore(isActive, official = true) {
       const permissionErr = handlePermissionError(err, 'remove', appName, addFrontendLog, setAppsError);
       if (permissionErr) throw permissionErr;
       
-      addFrontendLog(`❌ Failed to start uninstall ${appName}: ${err.message}`);
+      addFrontendLog(`Failed to start uninstall ${appName} (${err.message})`);
       setAppsError(err.message);
       throw err;
     }
@@ -463,7 +463,7 @@ export function useAppsStore(isActive, official = true) {
       return status;
     } catch (err) {
       console.error('❌ Failed to start app:', err);
-      addFrontendLog(`❌ Failed to start ${appName}: ${err.message}`);
+      addFrontendLog(`Failed to start ${appName} (${err.message})`);
       setAppsError(err.message);
       throw err;
     }
@@ -499,7 +499,7 @@ export function useAppsStore(isActive, official = true) {
       return message;
     } catch (err) {
       console.error('❌ Failed to stop app:', err);
-      addFrontendLog(`❌ Failed to stop app: ${err.message}`);
+      addFrontendLog(`Failed to stop app (${err.message})`);
       setAppsError(err.message);
       // ✅ Ensure unlock even on error
       useAppStore.getState().unlockApp();
@@ -561,6 +561,7 @@ export function useAppsStore(isActive, official = true) {
     }
     
     // ✅ If mode changed, invalidate cache and force refresh
+    // (Only reached if not first activation)
     const modeChanged = appsOfficialMode !== official;
     if (modeChanged) {
       console.log(`🔄 Mode changed: ${appsOfficialMode} → ${official}, invalidating cache and refetching`);

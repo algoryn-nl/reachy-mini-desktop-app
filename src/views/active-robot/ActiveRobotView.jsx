@@ -440,14 +440,15 @@ function ActiveRobotView({
           />
         </Box>
         
-        {/* Logs Console */}
-        <Box sx={{ mt: 1, width: '100%' }}>
+        {/* Logs Console - Use flex to take remaining space and prevent height issues */}
+        <Box sx={{ mt: 1, width: '100%', flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <Box 
             sx={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center', 
               mb: 1.5,
+              flexShrink: 0,
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -464,7 +465,9 @@ function ActiveRobotView({
             </Box>
           </Box>
           
-              <LogConsole logs={logs} darkMode={darkMode} />
+          <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <LogConsole logs={logs} darkMode={darkMode} lines={4} />
+          </Box>
         </Box>
         </Box>
 

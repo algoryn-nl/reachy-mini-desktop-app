@@ -223,7 +223,7 @@ export function useAppFetching() {
         installedUrl,
         {},
         DAEMON_CONFIG.TIMEOUTS.APPS_LIST,
-        { silent: retryCount > 0 } // Only silent on retries to avoid log spam
+        { silent: true } // Silent to avoid log spam (this endpoint is called frequently)
       );
       
       if (installedResponse.ok) {

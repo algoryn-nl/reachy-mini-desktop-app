@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Tooltip, Chip } from '@mui/material';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
+import SportsEsportsOutlinedIcon from '@mui/icons-material/SportsEsportsOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Controller from '../../controller';
@@ -26,6 +26,18 @@ export default function ControllerSection({
   const isGamepadConnected = useGamepadConnected();
   const activeDevice = useActiveDevice();
   const hasWindowFocus = useWindowFocus();
+  
+  // Debug: log gamepad state
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ControllerSection] Gamepad state:', {
+        isGamepadConnected,
+        activeDevice,
+        hasWindowFocus,
+        shouldBePrimary: isGamepadConnected && activeDevice === 'gamepad',
+      });
+    }
+  }, [isGamepadConnected, activeDevice, hasWindowFocus]);
 
   // Auto-reset when leaving controller section (only on exit, not on entry)
   useEffect(() => {
@@ -113,18 +125,6 @@ export default function ControllerSection({
                       <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
                         <strong>L1/R1 :</strong> Left/Right antennas
                       </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>A :</strong> Interact
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>B :</strong> Return to initial position
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>X :</strong> Next position
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>Y :</strong> Toggle mode
-                      </Typography>
                     </Box>
                   </Box>
                 )
@@ -155,33 +155,42 @@ export default function ControllerSection({
             }}
           >
             <Chip
-              icon={<SportsEsportsIcon />}
+              icon={<SportsEsportsOutlinedIcon />}
               label=""
-              size="small"
+              size="medium"
               variant="outlined"
-              color={isGamepadConnected && activeDevice === 'gamepad' && hasWindowFocus ? 'primary' : 'default'}
+              color={isGamepadConnected ? 'primary' : 'default'}
               sx={{
-                height: 24,
-                width: 24,
-                minWidth: 24,
-                opacity: isGamepadConnected && hasWindowFocus ? 1 : 0.6,
+                height: 30,
+                width: 30,
+                padding: .5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: isGamepadConnected ? 1 : 0.6,
                 borderColor: darkMode 
-                  ? (isGamepadConnected && activeDevice === 'gamepad' && hasWindowFocus
+                  ? (isGamepadConnected
                         ? 'rgba(255, 149, 0, 0.5)' 
                         : 'rgba(255, 255, 255, 0.2)')
-                  : (isGamepadConnected && activeDevice === 'gamepad' && hasWindowFocus
+                  : (isGamepadConnected
                         ? 'rgba(255, 149, 0, 0.5)'
                         : 'rgba(0, 0, 0, 0.2)'),
                 '& .MuiChip-icon': {
-                  fontSize: '0.9rem',
+                  fontSize: '1rem',
                   color: darkMode 
-                    ? (isGamepadConnected && activeDevice === 'gamepad' && hasWindowFocus
+                    ? (isGamepadConnected
                           ? '#FF9500' 
                           : 'rgba(255, 255, 255, 0.7)')
-                    : (isGamepadConnected && activeDevice === 'gamepad' && hasWindowFocus
+                    : (isGamepadConnected
                           ? '#FF9500'
                           : 'rgba(0, 0, 0, 0.7)'),
                   margin: 0,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '100%',
                 },
                 '& .MuiChip-label': {
                   display: 'none',

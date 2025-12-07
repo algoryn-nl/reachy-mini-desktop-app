@@ -97,15 +97,29 @@ def remove_green_screen_opencv(frame, target_color_bgr, threshold, edge_threshol
     bgra[:, :, 3] = mask
     
     # IMPORTANT: Remove all black/dark pixels that should be transparent
-    # Check for dark pixels (likely background)
+    # This is critical - black background should be fully transparent
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    dark_mask = gray < 50  # Very dark pixels
-    bgra[:, :, 3][dark_mask] = 0  # Make them fully transparent
     
-    # Also remove pixels that are too close to black in the original frame
+    # Multiple passes to catch all dark/black pixels
+    # Pass 1: Very dark pixels (almost black)
+    very_dark_mask = gray < 60
+    bgra[:, :, 3][very_dark_mask] = 0
+    
+    # Pass 2: Dark pixels (likely background)
+    dark_mask = gray < 80
+    bgra[:, :, 3][dark_mask] = 0
+    
+    # Pass 3: Check RGB values directly - if all channels are low, it's black
     pixel_brightness = np.mean(frame, axis=2)
-    very_dark = pixel_brightness < 40
-    bgra[:, :, 3][very_dark] = 0
+    dark_brightness = pixel_brightness < 70
+    bgra[:, :, 3][dark_brightness] = 0
+    
+    # Pass 4: If all RGB channels are individually low, make transparent
+    low_r = frame[:, :, 2] < 50  # Red channel
+    low_g = frame[:, :, 1] < 50  # Green channel  
+    low_b = frame[:, :, 0] < 50  # Blue channel
+    all_low = low_r & low_g & low_b
+    bgra[:, :, 3][all_low] = 0
     
     # Advanced edge cleanup: remove green spill on edges with multiple passes
     # Find edges of the mask
@@ -152,9 +166,9 @@ def remove_green_screen_opencv(frame, target_color_bgr, threshold, edge_threshol
     
     # Reduce green component aggressively
     bgra_float[:, :, 1][spill_mask] *= (1.0 - spill_amount[spill_mask] * 0.8)  # Reduce green up to 80%
-    # Boost red and blue to compensate
-    bgra_float[:, :, 2][spill_mask] = np.clip(bgra_float[:, :, 2][spill_mask] + spill_amount[spill_mask] * 25, 0, 255)
-    bgra_float[:, :, 0][spill_mask] = np.clip(bgra_float[:, :, 0][spill_mask] + spill_amount[spill_mask] * 20, 0, 255)
+    # Don't boost red/blue too much to avoid violet tint - just slight adjustment
+    bgra_float[:, :, 2][spill_mask] = np.clip(bgra_float[:, :, 2][spill_mask] + spill_amount[spill_mask] * 10, 0, 255)  # Reduced from 25
+    bgra_float[:, :, 0][spill_mask] = np.clip(bgra_float[:, :, 0][spill_mask] + spill_amount[spill_mask] * 8, 0, 255)  # Reduced from 20
     
     # Reduce alpha for pixels with significant green spill
     significant_spill = spill_amount > 0.2
@@ -163,31 +177,60 @@ def remove_green_screen_opencv(frame, target_color_bgr, threshold, edge_threshol
     # Convert back to uint8
     bgra = bgra_float.astype(np.uint8)
     
-    # Final pass: remove any remaining green pixels on edges AND black pixels
+    # Final pass: EXTREMELY aggressive green removal on edges
     # Find edges using Canny
     gray = cv2.cvtColor(bgra[:, :, :3], cv2.COLOR_BGRA2GRAY)
     edges = cv2.Canny(gray, 50, 150)
-    edge_kernel = np.ones((5, 5), np.uint8)
-    edge_region = cv2.dilate(edges, edge_kernel, iterations=2)
+    edge_kernel = np.ones((9, 9), np.uint8)  # Even larger kernel
+    edge_region = cv2.dilate(edges, edge_kernel, iterations=6)  # Many more iterations
     
-    # On edges, aggressively remove green
-    edge_pixels = np.where(edge_region > 0)
-    for y, x in zip(edge_pixels[0], edge_pixels[1]):
+    # Also create a border region for additional cleanup
+    height, width = frame.shape[:2]
+    border_region = np.zeros((height, width), dtype=bool)
+    border_width = 40  # Very wide border
+    border_region[:border_width, :] = True
+    border_region[-border_width:, :] = True
+    border_region[:, :border_width] = True
+    border_region[:, -border_width:] = True
+    
+    # Combine edge region with border region
+    cleanup_region = edge_region > 0
+    cleanup_region = cleanup_region | border_region
+    
+    # On cleanup region, EXTREMELY aggressively remove green
+    cleanup_pixels = np.where(cleanup_region)
+    for y, x in zip(cleanup_pixels[0], cleanup_pixels[1]):
         if y >= frame.shape[0] or x >= frame.shape[1]:
             continue
         pixel_bgr = frame[y, x].astype(np.float32)
         color_dist_edge = np.sqrt(np.sum((pixel_bgr - target_bgr_float) ** 2))
-        if color_dist_edge < threshold * 2.0:
+        # Very aggressive threshold for edges
+        if color_dist_edge < threshold * 4.5:  # Even more aggressive
             bgra[y, x, 3] = 0  # Make fully transparent
+            # Also reduce green component in RGB aggressively (but don't boost red/blue to avoid violet)
+            bgra[y, x, 1] = max(0, int(bgra[y, x, 1] * 0.2))  # Reduce green by 80%
+            # Don't boost red/blue - just reduce green to avoid violet tint
     
-    # Final cleanup: remove ALL black/dark pixels that are still visible
-    # This ensures no black background remains
-    final_dark_mask = np.mean(bgra[:, :, :3], axis=2) < 50
-    bgra[:, :, 3][final_dark_mask] = 0
+    # Final cleanup: remove dark pixels in border region more aggressively
+    height, width = bgra.shape[:2]
+    final_brightness = np.mean(bgra[:, :, :3], axis=2)
+    final_gray = cv2.cvtColor(bgra[:, :, :3], cv2.COLOR_BGRA2GRAY)
     
-    # Also remove pixels where RGB values are all very low (black background)
-    black_mask = (bgra[:, :, 0] < 30) & (bgra[:, :, 1] < 30) & (bgra[:, :, 2] < 30)
-    bgra[:, :, 3][black_mask] = 0
+    # Wider border region for cleanup
+    border_region = np.zeros((height, width), dtype=bool)
+    border_width = 50  # Check 50 pixels from edges (wider)
+    border_region[:border_width, :] = True  # Top
+    border_region[-border_width:, :] = True  # Bottom
+    border_region[:, :border_width] = True  # Left
+    border_region[:, -border_width:] = True  # Right
+    
+    # Remove dark pixels in border region (more conservative to preserve object parts)
+    border_dark = border_region & (final_brightness < 50) & (bgra[:, :, 3] > 0)  # More conservative: only very dark
+    bgra[:, :, 3][border_dark] = 0
+    
+    # Also check for dark pixels in border using grayscale (more conservative)
+    border_dark_gray = border_region & (final_gray < 50) & (bgra[:, :, 3] > 0)  # More conservative
+    bgra[:, :, 3][border_dark_gray] = 0
     
     return bgra
 
@@ -286,6 +329,26 @@ def video_to_gif_opencv(input_path, output_path, target_color_hex, threshold=40,
             # Final check: set RGB to 0 for fully transparent pixels to avoid black artifacts
             alpha = rgba[:, :, 3]
             fully_transparent = alpha == 0
+            
+            # Only make edge-connected black pixels transparent (preserve object interior)
+            # Don't remove black pixels that are part of the object
+            brightness = np.mean(rgba[:, :, :3], axis=2)
+            height, width = rgba.shape[:2]
+            
+            # Only check border region (20 pixels from edges)
+            border_region = np.zeros((height, width), dtype=bool)
+            border_width = 20
+            border_region[:border_width, :] = True
+            border_region[-border_width:, :] = True
+            border_region[:, :border_width] = True
+            border_region[:, -border_width:] = True
+            
+            # Only remove very black pixels in border region (more conservative)
+            border_black = border_region & (brightness < 50) & (rgba[:, :, 3] > 0)  # More conservative
+            rgba[border_black, 3] = 0
+            fully_transparent = fully_transparent | border_black
+            
+            # Set RGB to 0 for all transparent pixels
             rgba[fully_transparent, 0] = 0  # R = 0
             rgba[fully_transparent, 1] = 0  # G = 0
             rgba[fully_transparent, 2] = 0  # B = 0

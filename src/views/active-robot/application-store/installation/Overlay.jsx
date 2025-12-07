@@ -5,6 +5,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FullscreenOverlay from '@components/FullscreenOverlay';
+import LogConsole from '../../LogConsole';
 
 /**
  * Fullscreen overlay for app installation
@@ -13,7 +14,6 @@ import FullscreenOverlay from '@components/FullscreenOverlay';
 export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = 'install', resultState = null, installStartTime = null }) {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [logsExpanded, setLogsExpanded] = useState(false);
-  const logsContainerRef = useRef(null);
   const intervalRef = useRef(null);
   
   // ✅ Persist logs and progress across jobInfo changes
@@ -154,17 +154,6 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
   
   // Determine if showing final result or progress
   const isShowingResult = resultState !== null;
-
-  // Auto-scroll to bottom when new logs arrive (only when accordion is expanded)
-  useEffect(() => {
-    if (logsContainerRef.current && logsExpanded && allLogs.length > 0) {
-      // Smooth scroll to bottom
-      logsContainerRef.current.scrollTo({
-        top: logsContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
-  }, [logsExpanded, allLogs.length]); // Only scroll when expanded
 
   return (
     <FullscreenOverlay
@@ -486,92 +475,20 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                 bgcolor: darkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.02)',
               }}
             >
-              <Box
-                ref={logsContainerRef}
+              <LogConsole
+                logs={allLogs}
+                darkMode={darkMode}
+                includeStoreLogs={false}
+                maxHeight="140px"
+                showTimestamp={false}
+                simpleStyle={true}
+                compact={false}
                 sx={{
-                  width: '100%',
-                  maxHeight: '140px',
-                display: 'flex',
-                flexDirection: 'column',
-                  justifyContent: allLogs.length > 0 ? 'flex-start' : 'center',
-                overflowY: 'auto',
-                  p: 2,
-                '&::-webkit-scrollbar': {
-                  width: '5px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  backgroundColor: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                  borderRadius: '2.5px',
-                  '&:hover': {
-                    backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
-                  },
-                },
-              }}
-            >
-                {allLogs.length > 0 ? (
-                  allLogs.map((log, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 1,
-                          mb: idx < allLogs.length - 1 ? 1 : 0,
-                      animation: 'slideIn 0.3s ease',
-                      '@keyframes slideIn': {
-                        from: { 
-                          opacity: 0, 
-                          transform: 'translateY(-5px)' 
-                        },
-                        to: { 
-                          opacity: 1, 
-                          transform: 'translateY(0)' 
-                        },
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 4,
-                        height: 4,
-                        borderRadius: '50%',
-                      bgcolor: '#FF9500',
-                        mt: 0.75,
-                        flexShrink: 0,
+                  bgcolor: 'transparent',
+                  border: 'none',
+                  borderRadius: 0,
                       }}
                     />
-                    <Typography
-                      sx={{
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                        color: darkMode ? '#d1d5db' : '#666',
-                        lineHeight: 1.6,
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {log}
-                    </Typography>
-                  </Box>
-                ))
-              ) : (
-                <Typography
-                  sx={{
-                    fontSize: 11,
-                    color: darkMode ? '#888' : '#999',
-                    textAlign: 'center',
-                    fontStyle: 'italic',
-                  }}
-                >
-                {isShowingResult && resultState === 'failed'
-                  ? 'An error occurred'
-                  : (isInstalling ? 'Preparing installation...' : 'Processing...')
-                }
-                </Typography>
-              )}
-            </Box>
             </AccordionDetails>
           </Accordion>
 

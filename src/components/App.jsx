@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useMemo, useCallback, useState, useRef } from 'react';
 import { Box } from '@mui/material';
 
 import { PermissionsRequiredView, RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView, UpdateView } from '../views';
@@ -23,7 +23,47 @@ function App() {
   
   // 🔐 Permissions check (macOS only)
   // Blocks the app until camera and microphone permissions are granted
-  const { allGranted: permissionsGranted } = usePermissions({ checkInterval: 2000 });
+  const { allGranted: permissionsGranted, cameraGranted, microphoneGranted } = usePermissions({ checkInterval: 2000 });
+  const [isRestarting, setIsRestarting] = useState(false);
+  const restartTimerRef = useRef(null);
+  const restartStartedRef = useRef(false);
+  
+  // Handle restart when permissions are granted
+  useEffect(() => {
+    // Only start restart flow once when permissions are granted
+    if (permissionsGranted && !restartStartedRef.current) {
+      restartStartedRef.current = true;
+      const isDev = isDevMode();
+      setIsRestarting(true);
+      
+      if (isDev) {
+        // Dev mode: show restart UI for 3 seconds, then continue (simulate restart)
+        restartTimerRef.current = setTimeout(() => {
+          setIsRestarting(false);
+          restartTimerRef.current = null;
+        }, 3000); // 3 seconds in dev mode
+      } else {
+        // Production: wait 4 seconds then restart
+        restartTimerRef.current = setTimeout(async () => {
+          try {
+            const { relaunch } = await import('@tauri-apps/plugin-process');
+            await relaunch();
+          } catch (error) {
+            console.error('Failed to restart app:', error);
+            setIsRestarting(false);
+            restartTimerRef.current = null;
+          }
+        }, 4000); // 4 seconds in production
+      }
+    }
+    
+    return () => {
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+    };
+  }, [permissionsGranted]);
   
   // 🔄 Automatic update system
   // Tries to fetch latest.json directly - if it works, we have internet + we know if there's an update
@@ -213,13 +253,14 @@ function App() {
     }
   }, [isTransitioning, setIsTransitioning]);
 
-  // 🔐 PRIORITY 0: Permissions view - Blocks app until permissions granted (macOS only)
+  // 🔐 PRIORITY 0: Permissions view - Blocks app until permissions granted AND restart complete (macOS only)
   // On non-macOS, permissionsGranted will be true (permissions not needed)
-  if (!permissionsGranted) {
+  // Continue showing PermissionsRequiredView during restart
+  if (!permissionsGranted || isRestarting) {
     return (
       <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
         <AppTopBar />
-        <PermissionsRequiredView />
+        <PermissionsRequiredView isRestarting={isRestarting} />
       </Box>
     );
   }

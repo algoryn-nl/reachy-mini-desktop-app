@@ -2,10 +2,11 @@ import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, IconButton, Typography, Button, Stack } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SpinningWheel from '@components/wheel/SpinningWheel';
-import { CHOREOGRAPHY_DATASETS, QUICK_ACTIONS, EMOTIONS, DANCES } from '@constants/choreographies';
+import { CHOREOGRAPHY_DATASETS, QUICK_ACTIONS, EMOTIONS, DANCES, EMOTION_EMOJIS, DANCE_EMOJIS } from '@constants/choreographies';
 import { useRobotCommands } from '@hooks/robot';
 import useAppStore from '@store/useAppStore';
 import { setAppStoreInstance } from '@config/daemon';
+import { useLogger } from '@/utils/logging';
 
 // Constants - moved outside component to avoid recreation
 const BUSY_DEBOUNCE_MS = 150;
@@ -72,12 +73,25 @@ export default function ExpressionsSection({
   }, [rawIsBusy, debouncedIsBusy]);
   
   const { sendCommand, playRecordedMove } = useRobotCommands();
+  const logger = useLogger();
 
   // Store timeout ref for effect cleanup
   const effectTimeoutRef = useRef(null);
 
   // Handler for quick actions
   const handleQuickAction = useCallback((action) => {
+    // Find the specific emoji for this expression
+    let emoji = null;
+    if (action.type === 'emotion') {
+      emoji = EMOTION_EMOJIS[action.name] || null;
+    } else if (action.type === 'dance') {
+      emoji = DANCE_EMOJIS[action.name] || null;
+    }
+    
+    // Log the action with emoji if found, otherwise just the label
+    const logMessage = emoji ? `${emoji} ${action.label}` : action.label;
+    logger.userAction(logMessage);
+    
     if (action.type === 'action') {
       sendCommand(`/api/move/play/${action.name}`, action.label);
     } else if (action.type === 'dance') {
@@ -89,7 +103,6 @@ export default function ExpressionsSection({
     // Trigger corresponding 3D visual effect
     const effectType = EFFECT_MAP[action.name];
     if (effectType) {
-      const store = useAppStore.getState();
       if (store && typeof store.triggerEffect === 'function') {
         store.triggerEffect(effectType);
         

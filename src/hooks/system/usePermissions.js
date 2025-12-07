@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 /**
  * Hook to check macOS permissions (camera, microphone)
+ * Uses tauri-plugin-macos-permissions plugin directly
  * Checks periodically and returns the current status
  */
 export function usePermissions({ checkInterval = 2000 } = {}) {
@@ -15,13 +16,18 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
     const checkPermissions = async () => {
       try {
         setIsChecking(true);
-        const [camera, mic] = await invoke('check_permissions');
-        setCameraGranted(camera);
-        setMicrophoneGranted(mic);
+        
+        // Use plugin commands directly
+        // Plugin returns boolean directly: true = granted, false = not granted
+        const cameraStatus = await invoke('plugin:macos-permissions|check_camera_permission');
+        const micStatus = await invoke('plugin:macos-permissions|check_microphone_permission');
+        
+        // Plugin returns boolean directly (true = granted, false = not granted)
+        setCameraGranted(cameraStatus === true);
+        setMicrophoneGranted(micStatus === true);
         setHasChecked(true);
       } catch (error) {
         console.error('Error checking permissions:', error);
-        // On error, assume not granted (conservative)
         setCameraGranted(false);
         setMicrophoneGranted(false);
         setHasChecked(true);

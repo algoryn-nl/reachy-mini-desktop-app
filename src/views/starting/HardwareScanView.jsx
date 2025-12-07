@@ -718,7 +718,7 @@ function HardwareScanView({
         )}
       </Box>
 
-      {/* ✅ Daemon startup logs - fixed at the bottom, discrete, scrollable */}
+      {/* ✅ Daemon startup logs - fixed at the bottom, visible, scrollable */}
       {/* Always show logs if available, even if not starting (error state) */}
       {startupLogs.length > 0 && (
         <Box
@@ -730,7 +730,7 @@ function HardwareScanView({
             width: 'calc(100% - 32px)',
             maxWidth: '420px',
             zIndex: 1000,
-            opacity: 0.25, // Discreet by default
+            opacity: 0.5, // Semi-transparent by default
             transition: 'opacity 0.3s ease-in-out',
             '&:hover': {
               opacity: 1, // Full opacity on hover
@@ -740,14 +740,13 @@ function HardwareScanView({
           <LogConsole
             logs={startupLogs}
             darkMode={darkMode}
-            includeStoreLogs={false}
+            includeStoreLogs={true}
             compact={true}
             showTimestamp={false}
-            height="auto"
-            maxHeight="60px"
+            lines={4}
                 sx={{
-              bgcolor: darkMode ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.05)',
-              border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+              bgcolor: darkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)',
+              border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
             }}

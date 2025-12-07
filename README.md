@@ -40,7 +40,8 @@ A modern desktop application for controlling and monitoring your Reachy Mini rob
 
 ### Prerequisites
 
-- Node.js 20+ and Yarn
+- **Node.js 24.4.0+** (LTS recommended) and Yarn
+  - If using `nvm`: `nvm install --lts && nvm use --lts`
 - Rust (latest stable)
 - System dependencies for Tauri ([see Tauri docs](https://v2.tauri.app/start/prerequisites/))
 
@@ -56,6 +57,16 @@ yarn install
 
 # Run in development mode
 yarn tauri:dev
+```
+
+```bash
+# Check your Node version
+node --version
+
+# If using nvm, install and use the latest LTS
+nvm install --lts
+nvm use --lts
+nvm alias default $(nvm version)  # Set as default
 ```
 
 ### Building

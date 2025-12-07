@@ -10,13 +10,15 @@ import useAppStore from '../../store/useAppStore';
  * @returns {object} { logs, hasError, lastMessage }
  */
 export function useDaemonStartupLogs(isStarting) {
-  const { addFrontendLog } = useAppStore();
+  // Removed addFrontendLog - we don't add daemon logs to frontendLogs to avoid duplicates
   const [startupLogs, setStartupLogs] = useState([]);
   const [hasError, setHasError] = useState(false);
   const [lastMessage, setLastMessage] = useState(null);
   const unlistenStdoutRef = useRef(null);
   const unlistenStderrRef = useRef(null);
   const logsRef = useRef([]); // Keep ref for stable access in listeners
+  // Track error timestamps to filter duplicates at source
+  const errorTimestampsRef = useRef(new Map()); // Map<errorMessage, lastTimestamp>
 
   useEffect(() => {
     // Clear logs when starting a new daemon
@@ -25,6 +27,7 @@ export function useDaemonStartupLogs(isStarting) {
       setHasError(false);
       setLastMessage(null);
       logsRef.current = [];
+      errorTimestampsRef.current.clear(); // Clear error tracking
     }
   }, [isStarting]);
 
@@ -79,8 +82,8 @@ export function useDaemonStartupLogs(isStarting) {
           setStartupLogs([...logsRef.current]);
           setLastMessage(cleanLine);
           
-          // Also add to frontend logs for consistency
-          addFrontendLog(`[Daemon] ${cleanLine}`);
+          // Don't add to frontendLogs - these logs are already in startupLogs for the scan view
+          // and will be in backend logs array, avoiding duplicates
         });
 
         // Listen to stderr (errors and warnings)
@@ -105,6 +108,20 @@ export function useDaemonStartupLogs(isStarting) {
                          cleanLine.toLowerCase().includes('exception') ||
                          cleanLine.toLowerCase().includes('traceback');
 
+          // Filter duplicate errors at source (same error within 10 seconds = skip)
+          if (isError) {
+            const now = Date.now();
+            const lastSeen = errorTimestampsRef.current.get(cleanLine);
+            
+            // If we've seen this exact error within the last 10 seconds, skip it
+            if (lastSeen && (now - lastSeen) < 10000) {
+              return; // Skip duplicate error
+            }
+            
+            // Update timestamp for this error
+            errorTimestampsRef.current.set(cleanLine, now);
+          }
+
           const newLog = {
             message: cleanLine,
             level: isError ? 'error' : 'warning',
@@ -119,8 +136,9 @@ export function useDaemonStartupLogs(isStarting) {
             setHasError(true);
           }
           
-          // Also add to frontend logs
-          addFrontendLog(`[Daemon] ${cleanLine}`, isError ? 'error' : 'warning');
+          // Don't add to frontendLogs - these logs are already in startupLogs for the scan view
+          // and will be in backend logs array, avoiding duplicates
+          // Errors are already filtered at source to prevent spam
         });
       } catch (error) {
         console.error('Failed to setup startup log listeners:', error);
@@ -139,7 +157,7 @@ export function useDaemonStartupLogs(isStarting) {
         unlistenStderrRef.current = null;
       }
     };
-  }, [isStarting, addFrontendLog]);
+  }, [isStarting]);
 
   return {
     logs: startupLogs,

@@ -22,7 +22,6 @@ export const useWheelItems = (activeTab, actions) => {
             label: quickEmotion?.label || emotionName.replace(/_/g, ' ').replace(/\d+/g, '').trim(),
             type: 'emotion',
           };
-          console.log(`📝 [useWheelItems] Created virtual action for emotion "${emotionName}"`);
         }
         
         return {
@@ -45,7 +44,6 @@ export const useWheelItems = (activeTab, actions) => {
             label: danceName.replace(/_/g, ' '),
             type: 'dance',
           };
-          console.log(`📝 [useWheelItems] Created virtual action for dance "${danceName}"`);
         }
         
         return {

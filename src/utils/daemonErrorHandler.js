@@ -115,8 +115,8 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   setIsStarting(true);
   
   // Log to frontend logs
-  const logMessage = `❌ Daemon ${errorType} error: ${errorMessage}`;
-  addFrontendLog(logMessage);
+  const logMessage = `Daemon ${errorType} error: ${errorMessage}`;
+  addFrontendLog(logMessage, 'error');
   
   return errorObject;
 };

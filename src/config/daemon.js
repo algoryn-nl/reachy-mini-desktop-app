@@ -2,6 +2,8 @@
  * Centralized configuration for timeouts and daemon management
  */
 
+import { logApiCall, logPermission, logTimeout, logError, logSuccess } from '../utils/logging';
+
 export const DAEMON_CONFIG = {
   // API timeouts (in milliseconds)
   TIMEOUTS: {
@@ -43,9 +45,9 @@ export const DAEMON_CONFIG = {
   
   // Log management
   LOGS: {
-    MAX_FRONTEND: 50,    // Max frontend logs (user actions, API calls)
-    MAX_APP: 100,        // Max app logs (more verbose than frontend)
-    MAX_DISPLAY: 500,    // Max logs to display in console (performance)
+    MAX_FRONTEND: 500,   // Max frontend logs (user actions, API calls) - increased for better history
+    MAX_APP: 1000,       // Max app logs (more verbose than frontend) - increased for better history
+    MAX_DISPLAY: 10000,  // Max logs to keep in memory (virtualization handles rendering efficiently)
   },
   
   // Animation/transition durations
@@ -114,6 +116,7 @@ export const DAEMON_CONFIG = {
   SILENT_ENDPOINTS: [
     '/api/state/full',      // Poll every 3s
     '/api/daemon/status',   // Poll every 10s
+    '/api/apps/list-available/installed', // Called frequently when fetching apps
   ],
 };
 
@@ -199,46 +202,44 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
     clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     
-    // Log result if not silent (only show completion, not start to avoid redundancy)
+    // Log result if not silent
     if (!shouldBeSilent) {
-      const logLabel = label || `${method} ${baseEndpoint}`;
-      const logMessage = response.ok ? `✓ ${logLabel}` : `✗ ${logLabel} (${response.status})`;
-      
-      // Détecter si on est dans la fenêtre principale
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const currentWindow = await getCurrentWindow();
-        const isMain = currentWindow.label === 'main';
-        
-        if (isMain) {
-          // Fenêtre principale : log direct
-          if (appStoreInstance) {
-            const store = appStoreInstance.getState();
-            const addLog = store?.addFrontendLog;
-            if (typeof addLog === 'function') {
-              addLog(logMessage);
-            }
-          }
+      if (label) {
+        // Use custom label for better user experience
+        // Always log, even if response is not ok (to show user what happened)
+        if (response.ok) {
+          logSuccess(label);
         } else {
-          // Fenêtre secondaire : émettre événement vers la fenêtre principale
-          const { emit } = await import('@tauri-apps/api/event');
-          await emit('add-log', { message: logMessage });
+          logError(`${label} failed (${response.status})`);
         }
-      } catch (error) {
-        // Fallback : utiliser appStoreInstance si détection échoue
-        if (appStoreInstance) {
-          const store = appStoreInstance.getState();
-          const addLog = store?.addFrontendLog;
-          if (typeof addLog === 'function') {
-            addLog(logMessage);
-          }
-        }
+      } else {
+        // Use standard API call logging
+      logApiCall(method, baseEndpoint, response.ok, response.ok ? '' : `(${response.status})`);
       }
     }
     
     return response;
   } catch (error) {
     const duration = Date.now() - startTime;
+    
+    // Log error if not silent
+    if (!shouldBeSilent) {
+      if (label) {
+        // Use custom label for error
+        if (error.name === 'AbortError') {
+          logTimeout(`${label} (timeout)`);
+        } else {
+          logError(`${label} (${error.message || 'error'})`);
+        }
+      } else {
+        // Use standard error logging
+        if (error.name === 'AbortError') {
+          logTimeout(`${method} ${baseEndpoint} (timeout)`);
+        } else {
+          logError(`${method} ${baseEndpoint} (${error.message || 'error'})`);
+        }
+      }
+    }
     
     // Detect permission errors
     if (isPermissionDeniedError(error)) {
@@ -248,35 +249,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
       
       if (!shouldBeSilent) {
         const logLabel = label || `${method} ${baseEndpoint}`;
-        const logMessage = `🔒 ${logLabel} (permission denied)`;
-        
-        // Détecter si on est dans la fenêtre principale
-        try {
-          const { getCurrentWindow } = await import('@tauri-apps/api/window');
-          const currentWindow = await getCurrentWindow();
-          const isMain = currentWindow.label === 'main';
-          
-          if (isMain) {
-            if (appStoreInstance) {
-              const store = appStoreInstance.getState();
-              const addLog = store?.addFrontendLog;
-              if (typeof addLog === 'function') {
-                addLog(logMessage);
-              }
-            }
-          } else {
-            const { emit } = await import('@tauri-apps/api/event');
-            await emit('add-log', { message: logMessage });
-          }
-        } catch (error) {
-          if (appStoreInstance) {
-            const store = appStoreInstance.getState();
-            const addLog = store?.addFrontendLog;
-            if (typeof addLog === 'function') {
-              addLog(logMessage);
-            }
-          }
-        }
+        logPermission(`${logLabel} (permission denied)`);
       }
       
       throw permissionError;
@@ -291,35 +264,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
       
       if (!shouldBeSilent) {
         const logLabel = label || `${method} ${baseEndpoint}`;
-        const logMessage = `⏱️ ${logLabel} (timeout - check system permissions)`;
-        
-        // Détecter si on est dans la fenêtre principale
-        try {
-          const { getCurrentWindow } = await import('@tauri-apps/api/window');
-          const currentWindow = await getCurrentWindow();
-          const isMain = currentWindow.label === 'main';
-          
-          if (isMain) {
-            if (appStoreInstance) {
-              const store = appStoreInstance.getState();
-              const addLog = store?.addFrontendLog;
-              if (typeof addLog === 'function') {
-                addLog(logMessage);
-              }
-            }
-          } else {
-            const { emit } = await import('@tauri-apps/api/event');
-            await emit('add-log', { message: logMessage });
-          }
-        } catch (error) {
-          if (appStoreInstance) {
-            const store = appStoreInstance.getState();
-            const addLog = store?.addFrontendLog;
-            if (typeof addLog === 'function') {
-              addLog(logMessage);
-            }
-          }
-        }
+        logTimeout(`${logLabel} (timeout - check system permissions)`);
       }
       
       throw popupError;
@@ -331,35 +276,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
       const errorMsg = error.name === 'AbortError' || error.name === 'TimeoutError' 
         ? 'timeout' 
         : error.message;
-      const logMessage = `✗ ${logLabel} (${errorMsg})`;
-      
-      // Détecter si on est dans la fenêtre principale
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const currentWindow = await getCurrentWindow();
-        const isMain = currentWindow.label === 'main';
-        
-        if (isMain) {
-          if (appStoreInstance) {
-            const store = appStoreInstance.getState();
-            const addLog = store?.addFrontendLog;
-            if (typeof addLog === 'function') {
-              addLog(logMessage);
-            }
-          }
-        } else {
-          const { emit } = await import('@tauri-apps/api/event');
-          await emit('add-log', { message: logMessage });
-        }
-      } catch (error) {
-        if (appStoreInstance) {
-          const store = appStoreInstance.getState();
-          const addLog = store?.addFrontendLog;
-          if (typeof addLog === 'function') {
-            addLog(logMessage);
-          }
-        }
-      }
+      logApiCall(method, baseEndpoint, false, errorMsg);
     }
     
     throw error;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '@config/daemon';
 import useAppStore from '@store/useAppStore';
-import { formatPoseForLog, hasSignificantChange } from '../utils';
+import { hasSignificantChange, generateHeadPositionLog, generateBodyYawLog, generateAntennasLog, generateGamepadInputLog } from '../utils';
 import { getInputManager } from '@utils/InputManager';
 import { 
   ROBOT_POSITION_RANGES, 
@@ -73,6 +73,8 @@ export function useRobotPosition(isActive) {
   const antennasRef = useRef([0, 0]); // Track antennas during drag for smooth continuous updates
   const isUsingGamepadKeyboardRef = useRef(false); // Track if we're actively using gamepad/keyboard
   const lastGamepadKeyboardReleaseRef = useRef(0); // Track when gamepad/keyboard was last released
+  const lastGamepadInputsRef = useRef(null); // Track last gamepad inputs for intelligent logging
+  const lastGamepadLogTimeRef = useRef(0); // Track last gamepad log time
   
   // Smoothing state for inputs (middleware layer for fluid movement)
   const smoothedInputsRef = useRef({
@@ -212,6 +214,11 @@ export function useRobotPosition(isActive) {
         isUsingGamepadKeyboardRef.current = false;
         lastGamepadKeyboardReleaseRef.current = Date.now();
         
+        // Reset gamepad inputs tracking when input stops
+        if (lastGamepadInputsRef.current) {
+          lastGamepadInputsRef.current = null;
+        }
+        
         // Stop dragging - let values stay where they are (no forced reset)
         if (isDraggingRef.current) {
           setIsDragging(false);
@@ -337,10 +344,21 @@ export function useRobotPosition(isActive) {
       // Update antennas ref for smooth continuous updates
       antennasRef.current = newAntennas;
 
+      // Intelligent logging for gamepad/keyboard inputs (no emoji as requested)
+      const now = Date.now();
+      if (now - lastGamepadLogTimeRef.current > 500) {
+        const gamepadLog = generateGamepadInputLog(inputs, lastGamepadInputsRef.current);
+        if (gamepadLog) {
+          safeAddFrontendLog(gamepadLog);
+        }
+        lastGamepadInputsRef.current = { ...inputs };
+        lastGamepadLogTimeRef.current = now;
+      }
+
       // Mark as dragging - smoothing loop will send smoothed values
       setIsDragging(true);
       isDraggingRef.current = true;
-  }, [localValuesRef, sendCommandRef, isDraggingRef, lastDragEndTimeRef, isUsingGamepadKeyboardRef, lastGamepadKeyboardReleaseRef, lastFrameTimeRef, targetSmoothingRef]);
+  }, [localValuesRef, sendCommandRef, isDraggingRef, lastDragEndTimeRef, isUsingGamepadKeyboardRef, lastGamepadKeyboardReleaseRef, lastFrameTimeRef, targetSmoothingRef, safeAddFrontendLog]);
 
   // Keyboard/gamepad input integration to control robot
   useEffect(() => {
@@ -371,8 +389,19 @@ export function useRobotPosition(isActive) {
     if (dragStartPoseRef.current && hasSignificantChange(dragStartPoseRef.current, finalPose)) {
       const now = Date.now();
       if (now - lastLogTimeRef.current > 500) {
-        const formatted = formatPoseForLog(finalPose.headPose, finalPose.bodyYaw);
-        safeAddFrontendLog(`→ Position: ${formatted}`);
+        // Use intelligent logging for better readability
+        const headLog = generateHeadPositionLog(finalPose.headPose, dragStartPoseRef.current.headPose);
+        const bodyLog = generateBodyYawLog(finalPose.bodyYaw, dragStartPoseRef.current.bodyYaw);
+        
+        // Combine logs if both have changes
+        if (headLog && bodyLog) {
+          safeAddFrontendLog(`[Controller] ${headLog} | ${bodyLog}`);
+        } else if (headLog) {
+          safeAddFrontendLog(`[Controller] ${headLog}`);
+        } else if (bodyLog) {
+          safeAddFrontendLog(`[Controller] ${bodyLog}`);
+        }
+        
         lastLoggedPoseRef.current = finalPose;
         lastLogTimeRef.current = now;
       }
@@ -398,13 +427,12 @@ export function useRobotPosition(isActive) {
     };
 
     if (continuous) {
-      // ✅ Log drag start (only once)
+      // Store drag start pose for intelligent logging
       if (!isDraggingRef.current && !dragStartPoseRef.current) {
         dragStartPoseRef.current = {
           headPose: { ...localValues.headPose },
           bodyYaw: localValues.bodyYaw,
         };
-        safeAddFrontendLog(`▶️ Moving head...`);
       }
       
       // Update localValues to reflect the target (what user wants)
@@ -441,8 +469,11 @@ export function useRobotPosition(isActive) {
       
       const now = Date.now();
       if (hasSignificantChange(lastLoggedPoseRef.current, newPose) && now - lastLogTimeRef.current > 500) {
-        const formatted = formatPoseForLog(newPose.headPose, newPose.bodyYaw);
-        safeAddFrontendLog(`→ Position: ${formatted}`);
+        // Use intelligent logging for better readability
+        const headLog = generateHeadPositionLog(newPose.headPose, lastLoggedPoseRef.current?.headPose);
+        if (headLog) {
+          safeAddFrontendLog(`→ ${headLog}`);
+        }
         lastLoggedPoseRef.current = newPose;
         lastLogTimeRef.current = now;
       }
@@ -489,11 +520,6 @@ export function useRobotPosition(isActive) {
     const clampedValue = clamp(validValue, BODY_YAW_RANGE.min, BODY_YAW_RANGE.max);
     
     if (continuous) {
-      // ✅ Log body yaw drag start (only once)
-      if (!isDraggingRef.current) {
-        safeAddFrontendLog(`▶️ Rotating body...`);
-      }
-      
       // Update localValues to reflect the target (what user wants)
       setLocalValues(prev => ({
         ...prev,
@@ -515,9 +541,12 @@ export function useRobotPosition(isActive) {
       });
       
       const now = Date.now();
-      const bodyYawRad = clampedValue.toFixed(3);
       if (now - lastLogTimeRef.current > 500) {
-        safeAddFrontendLog(`→ Body Yaw: ${bodyYawRad}rad`);
+        // Use intelligent logging for better readability
+        const bodyLog = generateBodyYawLog(clampedValue, lastLoggedPoseRef.current?.bodyYaw);
+        if (bodyLog) {
+          safeAddFrontendLog(`→ ${bodyLog}`);
+        }
         lastLogTimeRef.current = now;
         lastLoggedPoseRef.current = {
           headPose: localValues.headPose,
@@ -576,11 +605,6 @@ export function useRobotPosition(isActive) {
     antennasRef.current = clampedAntennas;
     
     if (continuous) {
-      // Log antennas drag start (only once)
-      if (!isDraggingRef.current) {
-        safeAddFrontendLog(`▶️ Moving antennas...`);
-      }
-      
       // Update localValues to reflect the target (what user wants)
       setLocalValues(prev => ({
         ...prev,
@@ -602,10 +626,12 @@ export function useRobotPosition(isActive) {
       });
       
       const now = Date.now();
-      const leftRad = clampedAntennas[0].toFixed(3);
-      const rightRad = clampedAntennas[1].toFixed(3);
       if (now - lastLogTimeRef.current > 500) {
-        safeAddFrontendLog(`→ Antennas: L:${leftRad}rad R:${rightRad}rad`);
+        // Use intelligent logging for better readability
+        const antennasLog = generateAntennasLog(clampedAntennas, lastLoggedPoseRef.current?.antennas);
+        if (antennasLog) {
+          safeAddFrontendLog(`→ ${antennasLog}`);
+        }
         lastLogTimeRef.current = now;
       }
       
@@ -679,7 +705,7 @@ export function useRobotPosition(isActive) {
     // Start global reset animation (continues even after unmount)
     startSmoothReset(currentSmoothed);
     
-    // Log the reset action
+    // Log the reset action with intelligent message
     safeAddFrontendLog(`↺ Smooth reset: animating to center position`);
   }, [safeAddFrontendLog]);
 

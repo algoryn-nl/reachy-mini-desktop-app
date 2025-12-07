@@ -41,8 +41,8 @@ class DaemonEventBus {
       this.eventLog.shift();
     }
     
-    // Log to console in dev mode
-    if (process.env.NODE_ENV === 'development') {
+    // Log to console in dev mode (but skip frequent health checks to avoid spam)
+    if (process.env.NODE_ENV === 'development' && event !== 'daemon:health:success') {
       console.log(`[DaemonEventBus] ${event}`, data);
     }
     

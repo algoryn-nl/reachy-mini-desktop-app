@@ -34,7 +34,7 @@ export const useDaemon = () => {
       // Daemon started successfully - no action needed here
       // useRobotState will detect when it becomes active
       if (data?.simMode) {
-        addFrontendLog('🎭 Daemon started in simulation mode (MuJoCo)');
+        addFrontendLog('Daemon started in simulation mode (MuJoCo)', 'info');
       }
     });
     
