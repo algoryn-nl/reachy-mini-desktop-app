@@ -15,9 +15,10 @@ import {
   MIN_MOMENTUM,
   RESIZE_DEBOUNCE_MS,
   DRAG_THROTTLE_MS,
+  TOP_ANGLE,
 } from '@utils/wheel/constants';
 import { normalizeIndex, normalizeAngleDelta } from '@utils/wheel/normalization';
-import { getAngleFromCenter, getItemPosition, calculateSnapRotation, calculateSelectedIndexFromVisible } from '@utils/wheel/geometry';
+import { getAngleFromCenter, getItemPosition, calculateSnapRotation } from '@utils/wheel/geometry';
 import { debounce, throttle, easeOutCubic } from '@utils/wheel/performance';
 
 /**
@@ -181,26 +182,30 @@ export default function SpinningWheel({
     return `calc(100% - ${wheelSize / 2}px - ${radius}px - 20px)`;
   }, [wheelSize]);
 
-  // Calculate selected item index: item with highest Y position (closest to top of screen)
-  // Use throttled rotation for selectedIndex (performance optimization)
-  const { selectedIndex } = useMemo(() => {
-    return calculateSelectedIndexFromVisible(visibleItems, throttledRotation, wheelSize, RADIUS_RATIO);
-  }, [visibleItems, wheelSize, throttledRotation]);
+  // Calculate selected item index directly from rotation (not from visible items)
+  // This ensures correct index in infinite loop where same item can appear multiple times
+  // Formula: rotation / gap gives the item index that should be at top
+  const selectedIndex = useMemo(() => {
+    if (!gap || !itemCount) return 0;
+    const rotationOffset = throttledRotation / gap;
+    const closestIndex = Math.round(rotationOffset);
+    return normalizeIndex(closestIndex, itemCount);
+  }, [throttledRotation, gap, itemCount]);
   
-  // Calculate activeItemAngle with real rotation (not throttled) for smooth triangle movement
-  // Calculate directly from rotation to avoid throttling delay
-  const activeItemAngle = useMemo(() => {
-    if (!itemCount || !gap) return null;
-    
-    // Calculate which item should be at the top with real rotation
-    const exactIndex = rotation / gap;
-    const closestIndex = Math.round(exactIndex);
-    const normalizedIndex = ((closestIndex % itemCount) + itemCount) % itemCount;
-    
-    // Calculate the angle of this item
-    const TOP_ANGLE = -90; // Top position in degrees
-    return TOP_ANGLE + (normalizedIndex * gap);
+  // Calculate activeItemAngle from selectedIndex for consistency
+  // Use real rotation (not throttled) to calculate which item should be selected
+  const selectedIndexForAngle = useMemo(() => {
+    if (!gap || !itemCount) return 0;
+    const rotationOffset = rotation / gap;
+    const closestIndex = Math.round(rotationOffset);
+    return normalizeIndex(closestIndex, itemCount);
   }, [rotation, gap, itemCount]);
+  
+  // Calculate the angle of the selected item
+  const activeItemAngle = useMemo(() => {
+    if (!gap || !itemCount) return null;
+    return TOP_ANGLE + (selectedIndexForAngle * gap);
+  }, [selectedIndexForAngle, gap, itemCount]);
 
   const selectedItem = displayItems[selectedIndex];
 
@@ -255,7 +260,7 @@ export default function SpinningWheel({
       lastDragTimeRef.current = Date.now();
       lastDragAngleRef.current = angle;
     }
-  }, [isSpinning, isActive, isBusy, isReady, rotation, getAngleFromCenter, selectedItem]);
+  }, [isSpinning, isActive, isBusy, isReady, rotation, dispatchAction]);
 
   // Handle mouse/touch move for drag
   const handleMoveInternal = useCallback((clientX, clientY) => {
@@ -336,7 +341,7 @@ export default function SpinningWheel({
       } else {
       }
     }
-  }, [isDragging, velocity, rotation, gap, itemCount, selectedItem, displayItems, dragStartRotation, startMomentumSpin]);
+  }, [isDragging, velocity, rotation, gap, itemCount, displayItems, dragStartRotation, startMomentumSpin, dispatchAction]);
 
   // Random spin (dice button)
   const handleRandomSpin = useCallback(() => {

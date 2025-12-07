@@ -71,12 +71,16 @@ function URDFRobot({
       const originalColor = child.userData?.originalColor || 0xFF9500;
       // Check both userData and material name for lenses (fallback)
       const materialName = (child.userData?.materialName || child.material?.name || '').toLowerCase();
+      const stlFileName = (child.userData?.stlFileName || '').toLowerCase();
       const isBigLens = child.userData?.isBigLens || 
                        materialName.includes('big_lens') ||
                        materialName.includes('small_lens') ||
                        materialName.includes('lens_d40') ||
                        materialName.includes('lens_d30');
-      const isAntenna = child.userData?.isAntenna || false;
+      // Détection améliorée des antennes : userData OU nom de matériau OU nom de fichier STL
+      const isAntenna = child.userData?.isAntenna || 
+                       materialName.includes('antenna') ||
+                       stlFileName.includes('antenna');
       
       if (wireframeMode) {
         // Wireframe mode: simple wireframe material
@@ -113,9 +117,13 @@ function URDFRobot({
           });
         } else if (isAntenna) {
           child.material = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1a,
-            flatShading: true, // ✅ Flat shading classique - normales par face
+            color: 0x8B4500, // Orange plus clair et visible
+            flatShading: true,
+            roughness: 0.2, // Légèrement moins brillant pour que la couleur de base soit plus visible
+            metalness: 0.3, // Moins métallique pour que la couleur orange soit plus présente
           });
+          // Force material update
+          child.material.needsUpdate = true;
         } else {
           child.material = new THREE.MeshStandardMaterial({
             color: originalColor,

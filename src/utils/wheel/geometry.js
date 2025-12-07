@@ -34,57 +34,6 @@ export const getItemPosition = (angle, wheelSize, radiusRatio) => {
 };
 
 /**
- * Calculate selected item index based on rotation
- * Selected item is the one closest to the fixed top position (TOP_ANGLE = -90 degrees)
- * The top position is fixed visually - items rotate around it
- * 
- * Formula:
- * - Item at index i is positioned at: TOP_ANGLE + (i * gap)
- * - After rotation, it appears at: TOP_ANGLE + (i * gap) - rotation
- * - For it to be exactly at TOP_ANGLE: (i * gap) - rotation = 0
- * - Therefore: i = rotation / gap
- * 
- * We find the item whose angle after rotation is closest to TOP_ANGLE
- * 
- * @param {number} rotation - Current rotation in degrees
- * @param {number} gap - Gap between items in degrees
- * @param {number} itemCount - Total number of items
- * @returns {number} Selected item index
- */
-export const calculateSelectedIndex = (rotation, gap, itemCount) => {
-  if (!gap || gap <= 0 || !itemCount) return 0;
-  
-  // Calculate which item index should be at the fixed top position
-  const exactIndex = rotation / gap;
-  
-  // Check both floor and ceil to find which is actually closer to TOP_ANGLE
-  const floorIndex = Math.floor(exactIndex);
-  const ceilIndex = Math.ceil(exactIndex);
-  
-  // Calculate the actual angle offset from TOP_ANGLE for each candidate
-  // Item at index i appears at: TOP_ANGLE + (i * gap) - rotation
-  // Distance from TOP_ANGLE = (i * gap) - rotation
-  const floorOffset = (floorIndex * gap) - rotation;
-  const ceilOffset = (ceilIndex * gap) - rotation;
-  
-  // Normalize offsets to -180 to 180 range (shortest path)
-  const normalizeOffset = (offset) => {
-    while (offset > 180) offset -= 360;
-    while (offset < -180) offset += 360;
-    return offset;
-  };
-  
-  const floorDist = Math.abs(normalizeOffset(floorOffset));
-  const ceilDist = Math.abs(normalizeOffset(ceilOffset));
-  
-  // Choose the one with smaller distance to TOP_ANGLE
-  const closestIndex = floorDist <= ceilDist ? floorIndex : ceilIndex;
-  
-  // Normalize with wrapping to valid range [0, itemCount)
-  return ((closestIndex % itemCount) + itemCount) % itemCount;
-};
-
-/**
  * Calculate selected item index and active angle based on visible items and rotation
  * Uses actual visual Y position after rotation transformation (more accurate than angle-based)
  * 

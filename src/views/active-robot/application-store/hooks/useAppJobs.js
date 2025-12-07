@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '@config/daemon';
 import useAppStore from '@store/useAppStore';
+import { useLogger } from '@utils/logging';
 import { invoke } from '@tauri-apps/api/core';
 
 /**
@@ -11,7 +12,7 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
   const jobPollingIntervals = useRef(new Map());
   // ✅ FIX: Track timeouts to prevent memory leaks
   const jobTimeouts = useRef(new Map()); // Map<jobId, Set<timeoutId>>
-  const { addFrontendLog } = useAppStore();
+  const logger = useLogger();
   
   /**
    * Fetch job status (install/remove)
@@ -121,7 +122,7 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
             
             // Log to LogConsole
             if (job.appName) {
-              addFrontendLog(`${job.type === 'install' ? 'Install' : 'Uninstall'} ${job.appName} timeout - daemon not responsive`);
+              logger.warning(`${job.type === 'install' ? 'Install' : 'Uninstall'} ${job.appName} timeout - daemon not responsive`);
             }
             
             // Mark job as failed instead of deleting it
@@ -190,9 +191,9 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
           if (finalStatus === 'failed') {
             console.error('❌ Job failed with logs:', jobStatus.logs);
             const errorSummary = jobStatus.logs?.slice(-2).join(' | ') || 'Unknown error';
-            addFrontendLog(`${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} failed: ${errorSummary}`);
+            logger.error(`${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} failed: ${errorSummary}`);
           } else {
-            addFrontendLog(`${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} completed`);
+            logger.success(`${jobInfo.type === 'install' ? 'Install' : 'Uninstall'} ${jobInfo.appName} completed`);
             
             // ✅ macOS: Re-sign Python binaries after successful installation
             // This fixes Team ID mismatch issues with pip-installed packages
@@ -289,7 +290,7 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
     
     // First poll immediately
     pollJob();
-  }, [fetchJobStatus, stopJobPolling, setActiveJobs, fetchAvailableApps, addFrontendLog]);
+  }, [fetchJobStatus, stopJobPolling, setActiveJobs, fetchAvailableApps, logger]);
   
   /**
    * Cleanup: stop all pollings and timeouts on unmount

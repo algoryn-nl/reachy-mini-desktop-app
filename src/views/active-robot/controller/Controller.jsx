@@ -25,7 +25,7 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
     handleBodyYawChange,
     handleAntennasChange,
     handleDragEnd,
-    addFrontendLog,
+    logger: addFrontendLog, // Backward compatibility alias
     resetAllValues,
     resetAllValuesSmooth,
   } = useRobotPosition(isActive);

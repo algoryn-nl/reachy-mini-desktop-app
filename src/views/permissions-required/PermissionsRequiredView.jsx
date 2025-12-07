@@ -6,6 +6,8 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { invoke } from '@tauri-apps/api/core';
 import useAppStore from '../../store/useAppStore';
 import { usePermissions } from '../../hooks/system';
+import { logInfo, logError, logWarning, logSuccess } from '../../utils/logging/logger';
+import LogConsole from '../active-robot/LogConsole';
 import LockedReachy from '../../assets/locked-reachy.svg';
 import SleepingReachy from '../../assets/sleeping-reachy.svg';
 
@@ -188,17 +190,85 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     restartStarted: false,
   });
 
+  // Test plugin availability on mount
+  React.useEffect(() => {
+    const testPlugin = async () => {
+      logInfo('[Permissions] 🔍 Testing plugin availability on mount...');
+      logInfo(`[Permissions] Environment: ${process.env.NODE_ENV}`);
+      logInfo(`[Permissions] Tauri API available: ${typeof invoke === 'function'}`);
+      try {
+        logInfo('[Permissions] Attempting to invoke plugin command...');
+        const testResult = await invoke('plugin:macos-permissions|check_camera_permission');
+        logSuccess(`[Permissions] ✅ Plugin is available, camera check result: ${testResult} (type: ${typeof testResult})`);
+      } catch (error) {
+        logError(`[Permissions] ❌ Plugin not available or error: ${error.message}`);
+        logError(`[Permissions] Error name: ${error.name}`);
+        logError(`[Permissions] Error code: ${error.code || 'N/A'}`);
+        if (error.stack) {
+          logError(`[Permissions] Stack: ${error.stack.substring(0, 300)}...`);
+        }
+        // Try to get more details if available
+        if (error.cause) {
+          logError(`[Permissions] Error cause: ${JSON.stringify(error.cause)}`);
+        }
+      }
+    };
+    testPlugin();
+  }, []);
+
   // Generic permission request handler
   const requestPermission = async (type) => {
+    logInfo(`[Permissions] 🔐 Starting ${type} permission request flow...`);
+    logInfo(`[Permissions] Timestamp: ${new Date().toISOString()}`);
     try {
       const checkCommand = `plugin:macos-permissions|check_${type}_permission`;
       const requestCommand = `plugin:macos-permissions|request_${type}_permission`;
       const settingsCommand = `open_${type}_settings`;
       
-      const currentStatus = await invoke(checkCommand);
-      if (currentStatus === true) return;
+      logInfo(`[Permissions] 📋 Step 1: Checking ${type} permission status...`);
+      logInfo(`[Permissions] Command: ${checkCommand}`);
+      logInfo(`[Permissions] Invoke function available: ${typeof invoke === 'function'}`);
       
-      const result = await invoke(requestCommand);
+      const startTime = Date.now();
+      let currentStatus;
+      try {
+        currentStatus = await invoke(checkCommand);
+      } catch (checkError) {
+        logError(`[Permissions] ❌ Check command failed: ${checkError.message}`);
+        logError(`[Permissions] Check error name: ${checkError.name}`);
+        logError(`[Permissions] Check error code: ${checkError.code || 'N/A'}`);
+        throw checkError; // Re-throw to be caught by outer catch
+      }
+      const checkDuration = Date.now() - startTime;
+      
+      logInfo(`[Permissions] ✅ Check completed in ${checkDuration}ms, status: ${currentStatus} (type: ${typeof currentStatus})`);
+      logInfo(`[Permissions] Status is boolean: ${typeof currentStatus === 'boolean'}`);
+      logInfo(`[Permissions] Status value: ${String(currentStatus)}`);
+      
+      if (currentStatus === true) {
+        logSuccess(`[Permissions] ✅ ${type} permission already granted, no action needed`);
+        return;
+      }
+      
+      logInfo(`[Permissions] 📋 Step 2: Requesting ${type} permission...`);
+      logInfo(`[Permissions] Command: ${requestCommand}`);
+      
+      const requestStartTime = Date.now();
+      let result;
+      try {
+        result = await invoke(requestCommand);
+      } catch (requestError) {
+        logError(`[Permissions] ❌ Request command failed: ${requestError.message}`);
+        logError(`[Permissions] Request error name: ${requestError.name}`);
+        logError(`[Permissions] Request error code: ${requestError.code || 'N/A'}`);
+        throw requestError; // Re-throw to be caught by outer catch
+      }
+      const requestDuration = Date.now() - requestStartTime;
+      
+      logInfo(`[Permissions] ✅ Request completed in ${requestDuration}ms, result: ${result} (type: ${typeof result})`);
+      logInfo(`[Permissions] Result is null: ${result === null}`);
+      logInfo(`[Permissions] Result is false: ${result === false}`);
+      logInfo(`[Permissions] Result is true: ${result === true}`);
       
       if (type === 'camera') {
         dispatch({ type: 'SET_CAMERA_REQUESTED' });
@@ -208,25 +278,68 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       
       if (result === null) {
         // Popup shown, waiting for user response
+        logInfo(`[Permissions] ⏳ ${type} permission popup shown, waiting for user response...`);
+        logInfo(`[Permissions] This is expected behavior - macOS is showing the permission dialog`);
         return;
       }
       
       if (result === false) {
         // Permission denied or already asked, open settings
-        await invoke(settingsCommand);
+        logWarning(`[Permissions] ⚠️ ${type} permission denied or already asked, opening System Settings...`);
+        logInfo(`[Permissions] Command: ${settingsCommand}`);
+        try {
+          await invoke(settingsCommand);
+          logSuccess(`[Permissions] ✅ System Settings opened for ${type}`);
+        } catch (settingsError) {
+          logError(`[Permissions] ❌ Failed to open settings: ${settingsError.message}`);
+          throw settingsError;
+        }
+      } else if (result === true) {
+        logSuccess(`[Permissions] ✅ ${type} permission granted!`);
+      } else {
+        logWarning(`[Permissions] ⚠️ Unexpected result type: ${result} (${typeof result})`);
+        logWarning(`[Permissions] Result JSON: ${JSON.stringify(result)}`);
       }
     } catch (error) {
-      console.error(`Failed to request ${type} permission:`, error);
+      logError(`[Permissions] ❌ Failed to request ${type} permission`);
+      logError(`[Permissions] Error message: ${error.message}`);
+      logError(`[Permissions] Error name: ${error.name}`);
+      logError(`[Permissions] Error code: ${error.code || 'N/A'}`);
+      if (error.stack) {
+        const stackPreview = error.stack.substring(0, 400);
+        logError(`[Permissions] Stack: ${stackPreview}${error.stack.length > 400 ? '...' : ''}`);
+      }
+      if (error.cause) {
+        logError(`[Permissions] Error cause: ${JSON.stringify(error.cause)}`);
+      }
+      
+      // Try to open settings as fallback
+      logInfo(`[Permissions] 🔄 Attempting fallback: opening System Settings...`);
+      try {
+        await invoke(`open_${type}_settings`);
+        logSuccess(`[Permissions] ✅ Fallback successful: System Settings opened`);
+      } catch (settingsError) {
+        logError(`[Permissions] ❌ Fallback failed: ${settingsError.message}`);
+        logError(`[Permissions] Fallback error name: ${settingsError.name}`);
+        logError(`[Permissions] Fallback error code: ${settingsError.code || 'N/A'}`);
+      }
     }
   };
 
   const openSettings = async (type) => {
+    logInfo(`[Permissions] 🔧 Opening System Settings for ${type}...`);
     try {
       await invoke(`open_${type}_settings`);
+      logSuccess(`[Permissions] ✅ System Settings opened for ${type}`);
     } catch (error) {
-      console.error(`Failed to open ${type} settings:`, error);
+      logError(`[Permissions] ❌ Failed to open ${type} settings: ${error.message}`);
     }
   };
+
+  // Log permission state changes
+  React.useEffect(() => {
+    logInfo(`[Permissions] 📊 Permission state - Camera: ${cameraGranted ? '✅ Granted' : '❌ Not granted'}, Microphone: ${microphoneGranted ? '✅ Granted' : '❌ Not granted'}`);
+  }, [cameraGranted, microphoneGranted]);
 
   return (
     <Box
@@ -241,8 +354,42 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
         padding: 3,
         paddingLeft: 6,
         paddingRight: 6,
+        position: 'relative',
       }}
     >
+      {/* Temporary LogConsole for debugging permissions */}
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)',
+          maxWidth: '420px',
+          zIndex: 1000,
+          opacity: 0.5, // Semi-transparent by default
+          transition: 'opacity 0.3s ease-in-out',
+          '&:hover': {
+            opacity: 1, // Full opacity on hover
+          },
+        }}
+      >
+        <LogConsole
+          logs={[]}
+          darkMode={darkMode}
+          includeStoreLogs={true}
+          compact={true}
+          showTimestamp={false}
+          lines={4}
+          sx={{
+            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+          }}
+        />
+      </Box>
+
       <Box sx={{ maxWidth: 600, textAlign: 'center' }}>
         {(state.isRestarting || externalIsRestarting) ? (
           <>
@@ -370,5 +517,3 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     </Box>
   );
 }
-
-

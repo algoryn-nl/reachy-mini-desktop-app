@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '@config/daemon';
 import useAppStore from '@store/useAppStore';
+import { useLogger } from '@utils/logging';
 import { hasSignificantChange, generateHeadPositionLog, generateBodyYawLog, generateAntennasLog, generateGamepadInputLog } from '../utils';
 import { getInputManager } from '@utils/InputManager';
 import { 
@@ -35,14 +36,15 @@ import { initGlobalResetSmoothing, updateGlobalResetSmoothing, startSmoothReset,
  * Handles state synchronization, API calls, continuous updates, and logging
  */
 export function useRobotPosition(isActive) {
-  const { robotStateFull, addFrontendLog } = useAppStore();
+  const { robotStateFull } = useAppStore();
+  const logger = useLogger();
   
-  // Helper to safely call addFrontendLog (may not be available in secondary windows)
+  // Helper to safely call logger (may not be available in secondary windows)
   const safeAddFrontendLog = useCallback((message) => {
-    if (addFrontendLog && typeof addFrontendLog === 'function') {
-      addFrontendLog(message);
+    if (logger && typeof logger.info === 'function') {
+      logger.info(message);
     }
-  }, [addFrontendLog]);
+  }, [logger]);
   
   const [robotState, setRobotState] = useState({
     headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
@@ -725,7 +727,7 @@ export function useRobotPosition(isActive) {
     handleBodyYawChange,
     handleAntennasChange,
     handleDragEnd,
-    addFrontendLog,
+    logger: safeAddFrontendLog, // Expose logger for backward compatibility
     resetAllValues,
     resetAllValuesSmooth, // Smooth animated reset
   };

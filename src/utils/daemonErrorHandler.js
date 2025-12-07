@@ -1,4 +1,5 @@
 import { findErrorConfig, createErrorFromConfig } from './hardwareErrors';
+import { logError } from './logging';
 
 /**
  * Centralized daemon error handler
@@ -9,7 +10,6 @@ import { findErrorConfig, createErrorFromConfig } from './hardwareErrors';
  * @param {string} errorType - Type of error ('startup', 'crash', 'hardware', 'timeout')
  * @param {Error|string|Object} error - Error object, message, or data
  * @param {Object} context - Additional context (code, status, etc.)
- * @param {Object} store - Zustand store instance (useAppStore)
  * @returns {Object} Error object that was set
  */
 export const handleDaemonError = (errorType, error, context = {}) => {
@@ -17,7 +17,7 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   const useAppStore = require('../store/useAppStore').default;
   const store = useAppStore.getState();
   
-  const { setHardwareError, setIsStarting, setStartupError, addFrontendLog } = store;
+  const { setHardwareError, setIsStarting, setStartupError } = store;
   
   let errorObject = null;
   let errorMessage = null;
@@ -114,9 +114,9 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   // ✅ CRITICAL: Ensure isStarting is true to keep scan view active
   setIsStarting(true);
   
-  // Log to frontend logs
+  // Log to frontend logs using standardized logger
   const logMessage = `Daemon ${errorType} error: ${errorMessage}`;
-  addFrontendLog(logMessage, 'error');
+  logError(logMessage);
   
   return errorObject;
 };

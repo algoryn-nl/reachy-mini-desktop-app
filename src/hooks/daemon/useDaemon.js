@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../../store/useAppStore';
+import { useLogger } from '../../utils/logging';
 import { DAEMON_CONFIG, fetchWithTimeout, fetchWithTimeoutSkipInstall, buildApiUrl } from '../../config/daemon';
 import { isSimulationMode } from '../../utils/simulationMode';
 import { findErrorConfig, createErrorFromConfig } from '../../utils/hardwareErrors';
@@ -9,6 +10,7 @@ import { useDaemonEventBus } from './useDaemonEventBus';
 import { handleDaemonError } from '../../utils/daemonErrorHandler';
 
 export const useDaemon = () => {
+  const logger = useLogger();
   const { 
     isActive,
     isStarting,
@@ -19,7 +21,6 @@ export const useDaemon = () => {
     setDaemonVersion,
     setStartupError,
     setHardwareError,
-    addFrontendLog,
     setStartupTimeout,
     clearStartupTimeout
   } = useAppStore();
@@ -34,7 +35,7 @@ export const useDaemon = () => {
       // Daemon started successfully - no action needed here
       // useRobotState will detect when it becomes active
       if (data?.simMode) {
-        addFrontendLog('Daemon started in simulation mode (MuJoCo)', 'info');
+        logger.info('Daemon started in simulation mode (MuJoCo)');
       }
     });
     
@@ -95,7 +96,7 @@ export const useDaemon = () => {
       unsubCrash();
       unsubHardwareError();
     };
-  }, [eventBus, setHardwareError, setIsStarting, clearStartupTimeout, addFrontendLog]);
+  }, [eventBus, setHardwareError, setIsStarting, clearStartupTimeout, logger]);
 
   // ✅ checkStatus removed - useDaemonHealthCheck handles all status checking
   // It polls every 1.33s, updates isActive, and handles crash detection
@@ -279,7 +280,7 @@ export const useDaemon = () => {
       // ✅ Emit error event instead of handling directly
       eventBus.emit('daemon:start:error', e);
     }
-  }, [eventBus, setIsStarting, setStartupTimeout, addFrontendLog]);
+  }, [eventBus, setIsStarting, setStartupTimeout]);
 
   const stopDaemon = useCallback(async () => {
     setIsStopping(true);

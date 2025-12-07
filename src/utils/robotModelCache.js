@@ -383,11 +383,15 @@ class RobotModelCache {
             
             // Simple detection
             const materialName = (child.material?.name || '').toLowerCase();
+            const stlFileNameLower = (child.userData.stlFileName || '').toLowerCase();
             const isBigLens = materialName.includes('big_lens') || 
                               materialName.includes('small_lens') ||
                               materialName.includes('lens_d40') ||
                               materialName.includes('lens_d30');
-            const isAntenna = originalColor === 0xFF9500;
+            // Détection améliorée des antennes : par couleur OU par nom de matériau OU par nom de fichier STL
+            const isAntenna = originalColor === 0xFF9500 ||
+                              materialName.includes('antenna') ||
+                              stlFileNameLower.includes('antenna');
             
             child.userData.isAntenna = isAntenna;
             child.userData.isBigLens = isBigLens;

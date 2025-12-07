@@ -6,8 +6,10 @@ export { useLogs } from './useLogs';
 export { useUpdater } from './useUpdater';
 export { useUpdateViewState } from './useUpdateViewState';
 export { useUsbDetection } from './useUsbDetection';
+export { useUsbCheckTiming } from './useUsbCheckTiming';
 export { useWindowResize } from './useWindowResize';
 export { usePermissions } from './usePermissions';
+export { useViewRouter, ViewRouterWrapper } from './useViewRouter';
 
 // Note: useWindowSync, useWindowFocus moved to views/windows/hooks
 // Note: useAudioControls moved to views/active-robot/audio/hooks

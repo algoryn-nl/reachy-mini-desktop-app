@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useMemo } from 'react';
 import useAppStore from '@store/useAppStore';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '@config/daemon';
+import { useLogger } from '@utils/logging';
 import { useAppFetching } from './useAppFetching';
 import { useAppEnrichment } from './useAppEnrichment';
 import { useAppJobs } from './useAppJobs';
@@ -8,13 +9,13 @@ import { useAppJobs } from './useAppJobs';
 /**
  * ✅ DRY: Helper to handle permission errors consistently
  */
-const handlePermissionError = (err, action, appName, addFrontendLog, setAppsError) => {
+const handlePermissionError = (err, action, appName, logger, setAppsError) => {
   if (err.name === 'PermissionDeniedError' || err.name === 'SystemPopupTimeoutError') {
     const userMessage = err.name === 'PermissionDeniedError'
       ? `Permission denied: Please accept system permissions to ${action} ${appName}`
       : `System permission popup detected: Please accept permissions to continue ${action} ${appName}`;
     
-    addFrontendLog(userMessage);
+    logger.warning(userMessage);
     setAppsError(userMessage);
     
     const userFriendlyError = new Error(userMessage);
@@ -60,6 +61,7 @@ const createJob = (jobId, jobType, appName, appInfo, setActiveJobs, startJobPoll
  */
 export function useAppsStore(isActive, official = true) {
   const appStore = useAppStore();
+  const logger = useLogger();
   const {
     availableApps,
     installedApps,
@@ -79,7 +81,6 @@ export function useAppsStore(isActive, official = true) {
     setAppsOfficialMode,
     invalidateAppsCache,
     clearApps,
-    addFrontendLog,
   } = appStore;
   
   // ✅ OPTIMIZED: Convert activeJobs Object to Map with useMemo to avoid re-creation on every render
@@ -321,7 +322,7 @@ export function useAppsStore(isActive, official = true) {
             }
             
             console.warn(`⚠️ App ${appName} state changed to ${appState}${hasError ? ` with error: ${status.error}` : ''}`);
-            store.addFrontendLog(logMessage);
+            logger.info(logMessage);
             store.unlockApp();
           }
         }
@@ -332,7 +333,7 @@ export function useAppsStore(isActive, official = true) {
         if (store.isAppRunning && store.busyReason === 'app-running') {
           const lastAppName = store.currentAppName || 'unknown';
           console.warn(`⚠️ App crash detected: currentApp is null but store thinks "${lastAppName}" is running`);
-          store.addFrontendLog(`App ${lastAppName} stopped unexpectedly`);
+          logger.warning(`App ${lastAppName} stopped unexpectedly`);
           store.unlockApp();
         }
       }
@@ -385,14 +386,14 @@ export function useAppsStore(isActive, official = true) {
       console.error('❌ Installation error:', err);
       
       // ✅ DRY: Use helper for permission errors
-      const permissionErr = handlePermissionError(err, 'install', appInfo.name, addFrontendLog, setAppsError);
+      const permissionErr = handlePermissionError(err, 'install', appInfo.name, logger, setAppsError);
       if (permissionErr) throw permissionErr;
       
-      addFrontendLog(`Failed to start install ${appInfo.name} (${err.message})`);
+      logger.error(`Failed to start install ${appInfo.name} (${err.message})`);
       setAppsError(err.message);
       throw err;
     }
-  }, [setActiveJobs, addFrontendLog, setAppsError]);
+  }, [setActiveJobs, logger, setAppsError]);
   
   /**
    * Uninstall an app (returns job_id)
@@ -430,14 +431,14 @@ export function useAppsStore(isActive, official = true) {
       console.error('❌ Removal error:', err);
       
       // ✅ DRY: Use helper for permission errors
-      const permissionErr = handlePermissionError(err, 'remove', appName, addFrontendLog, setAppsError);
+      const permissionErr = handlePermissionError(err, 'remove', appName, logger, setAppsError);
       if (permissionErr) throw permissionErr;
       
-      addFrontendLog(`Failed to start uninstall ${appName} (${err.message})`);
+      logger.error(`Failed to start uninstall ${appName} (${err.message})`);
       setAppsError(err.message);
       throw err;
     }
-  }, [setActiveJobs, addFrontendLog, setAppsError]);
+  }, [setActiveJobs, logger, setAppsError]);
   
   /**
    * Launch an app
@@ -463,11 +464,11 @@ export function useAppsStore(isActive, official = true) {
       return status;
     } catch (err) {
       console.error('❌ Failed to start app:', err);
-      addFrontendLog(`Failed to start ${appName} (${err.message})`);
+      logger.error(`Failed to start ${appName} (${err.message})`);
       setAppsError(err.message);
       throw err;
     }
-  }, [fetchCurrentAppStatus, addFrontendLog, setAppsError]);
+  }, [fetchCurrentAppStatus, logger, setAppsError]);
   
   /**
    * Stop current app
@@ -499,13 +500,13 @@ export function useAppsStore(isActive, official = true) {
       return message;
     } catch (err) {
       console.error('❌ Failed to stop app:', err);
-      addFrontendLog(`Failed to stop app (${err.message})`);
+      logger.error(`Failed to stop app (${err.message})`);
       setAppsError(err.message);
       // ✅ Ensure unlock even on error
       useAppStore.getState().unlockApp();
       throw err;
     }
-  }, [fetchCurrentAppStatus, setCurrentApp, addFrontendLog, setAppsError]);
+  }, [fetchCurrentAppStatus, setCurrentApp, logger, setAppsError]);
   
   /**
    * Cleanup: stop all pollings on unmount
