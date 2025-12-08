@@ -4,6 +4,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { extractErrorMessage, formatUserErrorMessage, isRecoverableError as checkRecoverableError, getDetailedUpdateErrorMessage } from '../../utils/errorUtils';
 import { isDevMode } from '../../utils/devMode';
 import { DAEMON_CONFIG, isOnline } from '../../config/daemon';
+import { logInfo, logError, logWarning, logSuccess } from '../../utils/logging/logger';
 
 /**
  * Hook to manage automatic application updates
@@ -50,6 +51,7 @@ export const useUpdater = ({
     // Prevent retry if already at max
     if (retryCount > maxRetries) {
       console.warn('⚠️ Max retries reached, stopping update check');
+      logWarning('⚠️ Max retries reached, stopping update check');
       setIsChecking(false);
       isCheckingRef.current = false;
       return null;
@@ -58,12 +60,14 @@ export const useUpdater = ({
     // Prevent multiple simultaneous checks
     if (isCheckingRef.current && retryCount === 0) {
       console.warn('⚠️ Update check already in progress, skipping');
+      logWarning('⚠️ Update check already in progress, skipping');
       return null;
     }
 
     // ✅ Try to fetch latest.json directly - if it works, we have internet + we know if there's an update
     // No need for separate healthcheck - the update check itself tells us about connectivity
     console.log('🔍 Starting update check...', { retryCount, maxRetries });
+    logInfo(`🔍 Starting update check... (attempt ${retryCount + 1}/${maxRetries})`);
     isCheckingRef.current = true;
     setIsChecking(true);
     setError(null);
@@ -91,13 +95,15 @@ export const useUpdater = ({
       }
       
       // 🔍 DEBUG: Log update check result
-      console.log('🔍 Update check result:', {
+      const checkResult = {
         hasUpdate: !!update,
         updateVersion: update?.version || null,
         updateDate: update?.date || null,
         currentVersion: update?.currentVersion || 'unknown',
         updateAvailable: update ? 'YES' : 'NO',
-      });
+      };
+      console.log('🔍 Update check result:', checkResult);
+      logInfo(`🔍 Update check result: ${JSON.stringify(checkResult)}`);
       
       // Reset retry count on success
       retryCountRef.current = 0;
@@ -107,10 +113,12 @@ export const useUpdater = ({
       
       if (update) {
         console.log('✅ Update available:', update.version);
+        logSuccess(`✅ Update available: ${update.version} (${update.date || 'no date'})`);
         setUpdateAvailable(update);
         return update;
       } else {
         console.log('ℹ️ No update available (current version is up to date or newer)');
+        logInfo('ℹ️ No update available (current version is up to date or newer)');
         setUpdateAvailable(null);
         return null;
       }
@@ -138,6 +146,7 @@ export const useUpdater = ({
       // In dev mode, immediately stop checking if update server is missing (no retries needed)
       if (isDev && isMissingUpdateServer) {
         console.log('ℹ️ Update server not available (dev mode - this is normal)');
+        logInfo('ℹ️ Update server not available (dev mode - this is normal)');
         isCheckingRef.current = false;
         setIsChecking(false);
         setUpdateAvailable(null);
@@ -148,6 +157,20 @@ export const useUpdater = ({
       // ✅ Use detailed error message function for better user feedback
       const detailedError = getDetailedUpdateErrorMessage(err, retryCount, maxRetries, isTimeout);
       console.error(`❌ Error checking for updates (attempt ${retryCount + 1}/${maxRetries}):`, errorMessage);
+      
+      // Log error details for debugging (especially minisign errors)
+      const errorDetails = {
+        attempt: retryCount + 1,
+        maxRetries,
+        error: errorMessage,
+        isTimeout,
+        isRecoverable: shouldRetry,
+        fullError: err.toString(),
+      };
+      logError(`❌ Update check error (attempt ${retryCount + 1}/${maxRetries}): ${errorMessage}`);
+      if (errorMessage.toLowerCase().includes('minisign') || errorMessage.toLowerCase().includes('signature') || errorMessage.toLowerCase().includes('invalid encoding')) {
+        logError(`🔐 Signature error details: ${JSON.stringify(errorDetails)}`);
+      }
       
       // ✅ Treat timeout as recoverable error (retry if under max retries)
       const shouldRetry = (isRecoverableError(err) || isTimeout) && retryCount < maxRetries;
@@ -161,8 +184,10 @@ export const useUpdater = ({
         
         if (isTimeout) {
           console.log(`⏱️ Update check timeout, retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
+          logWarning(`⏱️ Update check timeout, retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
         } else {
           console.log(`🔄 Retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
+          logWarning(`🔄 Retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
         }
         
         // ✅ Show retry message to user (non-blocking, will be replaced by final error if all retries fail)
@@ -197,9 +222,11 @@ export const useUpdater = ({
   const downloadAndInstall = useCallback(async (update, retryCount = 0) => {
     if (!update) {
       console.warn('⚠️ No update available');
+      logWarning('⚠️ No update available to install');
       return;
     }
 
+    logInfo(`📥 Starting download and install: ${update.version} (attempt ${retryCount + 1})`);
     setIsDownloading(true);
     setDownloadProgress(0);
     setError(null);
@@ -246,12 +273,14 @@ export const useUpdater = ({
       await update.downloadAndInstall((event) => {
         switch (event.event) {
           case 'Started':
+            logInfo('📥 Download started');
             setDownloadProgress(0);
             lastProgress = 0;
             targetProgress = 0;
             // Safety timeout: if no progress for 60s, abort download
             progressTimeout = setTimeout(() => {
               console.error('❌ Download stalled for 60s, aborting...');
+              logError('❌ Download stalled for 60s, aborting...');
               downloadAborted = true;
               cleanup();
               setIsDownloading(false);
@@ -305,6 +334,7 @@ export const useUpdater = ({
           
           case 'Finished':
             // Stop animation and cleanup
+            logSuccess('✅ Download finished, installing...');
             cleanup();
             setDownloadProgress(100);
             targetProgress = 100;
@@ -318,6 +348,7 @@ export const useUpdater = ({
       // downloadAndInstall should handle restart automatically,
       // but we call relaunch() explicitly to ensure restart happens
       // Note: In dev mode, relaunch might not work correctly
+      logInfo('🔧 Installation complete, restarting app...');
       try {
         // Small delay to ensure installation is complete before restarting
         await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.UPDATE_CHECK.RETRY_DELAY));
@@ -327,8 +358,10 @@ export const useUpdater = ({
         
         // If we reach here, relaunch didn't work (shouldn't happen)
         console.warn('⚠️ Relaunch returned without error, but app should have restarted');
+        logWarning('⚠️ Relaunch returned without error, but app should have restarted');
       } catch (relaunchError) {
         console.error('❌ Error during relaunch:', relaunchError);
+        logWarning(`⚠️ Relaunch error (non-critical): ${extractErrorMessage(relaunchError)}`);
         // In dev mode, relaunch might fail - this is expected
         // The app should still restart automatically via Tauri's updater mechanism
         // Don't throw here, as the update was successful
@@ -337,12 +370,31 @@ export const useUpdater = ({
       console.error(`❌ Error installing update (attempt ${retryCount + 1}/${maxRetries}):`, err);
       
       // Extract and format error message using centralized utilities (DRY)
-      let errorMessage = formatUserErrorMessage(extractErrorMessage(err));
+      const rawErrorMessage = extractErrorMessage(err);
+      let errorMessage = formatUserErrorMessage(rawErrorMessage);
+      
+      // Log detailed error info for debugging (especially minisign/signature errors)
+      const errorDetails = {
+        attempt: retryCount + 1,
+        maxRetries,
+        error: rawErrorMessage,
+        errorName: err?.name,
+        errorStack: err?.stack,
+        fullError: err?.toString(),
+      };
+      
+      // Special logging for signature/minisign errors
+      const errorLower = rawErrorMessage.toLowerCase();
+      if (errorLower.includes('minisign') || errorLower.includes('signature') || errorLower.includes('invalid encoding')) {
+        logError(`🔐 Signature error during download/install: ${JSON.stringify(errorDetails, null, 2)}`);
+      } else {
+        logError(`❌ Download/install error (attempt ${retryCount + 1}/${maxRetries}): ${rawErrorMessage}`);
+      }
       
       // Automatic retry for recoverable errors during download
       if (isRecoverableError(err) && retryCount < maxRetries) {
         const delay = retryDelay * Math.pow(2, retryCount);
-        
+        logWarning(`🔄 Retrying download in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
         await sleep(delay);
         return downloadAndInstall(update, retryCount + 1);
       }
@@ -352,9 +404,9 @@ export const useUpdater = ({
         errorMessage = `Network error while downloading update (${retryCount + 1}/${maxRetries} attempts). Please try again later.`;
       }
       
-          setError(errorMessage);
-          setIsDownloading(false);
-          setDownloadProgress(0);
+      setError(errorMessage);
+      setIsDownloading(false);
+      setDownloadProgress(0);
       
       // Clean up on error (production-grade)
       cleanup();
