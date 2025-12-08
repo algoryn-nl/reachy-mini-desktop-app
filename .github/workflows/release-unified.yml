@@ -732,36 +732,6 @@ jobs:
             exit 1
           fi
 
-      - name: Create GitHub Release
-        if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: 'Reachy Mini Control v${{ steps.version.outputs.version }}'
-          body: 'See the assets to download this version and install.'
-          draft: false
-          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
-          files: |
-            src-tauri/target/*/release/bundle/appimage/*.AppImage
-            src-tauri/target/*/release/bundle/msi/*.msi
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.dmg
-            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifacts to existing release
-        if: matrix.os != 'macos-latest' || matrix.target != 'aarch64-apple-darwin'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          files: |
-            ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi', matrix.target) || '' }}
-            ${{ matrix.os == 'ubuntu-latest' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage', matrix.target) || '' }}
-            ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.dmg', matrix.target) || '' }}
-            ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.zip', matrix.target) || '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build update files
         env:
           RELEASE_URL_BASE: ${{ secrets.RELEASE_URL_BASE || 'https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v' }}
@@ -796,6 +766,38 @@ jobs:
           path: |
             releases/**
           retention-days: 30
+
+      - name: Create GitHub Release
+        if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: 'Reachy Mini Control v${{ steps.version.outputs.version }}'
+          body: 'See the assets to download this version and install.'
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
+          files: |
+            src-tauri/target/*/release/bundle/appimage/*.AppImage
+            src-tauri/target/*/release/bundle/msi/*.msi
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.zip
+            releases/**/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts to existing release
+        if: matrix.os != 'macos-latest' || matrix.target != 'aarch64-apple-darwin'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: |
+            ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi', matrix.target) || '' }}
+            ${{ matrix.os == 'ubuntu-latest' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage', matrix.target) || '' }}
+            ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.dmg', matrix.target) || '' }}
+            ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.zip', matrix.target) || '' }}
+            releases/**/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   create-update-manifest:
     needs: build-and-release

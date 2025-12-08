@@ -507,23 +507,9 @@ mkdir -p "$JSON_DIR"
 
 # File name according to platform (must match the actual filenames uploaded to GitHub Releases)
 if [[ "$PLATFORM" == darwin-* ]]; then
-    # Determine architecture suffix from TARGET_TRIPLET
-    if [ -n "$TARGET_TRIPLET" ]; then
-        if [[ "$TARGET_TRIPLET" == *"aarch64"* ]]; then
-            ARCH_SUFFIX="arm64"
-        else
-            ARCH_SUFFIX="x64"
-        fi
-    else
-        # Fallback: detect from PLATFORM
-        if [[ "$PLATFORM" == *"aarch64"* ]]; then
-            ARCH_SUFFIX="arm64"
-        else
-            ARCH_SUFFIX="x64"
-        fi
-    fi
-    # macOS uses ZIP format: Reachy.Mini.Control_${VERSION}_${ARCH_SUFFIX}.zip
-    FILE_NAME="Reachy.Mini.Control_${VERSION}_${ARCH_SUFFIX}.zip"
+    # macOS uses TAR.GZ format (native Tauri format, already signed)
+    # The bundle file is already created and signed as: reachy-mini-control_${VERSION}_${PLATFORM}.app.tar.gz
+    FILE_NAME="reachy-mini-control_${VERSION}_${PLATFORM}.app.tar.gz"
 elif [[ "$PLATFORM" == windows-* ]]; then
     # Windows MSI: Tauri generates names based on productName, typically:
     # Reachy Mini Control_${VERSION}_x64-setup.msi (with spaces converted)
