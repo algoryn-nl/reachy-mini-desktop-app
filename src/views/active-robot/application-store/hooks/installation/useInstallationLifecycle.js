@@ -110,34 +110,23 @@ export function useInstallationLifecycle({
   ]);
   
   /**
-   * Show error result and close overlay after short delay
+   * Show error result (do not close overlay automatically - user must close manually)
    * @param {boolean} shouldCloseModal - Whether to close discover modal
    */
   const showErrorAndClose = useCallback((shouldCloseModal = false) => {
     setInstallResult(RESULT_STATES.FAILED);
     
-    // Short delay to show error state (1s instead of 3s)
-    const closeTimeout = setTimeout(() => {
-      unlockInstall();
-      
-      // Close discover modal if needed
-      if (shouldCloseModal && onInstallSuccess) {
-        onInstallSuccess();
-      }
-      
-      // Show toast notification
-      if (showToast) {
-        const isUninstall = installJobType === JOB_TYPES.REMOVE;
-        const actionVerb = isUninstall ? 'uninstall' : 'install';
-        showToast(`Failed to ${actionVerb} ${installingAppName}`, 'error');
-      }
-    }, 1000); // 1s delay for errors (user needs to see the error)
+    // Show toast notification immediately
+    if (showToast) {
+      const isUninstall = installJobType === JOB_TYPES.REMOVE;
+      const actionVerb = isUninstall ? 'uninstall' : 'install';
+      showToast(`Failed to ${actionVerb} ${installingAppName}`, 'error');
+    }
     
-    pendingTimeouts.current.push(closeTimeout);
+    // Do NOT close overlay automatically - let user see the error and close manually
+    // unlockInstall() is not called here - overlay stays open until user closes it
   }, [
     setInstallResult,
-    unlockInstall,
-    onInstallSuccess,
     showToast,
     installJobType,
     installingAppName,

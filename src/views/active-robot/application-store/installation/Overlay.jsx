@@ -12,6 +12,7 @@ import LogConsole from '../../LogConsole';
  * Displays app details, progress and logs
  */
 export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = 'install', resultState = null, installStartTime = null }) {
+  const { unlockInstall } = useAppStore();
   const [elapsedTime, setElapsedTime] = useState(0);
   const [logsExpanded, setLogsExpanded] = useState(false);
   const intervalRef = useRef(null);
@@ -158,10 +159,13 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
   return (
     <FullscreenOverlay
       open={!!appInfo}
-      onClose={() => {}} // No close button, overlay closes automatically
+      onClose={() => {
+        // Allow manual close - unlock install state when overlay is closed
+        unlockInstall();
+      }}
       darkMode={darkMode}
       zIndex={10003} // Above DiscoverModal (10002)
-      showCloseButton={false} // No manual close, auto-closes on completion
+      showCloseButton={isShowingResult && resultState === 'failed'} // Show close button only on error
       centered={true} // Center both horizontally and vertically
     >
       <Box
