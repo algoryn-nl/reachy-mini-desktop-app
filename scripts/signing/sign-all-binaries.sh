@@ -113,22 +113,39 @@ if [ -d "$RESOURCES_DIR" ]; then
             SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             PYTHON_ENTITLEMENTS="$SCRIPT_DIR/python-entitlements.plist"
             
-            find "$RESOURCES_DIR/.venv/bin" -type f -perm +111 | while read -r binary; do
-                # Check if this is the Python executable
+            # Find all files (not just executables) to catch all Python binaries
+            find "$RESOURCES_DIR/.venv/bin" -type f | while read -r binary; do
+                # Check if this is the Python executable (python, python3, python3.12, etc.)
                 if basename "$binary" | grep -qE "^python[0-9.]*$"; then
                     echo "   Applying entitlements to Python executable: $binary"
                     sign_binary "$binary" "$PYTHON_ENTITLEMENTS"
                 else
-                sign_binary "$binary"
+                    # Other binaries: sign without entitlements
+                    if [ -x "$binary" ]; then
+                        sign_binary "$binary"
+                    fi
                 fi
             done
         fi
         
-        # Sign all executable binaries in .venv/lib (including subdirectories like cmeel.prefix/bin)
+        # Sign all binaries in .venv/lib (including subdirectories like cmeel.prefix/bin)
         # This catches binaries in packages like cmeel.prefix/bin, etc.
-        find "$RESOURCES_DIR/.venv/lib" -type f -perm +111 | while read -r binary; do
-            sign_binary "$binary"
-        done
+        # Also sign Python libraries (libpython*.dylib) with entitlements
+        if [ -d "$RESOURCES_DIR/.venv/lib" ]; then
+            # First, find and sign all libpython*.dylib with entitlements (exhaustive search)
+            find "$RESOURCES_DIR/.venv/lib" -name "libpython*.dylib" -type f | while read -r dylib; do
+                echo "   Applying entitlements to Python library: $dylib"
+                sign_binary "$dylib" "$PYTHON_ENTITLEMENTS"
+            done
+            
+            # Then, sign all other executable binaries without entitlements
+            find "$RESOURCES_DIR/.venv/lib" -type f -perm +111 | while read -r binary; do
+                # Skip libpython*.dylib (already signed above)
+                if ! basename "$binary" | grep -qE "^libpython.*\.dylib$"; then
+                    sign_binary "$binary"
+                fi
+            done
+        fi
         
     fi
     
