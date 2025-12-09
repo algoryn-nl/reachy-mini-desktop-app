@@ -12,6 +12,7 @@ Reachy
 Test
 
 .analysis/
+.claude/
 .claude-4.5-sonnet-analysis/
 
 node_modules
