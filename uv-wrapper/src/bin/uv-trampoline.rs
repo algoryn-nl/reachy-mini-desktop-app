@@ -137,9 +137,9 @@ fn resign_all_venv_binaries(venv_dir: &PathBuf, signing_identity: &str) -> Resul
         // Build codesign command
         let mut cmd = Command::new("codesign");
         cmd.arg("--force")
-           .arg("--sign")
-           .arg(signing_identity)
-           .arg("--options")
+            .arg("--sign")
+            .arg(signing_identity)
+            .arg("--options")
            .arg("runtime");
         
         // Add entitlements if provided
@@ -410,7 +410,6 @@ fn main() -> ExitCode {
         let mut cmd = Command::new(&python_path);
         cmd.env("UV_WORKING_DIR", &working_dir)
            .env("UV_PYTHON_INSTALL_DIR", &working_dir)
-           .env("GIT_LFS_SKIP_SMUDGE", "1") // Skip LFS downloads during git clone (HuggingFace repos)
            .args(&args[1..]); // Pass remaining arguments
         cmd
     } else {
@@ -420,7 +419,6 @@ fn main() -> ExitCode {
     let mut cmd = Command::new(&uv_exe_path);
     cmd.env("UV_WORKING_DIR", &working_dir)
        .env("UV_PYTHON_INSTALL_DIR", &working_dir)
-       .env("GIT_LFS_SKIP_SMUDGE", "1") // Skip LFS downloads during git clone (HuggingFace repos)
        .args(&args);
         cmd
     };
@@ -520,15 +518,15 @@ fn main() -> ExitCode {
                                     "-".to_string() // Fallback to adhoc
                                 };
                                 
-                                // Find .venv directory (working_dir is already set to Contents/Resources in production)
-                                let venv_dir = working_dir.join(".venv");
-                                
-                                if venv_dir.exists() {
+                                            // Find .venv directory (working_dir is already set to Contents/Resources in production)
+                                            let venv_dir = working_dir.join(".venv");
+                                            
+                                            if venv_dir.exists() {
                                     // Re-sign all binaries with entitlements
                                     // Now works with both Developer ID AND adhoc (with disable-library-validation)
-                                    if let Err(e) = resign_all_venv_binaries(&venv_dir, &signing_identity) {
-                                        eprintln!("⚠️  Failed to re-sign binaries after pip install: {}", e);
-                                        // Don't fail the pip install, just log the error
+                                                if let Err(e) = resign_all_venv_binaries(&venv_dir, &signing_identity) {
+                                                    eprintln!("⚠️  Failed to re-sign binaries after pip install: {}", e);
+                                                    // Don't fail the pip install, just log the error
                                     }
                                 }
                             }

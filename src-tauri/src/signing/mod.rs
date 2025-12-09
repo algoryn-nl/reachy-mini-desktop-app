@@ -268,10 +268,10 @@ pub async fn sign_python_binaries() -> Result<String, String> {
                 error_count += 1;
             }
         } else {
-            if sign_binary(&dylib_file, &signing_identity)? {
-                signed_count += 1;
-            } else {
-                error_count += 1;
+        if sign_binary(&dylib_file, &signing_identity)? {
+            signed_count += 1;
+        } else {
+            error_count += 1;
             }
         }
     }
@@ -373,9 +373,9 @@ pub fn sign_binary_with_entitlements(
     // Build codesign command
     let mut cmd = Command::new("codesign");
     cmd.arg("--force")
-       .arg("--sign")
-       .arg(signing_identity)
-       .arg("--options")
+        .arg("--sign")
+        .arg(signing_identity)
+        .arg("--options")
        .arg("runtime");
     
     // Add entitlements if provided

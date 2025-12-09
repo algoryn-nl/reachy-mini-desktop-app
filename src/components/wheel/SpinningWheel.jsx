@@ -40,8 +40,19 @@ export default function SpinningWheel({
   sizeMultiplier = WHEEL_SIZE_MULTIPLIER, // Configurable size multiplier
 }) {
   const [rotation, setRotation] = useState(0); // Current rotation in degrees
-  const [isDragging, setIsDragging] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
+  const [isDragging, setIsDraggingState] = useState(false);
+  const [isSpinning, setIsSpinningState] = useState(false);
+  
+  // Wrapper setters that also update refs (to avoid stale closures in setTimeout)
+  const setIsDragging = useCallback((value) => {
+    isDraggingRef.current = value;
+    setIsDraggingState(value);
+  }, []);
+  
+  const setIsSpinning = useCallback((value) => {
+    isSpinningRef.current = value;
+    setIsSpinningState(value);
+  }, []);
   const [dragStartAngle, setDragStartAngle] = useState(0);
   const [dragStartRotation, setDragStartRotation] = useState(0);
   const [velocity, setVelocity] = useState(0);
@@ -57,6 +68,9 @@ export default function SpinningWheel({
   const isMountedRef = useRef(true);
   const isClickingRef = useRef(false); // Lock to prevent multiple simultaneous clicks
   const lastActionTriggerTimeRef = useRef(0); // Track last action trigger time for cooldown
+  const idleSnapTimeoutRef = useRef(null); // Timer for auto-snap when idle
+  const isDraggingRef = useRef(false); // Ref version to avoid stale closures
+  const isSpinningRef = useRef(false); // Ref version to avoid stale closures
 
   // Get all items from active library using hook
   const displayItems = useWheelItems(activeTab, actions);
@@ -130,45 +144,41 @@ export default function SpinningWheel({
   }, [updateContainerSize]);
 
   // Calculate visible items for virtualization using hook
-  // ✅ OPTIMIZED: Use requestAnimationFrame for throttling (better performance, no memory leaks)
+  // ✅ OPTIMIZED: Only update virtualization when rotation changes significantly
   const itemCount = displayItems.length;
   const [throttledRotation, setThrottledRotation] = useState(rotation);
-  const throttleRafRef = useRef(null);
-  const lastThrottledRotationRef = useRef(rotation);
-  const frameSkipCountRef = useRef(0);
+  const lastUpdateTimeRef = useRef(0);
+  const pendingUpdateRef = useRef(null);
   
   useEffect(() => {
-    // Cancel any pending animation frame
-    if (throttleRafRef.current) {
-      cancelAnimationFrame(throttleRafRef.current);
-      throttleRafRef.current = null;
-    }
+    const now = performance.now();
+    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
     
-    // Update throttled rotation less frequently during animations
-    if (isDragging || isSpinning) {
-      // During drag/spin, update every 2 frames (roughly 30fps instead of 60fps)
-      const updateThrottled = () => {
-        frameSkipCountRef.current++;
-        // Skip every other frame (update at ~30fps)
-        if (frameSkipCountRef.current >= 2) {
-        setThrottledRotation(rotation);
-          lastThrottledRotationRef.current = rotation;
-          frameSkipCountRef.current = 0;
-        }
-        throttleRafRef.current = requestAnimationFrame(updateThrottled);
-      };
-      throttleRafRef.current = requestAnimationFrame(updateThrottled);
-    } else {
-      // When idle, update immediately
+    // During animations: only update every 50ms (~20fps for virtualization)
+    // This is OK because items are positioned via CSS, not recalculated
+    const throttleMs = (isDragging || isSpinning) ? 50 : 0;
+    
+    if (timeSinceLastUpdate >= throttleMs) {
+      // Update immediately
       setThrottledRotation(rotation);
-      lastThrottledRotationRef.current = rotation;
-      frameSkipCountRef.current = 0;
+      lastUpdateTimeRef.current = now;
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+        pendingUpdateRef.current = null;
+      }
+    } else if (!pendingUpdateRef.current) {
+      // Schedule update for later
+      pendingUpdateRef.current = setTimeout(() => {
+        setThrottledRotation(rotation);
+        lastUpdateTimeRef.current = performance.now();
+        pendingUpdateRef.current = null;
+      }, throttleMs - timeSinceLastUpdate);
     }
     
     return () => {
-      if (throttleRafRef.current) {
-        cancelAnimationFrame(throttleRafRef.current);
-        throttleRafRef.current = null;
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+        pendingUpdateRef.current = null;
       }
     };
   }, [rotation, isDragging, isSpinning]);
@@ -260,6 +270,11 @@ export default function SpinningWheel({
       return;
     }
     
+    // Cancel any pending idle snap when user starts interacting
+    if (idleSnapTimeoutRef.current) {
+      clearTimeout(idleSnapTimeoutRef.current);
+      idleSnapTimeoutRef.current = null;
+    }
     
     // Cancel any pending action when starting a new drag
     dispatchAction({ type: 'CANCEL', rotation });
@@ -322,39 +337,35 @@ export default function SpinningWheel({
   const handleEnd = useCallback(() => {
     if (!isDragging) return;
     
-    // Check if there was any significant movement
-    const rotationDelta = Math.abs(rotation - dragStartRotation);
-    const minRotationDelta = 2; // Minimum rotation change in degrees to consider it a real swipe
-    
+    // Clear any pending idle snap
+    if (idleSnapTimeoutRef.current) {
+      clearTimeout(idleSnapTimeoutRef.current);
+      idleSnapTimeoutRef.current = null;
+    }
     
     setIsDragging(false);
     setDragging(false);
     
-    // If there was no significant movement, don't mark action as pending
-    // This prevents double triggering when user just clicks without really dragging
-    if (rotationDelta <= minRotationDelta && Math.abs(velocity) <= MIN_MOMENTUM) {
-      // At very low speed, don't snap - keep free rotation
-      return;
-    }
+    // Simple physics-based behavior like a real wheel:
+    // - Any significant velocity → free momentum spin (wheel spins freely, slows down, then snaps at the end)
+    // - Very low velocity (barely moved) → gentle snap after short delay
+    const MOMENTUM_THRESHOLD = 8; // Low threshold - any real movement gets momentum
     
-    // Calculate minimum rotation required for action
-    const minRotationForAction = gap * 6; // Au moins 6 items de différence
-    
-    // Threshold for snap vs free rotation - higher means more free rotation at low speeds
-    const SNAP_VELOCITY_THRESHOLD = MIN_MOMENTUM * 1.5; // 15.0 instead of 10.0
-    
-    if (Math.abs(velocity) > SNAP_VELOCITY_THRESHOLD) {
-      // For momentum spins: always start momentum if velocity is high
-      // GSAP will handle the smooth animation with physics
+    if (Math.abs(velocity) > MOMENTUM_THRESHOLD) {
+      // Has velocity: let the wheel spin freely with momentum
+      // GSAP will animate the deceleration, snap happens at the very end
       startMomentumSpin(velocity, dragStartRotation);
-    } else if (Math.abs(velocity) > MIN_MOMENTUM) {
-      // Medium velocity: snap with bounce but no action trigger
-      snapToNearest(undefined, velocity);
     } else {
-      // Low velocity: keep free rotation, no snap
-      // User can navigate freely without magnetic snapping
+      // Almost no movement: schedule gentle snap after delay
+      // This handles the case where user releases without really moving
+      idleSnapTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current && !isDraggingRef.current && !isSpinningRef.current) {
+          snapToNearest(undefined, 0);
+        }
+        idleSnapTimeoutRef.current = null;
+      }, 300);
     }
-  }, [isDragging, velocity, rotation, gap, itemCount, displayItems, dragStartRotation, startMomentumSpin, dispatchAction]);
+  }, [isDragging, velocity, dragStartRotation, startMomentumSpin, snapToNearest]);
 
   // Random spin (dice button)
   const handleRandomSpin = useCallback(() => {
@@ -508,6 +519,11 @@ export default function SpinningWheel({
     return () => {
       isMountedRef.current = false;
       cleanupAnimations();
+      // Clear idle snap timeout
+      if (idleSnapTimeoutRef.current) {
+        clearTimeout(idleSnapTimeoutRef.current);
+        idleSnapTimeoutRef.current = null;
+      }
     };
   }, [cleanupAnimations]);
 
@@ -750,37 +766,39 @@ export default function SpinningWheel({
           perspective: 1000, // GPU acceleration
         }}
       >
-        {/* Infinite wheel items - only render items in the visible top arc */}
-        {visibleItems.map(({ item, angle, listIndex, rawIndex }) => {
-          // Safety check
-          if (!item) {
-            return null;
-          }
-          
-          // Calculate position on wheel using utility
-          const { x, y } = getItemPosition(angle, wheelSize, RADIUS_RATIO);
-          
-          // Item is selected if it's at the fixed top position (always, even during spin)
-          const isSelected = listIndex === selectedIndex;
-          
-          return (
-            <WheelItem
-              key={`wheel-item-${listIndex}-${rawIndex}`}
-              item={item}
-              x={x}
-              y={y}
-              rotation={rotation}
-              isSelected={isSelected}
-              isDragging={isDragging}
-              isSpinning={isSpinning}
-              isBusy={isBusy}
-              emojiSize={emojiSize}
-              activeTab={activeTab}
-              onItemClick={handleItemClick}
-              listIndex={listIndex}
-            />
-          );
-        })}
+        {/* Counter-rotation container - handles emoji orientation via CSS variable */}
+        <div
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            // CSS variable for counter-rotation - updated by parent's transform
+            // Items read this variable, no React re-render needed!
+            '--wheel-counter-rotation': `${-rotation}deg`,
+          }}
+        >
+          {visibleItems.map(({ item, angle, listIndex, rawIndex }) => {
+            if (!item) return null;
+            
+            const { x, y } = getItemPosition(angle, wheelSize, RADIUS_RATIO);
+            const isSelected = listIndex === selectedIndex;
+            
+            return (
+              <WheelItem
+                key={`wheel-item-${listIndex}-${rawIndex}`}
+                item={item}
+                x={x}
+                y={y}
+                isSelected={isSelected}
+                isBusy={isBusy}
+                emojiSize={emojiSize}
+                activeTab={activeTab}
+                onItemClick={handleItemClick}
+                listIndex={listIndex}
+              />
+            );
+          })}
+        </div>
       </Box>
 
 

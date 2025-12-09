@@ -12,6 +12,7 @@ Reachy
 Test
 
 .analysis/
+.claude-4.5-sonnet-analysis/
 
 node_modules
 dist
@@ -81,3 +82,6 @@ src-tauri/binaries/
 # Rust build artifacts in uv-wrapper
 uv-wrapper/target/
 uv-wrapper/target/**/*
+
+# Tutorial videos - too large, never commit
+src/assets/tutorial/

@@ -96,29 +96,41 @@ export const useWheelGSAP = ({
     });
   }, [setRotation, setIsSpinning, killAnimation, updateRotation]);
 
-  // Handle momentum spin after drag
+  // Handle momentum spin after drag - simulates real wheel physics
   const startMomentumSpin = useCallback((initialVelocity, startRotation = null) => {
     if (!isMountedRef.current) return;
 
     const currentRotation = rotationRef.current.value;
     const initialRot = startRotation !== null ? startRotation : currentRotation;
 
-    // Calculate target rotation based on velocity
-    // Higher velocity = more rotation - increased sensitivity
-    const velocityFactor = Math.abs(initialVelocity) / 5; // Reduced divisor from 10 to 5 for more rotation
+    // Physics-based calculation for natural wheel behavior
+    // Higher velocity = much more rotation (exponential feel)
+    const absVelocity = Math.abs(initialVelocity);
     const direction = initialVelocity > 0 ? 1 : -1;
-    const additionalRotation = velocityFactor * gap * 3; // Increased from 2 to 3 for more distance
+    
+    // Scale rotation distance based on velocity (feels like real friction)
+    // Low velocity (~10-30): small rotation (1-3 items)
+    // Medium velocity (~30-80): medium rotation (3-8 items)
+    // High velocity (80+): large rotation (8+ items)
+    const velocityFactor = Math.pow(absVelocity / 10, 1.3); // Exponential scaling for natural feel
+    const additionalRotation = velocityFactor * gap * 0.8;
     const targetRotation = currentRotation + (additionalRotation * direction);
 
-    // Snap to nearest item
+    // Snap to nearest item at the destination
     const snappedRotation = calculateSnapRotation(targetRotation, gap, itemCount);
     const snappedIndex = normalizeIndex(Math.round(snappedRotation / gap), itemCount);
     const targetItem = displayItems[snappedIndex] || displayItems[0];
 
-    // Animate with spring physics - less bouncy, slower
+    // Duration scales with velocity - fast swipes spin longer
+    // Min 0.6s for small movements, up to 2.5s for fast swipes
+    const baseDuration = 0.6;
+    const velocityDuration = Math.min(absVelocity / 60, 1.9); // Cap at 1.9s extra
+    const totalDuration = baseDuration + velocityDuration;
+
+    // Animate with natural deceleration curve (like friction slowing a wheel)
     animateRotation(snappedRotation, {
-      duration: 1.0 + (velocityFactor * 0.4), // Slower, longer for higher velocity
-      ease: 'power1.out', // Softer, less bouncy deceleration
+      duration: totalDuration,
+      ease: 'power2.out', // Smooth deceleration - fast at start, slow at end
       onComplete: () => {
         if (onMomentumEnd) {
           onMomentumEnd(targetItem, snappedRotation, initialRot);

@@ -2,28 +2,45 @@ import { useCallback } from 'react';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl, fetchExternal } from '@config/daemon';
 import { fetchHuggingFaceAppList } from '@utils/huggingFaceApi';
 
+// Official app list URL - shared across functions
+const OFFICIAL_APP_LIST_URL = 'https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store/raw/main/app-list.json';
+
 /**
  * Hook for fetching apps from different sources
  * Handles official apps, all apps, and installed apps
  */
 export function useAppFetching() {
   /**
+   * Fetch the list of official app IDs from HF dataset
+   * @returns {Promise<string[]>} Array of official app IDs
+   */
+  const fetchOfficialAppIds = useCallback(async () => {
+    try {
+      const listResponse = await fetchExternal(OFFICIAL_APP_LIST_URL, {}, DAEMON_CONFIG.TIMEOUTS.APPS_LIST, { silent: true });
+      if (!listResponse.ok) {
+        console.warn(`⚠️ Failed to fetch official app list: ${listResponse.status}`);
+        return [];
+      }
+      const authorizedIds = await listResponse.json();
+      return Array.isArray(authorizedIds) ? authorizedIds : [];
+    } catch (err) {
+      console.warn('⚠️ Failed to fetch official app IDs:', err.message);
+      return [];
+    }
+  }, []);
+
+  /**
    * Fetch official apps using daemon API (which filters by tag "reachy mini")
    * The daemon returns apps with complete metadata from /api/spaces, filtered correctly
    * This is more reliable than fetching /api/spaces directly (which has pagination/limits)
+   * ✅ REFACTORED: Uses fetchOfficialAppIds to avoid code duplication
    */
   const fetchOfficialApps = useCallback(async () => {
-    const OFFICIAL_APP_LIST_URL = 'https://huggingface.co/datasets/pollen-robotics/reachy-mini-official-app-store/raw/main/app-list.json';
-    
     try {
-      // 1. Fetch the list of official app IDs (authorized list)
-      const listResponse = await fetchExternal(OFFICIAL_APP_LIST_URL, {}, DAEMON_CONFIG.TIMEOUTS.APPS_LIST, { silent: true });
-      if (!listResponse.ok) {
-        throw new Error(`Failed to fetch official app list: ${listResponse.status}`);
-      }
-      const authorizedIds = await listResponse.json();
+      // 1. Fetch the list of official app IDs (reuse shared function)
+      const authorizedIds = await fetchOfficialAppIds();
       
-      if (!Array.isArray(authorizedIds) || authorizedIds.length === 0) {
+      if (authorizedIds.length === 0) {
         return [];
       }
       
@@ -131,16 +148,17 @@ export function useAppFetching() {
       console.error('❌ Failed to fetch official apps:', error);
       return [];
     }
-  }, []);
+  }, [fetchOfficialAppIds]);
   
   /**
    * Fetch all apps from daemon (non-official mode)
    * Enriches apps with runtime data from Hugging Face API
+   * ✅ FIXED: Excludes official apps to show only community/non-official apps
    */
   const fetchAllAppsFromDaemon = useCallback(async () => {
     try {
       const url = buildApiUrl(`/api/apps/list-available?official=false`);
-      console.log(`🔄 Fetching all apps from daemon`);
+      console.log(`🔄 Fetching all apps from daemon (non-official mode)`);
       const response = await fetchWithTimeout(
         url,
         {},
@@ -154,7 +172,28 @@ export function useAppFetching() {
       }
       
       let daemonApps = await response.json();
-      console.log(`✅ Fetched ${daemonApps.length} apps from daemon`);
+      console.log(`✅ Fetched ${daemonApps.length} apps from daemon (before filtering)`);
+      
+      // ✅ FIX: Exclude official apps from the list
+      // Fetch official app IDs to filter them out
+      const officialAppIds = await fetchOfficialAppIds();
+      if (officialAppIds.length > 0) {
+        // Create a Set for faster lookup (normalize to lowercase)
+        const officialIdsSet = new Set(officialAppIds.map(id => id.toLowerCase()));
+        const officialNamesSet = new Set(officialAppIds.map(id => id.split('/').pop().toLowerCase()));
+        
+        const beforeCount = daemonApps.length;
+        daemonApps = daemonApps.filter(app => {
+          const appId = (app.id || app.extra?.id || '').toLowerCase();
+          const appName = (app.name || '').toLowerCase();
+          
+          // Exclude if app ID matches official ID or if app name matches official app name
+          const isOfficial = officialIdsSet.has(appId) || officialNamesSet.has(appName);
+          return !isOfficial;
+        });
+        
+        console.log(`✅ Filtered out ${beforeCount - daemonApps.length} official apps, ${daemonApps.length} non-official apps remaining`);
+      }
       
       // Enrich non-official apps with runtime data from Hugging Face API
       // (backend doesn't provide runtime for non-official apps)
@@ -207,7 +246,7 @@ export function useAppFetching() {
       console.warn('⚠️ Daemon not available:', daemonErr.message);
       return [];
     }
-  }, []);
+  }, [fetchOfficialAppIds]);
   
   /**
    * Fetch installed apps from daemon
