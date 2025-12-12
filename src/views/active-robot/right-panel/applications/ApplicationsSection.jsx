@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import useAppStore from '@store/useAppStore';
+import { useActiveRobotContext } from '../../context';
 import { useApps, useAppHandlers, useAppInstallation } from '../../application-store/hooks';
 import { InstalledAppsSection } from '../../application-store/installed';
 import { Modal as DiscoverModal } from '../../application-store/discover';
@@ -10,6 +10,7 @@ import { Overlay as InstallOverlay } from '../../application-store/installation'
 
 /**
  * Applications Section - Displays installed and available apps from Hugging Face
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export default function ApplicationsSection({ 
   showToast, 
@@ -19,16 +20,21 @@ export default function ApplicationsSection({
   isBusy = false,
   darkMode = false,
 }) {
-  const { darkMode: storeDarkMode } = useAppStore();
-  const effectiveDarkMode = darkMode !== undefined ? darkMode : storeDarkMode;
-  const storeIsActive = useAppStore(state => state.isActive);
-  const storeIsBusy = useAppStore(state => state.isBusy());
-  const effectiveIsActive = isActive !== undefined ? isActive : storeIsActive;
-  const effectiveIsBusy = isBusy !== undefined ? isBusy : storeIsBusy;
-  const installingAppName = useAppStore(state => state.installingAppName);
-  const installJobType = useAppStore(state => state.installJobType);
-  const installResult = useAppStore(state => state.installResult);
-  const installStartTime = useAppStore(state => state.installStartTime);
+  const { robotState, actions } = useActiveRobotContext();
+  
+  // Get values from context with prop fallbacks
+  const { 
+    darkMode: contextDarkMode,
+    isActive: contextIsActive,
+    installingAppName,
+    installJobType,
+    installResult,
+    installStartTime,
+  } = robotState;
+  
+  const effectiveDarkMode = darkMode !== undefined ? darkMode : contextDarkMode;
+  const effectiveIsActive = isActive !== undefined ? isActive : contextIsActive;
+  const effectiveIsBusy = isBusy !== undefined ? isBusy : actions.isBusy();
   
   const [officialOnly, setOfficialOnly] = useState(true);
   

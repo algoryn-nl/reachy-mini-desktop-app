@@ -3,16 +3,19 @@ import ReactDOM from 'react-dom/client';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
 // 🎨 AUTOMATIC MODE DETECTION
-// If accessing via http://localhost:5173/dev → DevPlayground
-// Otherwise → Normal App
+// VITE_WEB_MODE=true → Web-only dashboard (served by daemon)
+// /dev path → DevPlayground
+// Otherwise → Normal Tauri App
+const isWebMode = import.meta.env.VITE_WEB_MODE === 'true' || !window.__TAURI__;
 const isDevPath = window.location.pathname === '/dev' || window.location.hash === '#dev';
-const DEV_MODE = isDevPath;
+const DEV_MODE = isDevPath && !isWebMode;
 
-// Mock Tauri APIs if not in Tauri (browser)
+// Mock Tauri APIs if not in Tauri (browser/web mode)
 if (typeof window !== 'undefined' && !window.__TAURI__) {
   window.__TAURI__ = {
     core: {
       invoke: (cmd, args) => {
+        console.log('[Mock Tauri] invoke:', cmd, args);
         return Promise.resolve({ status: 'mocked' });
       }
     }
@@ -22,7 +25,7 @@ if (typeof window !== 'undefined' && !window.__TAURI__) {
     startDragging: () => {
       return Promise.resolve();
     },
-    label: 'dev-window'
+    label: isWebMode ? 'web-dashboard' : 'dev-window'
   };
   
   window.mockGetCurrentWindow = () => mockWindow;
@@ -30,6 +33,7 @@ if (typeof window !== 'undefined' && !window.__TAURI__) {
 
 import App from './components/App';
 import DevPlayground from './components/DevPlayground';
+import WebApp from './components/WebApp';
 import robotModelCache from './utils/robotModelCache';
 import useAppStore from './store/useAppStore';
 
@@ -185,8 +189,11 @@ function ThemeWrapper({ children }) {
   );
 }
 
-// Choose component to display
-const RootComponent = DEV_MODE ? DevPlayground : App;
+// Choose component to display based on mode
+// Priority: WebMode > DevMode > Normal App
+const RootComponent = isWebMode ? WebApp : (DEV_MODE ? DevPlayground : App);
+
+console.log(`[Main] Mode: ${isWebMode ? 'WEB' : (DEV_MODE ? 'DEV' : 'TAURI')}`);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

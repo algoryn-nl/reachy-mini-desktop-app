@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { Box, Typography, Slider } from '@mui/material';
 
 /**
@@ -6,8 +6,10 @@ import { Box, Typography, Slider } from '@mui/material';
  * @param {boolean} centered - If true, displays title and subtitle on two separate centered lines
  * @param {boolean} showRollVisualization - If true, shows a curved visualization for roll (left to right, curved upward)
  * @param {number} smoothedValue - Optional smoothed/ghost value to display as a visual indicator
+ * 
+ * ⚡ PERF: Wrapped in React.memo to prevent unnecessary re-renders
  */
-export default function SimpleSlider({ label, value, onChange, min = -1, max = 1, unit = 'rad', darkMode, disabled = false, centered = false, showRollVisualization = false, smoothedValue }) {
+const SimpleSlider = memo(function SimpleSlider({ label, value, onChange, min = -1, max = 1, unit = 'rad', darkMode, disabled = false, centered = false, showRollVisualization = false, smoothedValue }) {
   const displayValue = typeof value === 'number' ? value.toFixed(unit === 'deg' ? 1 : 3) : (unit === 'deg' ? '0.0' : '0.000');
   
   // Calculate curve visualization for roll
@@ -252,5 +254,6 @@ export default function SimpleSlider({ label, value, onChange, min = -1, max = 1
       </Box>
     </Box>
   );
-}
+});
 
+export default SimpleSlider;

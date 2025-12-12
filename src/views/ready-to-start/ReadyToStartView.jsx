@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import idleReachyGif from '../../assets/videos/idle-reachy.gif';
 import useAppStore from '../../store/useAppStore';
+import { enableSimulationMode } from '../../utils/simulationMode';
 
 // 🤖 Startup messages (fixed title)
 const START_MESSAGES = [
@@ -59,6 +60,22 @@ export default function ReadyToStartView({
     setIsButtonLoading(true);
     // Let React render the spinner before starting the daemon
     // Use requestAnimationFrame for better timing
+    requestAnimationFrame(() => {
+      startDaemon();
+    });
+  };
+
+  // 🎭 Handler for simulation mode launch
+  const handleSimulationClick = () => {
+    if (isButtonLoading || isStarting) {
+      return; // Prevent multiple clicks
+    }
+    
+    // Enable simulation mode (persists in localStorage)
+    enableSimulationMode();
+    
+    setIsButtonLoading(true);
+    // Let React render before starting
     requestAnimationFrame(() => {
       startDaemon();
     });
@@ -221,6 +238,27 @@ export default function ReadyToStartView({
                   >
                     {(isButtonLoading || isStarting) ? 'Starting...' : 'Start'}
                   </Button>
+
+                  {/* 🎭 Simulation mode link - discrete, centered below Start button */}
+                  <Typography
+                    onClick={handleSimulationClick}
+                    sx={{
+                      mt: 2,
+                      fontSize: 11,
+                      color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                      cursor: (isButtonLoading || isStarting) ? 'default' : 'pointer',
+                      opacity: (isButtonLoading || isStarting) ? 0.4 : 1,
+                      transition: 'all 0.2s ease',
+                      userSelect: 'none',
+                      '&:hover': {
+                        color: (isButtonLoading || isStarting) 
+                          ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
+                          : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
+                      },
+                    }}
+                  >
+                    🎭 Launch in simulation mode
+                  </Typography>
         </Box>
 
             {/* Bottom text - absolute positioning */}

@@ -4,19 +4,22 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpressionIcon from '@assets/expression.svg';
 import JoystickIcon from '@assets/joystick.svg';
-import useAppStore from '../../../store/useAppStore';
+import { useActiveRobotContext } from '../context';
 
 /**
  * Control Cards Component
  * Displays Expressions and Controller as cards with open/close buttons
  * Similar design to Applications cards
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export default function ControlButtons({ 
   darkMode = false,
   isActive = false,
 }) {
-  const rightPanelView = useAppStore(state => state.rightPanelView);
-  const setRightPanelView = useAppStore(state => state.setRightPanelView);
+  const { robotState, actions } = useActiveRobotContext();
+  const { rightPanelView } = robotState;
+  const { setRightPanelView } = actions;
   const isExpressionsOpen = rightPanelView === 'expressions';
   const isControllerOpen = rightPanelView === 'controller';
   

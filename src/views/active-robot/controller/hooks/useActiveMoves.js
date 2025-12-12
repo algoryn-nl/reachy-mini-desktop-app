@@ -1,16 +1,19 @@
 import { useCallback } from 'react';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../../../config/daemon';
-import useAppStore from '../../../../store/useAppStore';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * Hook to monitor and manage active robot moves
- * ✅ Now reads from centralized store (no polling - handled by useRobotState)
+ * ✅ Now reads from context (no polling - handled by useRobotState)
  * Provides stop functions for active moves
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useActiveMoves(isActive) {
-  // ✅ Read from centralized store (polled by useRobotState)
-  const activeMoves = useAppStore(state => state.activeMoves || []);
-  const setActiveMoves = useAppStore(state => state.setActiveMoves);
+  const { robotState, api } = useActiveRobotContext();
+  const { buildApiUrl, fetchWithTimeout, config: DAEMON_CONFIG } = api;
+  
+  // ✅ Read from context (polled by useRobotState)
+  const activeMoves = robotState.activeMoves || [];
 
   // Stop a specific move by UUID
   const stopMove = useCallback(async (moveUuid) => {

@@ -7,7 +7,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import ReachyBox from '../../../assets/reachy-update-box.svg';
-import useAppStore from '../../../store/useAppStore';
+import { useActiveRobotContext } from '../context';
 import { useApps, useAppHandlers, useAppInstallation, useAppFiltering, useModalStack } from './hooks';
 import { InstalledAppsSection } from './installed';
 import { Modal as DiscoverModal } from './discover';
@@ -21,6 +21,7 @@ import { useWindowFocus } from '../../../hooks/system/useWindowFocus';
 /**
  * Application Store for Reachy Mini
  * Displays installed and available apps from Hugging Face
+ * Uses ActiveRobotContext for decoupling from global stores
  * @param {Function} showToast - Function to show toasts (message, severity)
  */
 
@@ -34,18 +35,22 @@ export default function ApplicationStore({
   isBusy = false,
   darkMode = false,
 }) {
-  const { darkMode: storeDarkMode, toggleDarkMode } = useAppStore();
-  // Use prop darkMode if provided, otherwise use store darkMode
-  const effectiveDarkMode = darkMode !== undefined ? darkMode : storeDarkMode;
-  // Use props isActive/isBusy if provided, otherwise use store values
-  const storeIsActive = useAppStore(state => state.isActive);
-  const storeIsBusy = useAppStore(state => state.isBusy());
-  const effectiveIsActive = isActive !== undefined ? isActive : storeIsActive;
-  const effectiveIsBusy = isBusy !== undefined ? isBusy : storeIsBusy;
-  const installingAppName = useAppStore(state => state.installingAppName);
-  const installJobType = useAppStore(state => state.installJobType);
-  const installResult = useAppStore(state => state.installResult);
-  const installStartTime = useAppStore(state => state.installStartTime);
+  const { robotState, actions } = useActiveRobotContext();
+  const { toggleDarkMode } = actions;
+  
+  // Get values from context with prop fallbacks
+  const { 
+    darkMode: contextDarkMode,
+    isActive: contextIsActive,
+    installingAppName,
+    installJobType,
+    installResult,
+    installStartTime,
+  } = robotState;
+  
+  const effectiveDarkMode = darkMode !== undefined ? darkMode : contextDarkMode;
+  const effectiveIsActive = isActive !== undefined ? isActive : contextIsActive;
+  const effectiveIsBusy = isBusy !== undefined ? isBusy : actions.isBusy();
   
   // Ref to store the reset function from Controller
   const controllerResetRef = React.useRef(null);

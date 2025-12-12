@@ -9,10 +9,12 @@
  * 4. Handle minimum display times
  * 5. Poll for app appearance (install only)
  * 6. Show result and close overlay
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import useAppStore from '@store/useAppStore';
+import { useActiveRobotContext } from '../../../context';
 import { TIMINGS, JOB_TYPES, RESULT_STATES } from './constants';
 import {
   findJobByAppName,
@@ -45,15 +47,16 @@ export function useInstallationLifecycle({
   const pendingTimeouts = useRef([]);
   const { stopPolling } = useInstallationPolling();
   
-  // Get state from store
-  const installingAppName = useAppStore(state => state.installingAppName);
-  const installJobType = useAppStore(state => state.installJobType);
-  const installStartTime = useAppStore(state => state.installStartTime);
-  const jobSeenOnce = useAppStore(state => state.jobSeenOnce);
-  const processedJobs = useAppStore(state => state.processedJobs);
-  
-  // Get actions from store
-  const { unlockInstall, setInstallResult, markJobAsSeen, markJobAsProcessed } = useAppStore();
+  // Get state and actions from context
+  const { robotState, actions } = useActiveRobotContext();
+  const { 
+    installingAppName, 
+    installJobType, 
+    installStartTime, 
+    jobSeenOnce, 
+    processedJobs 
+  } = robotState;
+  const { unlockInstall, setInstallResult, markJobAsSeen, markJobAsProcessed } = actions;
   
   /**
    * Cleanup all pending operations

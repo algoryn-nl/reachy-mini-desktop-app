@@ -1,13 +1,17 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../../../config/daemon';
 import { ROBOT_POSITION_RANGES } from '../../../../utils/inputConstants';
 import { clamp } from '../../../../utils/inputHelpers';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * Hook for managing robot API calls
  * Handles continuous updates via requestAnimationFrame
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useRobotAPI(isActive, robotState, isDraggingRef) {
+  const { api } = useActiveRobotContext();
+  const { buildApiUrl, fetchWithTimeout, config: DAEMON_CONFIG } = api;
   const rafRef = useRef(null);
   const pendingPoseRef = useRef(null);
   const lastSentPoseRef = useRef(null);

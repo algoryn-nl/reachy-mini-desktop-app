@@ -1,7 +1,7 @@
 {
   "name": "tauri-app",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.7.5",
   "type": "module",
   "engines": {
     "node": ">=24.4.0",
@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "VITE_WEB_MODE=true vite build --outDir dist-web --base /v2/",
+    "deploy:daemon-v2": "npm run build:web && rm -rf ../reachy_mini/src/reachy_mini/daemon/app/dashboard-v2/* && cp -r dist-web/* ../reachy_mini/src/reachy_mini/daemon/app/dashboard-v2/",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --no-watch",
     "tauri:dev:sim": "VITE_SIM_MODE=true tauri dev --no-watch",

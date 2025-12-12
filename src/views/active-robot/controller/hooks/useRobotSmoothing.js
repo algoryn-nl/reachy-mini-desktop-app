@@ -4,13 +4,21 @@ import { ROBOT_POSITION_RANGES, EXTENDED_ROBOT_RANGES } from '@utils/inputConsta
 import { clamp } from '@utils/inputHelpers';
 import { mapRobotToAPI } from '@utils/inputMappings';
 
+// ⚡ PERF: Throttle UI updates to 15fps instead of 60fps
+// Robot API still receives 60fps updates, but React re-renders are limited
+const UI_UPDATE_INTERVAL_MS = 1000 / 15; // ~66ms = 15fps for UI
+
 /**
  * Hook for managing robot position smoothing
  * Handles the continuous smoothing loop that applies to ALL input sources
+ * 
+ * ⚡ PERF OPTIMIZATION: UI state updates are throttled to 15fps
+ * while robot API commands are still sent at 60fps
  */
 export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLocalValues) {
   const targetSmoothingRef = useRef(new TargetSmoothingManager());
   const smoothingRafRef = useRef(null);
+  const lastUIUpdateRef = useRef(0); // ⚡ Track last UI update time
   const [smoothedValues, setSmoothedValues] = useState({
     headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
     bodyYaw: 0,
@@ -90,13 +98,18 @@ export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLo
         );
       }
       
-      // Update smoothed values state for ghost visualization (current smoothed position)
-      // DO NOT update localValues here - localValues should reflect targets, not smoothed values
+      // ⚡ PERF: Throttle UI state updates to 15fps
+      // Robot API commands are still sent at 60fps above
+      // Only React re-renders are limited
+      const now = performance.now();
+      if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+        lastUIUpdateRef.current = now;
       setSmoothedValues({
         headPose: { ...currentSmoothed.headPose },
         bodyYaw: currentSmoothed.bodyYaw,
         antennas: [...currentSmoothed.antennas],
       });
+      }
       
       smoothingRafRef.current = requestAnimationFrame(smoothingLoop);
     };

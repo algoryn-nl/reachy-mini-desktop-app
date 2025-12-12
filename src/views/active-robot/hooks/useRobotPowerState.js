@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import useAppStore from '@store/useAppStore';
-import { DAEMON_CONFIG } from '@config/daemon';
+import { useActiveRobotContext } from '../context';
 
 /**
  * Hook to extract robot power state from centralized robotStateFull
  * Uses REAL API fields: control_mode, head_joints, body_yaw, etc.
  * 
- * ⚠️ Now consumes robotStateFull from useRobotState instead of making its own API calls
+ * ⚠️ Now consumes robotStateFull from context instead of making its own API calls
  * ⚠️ Does NOT handle crash detection (delegated to useDaemonHealthCheck)
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useRobotPowerState(isActive) {
-  const { robotStateFull } = useAppStore();
-  const [robotState, setRobotState] = useState({
+  const { robotState: contextRobotState, api } = useActiveRobotContext();
+  const { robotStateFull } = contextRobotState;
+  const DAEMON_CONFIG = api.config;
+  const [powerState, setPowerState] = useState({
     isOn: null,           // Motors powered (control_mode === 'enabled')
     isMoving: false,      // Motors moving (detected)
   });
@@ -21,7 +24,7 @@ export function useRobotPowerState(isActive) {
 
   useEffect(() => {
     if (!isActive || !robotStateFull || !robotStateFull.data) {
-      setRobotState({ isOn: null, isMoving: false });
+      setPowerState({ isOn: null, isMoving: false });
       return;
     }
 
@@ -56,7 +59,7 @@ export function useRobotPowerState(isActive) {
             clearTimeout(movementTimeoutRef.current);
           }
           movementTimeoutRef.current = setTimeout(() => {
-            setRobotState(prev => ({ ...prev, isMoving: false }));
+            setPowerState(prev => ({ ...prev, isMoving: false }));
           }, DAEMON_CONFIG.MOVEMENT.MOVEMENT_DETECTION_TIMEOUT);
         }
       }
@@ -65,7 +68,7 @@ export function useRobotPowerState(isActive) {
     }
     
     // ✅ OPTIMIZED: Only update state if values actually changed (avoid unnecessary re-renders)
-    setRobotState(prev => {
+    setPowerState(prev => {
       const newState = { isOn: motorsOn, isMoving: isMoving };
       // Return previous state if values haven't changed (prevents re-render)
       if (prev.isOn === newState.isOn && prev.isMoving === newState.isMoving) {
@@ -81,6 +84,6 @@ export function useRobotPowerState(isActive) {
     };
   }, [isActive, robotStateFull]);
 
-  return robotState;
+  return powerState;
 }
 

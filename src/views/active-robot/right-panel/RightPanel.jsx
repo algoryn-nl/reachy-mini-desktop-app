@@ -4,11 +4,13 @@ import { ApplicationsSection } from './applications';
 import ControlButtons from './ControlButtons';
 import { ControllerSection } from './controller';
 import ExpressionsSection from './expressions';
-import useAppStore from '@store/useAppStore';
+import { useActiveRobotContext } from '../context';
 
 /**
  * Right Panel - Assembles Control Buttons and Applications sections
  * Can display Applications (default), Controller, or Expressions based on rightPanelView state
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export default function RightPanel({ 
   showToast, 
@@ -20,7 +22,8 @@ export default function RightPanel({
   isBusy = false,
   darkMode = false,
 }) {
-  const rightPanelView = useAppStore(state => state.rightPanelView);
+  const { robotState } = useActiveRobotContext();
+  const { rightPanelView } = robotState;
 
   return (
     <Box

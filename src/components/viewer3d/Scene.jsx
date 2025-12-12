@@ -11,6 +11,7 @@ import CinematicCamera from './CinematicCamera';
 import HeadFollowCamera from './HeadFollowCamera';
 import useAppStore from '../../store/useAppStore';
 import { DAEMON_CONFIG } from '../../config/daemon';
+import { arraysEqual } from '../../utils/arraysEqual';
 // 🚀 GAME-CHANGING: Removed useRobotParts - now using unified WebSocket via props
 
 /**
@@ -465,16 +466,6 @@ export default memo(Scene, (prevProps, nextProps) => {
   ) {
     return false; // Re-render
   }
-  
-  // Compare arrays with tolerance (0.005 rad)
-  const arraysEqual = (a, b, tolerance = 0.005) => {
-    if (a === b) return true;
-    if (!a || !b || a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (Math.abs(a[i] - b[i]) > tolerance) return false;
-    }
-    return true;
-  };
   
   // Compare headJoints
   if (!arraysEqual(prevProps.headJoints, nextProps.headJoints)) {

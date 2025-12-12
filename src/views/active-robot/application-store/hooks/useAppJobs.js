@@ -2,11 +2,12 @@ import { useCallback, useRef } from 'react';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '@config/daemon';
 import useAppStore from '@store/useAppStore';
 import { useLogger } from '@utils/logging';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@utils/tauriCompat';
 
 /**
  * Hook for managing app installation/uninstallation jobs
  * Handles polling, status updates, and error handling
+ * Uses tauriCompat for web mode support
  */
 export function useAppJobs(setActiveJobs, fetchAvailableApps) {
   const jobPollingIntervals = useRef(new Map());

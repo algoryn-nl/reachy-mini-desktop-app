@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '@config/daemon';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * Hook to manage audio controls (speaker and microphone)
  * Handles volume state, device info, and API calls
+ * 
+ * Uses API config from ActiveRobotContext for decoupling
  */
 export function useAudioControls(isActive) {
+  // Get API from context
+  const { api } = useActiveRobotContext();
+  const { buildApiUrl, fetchWithTimeout, config: DAEMON_CONFIG } = api;
   // Volume states
   const [volume, setVolume] = useState(50);
   const [microphoneVolume, setMicrophoneVolume] = useState(50);

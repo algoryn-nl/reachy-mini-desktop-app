@@ -272,7 +272,6 @@ export function useAppFetching() {
           ...app,
           source_kind: app.source_kind || 'local',
         }));
-        console.log(`✅ Fetched ${installedApps.length} installed apps from daemon`);
         return { apps: installedApps, error: null };
       }
       

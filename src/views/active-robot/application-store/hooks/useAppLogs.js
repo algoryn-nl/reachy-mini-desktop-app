@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import useAppStore from '@store/useAppStore';
+import { listen, isWebMode } from '@utils/tauriCompat';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * Hook to listen to app logs from sidecar stdout/stderr and add them to centralized log system
  * Filters logs to only include relevant app logs (not system logs)
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
+ * Uses tauriCompat for web mode support
  */
 export function useAppLogs(currentAppName, isAppRunning) {
-  const { addAppLog, clearAppLogs } = useAppStore();
+  const { actions } = useActiveRobotContext();
+  const { addAppLog, clearAppLogs } = actions;
   const unlistenStdoutRef = useRef(null);
   const unlistenStderrRef = useRef(null);
   

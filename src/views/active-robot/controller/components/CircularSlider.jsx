@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { Box, Typography, Slider } from '@mui/material';
 
 /**
@@ -8,8 +8,10 @@ import { Box, Typography, Slider } from '@mui/material';
  * The circular arc represents 270° of a full circle (3/4 circle)
  * - Normal mode: cut at bottom (135deg rotation)
  * - Inverted mode: cut at top (-45deg rotation)
+ * 
+ * ⚡ PERF: Wrapped in React.memo to prevent unnecessary re-renders
  */
-export default function CircularSlider({ 
+const CircularSlider = memo(function CircularSlider({ 
   label, 
   value, 
   onChange, 
@@ -321,5 +323,6 @@ export default function CircularSlider({
       </Box>
     </Box>
   );
-}
+});
 
+export default CircularSlider;

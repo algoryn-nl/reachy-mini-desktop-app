@@ -75,12 +75,29 @@ export const normalizeLog = (log) => {
     }
     
     if (typeof log === 'string') {
-      const now = Date.now();
+      // Parse Rust logs with format "TIMESTAMP|MESSAGE"
+      // If no pipe found, treat as legacy log without timestamp
+      const pipeIndex = log.indexOf('|');
+      let message = log;
+      let timestampNumeric = 0;
+      
+      if (pipeIndex > 0 && pipeIndex < 20) {
+        // Potential timestamp prefix (Unix millis is ~13 digits)
+        const potentialTimestamp = log.substring(0, pipeIndex);
+        const parsedTs = parseInt(potentialTimestamp, 10);
+        
+        // Validate it looks like a Unix timestamp (reasonable range)
+        if (!isNaN(parsedTs) && parsedTs > 1600000000000 && parsedTs < 2000000000000) {
+          timestampNumeric = parsedTs;
+          message = log.substring(pipeIndex + 1);
+        }
+      }
+      
       return {
-        message: log.slice(0, 10000), // Max 10KB
+        message: message.slice(0, 10000), // Max 10KB
         source: 'daemon',
-        timestamp: formatTimestamp(now),
-        timestampNumeric: now,
+        timestamp: timestampNumeric > 0 ? formatTimestamp(timestampNumeric) : '',
+        timestampNumeric,
         level: 'info',
       };
     }

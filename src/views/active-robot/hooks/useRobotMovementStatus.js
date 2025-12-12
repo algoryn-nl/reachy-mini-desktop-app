@@ -1,16 +1,18 @@
 import { useEffect } from 'react';
-import useAppStore from '@store/useAppStore';
+import { useActiveRobotContext } from '../context';
 import { useActiveMoves } from '../controller/hooks';
 
 /**
  * Hook to monitor active robot movements and update store status
  * Sets robotStatus to 'busy' with busyReason 'moving' when movements are active
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useRobotMovementStatus(isActive) {
+  const { robotState, actions } = useActiveRobotContext();
   const { activeMoves } = useActiveMoves(isActive);
-  const transitionTo = useAppStore(state => state.transitionTo);
-  const robotStatus = useAppStore(state => state.robotStatus);
-  const busyReason = useAppStore(state => state.busyReason);
+  const { transitionTo } = actions;
+  const { robotStatus, busyReason } = robotState;
 
   useEffect(() => {
     if (!isActive) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { open } from '@tauri-apps/plugin-shell';
+import { useActiveRobotContext } from '../../context';
 import FullscreenOverlay from '@components/FullscreenOverlay';
 import HowToCreateApp from '@assets/reachy-how-to-create-app.svg';
 import JoystickIcon from '@assets/joystick.svg';
@@ -11,12 +11,15 @@ import RocketIcon from '@assets/rocket.svg';
 /**
  * Modal overlay for tutorial on creating your own Reachy Mini app
  * Design style Apple with grid cards
+ * Uses ActiveRobotContext for decoupling from Tauri
  */
 export default function CreateAppTutorialModal({
   open: isOpen,
   onClose,
   darkMode,
 }) {
+  const { shellApi } = useActiveRobotContext();
+  const open = shellApi.open;
   const tutorials = [
     {
       id: 'console',

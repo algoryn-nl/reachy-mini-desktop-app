@@ -4,10 +4,11 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { open } from '@tauri-apps/plugin-shell';
+import { useActiveRobotContext } from '../../../context';
 
 /**
  * App card component for Discover Modal
+ * Uses ActiveRobotContext for decoupling from Tauri
  */
 export default function AppCard({
   app,
@@ -21,6 +22,8 @@ export default function AppCard({
   searchQuery,
   index,
 }) {
+  const { shellApi } = useActiveRobotContext();
+  const open = shellApi.open;
   // Extract data from HF Space API
   const cardData = app.extra?.cardData || {};
   const author = app.extra?.id?.split('/')?.[0] || app.extra?.author || null;

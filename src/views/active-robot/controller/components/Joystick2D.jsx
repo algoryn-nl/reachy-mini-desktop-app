@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { Box, Typography } from '@mui/material';
 
 /**
  * 2D Joystick Component - Compact
  * Follows mouse directly for intuitive control
+ * 
+ * ⚡ PERF: Wrapped in React.memo to prevent unnecessary re-renders
  */
-export default function Joystick2D({ label, valueX, valueY, onChange, onDragEnd, minX = -1, maxX = 1, minY = -1, maxY = 1, size = 100, darkMode, disabled = false, smoothedValueX, smoothedValueY, labelAlign = 'left' }) {
+const Joystick2D = memo(function Joystick2D({ label, valueX, valueY, onChange, onDragEnd, minX = -1, maxX = 1, minY = -1, maxY = 1, size = 100, darkMode, disabled = false, smoothedValueX, smoothedValueY, labelAlign = 'left' }) {
   const containerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [localStickX, setLocalStickX] = useState(size / 2);
@@ -279,5 +281,6 @@ export default function Joystick2D({ label, valueX, valueY, onChange, onDragEnd,
       </Box>
     </Box>
   );
-}
+});
 
+export default Joystick2D;

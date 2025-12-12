@@ -6,14 +6,16 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FullscreenOverlay from '@components/FullscreenOverlay';
 import LogConsole from '@components/LogConsole';
-import useAppStore from '../../../../store/useAppStore';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * Fullscreen overlay for app installation
  * Displays app details, progress and logs
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = 'install', resultState = null, installStartTime = null }) {
-  const { unlockInstall } = useAppStore();
+  const { actions } = useActiveRobotContext();
+  const { unlockInstall } = actions;
   const [elapsedTime, setElapsedTime] = useState(0);
   const [logsExpanded, setLogsExpanded] = useState(false);
   const intervalRef = useRef(null);

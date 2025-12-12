@@ -5,11 +5,12 @@ import SearchIcon from '@mui/icons-material/Search';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ReachyBox from '../../../../assets/reachy-update-box.svg';
-import { open } from '@tauri-apps/plugin-shell';
+import { useActiveRobotContext } from '../../context';
 import hfLogo from '../../../../assets/hf-logo.svg';
 
 /**
  * Section displaying available apps (Discover from Hugging Face)
+ * Uses ActiveRobotContext for decoupling from Tauri
  */
 export default function DiscoverAppsSection({
   filteredApps,
@@ -23,6 +24,8 @@ export default function DiscoverAppsSection({
   setSearchQuery,
   onOpenCreateTutorial, // Callback to open Create App Tutorial modal
 }) {
+  const { shellApi } = useActiveRobotContext();
+  const open = shellApi.open;
   return (
     <Box sx={{ px: 3, pb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1.5 }}>

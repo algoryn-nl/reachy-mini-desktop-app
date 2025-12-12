@@ -212,6 +212,61 @@ export const useDaemon = () => {
     };
   }, [isStarting, eventBus]); // Note: hardwareError checked inside listener via getState()
 
+  // 🎭 Listen to sidecar stdout events to reset timeout when we see activity
+  // This makes startup more resilient - as long as we see logs, we know something is happening
+  useEffect(() => {
+    let unlistenStdout;
+    let lastActivityReset = 0;
+    
+    const setupStdoutListener = async () => {
+      try {
+        unlistenStdout = await listen('sidecar-stdout', () => {
+          const currentState = useAppStore.getState();
+          
+          // Only reset timeout during startup phase
+          if (!currentState.isStarting || currentState.isActive) {
+            return;
+          }
+          
+          // Throttle resets to avoid excessive timeout recreation (every 15s max)
+          const now = Date.now();
+          if (now - lastActivityReset < DAEMON_CONFIG.STARTUP.ACTIVITY_RESET_DELAY) {
+            return;
+          }
+          lastActivityReset = now;
+          
+          // Clear existing timeout and set a new one
+          clearStartupTimeout();
+          
+          const simMode = isSimulationMode();
+          const startupTimeout = simMode 
+            ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION 
+            : DAEMON_CONFIG.STARTUP.TIMEOUT_NORMAL;
+          
+          const newTimeoutId = setTimeout(() => {
+            const state = useAppStore.getState();
+            if (!state.isActive && state.isStarting) {
+              eventBus.emit('daemon:start:timeout');
+            }
+          }, startupTimeout);
+          
+          setStartupTimeout(newTimeoutId);
+          console.log('🎭 Startup timeout reset - activity detected from sidecar');
+        });
+      } catch (error) {
+        console.error('Failed to setup sidecar-stdout listener:', error);
+      }
+    };
+    
+    setupStdoutListener();
+    
+    return () => {
+      if (unlistenStdout) {
+        unlistenStdout();
+      }
+    };
+  }, [eventBus, clearStartupTimeout, setStartupTimeout]);
+
   const startDaemon = useCallback(async () => {
     // ✅ Emit start attempt event
     eventBus.emit('daemon:start:attempt');
@@ -262,15 +317,18 @@ export const useDaemon = () => {
       await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
       setIsStarting(true);
       
-      // ✅ Set explicit startup timeout (30 seconds)
-      // If daemon doesn't become active within 30s, show error
+      // ✅ Set explicit startup timeout - longer for simulation mode (MuJoCo install takes time)
+      const startupTimeout = simMode 
+        ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION 
+        : DAEMON_CONFIG.STARTUP.TIMEOUT_NORMAL;
+      
       const timeoutId = setTimeout(() => {
         const currentState = useAppStore.getState();
         if (!currentState.isActive && currentState.isStarting) {
           // ✅ Emit timeout event instead of handling directly
           eventBus.emit('daemon:start:timeout');
         }
-      }, 30000); // 30 seconds
+      }, startupTimeout);
       setStartupTimeout(timeoutId);
       
       // ✅ useDaemonHealthCheck will detect when daemon is ready automatically

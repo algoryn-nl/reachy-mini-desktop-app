@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
-import { PermissionsRequiredView, RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView, UpdateView } from '../../views';
+import { PermissionsRequiredView, RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView, UpdateView, ActiveRobotModule } from '../../views';
 import AppTopBar from '../../components/AppTopBar';
+import { useActiveRobotAdapter } from '../useActiveRobotAdapter';
 
 /**
  * Hook to determine which view to display based on app state
@@ -89,7 +90,7 @@ export function useViewRouter({
     if (shouldShowUsbCheck) {
       return {
         viewComponent: RobotNotDetectedView,
-        viewProps: {},
+        viewProps: { startDaemon },
         showTopBar: true,
       };
     }
@@ -98,7 +99,7 @@ export function useViewRouter({
     if (!isUsbConnected) {
       return {
         viewComponent: RobotNotDetectedView,
-        viewProps: {},
+        viewProps: { startDaemon },
         showTopBar: true,
       };
     }
@@ -121,7 +122,7 @@ export function useViewRouter({
         viewComponent: TransitionView,
         viewProps: {},
         showTopBar: true,
-        backgroundComponent: ActiveRobotView,
+        backgroundComponent: ActiveRobotModule,
         backgroundProps: {
           isActive,
           isStarting,
@@ -135,6 +136,7 @@ export function useViewRouter({
           usbPortName,
           onAppsReady,
         },
+        needsContext: true, // Signal that contextConfig is needed
       };
     }
 
@@ -162,7 +164,7 @@ export function useViewRouter({
 
     // PRIORITY 8: Active robot
     return {
-      viewComponent: ActiveRobotView,
+      viewComponent: ActiveRobotModule,
       viewProps: {
         isActive,
         isStarting,
@@ -177,6 +179,7 @@ export function useViewRouter({
         onAppsReady,
       },
       showTopBar: true,
+      needsContext: true, // Signal that contextConfig is needed
     };
   }, [
     permissionsGranted,
@@ -210,17 +213,26 @@ export function useViewRouter({
 
 /**
  * Component wrapper that renders the routed view
+ * Injects contextConfig for ActiveRobotModule when needsContext is true
  */
 export function ViewRouterWrapper({ viewConfig }) {
-  const { viewComponent: ViewComponent, viewProps, showTopBar, backgroundComponent: BackgroundComponent, backgroundProps } = viewConfig;
+  const { viewComponent: ViewComponent, viewProps, showTopBar, backgroundComponent: BackgroundComponent, backgroundProps, needsContext } = viewConfig;
+  
+  // Get context config from adapter (only used when needsContext is true)
+  // This is always called (React hooks rule) but only used when needed
+  const contextConfig = useActiveRobotAdapter();
 
   if (BackgroundComponent) {
     // Transition view with background component
+    const bgPropsWithContext = needsContext 
+      ? { ...backgroundProps, contextConfig } 
+      : backgroundProps;
+    
     return (
       <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
         {showTopBar && <AppTopBar />}
         <Box sx={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
-          <BackgroundComponent {...backgroundProps} />
+          <BackgroundComponent {...bgPropsWithContext} />
         </Box>
         <ViewComponent {...viewProps} />
       </Box>
@@ -229,14 +241,21 @@ export function ViewRouterWrapper({ viewConfig }) {
 
   if (!showTopBar) {
     // View has its own topbar (e.g., ClosingView)
-    return <ViewComponent {...viewProps} />;
+    const propsWithContext = needsContext 
+      ? { ...viewProps, contextConfig } 
+      : viewProps;
+    return <ViewComponent {...propsWithContext} />;
   }
 
   // Standard view with topbar
+  const propsWithContext = needsContext 
+    ? { ...viewProps, contextConfig } 
+    : viewProps;
+  
   return (
     <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
       <AppTopBar />
-      <ViewComponent {...viewProps} />
+      <ViewComponent {...propsWithContext} />
     </Box>
   );
 }

@@ -2,10 +2,10 @@ import { useRef, useEffect, useLayoutEffect, useState, useCallback, memo } from 
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createXrayMaterial } from '../../utils/viewer3d/materials';
-import { matrix4FromRowMajor } from '../../utils/viewer3d/matrixUtils';
 import robotModelCache from '../../utils/robotModelCache';
 import useAppStore from '../../store/useAppStore';
 import { logInfo } from '../../utils/logging';
+import { arraysEqual } from '../../utils/arraysEqual';
 
 /**
  * Robot component loaded from local URDF
@@ -353,18 +353,6 @@ function URDFRobot({
     }
   }, [robot, antennas]); // Triggers on load AND when antennas change
   
-  // ✅ Helper function to compare arrays with tolerance (avoids unnecessary updates)
-  // ✅ OPTIMIZED: Increased tolerance to 0.005 rad (~0.3°) to avoid micro-updates that cause frame drops
-  // Early return on reference equality for better performance
-  const arraysEqual = (a, b, tolerance = 0.005) => {
-    if (a === b) return true; // ✅ Early return if same reference (optimization #3)
-    if (!a || !b) return a === b;
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (Math.abs(a[i] - b[i]) > tolerance) return false;
-    }
-    return true;
-  };
   
   // ✅ Animation loop synchronized with Three.js render (60 FPS)
   // 🚀 GAME-CHANGING: Throttled to 10 Hz to match WebSocket frequency (83% reduction in checks)
@@ -573,16 +561,6 @@ const URDFRobotMemo = memo(URDFRobot, (prevProps, nextProps) => {
   if (prevProps.cellShading?.enabled !== nextProps.cellShading?.enabled) {
     return false; // Re-render
   }
-  
-  // Compare arrays with tolerance (0.005 rad)
-  const arraysEqual = (a, b, tolerance = 0.005) => {
-    if (a === b) return true;
-    if (!a || !b || a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (Math.abs(a[i] - b[i]) > tolerance) return false;
-    }
-    return true;
-  };
   
   // Compare headJoints
   if (!arraysEqual(prevProps.headJoints, nextProps.headJoints)) {

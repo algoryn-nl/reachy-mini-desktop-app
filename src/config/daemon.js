@@ -43,6 +43,13 @@ export const DAEMON_CONFIG = {
     JOB_CLEANUP_DELAY: 10000,  // 10s before cleaning up a failed job
   },
   
+  // Startup timeouts (in milliseconds)
+  STARTUP: {
+    TIMEOUT_NORMAL: 30000,     // 30s for normal mode (robot connected)
+    TIMEOUT_SIMULATION: 180000, // 3 minutes for simulation mode (MuJoCo install can take time)
+    ACTIVITY_RESET_DELAY: 15000, // Reset timeout when we see activity (logs from sidecar)
+  },
+  
   // Log management
   LOGS: {
     MAX_FRONTEND: 500,   // Max frontend logs (user actions, API calls) - increased for better history

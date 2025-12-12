@@ -1,17 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
-import { getAppWindow } from '../../utils/windowUtils';
 import unpluggedCableLeftSvg from '../../assets/unplugged-cable-left.svg';
 import unpluggedCableRightSvg from '../../assets/unplugged-cable-right.svg';
 import useAppStore from '../../store/useAppStore';
+import { enableSimulationMode } from '../../utils/simulationMode';
 
 /**
  * View displayed when robot is not detected via USB
  */
-export default function RobotNotDetectedView() {
-  const appWindow = getAppWindow();
-  const { darkMode } = useAppStore();
+export default function RobotNotDetectedView({ startDaemon }) {
+  const { darkMode, isStarting } = useAppStore();
   const [dots, setDots] = useState('');
+  const [isLaunching, setIsLaunching] = useState(false);
+
+  // 🎭 Handler for simulation mode launch
+  const handleSimulationClick = () => {
+    if (isLaunching || isStarting) {
+      return; // Prevent multiple clicks
+    }
+    
+    // Enable simulation mode (persists in localStorage)
+    enableSimulationMode();
+    
+    setIsLaunching(true);
+    // Let React render before starting
+    requestAnimationFrame(() => {
+      startDaemon?.();
+    });
+  };
 
   // Animated ellipsis dots
   useEffect(() => {
@@ -147,6 +163,7 @@ export default function RobotNotDetectedView() {
               minHeight: 42,
               py: 1.25,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -159,7 +176,28 @@ export default function RobotNotDetectedView() {
                 letterSpacing: '0.5px',
               }}
             >
-              Scanning for USB connection{dots}
+              {(isLaunching || isStarting) ? 'Starting simulation...' : `Scanning for USB connection${dots}`}
+            </Typography>
+
+            {/* 🎭 Simulation mode link - discrete, centered */}
+            <Typography
+              onClick={handleSimulationClick}
+              sx={{
+                mt: 2.5,
+                fontSize: 11,
+                color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                cursor: (isLaunching || isStarting) ? 'default' : 'pointer',
+                opacity: (isLaunching || isStarting) ? 0.4 : 1,
+                transition: 'all 0.2s ease',
+                userSelect: 'none',
+                '&:hover': {
+                  color: (isLaunching || isStarting) 
+                    ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
+                    : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
+                },
+              }}
+            >
+              🎭 or launch in simulation mode
             </Typography>
           </Box>
         </Box>

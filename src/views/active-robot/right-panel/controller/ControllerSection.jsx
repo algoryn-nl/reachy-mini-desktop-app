@@ -6,10 +6,11 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import Controller from '../../controller';
 import { useGamepadConnected, useActiveDevice } from '../../../../utils/InputManager';
 import { useWindowFocus } from '../../../windows/hooks';
-import useAppStore from '../../../../store/useAppStore';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * Controller Section - Displays controller component in right panel
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export default function ControllerSection({ 
   showToast,
@@ -17,10 +18,12 @@ export default function ControllerSection({
   isBusy = false,
   darkMode = false,
 }) {
+  const { robotState, actions } = useActiveRobotContext();
+  const { rightPanelView } = robotState;
+  const { setRightPanelView } = actions;
+  
   const controllerResetRef = useRef(null);
   const [isAtInitialPosition, setIsAtInitialPosition] = useState(true);
-  const rightPanelView = useAppStore(state => state.rightPanelView);
-  const setRightPanelView = useAppStore(state => state.setRightPanelView);
   const prevRightPanelViewRef = useRef(rightPanelView);
   
   // Check if gamepad is connected and which device is active

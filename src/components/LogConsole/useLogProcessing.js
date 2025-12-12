@@ -15,9 +15,7 @@ export const useLogProcessing = (logs, frontendLogs, appLogs, includeStoreLogs, 
     if (simpleStyle) {
       return safeLogs.map(log => {
         try {
-          if (typeof log === 'string') {
-            return { message: log.slice(0, 10000), source: 'daemon', timestamp: '', level: 'info', timestampNumeric: Date.now() };
-          }
+          // Use normalizeLog for consistent timestamp parsing
           return normalizeLog(log);
         } catch (error) {
           // Skip invalid logs in simple mode
@@ -106,13 +104,16 @@ export const useLogProcessing = (logs, frontendLogs, appLogs, includeStoreLogs, 
       // For daemon logs, check if same message appeared recently (within 1 second)
       if (log.source === 'daemon') {
         const messageKey = log.message;
-        const timestamp = log.timestampNumeric || Date.now();
+        // Use the log's timestamp if available, otherwise use index as a stable key
+        const timestamp = log.timestampNumeric > 0 ? log.timestampNumeric : index;
         
-        // Check if we've seen this message recently
-        const lastSeen = daemonLogsSeen.get(messageKey);
-        if (lastSeen && (timestamp - lastSeen) < 1000) {
-          // Same message within 1 second = duplicate, skip it
-          return false;
+        // Check if we've seen this message recently (only for logs with real timestamps)
+        if (log.timestampNumeric > 0) {
+          const lastSeen = daemonLogsSeen.get(messageKey);
+          if (lastSeen && typeof lastSeen === 'number' && lastSeen > 1000000000000 && (timestamp - lastSeen) < 1000) {
+            // Same message within 1 second = duplicate, skip it
+            return false;
+          }
         }
         
         // Update last seen timestamp
@@ -132,18 +133,35 @@ export const useLogProcessing = (logs, frontendLogs, appLogs, includeStoreLogs, 
       return true;
     });
     
-    // Sort: use numeric timestamp if available, otherwise use order
-    // Always use timestampNumeric if available (even if it's Date.now())
+    // Sort: preserve original order as primary, use timestamp only for same-order items
+    // The 'order' field encodes the source: daemon=0-999999, frontend=1000000+, app=2000000+
+    // Within the same source, use timestamp if available, otherwise preserve insertion order
     const sortedLogs = uniqueLogs.sort((a, b) => {
-      // If both have numeric timestamps, use them (even if recent)
-      if (a.timestampNumeric && b.timestampNumeric) {
+      const aOrder = a.order || 0;
+      const bOrder = b.order || 0;
+      
+      // Different sources: use order (daemon < frontend < app)
+      // This preserves the order in which logs were added to their respective arrays
+      if (Math.floor(aOrder / 1000000) !== Math.floor(bOrder / 1000000)) {
+        // Cross-source: if both have valid timestamps, use them
+        const aHasTimestamp = a.timestampNumeric && a.timestampNumeric > 0;
+        const bHasTimestamp = b.timestampNumeric && b.timestampNumeric > 0;
+        if (aHasTimestamp && bHasTimestamp) {
+          return a.timestampNumeric - b.timestampNumeric;
+        }
+        // Otherwise use order (preserves array order)
+        return aOrder - bOrder;
+      }
+      
+      // Same source: use timestamp if both have it, otherwise use order
+      const aHasTimestamp = a.timestampNumeric && a.timestampNumeric > 0;
+      const bHasTimestamp = b.timestampNumeric && b.timestampNumeric > 0;
+      if (aHasTimestamp && bHasTimestamp) {
         return a.timestampNumeric - b.timestampNumeric;
       }
-      // If only one has timestamp, prioritize it
-      if (a.timestampNumeric && !b.timestampNumeric) return -1;
-      if (!a.timestampNumeric && b.timestampNumeric) return 1;
-      // Otherwise preserve order
-      return (a.order || 0) - (b.order || 0);
+      
+      // Fallback to order within same source
+      return aOrder - bOrder;
     });
     
     // Filter out excessive duplicate daemon errors (keep only last 1 of same error within 10 seconds)

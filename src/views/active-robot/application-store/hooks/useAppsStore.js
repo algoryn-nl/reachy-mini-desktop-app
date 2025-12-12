@@ -178,10 +178,6 @@ export function useAppsStore(isActive, official = true) {
         installedAppsFromDaemon.map(app => app.name?.toLowerCase()).filter(Boolean)
       );
       
-      console.log(`🔍 DEBUG: installedAppsFromDaemon count: ${installedAppsFromDaemon.length}`);
-      console.log(`🔍 DEBUG: installedAppNames Set:`, Array.from(installedAppNames));
-      console.log(`🔍 DEBUG: installedAppsFromDaemon:`, installedAppsFromDaemon.map(app => ({ name: app.name, source_kind: app.source_kind })));
-      
       // For official mode: Only add installed apps that are NOT official
       // Official apps are ALWAYS in the list (from fetchOfficialApps)
       // We just mark them as installed if they're in installedAppsFromDaemon
@@ -194,19 +190,17 @@ export function useAppsStore(isActive, official = true) {
             source_kind: installedApp.source_kind || 'local',
           }));
         
-        console.log(`🔍 DEBUG: uniqueInstalledApps (non-official):`, uniqueInstalledApps.map(app => ({ name: app.name, source_kind: app.source_kind })));
-        
         // Only add non-official installed apps
         daemonApps = [...daemonApps, ...uniqueInstalledApps];
       }
       
-      console.log(`🔍 DEBUG: daemonApps before enrichment: ${daemonApps.length} apps`);
+      // Create a map of installed apps from daemon for merging custom_app_url
+      const installedAppsMap = new Map(
+        installedAppsFromDaemon.map(app => [app.name?.toLowerCase(), app])
+      );
       
-      // Enrich apps with Hugging Face metadata
-      const { enrichedApps, installed, available } = await enrichApps(daemonApps, installedAppNames);
-      
-      console.log(`🔍 DEBUG: After enrichment - installed: ${installed.length}, available: ${available.length}`);
-      console.log(`🔍 DEBUG: installed apps details:`, installed.map(app => ({ name: app.name, isInstalled: app.isInstalled, source_kind: app.source_kind })));
+      // Enrich apps with Hugging Face metadata AND daemon data (custom_app_url)
+      const { enrichedApps, installed, available } = await enrichApps(daemonApps, installedAppNames, installedAppsMap);
       
       // Update store
       setAvailableApps(enrichedApps);

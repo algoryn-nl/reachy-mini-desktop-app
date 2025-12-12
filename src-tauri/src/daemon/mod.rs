@@ -17,8 +17,19 @@ pub const MAX_LOGS: usize = 50;
 // ============================================================================
 
 pub fn add_log(state: &State<DaemonState>, message: String) {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    
+    // Add timestamp prefix (Unix millis) for proper chronological sorting
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    
+    // Format: "TIMESTAMP|MESSAGE" - will be parsed by frontend
+    let timestamped_message = format!("{}|{}", timestamp, message);
+    
     let mut logs = state.logs.lock().unwrap();
-    logs.push_back(message);
+    logs.push_back(timestamped_message);
     if logs.len() > MAX_LOGS {
         logs.pop_front();
     }

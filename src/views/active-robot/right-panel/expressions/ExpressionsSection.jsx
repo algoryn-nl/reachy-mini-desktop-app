@@ -1,15 +1,16 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
-import { Box, IconButton, Typography, Button, Stack, Tooltip } from '@mui/material';
+import { Box, IconButton, Typography, Tooltip, InputBase } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import West from '@mui/icons-material/West';
 import East from '@mui/icons-material/East';
 import SwapHoriz from '@mui/icons-material/SwapHoriz';
-import SpinningWheel from '@components/wheel/SpinningWheel';
+import { EmojiPicker } from '@components/emoji-grid';
 import { CHOREOGRAPHY_DATASETS, QUICK_ACTIONS, EMOTIONS, DANCES, EMOTION_EMOJIS, DANCE_EMOJIS } from '@constants/choreographies';
 import { useRobotCommands } from '@hooks/robot';
-import useAppStore from '@store/useAppStore';
-import { setAppStoreInstance } from '@config/daemon';
+import { useActiveRobotContext } from '../../context';
 import { useLogger } from '@/utils/logging';
 
 // Constants - moved outside component to avoid recreation
@@ -28,28 +29,33 @@ const EFFECT_MAP = {
 /**
  * Expressions Section - Wrapper for SpinningWheel in right panel
  * Displays the Expressions component in the right column instead of a separate window
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export default function ExpressionsSection({ 
   isActive: isActiveProp = false,
   isBusy: isBusyProp = false,
   darkMode = false,
 }) {
-  // Initialize store instance for logging (ensures logs go to main window's store)
-  useEffect(() => {
-    setAppStoreInstance(useAppStore);
-  }, []);
-
-  // Get isActive directly from store (same as ExpressionsWindow) to ensure consistency
-  const isActiveFromStore = useAppStore(state => state.isActive);
-  const isActive = isActiveFromStore ?? isActiveProp;
+  // Get state and actions from context
+  const { robotState, actions } = useActiveRobotContext();
+  const { 
+    isActive: isActiveFromContext,
+    robotStatus, 
+    isCommandRunning, 
+    isAppRunning, 
+    isInstalling 
+  } = robotState;
+  const { setRightPanelView, triggerEffect, stopEffect } = actions;
   
-  const robotStatus = useAppStore(state => state.robotStatus);
-  const isCommandRunning = useAppStore(state => state.isCommandRunning);
-  const isAppRunning = useAppStore(state => state.isAppRunning);
-  const isInstalling = useAppStore(state => state.isInstalling);
+  // Use context value or prop fallback
+  const isActive = isActiveFromContext ?? isActiveProp;
   
   // Compute isReady and isBusy from state
   const isReady = robotStatus === 'ready';
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
   
   // Debounce isBusy to prevent flickering when state changes rapidly
   const rawIsBusy = robotStatus === 'busy' || isCommandRunning || isAppRunning || isInstalling;
@@ -107,23 +113,19 @@ export default function ExpressionsSection({
     // Trigger corresponding 3D visual effect
     const effectType = EFFECT_MAP[action.name];
     if (effectType) {
-      if (store && typeof store.triggerEffect === 'function') {
-        store.triggerEffect(effectType);
-        
-        // Clear previous timeout if exists
-        if (effectTimeoutRef.current) {
-          clearTimeout(effectTimeoutRef.current);
-        }
-        
-        effectTimeoutRef.current = setTimeout(() => {
-          if (store && typeof store.stopEffect === 'function') {
-            store.stopEffect();
-          }
-          effectTimeoutRef.current = null;
-        }, EFFECT_DURATION_MS);
+      triggerEffect(effectType);
+      
+      // Clear previous timeout if exists
+      if (effectTimeoutRef.current) {
+        clearTimeout(effectTimeoutRef.current);
       }
+      
+      effectTimeoutRef.current = setTimeout(() => {
+        stopEffect();
+        effectTimeoutRef.current = null;
+      }, EFFECT_DURATION_MS);
     }
-  }, [sendCommand, playRecordedMove]);
+  }, [sendCommand, playRecordedMove, triggerEffect, stopEffect]);
 
   // Cleanup effect timeout on unmount
   useEffect(() => {
@@ -136,9 +138,12 @@ export default function ExpressionsSection({
   }, []);
 
   const quickActions = QUICK_ACTIONS;
-  const [activeTab, setActiveTab] = useState('emotions');
-  const setRightPanelView = useAppStore(state => state.setRightPanelView);
 
+  // Handle grid action
+  const handleGridAction = useCallback((action) => {
+    if (debouncedIsBusy) return;
+    handleQuickAction(action);
+  }, [debouncedIsBusy, handleQuickAction]);
 
   const handleBack = () => {
     setRightPanelView(null);
@@ -308,147 +313,94 @@ export default function ExpressionsSection({
               <InfoOutlinedIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-        </Box>
-        
-        {/* Libraries section - centered */}
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 1.5,
-            mt: 5,
-            mb: 1,
-          }}
-        >
-          {/* Libraries label */}
-          <Typography
+          
+          {/* Spacer */}
+          <Box sx={{ flex: 1 }} />
+          
+          {/* Search input - discrete */}
+          <Box
             sx={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1,
+              py: 0.5,
+              borderRadius: 2,
+              bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+              transition: 'all 0.2s ease',
+              '&:focus-within': {
+                bgcolor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                borderColor: 'rgba(255,149,0,0.4)',
+              },
             }}
           >
-            Libraries
-          </Typography>
-          
-          {/* Library buttons - side by side with shared borders */}
-          <Stack direction="row" spacing={0} sx={{ width: '100%', maxWidth: '300px' }}>
-            <Button
-              variant="outlined"
-              onClick={() => setActiveTab('emotions')}
+            <SearchIcon 
+              sx={{ 
+                fontSize: 14, 
+                color: darkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+              }} 
+            />
+            <InputBase
+              ref={searchInputRef}
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               sx={{
-                borderColor: activeTab === 'emotions' ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'),
-                color: activeTab === 'emotions' ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
-                fontWeight: activeTab === 'emotions' ? 600 : 400,
-                fontSize: 15,
-                textTransform: 'none',
-                padding: '10px 24px',
-                borderRadius: '8px 0 0 8px', // Arrondi seulement à gauche
-                borderRight: 'none', // Pas de bordure droite (bordure commune)
-                bgcolor: 'transparent',
-                flex: 1,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  borderColor: activeTab === 'emotions' ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'),
-                  bgcolor: activeTab === 'emotions' ? 'rgba(255, 149, 0, 0.1)' : (darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'),
-                  color: activeTab === 'emotions' ? '#FF9500' : (darkMode ? '#f5f5f5' : '#333'),
+                fontSize: 12,
+                color: darkMode ? '#fff' : '#333',
+                width: searchQuery ? 100 : 60,
+                transition: 'width 0.2s ease',
+                '& input': {
+                  padding: 0,
+                  '&::placeholder': {
+                    color: darkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)',
+                    opacity: 1,
+                  },
                 },
               }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', justifyContent: 'center' }}>
-                <span>Emotions</span>
-                <Typography
-                  component="span"
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: 300,
-                    opacity: 0.7,
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {EMOTIONS.length}
-                </Typography>
-              </Box>
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setActiveTab('dances')}
-              sx={{
-                borderColor: activeTab === 'dances' ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'),
-                color: activeTab === 'dances' ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
-                fontWeight: activeTab === 'dances' ? 600 : 400,
-                fontSize: 15,
-                textTransform: 'none',
-                padding: '10px 24px',
-                borderRadius: '0 8px 8px 0', // Arrondi seulement à droite
-                borderLeft: '1px solid',
-                borderLeftColor: activeTab === 'emotions' || activeTab === 'dances' 
-                  ? '#FF9500' 
-                  : (darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'),
-                bgcolor: 'transparent',
-                flex: 1,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  borderColor: activeTab === 'dances' ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'),
-                  bgcolor: activeTab === 'dances' ? 'rgba(255, 149, 0, 0.1)' : (darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)'),
-                  color: activeTab === 'dances' ? '#FF9500' : (darkMode ? '#f5f5f5' : '#333'),
-                  borderLeftColor: activeTab === 'emotions' || activeTab === 'dances' 
-                    ? '#FF9500' 
-                    : (darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'),
-                },
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', justifyContent: 'center' }}>
-                <span>Dances</span>
-                <Typography
-                  component="span"
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: 300,
-                    opacity: 0.7,
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {DANCES.length}
-                </Typography>
-              </Box>
-            </Button>
-          </Stack>
+            />
+            {searchQuery && (
+              <IconButton
+                size="small"
+                onClick={() => setSearchQuery('')}
+                sx={{
+                  p: 0.25,
+                  color: darkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                  '&:hover': {
+                    color: '#FF9500',
+                  },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 12 }} />
+              </IconButton>
+            )}
+          </Box>
         </Box>
+        
       </Box>
+      {/* Emoji Grid Section */}
       <Box
         sx={{
           width: '100%',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
           bgcolor: 'transparent',
           position: 'relative',
-          overflow: 'visible', // Allow wheel to overflow
-          minHeight: 0, // Allow flex shrinking
-          // Allow more overflow on sides
-          paddingLeft: 0,
-          paddingRight: 0,
-          marginLeft: 0,
-          marginRight: 0,
+          overflow: 'auto',
+          minHeight: 0,
+          px: 2,
+          py: 2,
         }}
       >
-        <SpinningWheel
-          actions={quickActions}
-          onActionClick={handleQuickAction}
-          isReady={isReady}
-          isActive={isActive}
-          isBusy={debouncedIsBusy}
+        <EmojiPicker
+          emotions={EMOTIONS}
+          dances={DANCES}
+          onAction={handleGridAction}
           darkMode={darkMode}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          gap={30}
-          sizeMultiplier={2.8} // Larger wheel (280% instead of 200%)
+          disabled={debouncedIsBusy || !isActive}
+          searchQuery={searchQuery}
         />
       </Box>
     </Box>

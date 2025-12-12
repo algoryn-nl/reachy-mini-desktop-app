@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import useAppStore from '@store/useAppStore';
-import { DAEMON_CONFIG } from '@config/daemon';
+import { useActiveRobotContext } from '../../context';
 
 /**
  * ✅ REFACTORED: Simplified hook to handle app actions
  * Installation tracking moved to useAppInstallation hook
+ * 
+ * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useAppHandlers({
   currentApp,
@@ -15,7 +16,10 @@ export function useAppHandlers({
   stopCurrentApp,
   showToast,
 }) {
-  const { lockForApp, unlockApp, lockForInstall, unlockInstall, setInstallResult } = useAppStore();
+  const { robotState, actions, api } = useActiveRobotContext();
+  const { lockForApp, unlockApp, lockForInstall, unlockInstall, setInstallResult } = actions;
+  const { isCommandRunning } = robotState;
+  const DAEMON_CONFIG = api.config;
   
   const [expandedApp, setExpandedApp] = useState(null);
   const [startingApp, setStartingApp] = useState(null);
@@ -78,7 +82,7 @@ export function useAppHandlers({
   const handleStartApp = async (appName) => {
     try {
       // ✅ Check if robot is busy (quick action in progress)
-      if (useAppStore.getState().isCommandRunning) {
+      if (isCommandRunning) {
         showToast('Please wait for the current action to finish', 'warning');
         console.warn(`⚠️ Cannot start ${appName}: quick action is running`);
         return;

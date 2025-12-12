@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Box, Typography, Button, ButtonGroup, CircularProgress, Select, MenuItem, FormControl, InputLabel, LinearProgress, useTheme } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import Viewer3D from './viewer3d';
-import SpinningWheel from '@components/wheel/SpinningWheel';
+import { EmojiPicker } from '@components/emoji-grid';
 import { mapMeshToScanPart } from '../utils/scanParts';
 import { HARDWARE_ERROR_CONFIGS, getErrorMeshes } from '../utils/hardwareErrors';
 import useAppStore from '../store/useAppStore';
@@ -162,47 +162,23 @@ export default function DevPlayground() {
         Dev Playground - Normal vs Scan Mode
       </Typography>
       
-      {/* Spinning Wheel Section - Same size as Tauri window (500x400) */}
+      {/* Emoji Picker Section */}
       <Box sx={{ 
         width: '500px',
-        height: '400px',
+        maxHeight: '400px',
         border: '2px solid #FF9500',
         borderRadius: 2,
-        overflow: 'hidden',
+        overflow: 'auto',
         mb: 2,
-        position: 'relative',
+        p: 2,
       }}>
-        {/* Mock header to match QuickActionsWindow layout */}
-        <Box sx={{
-          height: '120px',
-          width: '100%',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          zIndex: 10,
-          pointerEvents: 'none',
-        }} />
-        {/* Wheel container - same as QuickActionsWindow: calc(100% - 120px) */}
-        <Box sx={{
-          width: '100%',
-          height: 'calc(100% - 120px)',
-          position: 'absolute',
-          top: '120px',
-          left: 0,
-        }}>
-          <SpinningWheel
-            actions={activeTab === 'emotions' ? sampleActions.emotions : sampleActions.dances}
-            onActionClick={handleActionClick}
-            isReady={true}
-            isActive={true}
-            isBusy={false}
-            darkMode={darkMode}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            emojiSize={72}
-            gap={30}
-          />
-        </Box>
+        <EmojiPicker
+          emotions={sampleActions.emotions}
+          dances={sampleActions.dances}
+          onAction={handleActionClick}
+          darkMode={darkMode}
+          disabled={false}
+        />
       </Box>
       
       <Box

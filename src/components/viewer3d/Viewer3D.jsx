@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { IconButton, Switch, Tooltip, Box, Typography } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import Scene from './Scene';
 import { useRobotWebSocket } from './hooks';
 import useAppStore from '../../store/useAppStore';
+import { arraysEqual } from '../../utils/arraysEqual';
 import SettingsOverlay from './SettingsOverlay';
 import { FPSMeter } from '../FPSMeter';
 
@@ -96,16 +97,6 @@ export default function RobotViewer3D({
   const prevHeadJointsRef = useRef(null);
   const prevYawBodyRef = useRef(null);
   const prevPassiveJointsRef = useRef(null);
-  
-  // Helper to check if arrays are equal (with tolerance)
-  const arraysEqual = (a, b, tolerance = 0.005) => {
-    if (a === b) return true;
-    if (!a || !b || a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (Math.abs(a[i] - b[i]) > tolerance) return false;
-    }
-    return true;
-  };
   
   // ✅ OPTIMIZED: Only recalculate if values actually changed (not just reference)
   const finalAntennas = useMemo(() => {
@@ -275,7 +266,7 @@ export default function RobotViewer3D({
     }}>
       <Canvas
         camera={{ position: cameraConfig.position, fov: cameraConfig.fov }}
-        dpr={[1, 2, 3]} // ✅ HIGH QUALITY: Support retina displays up to 3x pixel ratio
+        dpr={[1, 2]} // ✅ OPTIMIZED: Limit to 2x pixel ratio (3x too heavy for most GPUs)
         frameloop={hideEffects ? "demand" : "always"} // ✅ Stop rendering loop for small/hidden views
         gl={{ 
           antialias: true, // ✅ MSAA anti-aliasing enabled
@@ -459,8 +450,8 @@ export default function RobotViewer3D({
         </Box>
       )}
       
-      {/* FPS Meter - Above Status Tag */}
-      {!hideControls && (
+      {/* FPS Meter - Above Status Tag (dev only) */}
+      {!hideControls && import.meta.env.DEV && (
         <Box
           sx={{
             position: 'absolute',

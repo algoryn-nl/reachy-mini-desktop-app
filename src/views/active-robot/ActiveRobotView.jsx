@@ -4,8 +4,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import { getAppWindow } from '../../utils/windowUtils';
-import { open } from '@tauri-apps/plugin-shell';
 import Viewer3D from '../../components/viewer3d';
 import CameraFeed from './camera/CameraFeed';
 import { ViewportSwapper } from './layout';
@@ -17,9 +15,8 @@ import AudioControls from './audio/AudioControls';
 import { useRobotPowerState, useRobotMovementStatus } from './hooks';
 import { useAudioControls } from './audio/hooks';
 import { useAppLogs } from './application-store/hooks';
-import useAppStore from '../../store/useAppStore';
+import { useActiveRobotContext } from './context';
 import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
 
 
 function ActiveRobotView({ 
@@ -35,23 +32,25 @@ function ActiveRobotView({
   usbPortName,
   onAppsReady, // ✅ Callback to notify when apps are loaded
 }) {
-  // Use mock if available, otherwise the real API
-  const appWindow = getAppWindow();
+  // Get dependencies from context
+  const { robotState, actions, windowManager } = useActiveRobotContext();
   
-  // ✅ OPTIMIZED: Separate selectors (Zustand optimizes these internally)
-  // Using separate selectors avoids creating new objects on each render
-  const darkMode = useAppStore(state => state.darkMode);
-  const isDaemonCrashed = useAppStore(state => state.isDaemonCrashed);
-  const resetTimeouts = useAppStore(state => state.resetTimeouts);
-  const update = useAppStore(state => state.update);
-  const robotStatus = useAppStore(state => state.robotStatus);
-  const busyReason = useAppStore(state => state.busyReason);
+  // Extract state from context
+  const { 
+    darkMode, 
+    isDaemonCrashed, 
+    robotStatus, 
+    busyReason,
+    currentAppName,
+    isAppRunning,
+  } = robotState;
   
-  // ✅ Computed helpers
-  const isBusy = useAppStore(state => state.isBusy());
-  const isReady = useAppStore(state => state.isReady());
-  const currentAppName = useAppStore(state => state.currentAppName);
-  const isAppRunning = useAppStore(state => state.isAppRunning);
+  // Extract actions from context
+  const { resetTimeouts, update, triggerEffect, stopEffect, isBusy, isReady } = actions;
+  
+  // Compute busy/ready state
+  const isBusyState = isBusy();
+  const isReadyState = isReady();
   
   // Get complete robot state from daemon API
   const { isOn, isMoving } = useRobotPowerState(isActive); // ✅ Robot power state (motors on/off, movement)
@@ -167,10 +166,10 @@ function ActiveRobotView({
     
         const effectType = effectMap[action.name];
         if (effectType) {
-          useAppStore.getState().triggerEffect(effectType);
+          triggerEffect(effectType);
           // Stop effect after 4 seconds
           setTimeout(() => {
-            useAppStore.getState().stopEffect();
+            stopEffect();
           }, 4000);
         }
     
@@ -410,7 +409,7 @@ function ActiveRobotView({
           {/* Power Button - top left corner */}
           <PowerButton
             onStopDaemon={stopDaemon}
-            isReady={isReady}
+            isReady={isReadyState}
             isStopping={isStopping}
             darkMode={darkMode}
           />
@@ -491,9 +490,9 @@ function ActiveRobotView({
             onLoadingChange={handleAppsLoadingChange}
             quickActions={quickActions}
             handleQuickAction={handleQuickAction}
-            isReady={isReady}
+            isReady={isReadyState}
             isActive={isActive}
-            isBusy={isBusy}
+            isBusy={isBusyState}
             darkMode={darkMode}
           />
         </Box>

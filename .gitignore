@@ -13,8 +13,9 @@ Test
 
 .playwright-mcp
 
-.analysis/
-.claude/
+.cursor/
+
+.analysis-docs/
 .claude-4.5-sonnet-analysis/
 
 node_modules

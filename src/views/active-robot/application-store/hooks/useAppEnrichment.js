@@ -17,9 +17,10 @@ export function useAppEnrichment() {
    * Enriches daemon apps with Hugging Face metadata
    * @param {Array} daemonApps - Apps from daemon
    * @param {Set} installedAppNames - Set of installed app names (lowercase)
+   * @param {Map} installedAppsMap - Map of installed apps from daemon (for merging custom_app_url)
    * @returns {Promise<{enrichedApps: Array, installed: Array, available: Array}>}
    */
-  const enrichApps = useCallback(async (daemonApps, installedAppNames) => {
+  const enrichApps = useCallback(async (daemonApps, installedAppNames, installedAppsMap = new Map()) => {
     // 1. Fetch metadata from Hugging Face dataset
     let hfApps = [];
     try {
@@ -56,13 +57,22 @@ export function useAppEnrichment() {
       // Determine if app is installed
       const isInstalled = installedAppNames.has(daemonApp.name?.toLowerCase());
       
-      // 🔍 DEBUG: Log matching for installed apps
-      if (isInstalled) {
-        console.log(`🔍 DEBUG: App "${daemonApp.name}" marked as installed (matched in installedAppNames)`);
-      }
+      // Get installed app data from daemon (contains custom_app_url)
+      const installedAppData = installedAppsMap.get(daemonApp.name?.toLowerCase());
       
       // Build enriched app
-      const enrichedApp = buildEnrichedApp(daemonApp, hfMetadata, spaceData, isInstalled);
+      let enrichedApp = buildEnrichedApp(daemonApp, hfMetadata, spaceData, isInstalled);
+      
+      // Merge custom_app_url from installed app data (daemon knows this, not HF)
+      if (isInstalled && installedAppData?.extra?.custom_app_url) {
+        enrichedApp = {
+          ...enrichedApp,
+          extra: {
+            ...enrichedApp.extra,
+            custom_app_url: installedAppData.extra.custom_app_url,
+          },
+        };
+      }
       
       // Debug: log final metadata for official apps
       if (isOfficialApp) {
@@ -91,13 +101,8 @@ export function useAppEnrichment() {
     const installed = enrichedApps.filter(app => app.isInstalled);
     const available = enrichedApps.filter(app => !app.isInstalled);
     
-    console.log(`🔍 DEBUG enrichApps: Total enriched: ${enrichedApps.length}, Installed: ${installed.length}, Available: ${available.length}`);
-    console.log(`🔍 DEBUG enrichApps: Installed apps:`, installed.map(app => ({ name: app.name, isInstalled: app.isInstalled, source_kind: app.source_kind })));
-    
     // 5. Enrich installed apps with metadata from available apps
     const installedWithEmoji = enrichInstalledAppsWithAvailableMetadata(installed, available);
-    
-    console.log(`🔍 DEBUG enrichApps: After emoji enrichment: ${installedWithEmoji.length} installed apps`);
     
     return {
       enrichedApps,
