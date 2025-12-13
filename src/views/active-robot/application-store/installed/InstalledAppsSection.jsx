@@ -11,6 +11,20 @@ import DiscoverAppsButton from '../discover/Button';
 import ReachiesCarousel from '@components/ReachiesCarousel';
 
 /**
+ * Opens an external URL in the system browser
+ * Works in both Tauri and web contexts
+ */
+const openExternalUrl = async (url) => {
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+  } catch {
+    // Fallback to window.open for web version
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
+
+/**
  * Opens the app's custom web interface in the browser
  * Remaps hostname to match current location (for network access)
  */
@@ -19,19 +33,11 @@ const openAppWebInterface = async (customAppUrl) => {
     const url = new URL(customAppUrl);
     // Remap hostname to current location (handles localhost vs IP)
     url.hostname = window.location.hostname;
-    
-    // Try Tauri shell.open first (opens in system browser)
-    try {
-      const { open } = await import('@tauri-apps/plugin-shell');
-      await open(url.toString());
-    } catch {
-      // Fallback to window.open for web version
-      window.open(url.toString(), '_blank', 'noopener,noreferrer');
-    }
+    await openExternalUrl(url.toString());
   } catch (err) {
     console.error('Failed to open app web interface:', err);
     // Last resort fallback
-    window.open(customAppUrl, '_blank', 'noopener,noreferrer');
+    await openExternalUrl(customAppUrl);
   }
 };
 
@@ -494,9 +500,9 @@ export default function InstalledAppsSection({
                       {hfUrl && (
                         <Button
                           size="small"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            window.open(hfUrl, '_blank', 'noopener,noreferrer');
+                            await openExternalUrl(hfUrl);
                           }}
                           startIcon={<LaunchIcon sx={{ fontSize: 12 }} />}
                           sx={{

@@ -147,73 +147,93 @@ export function useAppsStore(isActive, official = true) {
       setAppsLoading(true);
       setAppsError(null);
       
-      let daemonApps = [];
-      let installedAppsFromDaemon = [];
-      let installedAppsError = null;
-      
+      // ========================================
+      // STEP 1: Fetch available apps (depends on mode)
+      // ========================================
+      let availableAppsFromSource = [];
       if (official) {
-        // Fetch official apps from HF official app store JSON
         console.log(`🔄 Fetching official apps from HF app store`);
-        daemonApps = await fetchOfficialApps();
-        console.log(`✅ Fetched ${daemonApps.length} official apps from HF app store`);
-        
-        // Also fetch installed apps from daemon
-        const installedResult = await fetchInstalledApps();
-        installedAppsFromDaemon = installedResult.apps || [];
-        installedAppsError = installedResult.error;
-        
-        if (installedAppsError) {
-          console.warn(`⚠️ Error fetching installed apps: ${installedAppsError}`);
-          // Don't fail completely - continue with empty installed list
-          // This allows official apps to still be marked as installed if they're in the daemon
-        }
+        availableAppsFromSource = await fetchOfficialApps();
+        console.log(`✅ Fetched ${availableAppsFromSource.length} official apps`);
       } else {
-        // Fetch all apps from daemon
-        console.log(`🔄 Fetching all apps from daemon`);
-        daemonApps = await fetchAllAppsFromDaemon();
+        console.log(`🔄 Fetching community apps from daemon`);
+        availableAppsFromSource = await fetchAllAppsFromDaemon();
+        console.log(`✅ Fetched ${availableAppsFromSource.length} community apps`);
       }
       
-      // Create a set of installed app names for fast lookup
+      // ========================================
+      // STEP 2: Always fetch installed apps from daemon
+      // ========================================
+      const installedResult = await fetchInstalledApps();
+      const installedAppsFromDaemon = installedResult.apps || [];
+      const installedAppsError = installedResult.error;
+      
+      if (installedAppsError) {
+        console.warn(`⚠️ Error fetching installed apps: ${installedAppsError}`);
+      }
+      console.log(`✅ Fetched ${installedAppsFromDaemon.length} installed apps from daemon`);
+      
+      // ========================================
+      // STEP 2.5: In unofficial mode, also fetch official apps metadata
+      // This ensures installed official apps keep their icons/metadata
+      // ========================================
+      let officialAppsForEnrichment = [];
+      if (!official && installedAppsFromDaemon.length > 0) {
+        try {
+          console.log(`🔄 Fetching official apps metadata for enrichment...`);
+          officialAppsForEnrichment = await fetchOfficialApps();
+          console.log(`✅ Fetched ${officialAppsForEnrichment.length} official apps for enrichment`);
+        } catch (err) {
+          console.warn(`⚠️ Failed to fetch official apps for enrichment:`, err.message);
+        }
+      }
+      
+      // ========================================
+      // STEP 3: Create lookup structures for installed apps
+      // ========================================
       const installedAppNames = new Set(
         installedAppsFromDaemon.map(app => app.name?.toLowerCase()).filter(Boolean)
       );
-      
-      // For official mode: Only add installed apps that are NOT official
-      // Official apps are ALWAYS in the list (from fetchOfficialApps)
-      // We just mark them as installed if they're in installedAppsFromDaemon
-      if (official && installedAppsFromDaemon.length > 0) {
-        const daemonAppNames = new Set(daemonApps.map(app => app.name?.toLowerCase()));
-        const uniqueInstalledApps = installedAppsFromDaemon
-          .filter(installedApp => !daemonAppNames.has(installedApp.name?.toLowerCase()))
-          .map(installedApp => ({
-            ...installedApp,
-            source_kind: installedApp.source_kind || 'local',
-          }));
-        
-        // Only add non-official installed apps
-        daemonApps = [...daemonApps, ...uniqueInstalledApps];
-      }
-      
-      // Create a map of installed apps from daemon for merging custom_app_url
       const installedAppsMap = new Map(
         installedAppsFromDaemon.map(app => [app.name?.toLowerCase(), app])
       );
       
-      // Enrich apps with Hugging Face metadata AND daemon data (custom_app_url)
-      const { enrichedApps, installed, available } = await enrichApps(daemonApps, installedAppNames, installedAppsMap);
+      // ========================================
+      // STEP 4: Merge installed apps that aren't in the available list
+      // (e.g., locally installed apps not in official/community store)
+      // ========================================
+      let allApps = [...availableAppsFromSource];
+      const availableAppNames = new Set(allApps.map(app => app.name?.toLowerCase()));
       
-      // Update store
+      const localOnlyApps = installedAppsFromDaemon
+        .filter(app => !availableAppNames.has(app.name?.toLowerCase()))
+        .map(app => ({
+          ...app,
+          source_kind: app.source_kind || 'local',
+        }));
+      
+      if (localOnlyApps.length > 0) {
+        console.log(`➕ Adding ${localOnlyApps.length} locally installed apps not in store`);
+        allApps = [...allApps, ...localOnlyApps];
+      }
+      
+      // ========================================
+      // STEP 5: Enrich apps with metadata and update store
+      // Pass officialAppsForEnrichment as additional metadata pool
+      // so installed official apps get their icons in unofficial mode
+      // ========================================
+      const { enrichedApps, installed } = await enrichApps(
+        allApps, 
+        installedAppNames, 
+        installedAppsMap,
+        officialAppsForEnrichment  // Additional metadata pool for enriching installed apps
+      );
+      
       setAvailableApps(enrichedApps);
       setInstalledApps(installed);
       setAppsLoading(false);
       
-      // ✅ IMPROVED: Log error if installed apps fetch failed but continue
-      if (installedAppsError) {
-        console.warn(`⚠️ Installed apps fetch had errors but continuing with available data: ${installedAppsError}`);
-        // Don't set appsError here - it's not critical, we can still show apps
-      }
-      
-      console.log(`✅ Apps fetched and stored in global store: ${enrichedApps.length} total, ${installed.length} installed`);
+      console.log(`✅ Apps fetched: ${enrichedApps.length} total, ${installed.length} installed`);
       
       return enrichedApps;
     } catch (err) {

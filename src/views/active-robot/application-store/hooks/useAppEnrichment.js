@@ -18,9 +18,10 @@ export function useAppEnrichment() {
    * @param {Array} daemonApps - Apps from daemon
    * @param {Set} installedAppNames - Set of installed app names (lowercase)
    * @param {Map} installedAppsMap - Map of installed apps from daemon (for merging custom_app_url)
+   * @param {Array} additionalMetadataPool - Additional apps to use for enriching installed apps (e.g., official apps in unofficial mode)
    * @returns {Promise<{enrichedApps: Array, installed: Array, available: Array}>}
    */
-  const enrichApps = useCallback(async (daemonApps, installedAppNames, installedAppsMap = new Map()) => {
+  const enrichApps = useCallback(async (daemonApps, installedAppNames, installedAppsMap = new Map(), additionalMetadataPool = []) => {
     // 1. Fetch metadata from Hugging Face dataset
     let hfApps = [];
     try {
@@ -101,8 +102,10 @@ export function useAppEnrichment() {
     const installed = enrichedApps.filter(app => app.isInstalled);
     const available = enrichedApps.filter(app => !app.isInstalled);
     
-    // 5. Enrich installed apps with metadata from available apps
-    const installedWithEmoji = enrichInstalledAppsWithAvailableMetadata(installed, available);
+    // 5. Enrich installed apps with metadata from available apps + additional pool
+    // The additional pool is used in unofficial mode to provide official apps metadata
+    const metadataPool = [...available, ...additionalMetadataPool];
+    const installedWithEmoji = enrichInstalledAppsWithAvailableMetadata(installed, metadataPool);
     
     return {
       enrichedApps,
