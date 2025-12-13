@@ -101,6 +101,35 @@ jobs:
         run: |
           pwsh -File ./scripts/build/build-sidecar-windows.ps1 || echo "Sidecar build skipped"
 
+      - name: Update Windows resources config with cpython folder name
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # Find the actual cpython folder name created by uv-bundle
+          $CPYTHON_FOLDER = (Get-ChildItem -Directory "src-tauri/binaries/cpython-*" -ErrorAction SilentlyContinue | Select-Object -First 1).Name
+          
+          if (-not $CPYTHON_FOLDER) {
+            Write-Host "⚠️  No cpython folder found in src-tauri/binaries/, skipping config update"
+            exit 0
+          }
+          
+          Write-Host "🔧 Found cpython folder: $CPYTHON_FOLDER"
+          Write-Host "   Updating tauri.windows.conf.json..."
+          
+          # Update the tauri.windows.conf.json with the exact cpython folder name
+          $content = Get-Content src-tauri/tauri.windows.conf.json -Raw
+          $content = $content -replace 'cpython-3\.12\*-windows-x86_64\*', $CPYTHON_FOLDER
+          $content = $content -replace 'cpython-3\.12-windows-x86_64', $CPYTHON_FOLDER
+          $content | Set-Content src-tauri/tauri.windows.conf.json
+          
+          Write-Host "✅ Updated tauri.windows.conf.json:"
+          Get-Content src-tauri/tauri.windows.conf.json
+          
+          # Verify the binaries directory contents
+          Write-Host ""
+          Write-Host "📦 Contents of src-tauri/binaries/:"
+          Get-ChildItem src-tauri/binaries/
+
       - name: Setup Apple Code Signing (macOS only)
         if: matrix.os == 'macos-latest'
         env:

@@ -32,20 +32,44 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
         folders.push("../../Resources/binaries");
     }
     
-    // On Windows, binaries can be in the same directory or in a subdirectory
+    // On Windows MSI, sidecar and resources are typically in the same folder
+    // C:\Program Files\Reachy Mini Control\
+    //   ├── Reachy Mini Control.exe
+    //   ├── uv-trampoline-*.exe  (sidecar)
+    //   ├── uv.exe               (resource)
+    //   ├── .venv/               (resource)
+    //   └── cpython-*/           (resource)
     #[cfg(target_os = "windows")]
     {
+        // Primary: Same directory as sidecar (MSI structure)
+        // Note: "." is already added in the common folders above
+        
+        // Resources subfolder (if Tauri uses a subfolder)
+        folders.push("./resources");
+        
+        // Legacy relative paths (for dev/other setups)
         folders.push("..");
         folders.push("../bin");
         folders.push("../binaries");
+        folders.push("../resources");
         folders.push("../..");
         folders.push("../../bin");
         folders.push("../../binaries");
     }
     
-    // On Linux, structure similar to Windows
+    // On Linux .deb, sidecar is in /usr/bin/ and resources are in /usr/share/<app-name>/
+    // The path from /usr/bin/ to /usr/share/reachy-mini-control/ is ../share/reachy-mini-control/
     #[cfg(target_os = "linux")]
     {
+        // Primary: Tauri .deb structure - resources in /usr/share/<app-name>/
+        folders.push("../share/reachy-mini-control");
+        folders.push("/usr/share/reachy-mini-control");  // Absolute fallback
+        
+        // Alternative: /usr/lib/<app-name>/ (some Tauri versions)
+        folders.push("../lib/reachy-mini-control");
+        folders.push("/usr/lib/reachy-mini-control");
+        
+        // Legacy relative paths (for dev/other setups)
         folders.push("..");
         folders.push("../bin");
         folders.push("../binaries");
