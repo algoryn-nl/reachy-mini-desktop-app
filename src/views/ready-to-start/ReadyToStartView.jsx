@@ -239,26 +239,39 @@ export default function ReadyToStartView({
                     {(isButtonLoading || isStarting) ? 'Starting...' : 'Start'}
                   </Button>
 
-                  {/* 🎭 Simulation mode link - discrete, centered below Start button */}
-                  <Typography
-                    onClick={handleSimulationClick}
-                    sx={{
-                      mt: 2,
-                      fontSize: 11,
-                      color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
-                      cursor: (isButtonLoading || isStarting) ? 'default' : 'pointer',
-                      opacity: (isButtonLoading || isStarting) ? 0.4 : 1,
-                      transition: 'all 0.2s ease',
-                      userSelect: 'none',
-                      '&:hover': {
-                        color: (isButtonLoading || isStarting) 
-                          ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
-                          : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
-                      },
-                    }}
-                  >
-                    🎭 Launch in simulation mode
-                  </Typography>
+                  {/* Simulation mode link - discrete, centered below Start button */}
+                  <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                        opacity: (isButtonLoading || isStarting) ? 0.4 : 1,
+                        userSelect: 'none',
+                      }}
+                    >
+                      or
+                    </Typography>
+                    <Typography
+                      onClick={handleSimulationClick}
+                      sx={{
+                        fontSize: 11,
+                        color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '3px',
+                        cursor: (isButtonLoading || isStarting) ? 'default' : 'pointer',
+                        opacity: (isButtonLoading || isStarting) ? 0.4 : 1,
+                        transition: 'all 0.2s ease',
+                        userSelect: 'none',
+                        '&:hover': {
+                          color: (isButtonLoading || isStarting) 
+                            ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
+                            : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
+                        },
+                      }}
+                    >
+                      launch in simulation mode
+                    </Typography>
+                  </Box>
         </Box>
 
             {/* Bottom text - absolute positioning */}

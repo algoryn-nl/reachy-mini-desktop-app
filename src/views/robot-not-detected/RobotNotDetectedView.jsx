@@ -179,26 +179,39 @@ export default function RobotNotDetectedView({ startDaemon }) {
               {(isLaunching || isStarting) ? 'Starting simulation...' : `Scanning for USB connection${dots}`}
             </Typography>
 
-            {/* 🎭 Simulation mode link - discrete, centered */}
-            <Typography
-              onClick={handleSimulationClick}
-              sx={{
-                mt: 2.5,
-                fontSize: 11,
-                color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
-                cursor: (isLaunching || isStarting) ? 'default' : 'pointer',
-                opacity: (isLaunching || isStarting) ? 0.4 : 1,
-                transition: 'all 0.2s ease',
-                userSelect: 'none',
-                '&:hover': {
-                  color: (isLaunching || isStarting) 
-                    ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
-                    : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
-                },
-              }}
-            >
-              🎭 or launch in simulation mode
-            </Typography>
+            {/* Simulation mode link - discrete, centered */}
+            <Box sx={{ mt: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <Typography
+                sx={{
+                  fontSize: 11,
+                  color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                  opacity: (isLaunching || isStarting) ? 0.4 : 1,
+                  userSelect: 'none',
+                }}
+              >
+                or
+              </Typography>
+              <Typography
+                onClick={handleSimulationClick}
+                sx={{
+                  fontSize: 11,
+                  color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '3px',
+                  cursor: (isLaunching || isStarting) ? 'default' : 'pointer',
+                  opacity: (isLaunching || isStarting) ? 0.4 : 1,
+                  transition: 'all 0.2s ease',
+                  userSelect: 'none',
+                  '&:hover': {
+                    color: (isLaunching || isStarting) 
+                      ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
+                      : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
+                  },
+                }}
+              >
+                launch in simulation mode
+              </Typography>
+            </Box>
           </Box>
         </Box>
       </Box>
