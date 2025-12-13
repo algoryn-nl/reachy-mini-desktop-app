@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../../store/useAppStore';
 import { useLogger } from '../../utils/logging';
 import { DAEMON_CONFIG, fetchWithTimeout, fetchWithTimeoutSkipInstall, buildApiUrl } from '../../config/daemon';
-import { isSimulationMode } from '../../utils/simulationMode';
+import { isSimulationMode, disableSimulationMode } from '../../utils/simulationMode';
 import { findErrorConfig, createErrorFromConfig } from '../../utils/hardwareErrors';
 import { useDaemonEventBus } from './useDaemonEventBus';
 import { handleDaemonError } from '../../utils/daemonErrorHandler';
@@ -344,6 +344,8 @@ export const useDaemon = () => {
     setIsStopping(true);
     // ✅ Clear startup timeout if daemon is being stopped
     clearStartupTimeout();
+    // 🧹 Clear simulation mode from localStorage on shutdown
+    disableSimulationMode();
     try {
       // First send robot to sleep position
       try {

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Permissions réseau pour le daemon Python -->
+	<!-- Network permissions for Python daemon -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
@@ -13,54 +13,54 @@
 		<true/>
 	</dict>
 	
-	<!-- Description pour l'utilisation du réseau local (évite les popups) -->
+	<!-- Description for local network usage (avoids popups) -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>L'application doit accepter des connexions réseau locales pour communiquer avec le daemon du robot Reachy Mini sur le port 8000.</string>
+	<string>This app needs to accept local network connections to communicate with the Reachy Mini robot daemon on port 8000.</string>
 	
-	<!-- Désactiver la demande de permission réseau au démarrage -->
-	<!-- Les permissions réseau seront demandées uniquement quand nécessaire -->
+	<!-- Disable network permission request on startup -->
+	<!-- Network permissions will only be requested when needed -->
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_http._tcp</string>
 		<string>_https._tcp</string>
 	</array>
 	
-	<!-- Description pour l'accès au système de fichiers -->
+	<!-- Description for file system access -->
 	<key>NSDocumentsFolderUsageDescription</key>
-	<string>L'application doit accéder au système de fichiers pour installer et gérer les applications du robot Reachy Mini.</string>
+	<string>This app needs access to the file system to install and manage Reachy Mini robot applications.</string>
 	
 	<key>NSDownloadsFolderUsageDescription</key>
-	<string>L'application doit accéder au dossier Téléchargements pour télécharger et installer les applications du robot.</string>
+	<string>This app needs access to the Downloads folder to download and install robot applications.</string>
 	
-	<!-- Description pour l'accès à la caméra (pour les apps qui utilisent la caméra) -->
+	<!-- Description for camera access (for apps that use the camera) -->
 	<key>NSCameraUsageDescription</key>
-	<string>L'application doit accéder à la caméra pour certaines fonctionnalités du robot Reachy Mini (comme le suivi de main).</string>
+	<string>This app needs camera access for certain Reachy Mini robot features (such as hand tracking).</string>
 	
-	<!-- Support pour les caméras de continuité (iPhone/iPad comme webcam) -->
+	<!-- Support for continuity cameras (iPhone/iPad as webcam) -->
 	<key>NSCameraUseContinuityCameraDeviceType</key>
 	<true/>
 	
-	<!-- Description pour l'accès au microphone (pour les apps qui utilisent l'audio) -->
+	<!-- Description for microphone access (for apps that use audio) -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>L'application doit accéder au microphone pour certaines fonctionnalités du robot Reachy Mini (comme la reconnaissance vocale).</string>
+	<string>This app needs microphone access for certain Reachy Mini robot features (such as speech recognition).</string>
 	
-	<!-- Autoriser l'exécution de processus enfants (sidecar Python) -->
+	<!-- Allow child process execution (Python sidecar) -->
 	<key>LSEnvironment</key>
 	<dict>
 		<key>PYTHONUNBUFFERED</key>
 		<string>1</string>
 	</dict>
 	
-	<!-- Version système minimale -->
+	<!-- Minimum system version -->
 	<key>LSMinimumSystemVersion</key>
 	<string>10.15</string>
 	
-	<!-- Catégorie de l'application -->
+	<!-- Application category -->
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	
-	<!-- Autoriser l'exécution de processus enfants sans sandbox strict -->
-	<!-- Important pour le sidecar Python embarqué -->
+	<!-- Allow child process execution without strict sandbox -->
+	<!-- Important for embedded Python sidecar -->
 	<key>LSRequiresNativeExecution</key>
 	<false/>
 </dict>
