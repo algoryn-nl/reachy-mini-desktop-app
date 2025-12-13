@@ -141,7 +141,7 @@ export default function RobotNotDetectedView({ startDaemon }) {
               textAlign: 'center',
             }}
           >
-            Robot Not Detected
+            Looking for Reachy Mini
           </Typography>
           
           <Typography
@@ -153,7 +153,7 @@ export default function RobotNotDetectedView({ startDaemon }) {
               lineHeight: 1.6,
             }}
           >
-            Connect your Reachy Mini via <strong>USB</strong> to get started
+            Make sure your robot is connected via <strong>USB</strong>
           </Typography>
 
           {/* Invisible box with same height as "Start" button (minHeight: 42 + py: 1.25) */}
@@ -191,26 +191,26 @@ export default function RobotNotDetectedView({ startDaemon }) {
               >
                 or
               </Typography>
-              <Typography
-                onClick={handleSimulationClick}
-                sx={{
-                  fontSize: 11,
-                  color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+            <Typography
+              onClick={handleSimulationClick}
+              sx={{
+                fontSize: 11,
+                color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
                   textDecoration: 'underline',
                   textUnderlineOffset: '3px',
-                  cursor: (isLaunching || isStarting) ? 'default' : 'pointer',
-                  opacity: (isLaunching || isStarting) ? 0.4 : 1,
-                  transition: 'all 0.2s ease',
-                  userSelect: 'none',
-                  '&:hover': {
-                    color: (isLaunching || isStarting) 
-                      ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
-                      : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
-                  },
-                }}
-              >
+                cursor: (isLaunching || isStarting) ? 'default' : 'pointer',
+                opacity: (isLaunching || isStarting) ? 0.4 : 1,
+                transition: 'all 0.2s ease',
+                userSelect: 'none',
+                '&:hover': {
+                  color: (isLaunching || isStarting) 
+                    ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
+                    : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
+                },
+              }}
+            >
                 launch in simulation mode
-              </Typography>
+            </Typography>
             </Box>
           </Box>
         </Box>

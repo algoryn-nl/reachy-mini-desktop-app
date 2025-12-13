@@ -251,26 +251,26 @@ export default function ReadyToStartView({
                     >
                       or
                     </Typography>
-                    <Typography
-                      onClick={handleSimulationClick}
-                      sx={{
-                        fontSize: 11,
-                        color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
+                  <Typography
+                    onClick={handleSimulationClick}
+                    sx={{
+                      fontSize: 11,
+                      color: darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)',
                         textDecoration: 'underline',
                         textUnderlineOffset: '3px',
-                        cursor: (isButtonLoading || isStarting) ? 'default' : 'pointer',
-                        opacity: (isButtonLoading || isStarting) ? 0.4 : 1,
-                        transition: 'all 0.2s ease',
-                        userSelect: 'none',
-                        '&:hover': {
-                          color: (isButtonLoading || isStarting) 
-                            ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
-                            : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
-                        },
-                      }}
-                    >
+                      cursor: (isButtonLoading || isStarting) ? 'default' : 'pointer',
+                      opacity: (isButtonLoading || isStarting) ? 0.4 : 1,
+                      transition: 'all 0.2s ease',
+                      userSelect: 'none',
+                      '&:hover': {
+                        color: (isButtonLoading || isStarting) 
+                          ? (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.35)')
+                          : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)'),
+                      },
+                    }}
+                  >
                       launch in simulation mode
-                    </Typography>
+                  </Typography>
                   </Box>
         </Box>
 
