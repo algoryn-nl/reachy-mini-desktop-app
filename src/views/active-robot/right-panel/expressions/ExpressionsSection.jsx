@@ -7,6 +7,7 @@ import { useRobotCommands } from '@hooks/robot';
 import { useActiveRobotContext } from '../../context';
 import { useLogger } from '@/utils/logging';
 
+
 // Constants
 const BUSY_DEBOUNCE_MS = 150;
 const EFFECT_DURATION_MS = 4000;
@@ -29,8 +30,8 @@ export default function ExpressionsSection({
   isBusy: isBusyProp = false,
   darkMode = false,
 }) {
-  // View state: 'wheel' or 'library'
-  const [currentView, setCurrentView] = useState('wheel');
+  // View state: 'wheel' or 'library' - library is default
+  const [currentView, setCurrentView] = useState('library');
   
   // Space key animation state
   const [spacePressed, setSpacePressed] = useState(false);
@@ -154,17 +155,17 @@ export default function ExpressionsSection({
   }, [debouncedIsBusy, handleAction]);
 
   const handleBack = () => {
-    if (currentView === 'library') {
-      // Go back to wheel
-      setCurrentView('wheel');
+    if (currentView === 'wheel') {
+      // Go back to library
+      setCurrentView('library');
     } else {
       // Close the panel
       setRightPanelView(null);
     }
   };
 
-  const handleOpenLibrary = () => {
-    setCurrentView('library');
+  const handleOpenWheel = () => {
+    setCurrentView('wheel');
   };
 
   return (
@@ -208,7 +209,7 @@ export default function ExpressionsSection({
               letterSpacing: '-0.3px',
             }}
           >
-            {currentView === 'wheel' ? 'Expressions' : 'All Libraries'}
+            {currentView === 'wheel' ? 'Emotion Wheel' : 'Expressions'}
           </Typography>
         </Box>
       </Box>
@@ -236,7 +237,7 @@ export default function ExpressionsSection({
             />
           </Box>
 
-          {/* Footer */}
+          {/* Footer - Keyboard shortcut hint */}
           <Box
             sx={{
               position: 'absolute',
@@ -246,10 +247,8 @@ export default function ExpressionsSection({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 2,
             }}
           >
-            {/* Keyboard shortcut */}
             <Box
               sx={{
                 display: 'inline-flex',
@@ -286,22 +285,39 @@ export default function ExpressionsSection({
               </Box>
               <span>random</span>
             </Box>
-
-            {/* Separator */}
-            <Box
-              component="span"
-              sx={{
-                color: darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-                fontSize: 11,
-              }}
-            >
-              •
-            </Box>
-
-            {/* See all libraries link */}
+          </Box>
+        </>
+      ) : (
+        /* Library view - full emoji picker */
+        <Box
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            px: 2,
+            py: 2,
+            pb: 8,
+          }}
+        >
+          <EmojiPicker
+            emotions={EMOTIONS}
+            dances={DANCES}
+            onAction={handleWheelAction}
+            darkMode={darkMode}
+            disabled={debouncedIsBusy || !isActive}
+          />
+          
+          {/* Footer link to wheel */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              pt: 3,
+              pb: 1,
+            }}
+          >
             <Box
               component="button"
-              onClick={handleOpenLibrary}
+              onClick={handleOpenWheel}
               sx={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -319,29 +335,13 @@ export default function ExpressionsSection({
                 },
               }}
             >
-              See all libraries
+              Emotion Wheel
             </Box>
           </Box>
-        </>
-      ) : (
-        /* Library view - full emoji picker */
-        <Box
-          sx={{
-            flex: 1,
-            overflow: 'auto',
-            px: 2,
-            py: 2,
-          }}
-        >
-          <EmojiPicker
-            emotions={EMOTIONS}
-            dances={DANCES}
-            onAction={handleWheelAction}
-            darkMode={darkMode}
-            disabled={debouncedIsBusy || !isActive}
-          />
         </Box>
       )}
     </Box>
   );
 }
+
+
