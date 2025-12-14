@@ -14,6 +14,38 @@ pub fn get_local_app_data_dir() -> Option<PathBuf> {
     None
 }
 
+/// Gets the XDG data home directory for Linux
+/// Returns $XDG_DATA_HOME/Reachy Mini Control/ or ~/.local/share/Reachy Mini Control/
+#[cfg(target_os = "linux")]
+pub fn get_xdg_data_home() -> Option<PathBuf> {
+    // First try XDG_DATA_HOME environment variable
+    if let Ok(xdg_data_home) = env::var("XDG_DATA_HOME") {
+        return Some(PathBuf::from(xdg_data_home).join("Reachy Mini Control"));
+    }
+    
+    // Fall back to ~/.local/share/ (XDG default)
+    env::var("HOME").ok().map(|home| {
+        PathBuf::from(home).join(".local/share/Reachy Mini Control")
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn get_xdg_data_home() -> Option<PathBuf> {
+    None
+}
+
+/// Check if we're running from /usr/lib/ (read-only system directory on Linux)
+#[cfg(target_os = "linux")]
+pub fn is_system_lib_path(path: &std::path::Path) -> bool {
+    let path_str = path.to_string_lossy();
+    path_str.starts_with("/usr/lib/") || path_str.starts_with("/usr/share/")
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn is_system_lib_path(_path: &std::path::Path) -> bool {
+    false
+}
+
 /// Check if we're running from Program Files (read-only on Windows)
 #[cfg(target_os = "windows")]
 pub fn is_program_files_path(path: &std::path::Path) -> bool {
@@ -149,6 +181,111 @@ pub fn setup_local_venv_windows(program_files_dir: &std::path::Path) -> Result<P
 #[cfg(not(target_os = "windows"))]
 pub fn setup_local_venv_windows(_program_files_dir: &std::path::Path) -> Result<PathBuf, String> {
     Err("setup_local_venv_windows is only available on Windows".to_string())
+}
+
+/// Setup local venv on Linux by copying from /usr/lib/ to ~/.local/share/
+/// Returns the local directory path if setup was successful or already done
+#[cfg(target_os = "linux")]
+pub fn setup_local_venv_linux(system_lib_dir: &std::path::Path) -> Result<PathBuf, String> {
+    let local_dir = get_xdg_data_home()
+        .ok_or_else(|| "HOME environment variable not set".to_string())?;
+    
+    // Check if local venv already exists and is valid
+    let local_venv = local_dir.join(".venv");
+    let local_pyvenv_cfg = local_venv.join("pyvenv.cfg");
+    
+    if local_pyvenv_cfg.exists() {
+        // Check if the pyvenv.cfg points to a valid cpython
+        let content = fs::read_to_string(&local_pyvenv_cfg)
+            .map_err(|e| format!("Failed to read local pyvenv.cfg: {}", e))?;
+        
+        // Check if home path exists
+        for line in content.lines() {
+            if line.starts_with("home = ") {
+                let home_path = line.trim_start_matches("home = ");
+                if std::path::Path::new(home_path).exists() {
+                    println!("✅ Local venv already configured at {:?}", local_dir);
+                    return Ok(local_dir);
+                }
+            }
+        }
+        println!("⚠️  Local venv exists but has invalid paths, reconfiguring...");
+    }
+    
+    println!("📦 Setting up local Python environment...");
+    println!("   Source: {:?}", system_lib_dir);
+    println!("   Target: {:?}", local_dir);
+    
+    // Create local directory
+    fs::create_dir_all(&local_dir)
+        .map_err(|e| format!("Failed to create local directory: {}", e))?;
+    
+    // Copy .venv
+    let src_venv = system_lib_dir.join(".venv");
+    if src_venv.exists() {
+        println!("   📁 Copying .venv...");
+        // Remove existing local venv if it exists (to ensure clean copy)
+        if local_venv.exists() {
+            fs::remove_dir_all(&local_venv)
+                .map_err(|e| format!("Failed to remove old local venv: {}", e))?;
+        }
+        copy_dir_recursive(&src_venv, &local_venv)?;
+        println!("   ✅ .venv copied");
+    } else {
+        return Err(format!(".venv not found at {:?}", src_venv));
+    }
+    
+    // Copy cpython folder
+    let cpython_folder = find_cpython_folder(system_lib_dir)?;
+    let src_cpython = system_lib_dir.join(&cpython_folder);
+    let dst_cpython = local_dir.join(&cpython_folder);
+    
+    if src_cpython.exists() {
+        println!("   📁 Copying {}...", cpython_folder);
+        if dst_cpython.exists() {
+            fs::remove_dir_all(&dst_cpython)
+                .map_err(|e| format!("Failed to remove old cpython: {}", e))?;
+        }
+        copy_dir_recursive(&src_cpython, &dst_cpython)?;
+        println!("   ✅ {} copied", cpython_folder);
+    } else {
+        return Err(format!("cpython folder not found at {:?}", src_cpython));
+    }
+    
+    // Copy uv and uvx binaries
+    for bin in &["uv", "uvx"] {
+        let src_bin = system_lib_dir.join(bin);
+        let dst_bin = local_dir.join(bin);
+        if src_bin.exists() {
+            fs::copy(&src_bin, &dst_bin)
+                .map_err(|e| format!("Failed to copy {}: {}", bin, e))?;
+            // Make executable
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mut perms = fs::metadata(&dst_bin)
+                    .map_err(|e| format!("Failed to get permissions for {}: {}", bin, e))?
+                    .permissions();
+                perms.set_mode(0o755);
+                fs::set_permissions(&dst_bin, perms)
+                    .map_err(|e| format!("Failed to set permissions for {}: {}", bin, e))?;
+            }
+            println!("   ✅ {} copied", bin);
+        }
+    }
+    
+    // Patch pyvenv.cfg with local paths
+    println!("   🔧 Patching pyvenv.cfg...");
+    patching_pyvenv_cfg(&local_dir, &cpython_folder)?;
+    println!("   ✅ pyvenv.cfg patched");
+    
+    println!("✅ Local Python environment ready at {:?}", local_dir);
+    Ok(local_dir)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn setup_local_venv_linux(_system_lib_dir: &std::path::Path) -> Result<PathBuf, String> {
+    Err("setup_local_venv_linux is only available on Linux".to_string())
 }
 
 /// Gets the folder containing the current executable

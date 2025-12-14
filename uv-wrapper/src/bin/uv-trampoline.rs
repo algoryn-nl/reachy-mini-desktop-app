@@ -8,6 +8,9 @@ use uv_wrapper::{find_cpython_folder, lookup_bin_folder, patching_pyvenv_cfg};
 #[cfg(target_os = "windows")]
 use uv_wrapper::{get_local_app_data_dir, is_program_files_path, setup_local_venv_windows};
 
+#[cfg(target_os = "linux")]
+use uv_wrapper::{get_xdg_data_home, is_system_lib_path, setup_local_venv_linux};
+
 #[cfg(not(target_os = "windows"))]
 use signal_hook::{consts::TERM_SIGNALS, flag::register};
 
@@ -76,7 +79,16 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
     // Tauri uses the productName from tauri.conf.json which is "Reachy Mini Control" (with spaces!)
     #[cfg(target_os = "linux")]
     {
-        // Primary: Tauri .deb structure - resources in /usr/lib/<productName>/
+        // Priority 1: XDG data home (writable, with patched paths)
+        // This is where we copy the venv on first launch: ~/.local/share/Reachy Mini Control/
+        if let Some(local_dir) = get_xdg_data_home() {
+            // We need to leak the string to get a static reference
+            // This is fine because we only call this function once
+            let local_path: &'static str = Box::leak(local_dir.to_string_lossy().into_owned().into_boxed_str());
+            folders.insert(0, local_path); // Insert at beginning for priority
+        }
+        
+        // Priority 2: Tauri .deb structure - resources in /usr/lib/<productName>/
         // The productName is "Reachy Mini Control" (with spaces)
         folders.push("/usr/lib/Reachy Mini Control");
         folders.push("../lib/Reachy Mini Control");
@@ -328,6 +340,33 @@ fn main() -> ExitCode {
                 Err(e) => {
                     eprintln!("⚠️  Failed to setup local venv: {}", e);
                     eprintln!("   Will try to use Program Files directly (may fail)");
+                }
+            }
+        }
+    }
+    
+    // On Linux, if running from /usr/lib/, copy venv to ~/.local/share/
+    // This copies .venv and cpython to XDG_DATA_HOME where we can write
+    #[cfg(target_os = "linux")]
+    {
+        let exe_dir = env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| PathBuf::from("."));
+        
+        if is_system_lib_path(&exe_dir) {
+            println!("📍 Running from /usr/lib/, checking local venv...");
+            // Look for the actual install dir with the venv
+            let install_dir = PathBuf::from("/usr/lib/Reachy Mini Control");
+            if install_dir.exists() {
+                match setup_local_venv_linux(&install_dir) {
+                    Ok(local_dir) => {
+                        println!("✅ Using local venv at {:?}", local_dir);
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Failed to setup local venv: {}", e);
+                        eprintln!("   Will try to use /usr/lib/ directly (may fail)");
+                    }
                 }
             }
         }
