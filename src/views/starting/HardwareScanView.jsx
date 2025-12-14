@@ -274,8 +274,8 @@ function HardwareScanView({
     setMovementAttempts(0);
     let attemptCount = 0;
     let daemonReady = false;
-    const MAX_ATTEMPTS = 60; // 60 attempts × 500ms = 30s max wait for daemon
-    const MAX_MOVEMENT_ATTEMPTS = 40; // 40 attempts × 500ms = 20s max wait for movements
+    const MAX_ATTEMPTS = 120; // 120 attempts × 500ms = 60s max wait for daemon
+    const MAX_MOVEMENT_ATTEMPTS = 60; // 60 attempts × 500ms = 30s max wait for movements
     const CHECK_INTERVAL = 500; // Check every 500ms
 
     // Step 1: Wait for daemon to be ready
