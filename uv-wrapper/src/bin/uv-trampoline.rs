@@ -109,6 +109,12 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
         folders.push("../..");
         folders.push("../../bin");
         folders.push("../../binaries");
+        
+        // Dev mode: sidecar runs from target/debug/, resources in src-tauri/binaries/
+        // Path: target/debug/ -> src-tauri/binaries/ = ../../binaries (already above)
+        // But also try absolute-ish paths for cargo run scenarios
+        folders.push("../../../src-tauri/binaries");
+        folders.push("../../../../src-tauri/binaries");
     }
     
     folders
