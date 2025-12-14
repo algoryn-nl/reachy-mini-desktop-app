@@ -132,6 +132,39 @@ jobs:
           Write-Host "✅ Sidecar build verified!"
           Write-Host "📦 Contents of src-tauri/binaries/:"
           Get-ChildItem src-tauri/binaries/
+          
+          # Verify that packages were actually installed in the venv
+          Write-Host ""
+          Write-Host "🔍 Verifying Python packages installed..."
+          $sitePackages = "src-tauri/binaries/.venv/Lib/site-packages"
+          if (Test-Path $sitePackages) {
+            $packageCount = (Get-ChildItem $sitePackages -Directory).Count
+            $venvSize = (Get-ChildItem -Recurse "src-tauri/binaries/.venv" | Measure-Object -Property Length -Sum).Sum / 1MB
+            Write-Host "   📦 Packages in site-packages: $packageCount directories"
+            Write-Host "   📊 Venv size: $([math]::Round($venvSize, 2)) MB"
+            
+            # Check for reachy_mini specifically
+            if (Test-Path "$sitePackages/reachy_mini") {
+              Write-Host "   ✅ reachy_mini package found"
+            } else {
+              Write-Host "❌ ERROR: reachy_mini package NOT found in venv!"
+              Write-Host "   This means pip install failed silently during build."
+              Write-Host "   Contents of site-packages:"
+              Get-ChildItem $sitePackages
+              exit 1
+            }
+            
+            # Verify minimum size (should be ~200MB+)
+            if ($venvSize -lt 50) {
+              Write-Host "❌ ERROR: Venv is too small ($([math]::Round($venvSize, 2)) MB)"
+              Write-Host "   Expected at least 50 MB with all dependencies."
+              Write-Host "   This indicates pip install failed."
+              exit 1
+            }
+          } else {
+            Write-Host "❌ ERROR: site-packages directory not found!"
+            exit 1
+          }
 
       - name: Update Windows resources config with cpython folder name
         if: matrix.os == 'windows-latest'

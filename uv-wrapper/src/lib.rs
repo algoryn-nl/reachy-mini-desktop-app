@@ -329,15 +329,25 @@ pub fn run_command(cmd: &str) -> Result<std::process::ExitStatus, std::io::Error
     println!("Running command: {}", cmd);
 
     #[cfg(target_os = "windows")]
-    return Command::new("powershell")
+    let status = Command::new("powershell")
         .arg("-ExecutionPolicy")
         .arg("ByPass")
         .arg("-c")
         .arg(cmd)
-        .status();
+        .status()?;
 
     #[cfg(not(target_os = "windows"))]
-    Command::new("sh").arg("-c").arg(cmd).status()
+    let status = Command::new("sh").arg("-c").arg(cmd).status()?;
+    
+    // Check exit code and return error if non-zero
+    if !status.success() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Command failed with exit code: {:?}", status.code())
+        ));
+    }
+    
+    Ok(status)
 }
 
 pub fn find_cpython_folder(uv_folder: &std::path::Path) -> Result<String, String> {
