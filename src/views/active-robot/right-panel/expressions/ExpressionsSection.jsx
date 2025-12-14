@@ -306,8 +306,8 @@ export default function ExpressionsSection({
             disabled={debouncedIsBusy || !isActive}
           />
           
-          {/* Footer link to wheel */}
-          <Box
+          {/* Footer link to wheel - disabled for now */}
+          {/* <Box
             sx={{
               display: 'flex',
               justifyContent: 'center',
@@ -337,7 +337,7 @@ export default function ExpressionsSection({
             >
               Emotion Wheel
             </Box>
-          </Box>
+          </Box> */}
         </Box>
       )}
     </Box>
