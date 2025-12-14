@@ -36,9 +36,24 @@ fn main() {
         "curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=. UV_NO_MODIFY_PATH=1 sh",
     )
     .expect("Failed to install uv");
+    
+    // On Windows, download uv directly (the install.ps1 script has issues with Get-ExecutionPolicy on CI)
     #[cfg(target_os = "windows")]
-    run_command("$env:UV_INSTALL_DIR = '.';  $env:UV_NO_MODIFY_PATH=1; irm https://astral.sh/uv/install.ps1 | iex")
-        .expect("Failed to install uv");
+    {
+        // Download uv zip from GitHub releases
+        run_command("curl -LsSf -o uv.zip https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip")
+            .expect("Failed to download uv");
+        
+        // Extract the zip (PowerShell's Expand-Archive)
+        run_command("Expand-Archive -Path uv.zip -DestinationPath . -Force")
+            .expect("Failed to extract uv");
+        
+        // Clean up zip file
+        run_command("Remove-Item uv.zip -Force")
+            .expect("Failed to remove uv.zip");
+        
+        println!("✅ uv installed successfully on Windows");
+    }
 
     // Install Python using uv
     #[cfg(not(target_os = "windows"))]
