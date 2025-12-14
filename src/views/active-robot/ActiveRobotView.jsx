@@ -668,12 +668,15 @@ function ActiveRobotView({
       >
         <Box
           sx={{
-            width: 'calc(100% - 80px)',
-            height: 'calc(100% - 80px)',
+            width: 'calc(100vw - 80px)',
+            maxWidth: '1200px',
+            height: '80vh',
+            maxHeight: '800px',
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
             position: 'relative',
+            overflow: 'hidden',
           }}
         >
           {/* Close button */}
@@ -702,11 +705,12 @@ function ActiveRobotView({
               color: darkMode ? '#888' : '#999',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
+              flexShrink: 0,
             }}
           >
             Logs
           </Typography>
-          <Box sx={{ flex: 1, minHeight: 0 }}>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <LogConsole 
               logs={logs} 
               darkMode={darkMode} 
