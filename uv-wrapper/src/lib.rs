@@ -15,17 +15,18 @@ pub fn get_local_app_data_dir() -> Option<PathBuf> {
 }
 
 /// Gets the XDG data home directory for Linux
-/// Returns $XDG_DATA_HOME/Reachy Mini Control/ or ~/.local/share/Reachy Mini Control/
+/// Returns $XDG_DATA_HOME/reachy-mini-control/ or ~/.local/share/reachy-mini-control/
+/// Note: Uses lowercase with dashes to match Tauri's XDG directory naming convention
 #[cfg(target_os = "linux")]
 pub fn get_xdg_data_home() -> Option<PathBuf> {
     // First try XDG_DATA_HOME environment variable
     if let Ok(xdg_data_home) = env::var("XDG_DATA_HOME") {
-        return Some(PathBuf::from(xdg_data_home).join("Reachy Mini Control"));
+        return Some(PathBuf::from(xdg_data_home).join("reachy-mini-control"));
     }
     
     // Fall back to ~/.local/share/ (XDG default)
     env::var("HOME").ok().map(|home| {
-        PathBuf::from(home).join(".local/share/Reachy Mini Control")
+        PathBuf::from(home).join(".local/share/reachy-mini-control")
     })
 }
 
