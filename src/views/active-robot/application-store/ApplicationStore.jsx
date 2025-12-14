@@ -13,7 +13,6 @@ import { InstalledAppsSection } from './installed';
 import { Modal as DiscoverModal } from './discover';
 import { CreateAppTutorial as CreateAppTutorialModal } from './modals';
 import { Overlay as InstallOverlay } from './installation';
-import { Pad as QuickActionsPad, Donut as QuickActionsDonut } from './quick-actions';
 import Controller from '../controller';
 import { useGamepadConnected, useActiveDevice } from '../../../utils/InputManager';
 import { useWindowFocus } from '../../../hooks/system/useWindowFocus';
@@ -28,9 +27,6 @@ import { useWindowFocus } from '../../../hooks/system/useWindowFocus';
 export default function ApplicationStore({ 
   showToast, 
   onLoadingChange,
-  quickActions = [],
-  handleQuickAction = null,
-  isReady = false,
   isActive = false,
   isBusy = false,
   darkMode = false,
@@ -199,116 +195,6 @@ export default function ApplicationStore({
         },
       }}
     >
-      {/* Emotion Wheel Section - Accordion */}
-      {quickActions.length > 0 && handleQuickAction && (
-        <Accordion 
-          defaultExpanded={true}
-          sx={{
-            boxShadow: 'none !important',
-            bgcolor: 'transparent !important',
-            backgroundColor: 'transparent !important',
-            '&:before': { display: 'none' },
-            '&.Mui-expanded': { margin: 0 },
-            mt: 0,
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon sx={{ color: effectiveDarkMode ? '#666' : '#bbb', opacity: 0.5 }} />}
-            sx={{
-              px: 3,
-              py: 1,
-              pt: 0,
-              minHeight: 'auto',
-              bgcolor: 'transparent !important',
-              backgroundColor: 'transparent !important',
-              '&.Mui-expanded': { minHeight: 'auto' },
-              '& .MuiAccordionSummary-content': {
-                margin: '12px 0',
-                '&.Mui-expanded': { margin: '12px 0' },
-              },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography
-                sx={{
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: effectiveDarkMode ? '#f5f5f5' : '#333',
-                  letterSpacing: '-0.3px',
-                }}
-              >
-                Expressions
-              </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ px: 3, pt: 0, pb: 0, bgcolor: 'transparent !important', backgroundColor: 'transparent !important' }}>
-            <QuickActionsDonut
-              actions={quickActions}
-              onActionClick={handleQuickAction}
-              isReady={isReady}
-              isActive={effectiveIsActive}
-              isBusy={effectiveIsBusy}
-              darkMode={effectiveDarkMode}
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-
-      {/* Quick Actions Section - Accordion */}
-      {/* {quickActions.length > 0 && handleQuickAction && (
-        <Accordion 
-          defaultExpanded={true}
-          sx={{
-            boxShadow: 'none !important',
-            bgcolor: 'transparent !important',
-            backgroundColor: 'transparent !important',
-            '&:before': { display: 'none' },
-            '&.Mui-expanded': { margin: 0 },
-            mt: 0,
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon sx={{ color: effectiveDarkMode ? '#666' : '#bbb', opacity: 0.5 }} />}
-            sx={{
-              px: 3,
-              py: 1,
-              pt: 0,
-              minHeight: 'auto',
-              bgcolor: 'transparent !important',
-              backgroundColor: 'transparent !important',
-              '&.Mui-expanded': { minHeight: 'auto' },
-              '& .MuiAccordionSummary-content': {
-                margin: '12px 0',
-                '&.Mui-expanded': { margin: '12px 0' },
-              },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography
-            sx={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: effectiveDarkMode ? '#f5f5f5' : '#333',
-              letterSpacing: '-0.3px',
-            }}
-          >
-            Quick Actions
-          </Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ px: 3, pt: 0, pb: 0, bgcolor: 'transparent !important', backgroundColor: 'transparent !important' }}>
-          <QuickActionsPad
-            actions={quickActions}
-            onActionClick={handleQuickAction}
-            isReady={isReady}
-            isActive={effectiveIsActive}
-            isBusy={effectiveIsBusy}
-            darkMode={effectiveDarkMode}
-          />
-          </AccordionDetails>
-        </Accordion>
-      )} */}
-
       {/* Applications Section - Accordion */}
       <Accordion 
         defaultExpanded={true}
@@ -326,7 +212,7 @@ export default function ApplicationStore({
           sx={{
             px: 3,
             py: 1,
-            pt: quickActions.length > 0 && handleQuickAction ? 1 : 0,
+            pt: 0,
             minHeight: 'auto',
             bgcolor: 'transparent !important',
             backgroundColor: 'transparent !important',
