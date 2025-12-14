@@ -23,7 +23,7 @@ use signal_hook::{consts::TERM_SIGNALS, iterator::Signals};
 /// Kept for backward compatibility with frontend calls
 #[tauri::command]
 fn install_mujoco(_app_handle: tauri::AppHandle) -> Result<String, String> {
-    // MuJoCo is pre-bundled at build-time (via reachy-mini[placo_kinematics,mujoco])
+    // MuJoCo is pre-bundled at build-time (via reachy-mini[mujoco])
     // This ensures all binaries are properly signed before notarization
     // No runtime installation needed - fixes macOS signature issues (Issue #16)
     println!("[tauri] 🎭 MuJoCo is pre-bundled, skipping installation");
