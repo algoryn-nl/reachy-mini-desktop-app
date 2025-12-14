@@ -655,7 +655,7 @@ function HardwareScanView({
                   Hardware Scan Complete
                 </Typography>
                 
-                <Box sx={{ margin: "auto", width: '100%', maxWidth: '300px' }}>
+                <Box sx={{ margin: "auto", width: '300px' }}>
                   <LinearProgress 
                     variant="determinate"
                     value={100}
@@ -709,7 +709,7 @@ function HardwareScanView({
                 : 'Scanning Hardware'}
             </Typography>
             
-            <Box sx={{ margin: "auto", width: '100%', maxWidth: '300px' }}>
+            <Box sx={{ margin: "auto", width: '300px' }}>
               <LinearProgress 
                 variant="determinate"
                 value={
