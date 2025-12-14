@@ -5,6 +5,9 @@ use std::fs;
 
 use uv_wrapper::{find_cpython_folder, lookup_bin_folder, patching_pyvenv_cfg};
 
+#[cfg(target_os = "windows")]
+use uv_wrapper::{get_local_app_data_dir, is_program_files_path, setup_local_venv_windows};
+
 #[cfg(not(target_os = "windows"))]
 use signal_hook::{consts::TERM_SIGNALS, flag::register};
 
@@ -39,9 +42,21 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
     //   ├── uv.exe               (resource)
     //   ├── .venv/               (resource)
     //   └── cpython-*/           (resource)
+    //
+    // BUT: Program Files is read-only, so we copy to %LOCALAPPDATA%\Reachy Mini Control\
+    // The local copy has patched pyvenv.cfg with correct paths
     #[cfg(target_os = "windows")]
     {
-        // Primary: Same directory as sidecar (MSI structure)
+        // Priority 1: Local app data (writable, with patched paths)
+        // This is where we copy the venv on first launch
+        if let Some(local_dir) = get_local_app_data_dir() {
+            // We need to leak the string to get a static reference
+            // This is fine because we only call this function once
+            let local_path: &'static str = Box::leak(local_dir.to_string_lossy().into_owned().into_boxed_str());
+            folders.insert(0, local_path); // Insert at beginning for priority
+        }
+        
+        // Priority 2: Same directory as sidecar (MSI structure - Program Files)
         // Note: "." is already added in the common folders above
         
         // Resources subfolder (if Tauri uses a subfolder)
@@ -294,6 +309,29 @@ fn main() -> ExitCode {
     } else {
         "uv"
     };
+    
+    // On Windows, if we're running from Program Files, setup local venv first
+    // This copies .venv and cpython to %LOCALAPPDATA% where we can write
+    #[cfg(target_os = "windows")]
+    {
+        let exe_dir = env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| PathBuf::from("."));
+        
+        if is_program_files_path(&exe_dir) {
+            println!("📍 Running from Program Files, checking local venv...");
+            match setup_local_venv_windows(&exe_dir) {
+                Ok(local_dir) => {
+                    println!("✅ Using local venv at {:?}", local_dir);
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to setup local venv: {}", e);
+                    eprintln!("   Will try to use Program Files directly (may fail)");
+                }
+            }
+        }
+    }
     
     let possible_folders = get_possible_bin_folders();
     let uv_folder = match lookup_bin_folder(&possible_folders, uv_exe) {
