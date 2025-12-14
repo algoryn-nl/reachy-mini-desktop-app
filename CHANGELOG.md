@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.10] - 2025-12-14
+
+### Fixed
+- Pre-bundle MuJoCo at build-time to fix macOS signing issues (#16)
+- Faster simulation mode startup (removed 8+ second installation delay)
+
 ## [0.7.5] - 2025-12-14
 
 ### Added
