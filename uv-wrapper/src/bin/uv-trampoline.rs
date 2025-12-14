@@ -57,16 +57,22 @@ fn get_possible_bin_folders() -> Vec<&'static str> {
         folders.push("../../binaries");
     }
     
-    // On Linux .deb, sidecar is in /usr/bin/ and resources are in /usr/share/<app-name>/
-    // The path from /usr/bin/ to /usr/share/reachy-mini-control/ is ../share/reachy-mini-control/
+    // On Linux .deb, sidecar is in /usr/bin/ and resources are in /usr/lib/<productName>/
+    // Tauri uses the productName from tauri.conf.json which is "Reachy Mini Control" (with spaces!)
     #[cfg(target_os = "linux")]
     {
-        // Primary: Tauri .deb structure - resources in /usr/share/<app-name>/
-        folders.push("../share/reachy-mini-control");
-        folders.push("/usr/share/reachy-mini-control");  // Absolute fallback
+        // Primary: Tauri .deb structure - resources in /usr/lib/<productName>/
+        // The productName is "Reachy Mini Control" (with spaces)
+        folders.push("/usr/lib/Reachy Mini Control");
+        folders.push("../lib/Reachy Mini Control");
         
-        // Alternative: /usr/lib/<app-name>/ (some Tauri versions)
+        // Fallback: lowercase with dashes (in case Tauri changes behavior)
+        folders.push("/usr/lib/reachy-mini-control");
         folders.push("../lib/reachy-mini-control");
+        
+        // Alternative: /usr/share/<app-name>/ (older Tauri versions)
+        folders.push("/usr/share/reachy-mini-control");
+        folders.push("../share/reachy-mini-control");
         folders.push("/usr/lib/reachy-mini-control");
         
         // Legacy relative paths (for dev/other setups)
