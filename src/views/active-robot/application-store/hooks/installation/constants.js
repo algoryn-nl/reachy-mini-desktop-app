@@ -51,7 +51,18 @@ export const TIMINGS = {
     MAX_ATTEMPTS: 10, // 10 attempts = 5s max (reduced from 15s)
     REFRESH_INTERVAL: 2, // Refresh apps list every 2 attempts (1s)
   },
+  
+  // Stale job detection (no new logs for X seconds = likely network issue)
+  STALE_JOB: {
+    TIMEOUT: 90000, // 90 seconds without new logs = stale (download can take time)
+    CHECK_INTERVAL: 5000, // Check every 5 seconds
+  },
 };
+
+/**
+ * Network error message for stale jobs
+ */
+export const NETWORK_ERROR_MESSAGE = 'Network issue detected. The download seems stuck. Please check your internet connection and try again later.';
 
 /**
  * Success indicators in logs (case-insensitive patterns)

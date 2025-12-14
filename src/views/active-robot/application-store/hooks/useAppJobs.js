@@ -3,6 +3,7 @@ import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '@config/daemon';
 import useAppStore from '@store/useAppStore';
 import { useLogger } from '@utils/logging';
 import { invoke } from '@utils/tauriCompat';
+import { TIMINGS, NETWORK_ERROR_MESSAGE } from './installation/constants';
 
 /**
  * Hook for managing app installation/uninstallation jobs
@@ -13,6 +14,8 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
   const jobPollingIntervals = useRef(new Map());
   // ✅ FIX: Track timeouts to prevent memory leaks
   const jobTimeouts = useRef(new Map()); // Map<jobId, Set<timeoutId>>
+  // ✅ NEW: Track last log update time per job to detect stale downloads
+  const jobLastLogUpdate = useRef(new Map()); // Map<jobId, { time: number, logCount: number }>
   const logger = useLogger();
   
   /**
@@ -67,6 +70,9 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
       timeouts.forEach(timeoutId => clearTimeout(timeoutId));
       jobTimeouts.current.delete(jobId);
     }
+    
+    // ✅ NEW: Cleanup stale tracking for this job
+    jobLastLogUpdate.current.delete(jobId);
   }, []);
   
   /**
@@ -234,6 +240,71 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
         return updated;
       });
       
+      // ✅ NEW: Track log updates for stale detection
+      const currentLogCount = (jobStatus.logs || []).length;
+      const lastUpdate = jobLastLogUpdate.current.get(jobId);
+      
+      if (!lastUpdate) {
+        // First poll: initialize tracking
+        jobLastLogUpdate.current.set(jobId, { time: Date.now(), logCount: currentLogCount });
+      } else if (currentLogCount > lastUpdate.logCount) {
+        // Logs changed: reset timer
+        jobLastLogUpdate.current.set(jobId, { time: Date.now(), logCount: currentLogCount });
+      } else {
+        // No new logs: check for stale timeout
+        const timeSinceLastLog = Date.now() - lastUpdate.time;
+        
+        if (timeSinceLastLog > TIMINGS.STALE_JOB.TIMEOUT) {
+          console.warn(`⚠️ Job ${jobId} appears stale - no new logs for ${Math.round(timeSinceLastLog / 1000)}s`);
+          stopJobPolling(jobId);
+          
+          // Get job info for logging
+          let jobInfo = null;
+          setActiveJobs(prev => {
+            jobInfo = prev.get(jobId);
+            return prev;
+          });
+          
+          if (jobInfo) {
+            logger.warning(`${jobInfo.appName}: ${NETWORK_ERROR_MESSAGE}`);
+          }
+          
+          // Mark job as failed with network error
+          setActiveJobs(prev => {
+            const job = prev.get(jobId);
+            if (!job) return prev;
+            
+            const updated = new Map(prev);
+            updated.set(jobId, {
+              ...job,
+              status: 'failed',
+              isNetworkError: true, // ✅ Flag for UI to show specific message
+              logs: [...(job.logs || []), `⚠️ ${NETWORK_ERROR_MESSAGE}`],
+            });
+            return updated;
+          });
+          
+          // Cleanup after delay so user can see the error
+          const cleanupTimeoutId = setTimeout(() => {
+            setActiveJobs(prevJobs => {
+              const clean = new Map(prevJobs);
+              clean.delete(jobId);
+              return clean;
+            });
+            const timeouts = jobTimeouts.current.get(jobId);
+            if (timeouts) {
+              timeouts.delete(cleanupTimeoutId);
+              if (timeouts.size === 0) {
+                jobTimeouts.current.delete(jobId);
+              }
+            }
+          }, DAEMON_CONFIG.CRASH_DETECTION.JOB_CLEANUP_DELAY);
+          addJobTimeout(jobId, cleanupTimeoutId);
+          
+          return; // Stop processing, job is now failed
+        }
+      }
+      
       // If finished, mark as finished IMMEDIATELY then cleanup
       if (isFinished) {
         // Mark job as finished (changes status)
@@ -306,6 +377,9 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
       timeouts.forEach(timeoutId => clearTimeout(timeoutId));
     });
     jobTimeouts.current.clear();
+    
+    // ✅ NEW: Cleanup stale tracking
+    jobLastLogUpdate.current.clear();
   }, []);
   
   return {

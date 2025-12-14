@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import WifiOffIcon from '@mui/icons-material/WifiOff';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FullscreenOverlay from '@components/FullscreenOverlay';
@@ -29,6 +30,9 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
   // resultState can be: null (in progress), 'success', 'failed'
   // jobType: 'install' or 'remove'
   // installStartTime: timestamp from store representing when installation actually started
+  
+  // ✅ Detect network error for specific UI treatment
+  const isNetworkError = jobInfo?.isNetworkError === true;
 
   // ✅ Reset persisted data when a NEW installation starts (different app)
   useEffect(() => {
@@ -191,7 +195,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
       >
         {/* Icon - Changes based on state */}
         {isShowingResult && resultState === 'failed' ? (
-          // ❌ Error state only - MUI icon
+          // ❌ Error state - different icon for network errors vs generic errors
           <Box
             sx={{
               width: 120,
@@ -200,16 +204,25 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: '60px',
-              bgcolor: 'rgba(239, 68, 68, 0.1)',
-              border: '3px solid rgba(239, 68, 68, 0.3)',
+              bgcolor: isNetworkError ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+              border: `3px solid ${isNetworkError ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
             }}
           >
+            {isNetworkError ? (
+              <WifiOffIcon 
+                sx={{ 
+                  fontSize: 64, 
+                  color: '#f59e0b', // Orange/amber for network issues
+                }} 
+              />
+            ) : (
               <ErrorOutlineIcon 
                 sx={{ 
                   fontSize: 64, 
                   color: '#ef4444',
                 }} 
               />
+            )}
           </Box>
         ) : (
           // 🔄 Progress (app icon with pulse)
@@ -237,13 +250,13 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
 
         {/* Title - Changes based on state */}
         {isShowingResult && resultState === 'failed' ? (
-          // ❌ Error message only (no success state)
-          <Box sx={{ textAlign: 'center' }}>
+          // ❌ Error message - different for network errors vs generic errors
+          <Box sx={{ textAlign: 'center', maxWidth: '380px' }}>
             <Typography
               sx={{
                 fontSize: 24,
                 fontWeight: 600,
-                color: '#ef4444',
+                color: isNetworkError ? '#f59e0b' : '#ef4444',
                 mb: 0.5,
                 animation: 'fadeInScale 0.5s ease',
                 '@keyframes fadeInScale': {
@@ -252,17 +265,33 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                 },
               }}
             >
-              {isInstalling ? 'Installation Failed' : 'Uninstallation Failed'}
+              {isNetworkError 
+                ? 'Network Issue' 
+                : (isInstalling ? 'Installation Failed' : 'Uninstallation Failed')
+              }
             </Typography>
             <Typography
               sx={{
                 fontSize: 16,
                 fontWeight: 500,
                 color: darkMode ? '#999' : '#666',
+                mb: isNetworkError ? 1.5 : 0,
               }}
             >
               {appInfo.name}
             </Typography>
+            {/* ✅ Network error specific message with retry suggestion */}
+            {isNetworkError && (
+              <Typography
+                sx={{
+                  fontSize: 13,
+                  color: darkMode ? '#888' : '#777',
+                  lineHeight: 1.5,
+                }}
+              >
+                The download seems stuck. Please check your internet connection and try again later.
+              </Typography>
+            )}
           </Box>
         ) : (
           // 🔄 Normal title (progress)
