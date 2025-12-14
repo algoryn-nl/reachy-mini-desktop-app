@@ -12,6 +12,7 @@ DIRS_TO_CLEAN=(
   "dist"                          # Frontend Vite build
   "src-tauri/target"              # Rust Tauri build
   "src-tauri/gen"                 # Tauri generated files
+  "src-tauri/binaries"            # Sidecar (Python venv, uv, cpython)
   "uv-wrapper/target"            # Rust uv-wrapper build
   "scripts/__pycache__"          # Python cache
   "test-updates"                  # Test update files
