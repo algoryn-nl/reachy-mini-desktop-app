@@ -1,13 +1,11 @@
 import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { Box, IconButton, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { EmotionWheel, EmojiPicker } from '@components/emoji-grid';
 import { CHOREOGRAPHY_DATASETS, EMOTIONS, DANCES, EMOTION_EMOJIS, DANCE_EMOJIS } from '@constants/choreographies';
 import { useRobotCommands } from '@hooks/robot';
 import { useActiveRobotContext } from '../../context';
 import { useLogger } from '@/utils/logging';
-import { openUrl } from '@/utils/tauriCompat';
 
 // Constants
 const BUSY_DEBOUNCE_MS = 150;
@@ -238,7 +236,7 @@ export default function ExpressionsSection({
             />
           </Box>
 
-          {/* Footer links */}
+          {/* Footer */}
           <Box
             sx={{
               position: 'absolute',
@@ -246,12 +244,12 @@ export default function ExpressionsSection({
               left: 0,
               right: 0,
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
-              gap: 1,
+              justifyContent: 'center',
+              gap: 2,
             }}
           >
-            {/* Line 1: Keyboard shortcut */}
+            {/* Keyboard shortcut */}
             <Box
               sx={{
                 display: 'inline-flex',
@@ -289,74 +287,39 @@ export default function ExpressionsSection({
               <span>random</span>
             </Box>
 
-            {/* Line 2: Links */}
+            {/* Separator */}
             <Box
+              component="span"
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
+                color: darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+                fontSize: 11,
               }}
             >
-              {/* See all libraries link */}
-              <Box
-                component="button"
-                onClick={handleOpenLibrary}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  color: darkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
-                  fontSize: 11,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'underline',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  '&:hover': {
-                    color: '#FF9500',
-                  },
-                }}
-              >
-                See all libraries
-              </Box>
+              •
+            </Box>
 
-              {/* Separator */}
-              <Box
-                component="span"
-                sx={{
-                  color: darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
-                  fontSize: 11,
-                }}
-              >
-                •
-              </Box>
-
-              {/* Emotion Wheel App link */}
-              <Box
-                component="a"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  openUrl('https://huggingface.co/spaces/RemiFabre/emotions');
-                }}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  color: darkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
-                  fontSize: 11,
-                  textDecoration: 'underline',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  '&:hover': {
-                    color: '#FF9500',
-                  },
-                }}
-              >
-                <span>Emotion Wheel App</span>
-                <OpenInNewIcon sx={{ fontSize: 12 }} />
-              </Box>
+            {/* See all libraries link */}
+            <Box
+              component="button"
+              onClick={handleOpenLibrary}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                color: darkMode ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
+                fontSize: 11,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+                '&:hover': {
+                  color: '#FF9500',
+                },
+              }}
+            >
+              See all libraries
             </Box>
           </Box>
         </>
