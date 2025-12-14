@@ -1,13 +1,45 @@
 #!/bin/bash
 # Post-installation script for Reachy Mini Control .deb package
-# This script installs udev rules and adds user to dialout group
+# This script:
+# 1. Patches Python venv paths (required because they're hardcoded from CI)
+# 2. Installs udev rules
+# 3. Adds user to dialout group
 
 set -e
 
+APP_LIB_DIR="/usr/lib/Reachy Mini Control"
 UDEV_RULES_FILE="/etc/udev/rules.d/99-reachy-mini.rules"
 UDEV_RULES_SOURCE="/usr/share/reachy-mini-control/99-reachy-mini.rules"
-POSTINST_SCRIPT="/usr/share/reachy-mini-control/deb-postinst.sh"
 
+# 0. Patch pyvenv.cfg with correct paths
+# The venv was created on CI with paths like /home/runner/work/.../cpython-3.12.../bin
+# We need to replace these with the actual installation paths
+echo "🔧 Patching Python virtual environment paths..."
+
+PYVENV_CFG="$APP_LIB_DIR/.venv/pyvenv.cfg"
+if [ -f "$PYVENV_CFG" ]; then
+    # Find the cpython folder
+    CPYTHON_FOLDER=$(ls -d "$APP_LIB_DIR"/cpython-* 2>/dev/null | head -1)
+    
+    if [ -n "$CPYTHON_FOLDER" ]; then
+        CPYTHON_BIN="$CPYTHON_FOLDER/bin"
+        echo "   Found cpython at: $CPYTHON_FOLDER"
+        
+        # Replace the home path in pyvenv.cfg
+        # The file contains: home = /home/runner/work/.../cpython-.../bin
+        # We replace it with: home = /usr/lib/Reachy Mini Control/cpython-.../bin
+        sed -i "s|^home = .*|home = $CPYTHON_BIN|g" "$PYVENV_CFG"
+        
+        echo "   ✅ pyvenv.cfg patched successfully"
+        echo "   New home path: $CPYTHON_BIN"
+    else
+        echo "   ⚠️  Warning: cpython folder not found in $APP_LIB_DIR"
+    fi
+else
+    echo "   ⚠️  Warning: pyvenv.cfg not found at $PYVENV_CFG"
+fi
+
+echo ""
 echo "🔧 Configuring Reachy Mini USB permissions..."
 
 # 1. Copy udev rules if they don't exist or are different
