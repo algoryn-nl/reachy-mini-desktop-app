@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import useSound from 'use-sound';
 import gsap from 'gsap';
 import { EMOTION_EMOJIS } from '@constants/choreographies';
@@ -109,12 +109,12 @@ function createArcPath(centerX, centerY, innerRadius, outerRadius, startAngle, e
  * EmotionWheel - A circular wheel of 12 curated emotions
  * Centered, large, and visually striking
  */
-export function EmotionWheel({
+export const EmotionWheel = forwardRef(function EmotionWheel({
   onAction,
   darkMode = false,
   disabled = false,
   isBusy = false,
-}) {
+}, ref) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [pressedIndex, setPressedIndex] = useState(null);
   const [centerHovered, setCenterHovered] = useState(false);
@@ -258,8 +258,8 @@ export function EmotionWheel({
     const diceSum = finalDice1 + finalDice2;
     const finalIndex = (diceSum - 1) % WHEEL_EMOTIONS.length;
     
-    // Calculate total steps: 2-3 full rotations + final position
-    const fullRotations = 2 + Math.floor(Math.random() * 2); // 2 or 3 rotations
+    // Calculate total steps: 1-2 full rotations + final position
+    const fullRotations = 1 + Math.floor(Math.random() * 2); // 1 or 2 rotations
     const totalSteps = (fullRotations * WHEEL_EMOTIONS.length) + finalIndex;
     
     let currentStep = 0;
@@ -269,13 +269,13 @@ export function EmotionWheel({
       // Play tick sound for each step
       playTickRef.current();
       
-      // Change dice values randomly during spin, show final values at the end
+      // Change dice values at each tick - random during spin, final at last step
       const stepsRemaining = totalSteps - currentStep;
-      if (stepsRemaining <= 3) {
-        // Show final dice values for last few steps
+      if (stepsRemaining <= 0) {
+        // Show final dice values only at the very last step
         setDiceValue({ dice1: finalDice1, dice2: finalDice2 });
       } else {
-        // Random dice during spin
+        // Random dice at every tick during spin
         setDiceValue({ 
           dice1: Math.floor(Math.random() * 6) + 1,
           dice2: Math.floor(Math.random() * 6) + 1
@@ -290,8 +290,8 @@ export function EmotionWheel({
         // Easing: start fast, slow down dramatically towards the end
         const progress = currentStep / totalSteps;
         // Cubic bezier-like easing for natural deceleration
-        const baseDelay = 55;
-        const maxDelay = 350;
+        const baseDelay = 50;
+        const maxDelay = 250;
         // Use higher exponent (4) for more dramatic slowdown at the end
         const delay = baseDelay + (maxDelay - baseDelay) * Math.pow(progress, 4);
         
@@ -322,6 +322,11 @@ export function EmotionWheel({
     spin();
   }, [disabled, isSpinning, onAction, playDiceSound]);
 
+  // Expose triggerRandom to parent via ref
+  useImperativeHandle(ref, () => ({
+    triggerRandom: handleRandom,
+  }), [handleRandom]);
+
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
@@ -341,18 +346,6 @@ export function EmotionWheel({
     prevIsBusyRef.current = isBusy;
   }, [isBusy, activeIndex]);
 
-  // Keyboard shortcut: Space for random
-  React.useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.code === 'Space' && !e.repeat) {
-        e.preventDefault();
-        handleRandom();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleRandom]);
 
   // Colors
   const borderColor = darkMode ? 'rgba(255,149,0,0.4)' : 'rgba(255,149,0,0.5)';
@@ -591,4 +584,4 @@ export function EmotionWheel({
       `}</style>
     </div>
   );
-}
+});

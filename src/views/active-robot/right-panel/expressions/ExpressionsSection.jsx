@@ -36,11 +36,17 @@ export default function ExpressionsSection({
   
   // Space key animation state
   const [spacePressed, setSpacePressed] = useState(false);
+  const wheelRef = useRef(null);
   
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.code === 'Space' && !e.repeat && currentView === 'wheel') {
+        e.preventDefault();
         setSpacePressed(true);
+        // Trigger random via ref
+        if (wheelRef.current?.triggerRandom) {
+          wheelRef.current.triggerRandom();
+        }
       }
     };
     const handleKeyUp = (e) => {
@@ -224,6 +230,7 @@ export default function ExpressionsSection({
             }}
           >
             <EmotionWheel
+              ref={wheelRef}
               onAction={handleWheelAction}
               darkMode={darkMode}
               disabled={debouncedIsBusy || !isActive}
