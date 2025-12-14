@@ -1,347 +1,664 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { simplex3, fbm } from './particles/NoiseGenerator';
 
 /**
- * 🎮 AAA PARTICLE SYSTEM
+ * ✨ PRODUCTION-GRADE PARTICLE SYSTEM V2
  * 
- * Professional features:
- * - Complex trajectories with Bézier curves
- * - Realistic physics (gravity, air resistance, turbulence)
- * - Individual variations per particle
- * - Progressive spawn with temporal offset
- * - Opacity with sophisticated easing curves
- * - Optimizations for constant 60 FPS
+ * Premium features:
+ * - Multi-layer particles (glow + core + center)
+ * - Subtle muted color palette
+ * - Organic movement with Simplex noise
+ * - Smooth easing curves
+ * - GPU-optimized with proper cleanup
  */
 
-// Pseudo-random number generator with seed (for reproducible variations)
-function seededRandom(seed) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
+// ═══════════════════════════════════════════════════════════════
+// EASING FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+const easeOutExpo = (t) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+const smoothstep = (t) => t * t * (3 - 2 * t);
+
+// ═══════════════════════════════════════════════════════════════
+// EFFECT CONFIGURATIONS - Subtle & Elegant
+// ═══════════════════════════════════════════════════════════════
+
+const EFFECT_CONFIGS = {
+  sleep: {
+    name: 'sleep',
+    // Soft, dreamy floating particles - "Zzz" effect
+    layers: [
+      { type: 'glow', count: 6, sizeRange: [0.08, 0.14], opacity: 0.35 },
+      { type: 'core', count: 10, sizeRange: [0.025, 0.05], opacity: 0.85 },
+      { type: 'dot', count: 8, sizeRange: [0.01, 0.02], opacity: 1.0 },
+    ],
+    colors: {
+      primary: new THREE.Color(0xc4b5fd),   // Violet-300 (dreamy)
+      secondary: new THREE.Color(0xa78bfa), // Violet-400
+      glow: new THREE.Color(0xddd6fe),      // Violet-200
+    },
+    motion: {
+      baseVelocity: [0, 0.035, 0],
+      noiseScale: 0.6,
+      noiseSpeed: 0.25,
+      spread: 0.04,
+      turbulence: 0.012,
+      damping: 0.994,
+      rotationSpeed: 0.08,
+    },
+    spawnPattern: 'gentle',
+    blending: THREE.AdditiveBlending,
+  },
+  
+  love: {
+    name: 'love',
+    // Romantic floating hearts with soft glow
+    layers: [
+      { type: 'glow', count: 5, sizeRange: [0.1, 0.16], opacity: 0.3 },
+      { type: 'heart', count: 8, sizeRange: [0.035, 0.06], opacity: 0.9 },
+      { type: 'dot', count: 12, sizeRange: [0.008, 0.018], opacity: 0.95 },
+    ],
+    colors: {
+      primary: new THREE.Color(0xfb7185),   // Rose-400
+      secondary: new THREE.Color(0xfda4af), // Rose-300
+      glow: new THREE.Color(0xfecdd3),      // Rose-200
+    },
+    motion: {
+      baseVelocity: [0, 0.04, 0],
+      noiseScale: 1.0,
+      noiseSpeed: 0.35,
+      spread: 0.045,
+      turbulence: 0.018,
+      damping: 0.99,
+      rotationSpeed: 0.12,
+      spiralFactor: 0.25,
+    },
+    spawnPattern: 'burst',
+    blending: THREE.AdditiveBlending,
+  },
+  
+  surprised: {
+    name: 'surprised',
+    // Quick radial burst then fade - "!" effect
+    layers: [
+      { type: 'glow', count: 10, sizeRange: [0.06, 0.12], opacity: 0.4 },
+      { type: 'line', count: 8, sizeRange: [0.025, 0.045], opacity: 0.95 },
+      { type: 'dot', count: 14, sizeRange: [0.01, 0.025], opacity: 1.0 },
+    ],
+    colors: {
+      primary: new THREE.Color(0xfbbf24),   // Amber-400
+      secondary: new THREE.Color(0xfcd34d), // Amber-300
+      glow: new THREE.Color(0xfef08a),      // Yellow-200
+    },
+    motion: {
+      baseVelocity: [0, 0.06, 0],
+      noiseScale: 1.8,
+      noiseSpeed: 0.7,
+      spread: 0.08,
+      turbulence: 0.035,
+      damping: 0.978,
+      rotationSpeed: 0.0,
+      burstForce: 0.1,
+    },
+    spawnPattern: 'burst',
+    blending: THREE.AdditiveBlending,
+  },
+  
+  sad: {
+    name: 'sad',
+    // Gentle falling droplets - tear effect
+    layers: [
+      { type: 'glow', count: 4, sizeRange: [0.06, 0.1], opacity: 0.25 },
+      { type: 'drop', count: 8, sizeRange: [0.02, 0.04], opacity: 0.8 },
+      { type: 'dot', count: 6, sizeRange: [0.008, 0.015], opacity: 0.9 },
+    ],
+    colors: {
+      primary: new THREE.Color(0x60a5fa),   // Blue-400
+      secondary: new THREE.Color(0x93c5fd), // Blue-300
+      glow: new THREE.Color(0xbfdbfe),      // Blue-200
+    },
+    motion: {
+      baseVelocity: [0, 0.02, 0],
+      noiseScale: 0.4,
+      noiseSpeed: 0.15,
+      spread: 0.035,
+      turbulence: 0.006,
+      damping: 0.996,
+      rotationSpeed: 0.03,
+      gravity: -0.015,
+    },
+    spawnPattern: 'gentle',
+    blending: THREE.AdditiveBlending,
+  },
+
+  thinking: {
+    name: 'thinking',
+    // Orbiting dots around head - "..." effect
+    layers: [
+      { type: 'glow', count: 3, sizeRange: [0.05, 0.08], opacity: 0.3 },
+      { type: 'core', count: 5, sizeRange: [0.02, 0.035], opacity: 0.95 },
+    ],
+    colors: {
+      primary: new THREE.Color(0xa78bfa),   // Violet-400
+      secondary: new THREE.Color(0xc4b5fd), // Violet-300
+      glow: new THREE.Color(0xddd6fe),      // Violet-200
+    },
+    motion: {
+      baseVelocity: [0, 0.008, 0],
+      noiseScale: 0.25,
+      noiseSpeed: 0.12,
+      spread: 0.025,
+      turbulence: 0.004,
+      damping: 0.998,
+      rotationSpeed: 0.0,
+      orbitSpeed: 1.8,
+      orbitRadius: 0.07,
+    },
+    spawnPattern: 'orbit',
+    blending: THREE.AdditiveBlending,
+  },
+
+  happy: {
+    name: 'happy',
+    // Sparkles bursting outward - celebration effect
+    layers: [
+      { type: 'glow', count: 8, sizeRange: [0.05, 0.1], opacity: 0.35 },
+      { type: 'star', count: 10, sizeRange: [0.025, 0.045], opacity: 0.95 },
+      { type: 'dot', count: 16, sizeRange: [0.006, 0.015], opacity: 1.0 },
+    ],
+    colors: {
+      primary: new THREE.Color(0xfbbf24),   // Amber-400
+      secondary: new THREE.Color(0xfcd34d), // Amber-300
+      glow: new THREE.Color(0xfef3c7),      // Amber-100
+    },
+    motion: {
+      baseVelocity: [0, 0.05, 0],
+      noiseScale: 1.4,
+      noiseSpeed: 0.55,
+      spread: 0.07,
+      turbulence: 0.028,
+      damping: 0.982,
+      rotationSpeed: 0.25,
+      burstForce: 0.06,
+    },
+    spawnPattern: 'burst',
+    blending: THREE.AdditiveBlending,
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// TEXTURE GENERATORS - Minimal geometric shapes
+// ═══════════════════════════════════════════════════════════════
+
+function createCircleTexture(size = 128, softness = 0.3) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  const center = size / 2;
+  const radius = size / 2 - 2;
+  
+  // Soft radial gradient
+  const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(1 - softness, 'rgba(255, 255, 255, 0.8)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.fill();
+  
+  return new THREE.CanvasTexture(canvas);
 }
 
-// "ease-out-cubic" easing curve for natural deceleration
-function easeOutCubic(t) {
-  return 1 - Math.pow(1 - t, 3);
+function createGlowTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  const center = size / 2;
+  const radius = size / 2 - 2;
+  
+  // Very soft glow
+  const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.2)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.05)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.fill();
+  
+  return new THREE.CanvasTexture(canvas);
 }
 
-// "ease-in-out-quad" easing curve for acceleration then deceleration
-function easeInOutQuad(t) {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+function createHeartTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  const scale = size / 30;
+  ctx.translate(size / 2, size / 2 + 2 * scale);
+  ctx.scale(scale, scale);
+  
+  // Simplified heart path
+  ctx.beginPath();
+  ctx.moveTo(0, -4);
+  ctx.bezierCurveTo(-8, -12, -14, -4, -14, 2);
+  ctx.bezierCurveTo(-14, 8, 0, 14, 0, 14);
+  ctx.bezierCurveTo(0, 14, 14, 8, 14, 2);
+  ctx.bezierCurveTo(14, -4, 8, -12, 0, -4);
+  ctx.closePath();
+  
+  // Soft fill
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.8)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.4)');
+  
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  return new THREE.CanvasTexture(canvas);
 }
+
+function createDropTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  const centerX = size / 2;
+  const centerY = size / 2;
+  const radius = size / 3;
+  
+  // Teardrop shape
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY - radius * 1.5);
+  ctx.bezierCurveTo(
+    centerX + radius * 0.8, centerY - radius * 0.5,
+    centerX + radius, centerY + radius * 0.3,
+    centerX, centerY + radius
+  );
+  ctx.bezierCurveTo(
+    centerX - radius, centerY + radius * 0.3,
+    centerX - radius * 0.8, centerY - radius * 0.5,
+    centerX, centerY - radius * 1.5
+  );
+  ctx.closePath();
+  
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 1.2);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.7)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.2)');
+  
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  return new THREE.CanvasTexture(canvas);
+}
+
+function createStarTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  const center = size / 2;
+  const outerRadius = size / 2 - 4;
+  const innerRadius = outerRadius * 0.4;
+  const points = 4;
+  
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const angle = (i * Math.PI) / points - Math.PI / 2;
+    const x = center + Math.cos(angle) * radius;
+    const y = center + Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  
+  const gradient = ctx.createRadialGradient(center, center, 0, center, center, outerRadius);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
+  
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  return new THREE.CanvasTexture(canvas);
+}
+
+function createLineTexture(size = 128) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  const gradient = ctx.createLinearGradient(size / 2, 0, size / 2, size);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
+  gradient.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
+  gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.8)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(size / 2 - 4, 0, 8, size);
+  
+  return new THREE.CanvasTexture(canvas);
+}
+
+// Texture cache to avoid recreation
+const textureCache = new Map();
+
+function getTexture(type) {
+  if (textureCache.has(type)) {
+    return textureCache.get(type);
+  }
+  
+  let texture;
+  switch (type) {
+    case 'glow':
+      texture = createGlowTexture(128);
+      break;
+    case 'heart':
+      texture = createHeartTexture(128);
+      break;
+    case 'drop':
+      texture = createDropTexture(128);
+      break;
+    case 'star':
+      texture = createStarTexture(128);
+      break;
+    case 'line':
+      texture = createLineTexture(128);
+      break;
+    case 'core':
+    case 'dot':
+    default:
+      texture = createCircleTexture(128, type === 'dot' ? 0.1 : 0.4);
+  }
+  
+  textureCache.set(type, texture);
+  return texture;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════
 
 export default function ParticleEffect({ 
   type = 'sleep',
   spawnPoint = [0, 0.18, 0.02],
-  particleCount = 8,
+  particleCount = 20,
   enabled = true,
-  duration = 10.0,
+  duration = 5.0,
 }) {
   const groupRef = useRef();
   const particlesRef = useRef([]);
   const timeRef = useRef(0);
-  const spawnedCountRef = useRef(0); // Spawned particles counter
+  const startTimeRef = useRef(0);
 
-  // Effect configuration according to type
-  const effectConfig = useMemo(() => {
-    const configs = {
-      sleep: {
-        symbol: '💤',
-        color: '#4B5563', // Natural gray not burnt
-        baseVelocity: [0, 0.04, 0],
-        spread: 0.015,
-        rotationSpeed: 0.2,
-        scale: 0.065,
-        gravity: 0,
-        turbulence: 0.001,
-        damping: 0.995,
-        spreadRate: 0.002,
-      },
-      love: {
-        symbol: '💕',
-        color: '#F472B6', // Soft pink not burnt
-        baseVelocity: [0, 0.045, 0],
-        spread: 0.015,
-        rotationSpeed: 0.3,
-        scale: 0.06,
-        gravity: 0,
-        turbulence: 0.001,
-        damping: 0.993,
-        spreadRate: 0.0025,
-      },
-      surprised: {
-        symbol: '❗',
-        color: '#FB923C', // Soft orange not burnt
-        baseVelocity: [0, 0.05, 0],
-        spread: 0.012,
-        rotationSpeed: 0.0,
-        scale: 0.07,
-        gravity: 0,
-        turbulence: 0.0008,
-        damping: 0.99,
-        spreadRate: 0.002,
-      },
-      sad: {
-        symbol: '💧',
-        color: '#60A5FA', // Soft blue not burnt
-        baseVelocity: [0, 0.035, 0],
-        spread: 0.01,
-        rotationSpeed: 0.15,
-        scale: 0.055,
-        gravity: 0,
-        turbulence: 0.0008,
-        damping: 0.994,
-        spreadRate: 0.0015,
-      },
-    };
-    
-    return configs[type] || configs.sleep;
+  // Get config for effect type
+  const config = useMemo(() => {
+    return EFFECT_CONFIGS[type] || EFFECT_CONFIGS.sleep;
   }, [type]);
 
-  // Create particles with individual variations
+  // Create all particles for all layers
   const particles = useMemo(() => {
     if (!enabled) return [];
     
-    const particles = [];
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 256;
+    const allParticles = [];
+    const spawnPos = new THREE.Vector3(...spawnPoint);
+    let globalIndex = 0;
     
-    // Draw symbol on canvas
-    context.font = 'bold 200px Arial';
-    context.fillStyle = effectConfig.color;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(effectConfig.symbol, 128, 128);
+    config.layers.forEach((layer, layerIndex) => {
+      const texture = getTexture(layer.type);
+      const colorKey = layer.type === 'glow' ? 'glow' : 
+                       layer.type === 'dot' ? 'secondary' : 'primary';
+      const baseColor = config.colors[colorKey];
+      
+      for (let i = 0; i < layer.count; i++) {
+        const seed = globalIndex * 137.5 + layerIndex * 1000;
+        const rand = (offset = 0) => {
+          const x = Math.sin((seed + offset) * 12.9898) * 43758.5453;
+          return x - Math.floor(x);
+        };
+        
+        // Size variation within layer range
+        const size = layer.sizeRange[0] + rand(0.1) * (layer.sizeRange[1] - layer.sizeRange[0]);
+        
+        // Create material with proper color tinting
+        const material = new THREE.SpriteMaterial({
+          map: texture,
+          color: baseColor,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          blending: config.blending,
+        });
+        
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(size, size, 1);
+        
+        // Initial position with spread
+        const angle = rand(0.2) * Math.PI * 2;
+        const radius = rand(0.3) * config.motion.spread * 0.3;
+        sprite.position.copy(spawnPos);
+        sprite.position.x += Math.cos(angle) * radius;
+        sprite.position.z += Math.sin(angle) * radius;
+        sprite.position.y += (rand(0.4) - 0.5) * config.motion.spread * 0.2;
+        
+        // Initial velocity
+        const vel = new THREE.Vector3(...config.motion.baseVelocity);
+        const velVariation = 0.7 + rand(0.5) * 0.6;
+        vel.multiplyScalar(velVariation);
+        
+        // Add lateral spread
+        if (config.spawnPattern === 'burst' && config.motion.burstForce) {
+          const burstAngle = rand(0.6) * Math.PI * 2;
+          const burstMag = config.motion.burstForce * (0.5 + rand(0.7) * 0.5);
+          vel.x += Math.cos(burstAngle) * burstMag;
+          vel.z += Math.sin(burstAngle) * burstMag;
+        }
+        
+        // Particle data
+        sprite.userData = {
+          seed,
+          rand,
+          layerIndex,
+          layerType: layer.type,
+          baseSize: size,
+          maxOpacity: layer.opacity,
+          velocity: vel,
+          baseVelocity: vel.clone(),
+          
+          // Spawn timing
+          spawnDelay: config.spawnPattern === 'gentle' 
+            ? (globalIndex / (config.layers.reduce((a, l) => a + l.count, 0))) * duration * 0.4
+            : rand(0.8) * duration * 0.15,
+          
+          // Motion params
+          noiseOffset: rand(0.9) * 1000,
+          rotationSpeed: config.motion.rotationSpeed * (0.5 + rand(1.0)) * (rand(1.1) > 0.5 ? 1 : -1),
+          orbitPhase: rand(1.2) * Math.PI * 2,
+          
+          // State
+          age: 0,
+          lifeProgress: 0,
+          isActive: false,
+          initialPosition: sprite.position.clone(),
+        };
+        
+        allParticles.push(sprite);
+        globalIndex++;
+      }
+    });
     
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    
-    // Create particles with individual variations
-    for (let i = 0; i < particleCount; i++) {
-      const seed = i * 123.456 + Date.now() * 0.001; // Unique seed per particle
-      
-      const material = new THREE.SpriteMaterial({ 
-        map: texture,
-        transparent: true,
-        opacity: 0.0,
-        depthWrite: false,
-        blending: THREE.NormalBlending, // Normal blending for natural colors
-      });
-      
-      const sprite = new THREE.Sprite(material);
-      
-      // Individual size variations
-      const sizeVariation = 0.8 + seededRandom(seed) * 0.4; // 80% to 120%
-      const finalScale = effectConfig.scale * sizeVariation;
-      sprite.scale.set(finalScale, finalScale, 1);
-      
-      // Very concentrated initial position (smoke starts grouped)
-      const angle = (i / particleCount) * Math.PI * 2;
-      const radiusVariation = seededRandom(seed + 0.1) * effectConfig.spread * 0.3; // Reduced to 30%
-      const randomOffset = new THREE.Vector3(
-        Math.cos(angle) * radiusVariation,
-        (seededRandom(seed + 0.2) - 0.5) * effectConfig.spread * 0.1, // Ultra minimal on Y
-        Math.sin(angle) * radiusVariation
-      );
-      
-      sprite.position.copy(new THREE.Vector3(...spawnPoint).add(randomOffset));
-      
-      // Velocity with variations for natural dispersion effect
-      const velocityVariation = 0.85 + seededRandom(seed + 0.3) * 0.3; // 85% to 115%
-      const baseVel = new THREE.Vector3(...effectConfig.baseVelocity);
-      const particleVelocity = baseVel.multiplyScalar(velocityVariation);
-      
-      // Lateral component for natural radial dispersion
-      const lateralAngle = (i / particleCount) * Math.PI * 2 + seededRandom(seed + 0.4) * 0.5;
-      const lateralSpeed = seededRandom(seed + 0.5) * 0.001; // Soft dispersion
-      particleVelocity.x += Math.cos(lateralAngle) * lateralSpeed;
-      particleVelocity.z += Math.sin(lateralAngle) * lateralSpeed;
-      
-      // Very light oscillation parameters
-      const oscillationFreq1 = 0.5 + seededRandom(seed + 0.6) * 0.3;
-      const oscillationFreq2 = 0.7 + seededRandom(seed + 0.7) * 0.3;
-      const oscillationPhase = seededRandom(seed + 0.8) * Math.PI * 2;
-      const oscillationAmplitude = 0.08 + seededRandom(seed + 0.9) * 0.1; // Reduced amplitude
-      
-      // Unique rotation
-      const rotationVariation = 0.5 + seededRandom(seed + 1.0) * 1.0;
-      const rotationDirection = seededRandom(seed + 1.1) > 0.5 ? 1 : -1;
-      
-      // Custom data for animation
-      sprite.userData = {
-        seed: seed,
-        spawnDelay: i * (duration / particleCount) * 0.6, // Progressive spawn (60% of time)
-        velocity: particleVelocity,
-        baseVelocity: particleVelocity.clone(), // Keep base velocity
-        rotationSpeed: effectConfig.rotationSpeed * rotationVariation * rotationDirection,
-        
-        // Oscillations
-        oscillationFreq1: oscillationFreq1,
-        oscillationFreq2: oscillationFreq2,
-        oscillationPhase: oscillationPhase,
-        oscillationAmplitude: oscillationAmplitude,
-        
-        // Turbulence
-        turbulenceOffset: seededRandom(seed + 1.2) * 100,
-        
-        // Physique
-        gravity: effectConfig.gravity,
-        damping: effectConfig.damping,
-        spreadRate: effectConfig.spreadRate || 0.008, // Expansion speed
-        
-        // State
-        age: 0,
-        lifeProgress: 0,
-        isActive: false, // Becomes true after spawnDelay
-      };
-      
-      particles.push(sprite);
-    }
-    
-    particlesRef.current = particles;
-    spawnedCountRef.current = 0;
-    return particles;
-  }, [enabled, particleCount, spawnPoint, duration, effectConfig]);
+    particlesRef.current = allParticles;
+    return allParticles;
+  }, [enabled, config, spawnPoint, duration]);
 
-  // Reset timer when effect type changes
+  // Reset on type change
   useEffect(() => {
     timeRef.current = 0;
-    spawnedCountRef.current = 0;
-  }, [type, enabled]);
+    startTimeRef.current = performance.now() / 1000;
+    particles.forEach(p => {
+      p.userData.age = 0;
+      p.userData.lifeProgress = 0;
+      p.userData.isActive = false;
+      p.material.opacity = 0;
+    });
+  }, [type, enabled, particles]);
 
-  // Particle animation (optimized 60 FPS)
+  // Animation loop
   useFrame((state, delta) => {
     if (!enabled || particles.length === 0) return;
     
-    const deltaSeconds = Math.min(delta, 0.1); // Cap delta to avoid jumps
-    timeRef.current += deltaSeconds;
+    const dt = Math.min(delta, 0.1);
+    timeRef.current += dt;
+    const globalTime = timeRef.current;
     
-    particles.forEach((particle, index) => {
-      const userData = particle.userData;
+    particles.forEach((particle) => {
+      const ud = particle.userData;
       
       // Wait for spawn delay
-      if (timeRef.current < userData.spawnDelay) {
+      if (globalTime < ud.spawnDelay) {
         particle.material.opacity = 0;
         return;
       }
       
-      // Activate particle if it's the first time
-      if (!userData.isActive) {
-        userData.isActive = true;
-        userData.age = 0;
-        spawnedCountRef.current++;
+      // Activate particle
+      if (!ud.isActive) {
+        ud.isActive = true;
+        ud.age = 0;
       }
       
       // Update age
-      userData.age += deltaSeconds;
-      userData.lifeProgress = Math.min(userData.age / duration, 1.0);
+      ud.age += dt;
+      ud.lifeProgress = Math.min(ud.age / duration, 1.0);
       
-      // Stop particle if it's dead (no loop)
-      if (userData.lifeProgress >= 1.0) {
+      // Dead particle
+      if (ud.lifeProgress >= 1.0) {
         particle.material.opacity = 0;
         return;
       }
       
-      // ═══════════════════════════════════════════════════════════════
-      // SMOOTH OPACITY (complete curve without "pop")
-      // ═══════════════════════════════════════════════════════════════
+      // ═══════════════════════════════════════════════════════════
+      // OPACITY - Smooth bell curve with layer-specific timing
+      // ═══════════════════════════════════════════════════════════
       
-      let opacity = 0.0;
+      let opacity = 0;
+      const fadeInDuration = ud.layerType === 'glow' ? 0.3 : 0.2;
+      const fadeOutStart = ud.layerType === 'glow' ? 0.6 : 0.7;
       
-      // Smooth bell curve: 0 → 1 → 0
-      if (userData.lifeProgress < 0.25) {
-        // Smooth fade in (first quarter)
-        opacity = easeInOutQuad(userData.lifeProgress / 0.25);
-      } else if (userData.lifeProgress < 0.75) {
-        // Full opacity (middle)
+      if (ud.lifeProgress < fadeInDuration) {
+        opacity = easeOutExpo(ud.lifeProgress / fadeInDuration);
+      } else if (ud.lifeProgress < fadeOutStart) {
         opacity = 1.0;
       } else {
-        // Smooth fade out (last quarter)
-        const fadeProgress = (userData.lifeProgress - 0.75) / 0.25;
-        opacity = 1.0 - easeInOutQuad(fadeProgress);
+        const fadeProgress = (ud.lifeProgress - fadeOutStart) / (1 - fadeOutStart);
+        opacity = 1.0 - easeInOutSine(fadeProgress);
       }
       
-      // Subtle pulsation for living effect (optional, very light)
-      const breathingFreq = 1.5 + seededRandom(userData.seed) * 0.3;
-      const breathingEffect = Math.sin(userData.age * breathingFreq + userData.oscillationPhase) * 0.05;
+      // Subtle breathing for organic feel
+      const breathe = 1 + Math.sin(ud.age * 2 + ud.seed) * 0.05;
+      particle.material.opacity = Math.max(0, Math.min(1, opacity * ud.maxOpacity * breathe));
       
-      // Final smooth opacity
-      opacity = opacity * (0.92 + breathingEffect);
-      particle.material.opacity = Math.max(0.0, Math.min(1.0, opacity));
+      // ═══════════════════════════════════════════════════════════
+      // MOVEMENT - Organic noise-based motion
+      // ═══════════════════════════════════════════════════════════
       
-      // ═══════════════════════════════════════════════════════════════
-      // SMOKE-TYPE PHYSICS
-      // ═══════════════════════════════════════════════════════════════
+      const noiseTime = ud.age * config.motion.noiseSpeed + ud.noiseOffset;
+      const noiseX = simplex3(noiseTime, ud.seed * 0.1, 0) * config.motion.turbulence;
+      const noiseZ = simplex3(0, noiseTime, ud.seed * 0.1) * config.motion.turbulence;
       
-      // No gravity - smoke rises naturally
+      // Apply noise to velocity
+      ud.velocity.x += noiseX * dt;
+      ud.velocity.z += noiseZ * dt;
       
-      // Progressive radial dispersion (smoke widens as it rises)
-      const spreadFactor = userData.lifeProgress * userData.spreadRate;
-      const spreadAngle = userData.oscillationPhase;
-      userData.velocity.x += Math.cos(spreadAngle) * spreadFactor * deltaSeconds;
-      userData.velocity.z += Math.sin(spreadAngle) * spreadFactor * deltaSeconds;
-      
-      // Very soft turbulence for natural movement
-      const turbulenceX = Math.sin(userData.age * 0.8 + userData.turbulenceOffset) * effectConfig.turbulence * 0.5;
-      const turbulenceZ = Math.sin(userData.age * 0.9 + userData.turbulenceOffset + 200) * effectConfig.turbulence * 0.5;
-      
-      userData.velocity.x += turbulenceX * deltaSeconds;
-      userData.velocity.z += turbulenceZ * deltaSeconds;
-      
-      // Air resistance (damping) - slows down as it rises like smoke
-      userData.velocity.multiplyScalar(userData.damping);
-      
-      // ═══════════════════════════════════════════════════════════════
-      // SMOKE MOVEMENT (simple rise with radial dispersion)
-      // ═══════════════════════════════════════════════════════════════
-      
-      // Main displacement based on velocity
-      particle.position.x += userData.velocity.x * deltaSeconds;
-      particle.position.y += userData.velocity.y * deltaSeconds;
-      particle.position.z += userData.velocity.z * deltaSeconds;
-      
-      // ═══════════════════════════════════════════════════════════════
-      // NATURAL ROTATION
-      // ═══════════════════════════════════════════════════════════════
-      
-      if (userData.rotationSpeed !== 0) {
-        // Smooth and constant rotation
-        const velocityInfluence = Math.abs(userData.velocity.x + userData.velocity.z) * 0.5; // Reduced from 2.0 to 0.5
-        const finalRotationSpeed = userData.rotationSpeed * (1.0 + velocityInfluence);
-        particle.material.rotation += finalRotationSpeed * deltaSeconds;
+      // Gravity (for sad effect)
+      if (config.motion.gravity) {
+        ud.velocity.y += config.motion.gravity * dt;
       }
       
-      // ═══════════════════════════════════════════════════════════════
-      // DYNAMIC SCALING (smoke effect)
-      // ═══════════════════════════════════════════════════════════════
+      // Spiral motion (for love effect)
+      if (config.motion.spiralFactor) {
+        const spiralAngle = ud.age * 2 + ud.orbitPhase;
+        const spiralRadius = config.motion.spiralFactor * ud.lifeProgress;
+        ud.velocity.x += Math.cos(spiralAngle) * spiralRadius * dt;
+        ud.velocity.z += Math.sin(spiralAngle) * spiralRadius * dt;
+      }
       
-      // Simple scaling: pop on spawn then constant
-      let scaleFactor = 1.0;
-      if (userData.lifeProgress < 0.04) {
-        // Fast pop on spawn for flashy effect
-        scaleFactor = easeOutCubic(userData.lifeProgress / 0.04) * 1.1;
+      // Orbit motion (for thinking effect)
+      if (config.motion.orbitSpeed && config.motion.orbitRadius) {
+        const orbitAngle = ud.age * config.motion.orbitSpeed + ud.orbitPhase;
+        const targetX = ud.initialPosition.x + Math.cos(orbitAngle) * config.motion.orbitRadius;
+        const targetZ = ud.initialPosition.z + Math.sin(orbitAngle) * config.motion.orbitRadius;
+        
+        particle.position.x += (targetX - particle.position.x) * 0.1;
+        particle.position.z += (targetZ - particle.position.z) * 0.1;
+        particle.position.y += ud.velocity.y * dt;
       } else {
-        scaleFactor = 1.1; // Slightly enlarged
+        // Normal velocity-based movement
+        particle.position.x += ud.velocity.x * dt;
+        particle.position.y += ud.velocity.y * dt;
+        particle.position.z += ud.velocity.z * dt;
       }
       
-      const baseScale = effectConfig.scale * (0.9 + seededRandom(userData.seed) * 0.2);
-      const finalScale = baseScale * scaleFactor;
+      // Damping
+      ud.velocity.multiplyScalar(config.motion.damping);
+      
+      // ═══════════════════════════════════════════════════════════
+      // ROTATION
+      // ═══════════════════════════════════════════════════════════
+      
+      if (ud.rotationSpeed !== 0) {
+        particle.material.rotation += ud.rotationSpeed * dt;
+      }
+      
+      // ═══════════════════════════════════════════════════════════
+      // SCALE - Smooth pop-in, stable, then gentle shrink
+      // ═══════════════════════════════════════════════════════════
+      
+      let scaleFactor = 1.0;
+      
+      if (ud.lifeProgress < 0.1) {
+        // Pop in
+        scaleFactor = easeOutQuart(ud.lifeProgress / 0.1);
+      } else if (ud.lifeProgress > 0.8) {
+        // Gentle shrink
+        scaleFactor = 1.0 - smoothstep((ud.lifeProgress - 0.8) / 0.2) * 0.3;
+      }
+      
+      // Glow layer pulses slightly
+      if (ud.layerType === 'glow') {
+        scaleFactor *= 1 + Math.sin(ud.age * 1.5 + ud.seed) * 0.1;
+      }
+      
+      const finalScale = ud.baseSize * scaleFactor;
       particle.scale.set(finalScale, finalScale, 1);
     });
   });
 
-  // ✅ Cleanup particles on unmount or when particles change
+  // Cleanup
   useEffect(() => {
     return () => {
-      // Dispose materials and textures to prevent memory leaks
       particles.forEach(p => {
         if (p.material) {
-          if (p.material.map) {
-            p.material.map.dispose();
-          }
-        p.material.dispose();
+          p.material.dispose();
         }
       });
     };
