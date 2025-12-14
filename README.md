@@ -227,51 +227,184 @@ localStorage.removeItem('simMode')
 tauri-app/
 ├── src/                              # Frontend React code
 │   ├── components/                   # Reusable React components
-│   │   └── viewer3d/                # 3D robot visualization
-│   ├── hooks/                        # Custom React hooks (organized by category)
-│   │   ├── apps/                    # Application-related hooks
-│   │   ├── daemon/                  # Daemon-related hooks
-│   │   ├── robot/                   # Robot-related hooks
-│   │   └── system/                  # System hooks (updates, USB, logs, window)
+│   │   ├── viewer3d/                # 3D robot visualization (README.md)
+│   │   ├── emoji-grid/              # Emotion wheel and emoji display
+│   │   ├── App.jsx                  # Main application component
+│   │   ├── AppTopBar.jsx            # Top bar with controls
+│   │   └── FullscreenOverlay.jsx    # Overlay component
+│   ├── hooks/                        # Custom React hooks (organized by domain)
+│   │   ├── daemon/                  # Daemon lifecycle hooks
+│   │   │   ├── useDaemon.js         # Start/stop daemon
+│   │   │   ├── useDaemonHealthCheck.js  # Health monitoring
+│   │   │   └── useDaemonEventBus.js # Event bus for daemon events
+│   │   ├── robot/                   # Robot state hooks
+│   │   │   ├── useRobotState.js     # Robot state polling
+│   │   │   └── useRobotCommands.js  # Robot command execution
+│   │   └── system/                  # System hooks
+│   │       ├── useUpdater.js        # Auto-update management
+│   │       ├── useUsbDetection.js   # USB robot detection
+│   │       ├── usePermissions.js    # macOS permissions
+│   │       ├── useViewRouter.jsx    # View state machine
+│   │       └── useWindowResize.js   # Window size management
 │   ├── views/                        # Main application views
 │   │   ├── update/                  # Update view
+│   │   ├── permissions-required/    # Permissions view (macOS)
 │   │   ├── robot-not-detected/      # USB detection view
 │   │   ├── ready-to-start/          # Ready to start view
-│   │   ├── starting/                # Daemon startup view
+│   │   ├── starting/                # Hardware scan view
 │   │   ├── transition/              # Transition view
 │   │   ├── closing/                 # Closing view
-│   │   └── active-robot/             # Active robot view
-│   │       ├── application-store/    # Application store UI
-│   │       ├── audio/                # Audio controls
-│   │       └── camera/               # Camera feed
+│   │   └── active-robot/            # Active robot view
+│   │       ├── application-store/   # App store (README.md)
+│   │       ├── controller/          # Robot controller (README.md)
+│   │       ├── audio/               # Audio controls
+│   │       ├── camera/              # Camera feed
+│   │       ├── right-panel/         # Right panel sections
+│   │       └── context/             # Active robot context
 │   ├── store/                        # State management (Zustand)
+│   │   ├── useAppStore.js           # Composite store
+│   │   ├── useRobotStore.js         # Robot state
+│   │   ├── useLogsStore.js          # Logs management
+│   │   └── useUIStore.js            # UI state
 │   ├── utils/                        # Utility functions
-│   │   └── viewer3d/                # 3D-specific utilities
 │   ├── config/                       # Centralized configuration
 │   └── constants/                    # Shared constants
 ├── src-tauri/                        # Rust backend
-│   ├── src/                          # Rust source code
-│   ├── tauri.conf.json               # Tauri configuration
-│   └── capabilities/                 # Tauri security capabilities
-├── scripts/                          # Build and utility scripts (organized by category)
-│   ├── build/                        # Build scripts (sidecar, updates)
-│   ├── signing/                      # Code signing scripts (macOS)
-│   ├── test/                         # Test scripts
-│   ├── daemon/                       # Daemon management scripts
-│   └── utils/                        # Utility scripts
-├── uv-wrapper/                       # UV wrapper for Python package management
-├── CONVENTIONS.md                    # Project conventions and coding standards
-├── RAPPORT_BUILD.md                  # Detailed build process documentation
-├── RELEASE_FILES.md                  # Release files and their roles
+│   ├── src/
+│   │   ├── lib.rs                   # Main entry point
+│   │   ├── daemon/                  # Daemon management
+│   │   ├── usb/                     # USB detection
+│   │   ├── permissions/             # macOS permissions
+│   │   ├── signing/                 # Code signing
+│   │   ├── python/                  # Python environment
+│   │   └── window/                  # Window management
+│   ├── tauri.conf.json              # Tauri configuration
+│   └── capabilities/                # Security capabilities
+├── scripts/                          # Build and utility scripts (README.md)
+│   ├── build/                       # Build scripts
+│   ├── signing/                     # Code signing scripts
+│   ├── test/                        # Test scripts
+│   ├── daemon/                      # Daemon management
+│   └── utils/                       # Utility scripts
+├── uv-wrapper/                       # UV wrapper (Rust) for Python
 └── docs/                             # Additional documentation
 ```
 
+### Module Documentation
+
+Each major module has its own README with detailed documentation:
+
+| Module | Path | Description |
+|--------|------|-------------|
+| **Viewer 3D** | [`src/components/viewer3d/README.md`](./src/components/viewer3d/README.md) | 3D visualization, X-ray effects, WebSocket |
+| **Application Store** | [`src/views/active-robot/application-store/README.md`](./src/views/active-robot/application-store/README.md) | App discovery, installation, management |
+| **Controller** | [`src/views/active-robot/controller/README.md`](./src/views/active-robot/controller/README.md) | Robot position control, joysticks, sliders |
+| **Installation** | [`src/views/active-robot/application-store/hooks/installation/README.md`](./src/views/active-robot/application-store/hooks/installation/README.md) | Installation lifecycle and polling |
+| **Scripts** | [`scripts/README.md`](./scripts/README.md) | Build, test, and utility scripts |
+| **DMG Assets** | [`src-tauri/dmg-assets/README.md`](./src-tauri/dmg-assets/README.md) | macOS DMG customization guide |
+| **Updates** | [`docs/README.md`](./docs/README.md) | Update system documentation |
+
+### Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph Frontend["Frontend (React)"]
+        App["App.jsx"]
+        ViewRouter["useViewRouter"]
+        Views["Views"]
+        Store["Zustand Store"]
+        Hooks["Custom Hooks"]
+    end
+    
+    subgraph Backend["Backend (Tauri/Rust)"]
+        Commands["Tauri Commands"]
+        Modules["Rust Modules<br/>(daemon, usb, permissions)"]
+    end
+    
+    subgraph Sidecar["Python Sidecar"]
+        UV["UV Wrapper"]
+        Daemon["FastAPI Daemon<br/>:8000"]
+    end
+    
+    subgraph External["External"]
+        HF["Hugging Face Spaces"]
+        GH["GitHub Pages<br/>(Updates)"]
+    end
+    
+    subgraph Hardware["Hardware"]
+        Robot["Reachy Mini"]
+    end
+    
+    App --> ViewRouter
+    ViewRouter --> Views
+    Views --> Hooks
+    Hooks --> Store
+    
+    Hooks <-->|IPC| Commands
+    Commands --> Modules
+    Modules --> UV
+    UV --> Daemon
+    
+    Hooks <-->|REST API| Daemon
+    Daemon <-->|Serial| Robot
+    
+    Hooks -.-> HF
+    Hooks -.-> GH
+```
+
 **Key Architecture Points:**
-- **Hooks** are organized by domain (apps, daemon, robot, system) for better maintainability
+- **Hooks** are organized by domain (daemon, robot, system) for better maintainability
 - **Views** are organized in dedicated folders with their associated components
-- **Utils** are centralized with domain-specific utilities in subfolders (e.g., `viewer3d/`)
+- **Store** uses a composite pattern with specialized sub-stores
 - **Config** centralizes all configuration constants (timeouts, intervals, etc.)
 - See [CONVENTIONS.md](./CONVENTIONS.md) for detailed coding standards and conventions
+
+### View Router State Machine
+
+The application uses a priority-based view router that determines which screen to display based on the current state:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PermissionsCheck: App Launch
+    
+    PermissionsCheck --> UpdateView: Permissions OK
+    PermissionsCheck --> PermissionsRequired: Missing Permissions
+    PermissionsRequired --> Restarting: Permissions Granted
+    Restarting --> [*]: Relaunch App
+    
+    UpdateView --> CheckingUpdate: Auto Check
+    CheckingUpdate --> DownloadingUpdate: Update Available
+    CheckingUpdate --> USBCheck: No Update / Error
+    DownloadingUpdate --> Installing: Download Complete
+    Installing --> [*]: Restart Required
+    
+    USBCheck --> RobotNotDetected: No USB
+    USBCheck --> ReadyToStart: USB Connected
+    RobotNotDetected --> ReadyToStart: USB Connected
+    
+    ReadyToStart --> Starting: User Clicks Start
+    Starting --> HardwareScan: Daemon Starting
+    HardwareScan --> HardwareError: Error Detected
+    HardwareError --> ReadyToStart: User Retry
+    HardwareScan --> Transition: Scan Complete
+    
+    Transition --> ActiveRobot: Window Resized
+    ActiveRobot --> Closing: User Stops
+    ActiveRobot --> RobotNotDetected: USB Disconnected
+    
+    Closing --> ReadyToStart: Daemon Stopped
+    Closing --> RobotNotDetected: USB Gone
+```
+
+**Priority order (highest to lowest):**
+1. 🔐 **Permissions** (macOS only) - Blocks until camera/microphone granted
+2. 🔄 **Update** - Check and download updates
+3. 🔌 **USB Check** - Detect robot connection
+4. ⏳ **Ready to Start** - Robot connected, waiting for user
+5. 🔍 **Starting** - Hardware scan animation
+6. ✨ **Transition** - Window resize animation
+7. 🛑 **Closing** - Shutdown sequence
+8. 🤖 **Active Robot** - Full control interface
 
 ## 🔄 Updates
 

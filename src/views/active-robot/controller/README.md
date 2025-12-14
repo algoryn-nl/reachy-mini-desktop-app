@@ -1,62 +1,78 @@
-# Robot Position Control Module
+# Controller Module
 
-Module for controlling the position of the Reachy Mini robot.
+Module for controlling the position and orientation of the Reachy Mini robot head.
 
 ## 📁 Structure
 
 ```
-position-control/
-├── RobotPositionControl.jsx    # Main component (orchestration)
-├── components/                  # Reusable UI components
-│   ├── Joystick2D.jsx          # 2D joystick control
-│   ├── VerticalSlider.jsx      # Vertical slider
-│   ├── SimpleSlider.jsx        # Horizontal slider
-│   └── CircularSlider.jsx     # Circular slider
-├── hooks/                       # Business logic hooks
-│   ├── useRobotPosition.js     # Main position control hook
-│   ├── useRobotAPI.js          # API communication hook
-│   ├── useRobotSmoothing.js    # Smoothing logic hook
-│   ├── useRobotSync.js         # State synchronization hook
-│   └── useActiveMoves.js       # Active moves tracking hook
-├── utils/                       # Helper utilities
-│   └── formatPose.js           # Pose formatting for logs
-└── index.js                     # Main export
+controller/
+├── Controller.jsx              # Main component (orchestration)
+├── components/                 # Reusable UI components
+│   ├── Joystick2D.jsx         # 2D joystick control (X/Y or Pitch/Yaw)
+│   ├── VerticalSlider.jsx     # Vertical slider (Position Z)
+│   ├── SimpleSlider.jsx       # Horizontal slider (Roll, Body Yaw)
+│   ├── CircularSlider.jsx     # Circular slider for rotation
+│   └── index.js               # Component exports
+├── hooks/                      # Business logic hooks
+│   ├── useRobotPosition.js    # Main position control hook
+│   ├── useRobotAPI.js         # API communication hook
+│   ├── useRobotSmoothing.js   # Input smoothing logic
+│   ├── useRobotSync.js        # State synchronization
+│   ├── useActiveMoves.js      # Active moves tracking
+│   ├── useInputProcessing.js  # Input processing and normalization
+│   ├── usePositionHandlers.js # Position change handlers
+│   └── index.js               # Hook exports
+├── utils/                      # Helper utilities
+│   ├── formatPose.js          # Pose formatting for logs
+│   ├── intelligentLogging.js  # Smart logging with throttling
+│   └── index.js               # Utility exports
+└── index.js                    # Main export
 ```
 
 ## 🎯 Architecture
 
 ### Main Component
-- **RobotPositionControl**: Orchestration and layout
+
+- **Controller**: Orchestration and layout
   - Props: `isActive`, `darkMode`, `onResetReady`, `onIsAtInitialPosition`
+  - Manages joystick and slider states
+  - Coordinates API calls with smoothing
 
 ### UI Components
-- **Joystick2D**: 2D control (Position X/Y, Pitch/Yaw)
-- **VerticalSlider**: Vertical slider (Position Z)
-- **SimpleSlider**: Horizontal slider (Roll, Body Yaw)
-- **CircularSlider**: Circular slider for rotation controls
+
+| Component | Purpose | Controls |
+|-----------|---------|----------|
+| **Joystick2D** | 2D control area | Position X/Y, Pitch/Yaw |
+| **VerticalSlider** | Vertical slider | Position Z (height) |
+| **SimpleSlider** | Horizontal slider | Roll, Body Yaw |
+| **CircularSlider** | Circular slider | Rotation angles |
 
 ### Business Logic Hooks
-- **useRobotPosition**: Main position control hook
-  - State management
-  - API commands (set_target only)
-  - Intelligent logging
-  - Continuous animation (requestAnimationFrame)
-  
-- **useRobotAPI**: Handles API communication
-- **useRobotSmoothing**: Manages input smoothing
-- **useRobotSync**: Synchronizes robot state
-- **useActiveMoves**: Tracks active robot movements
+
+| Hook | Responsibility |
+|------|---------------|
+| **useRobotPosition** | Main position state and API commands |
+| **useRobotAPI** | HTTP calls to daemon API (`/api/move/set_target`) |
+| **useRobotSmoothing** | Smooth input transitions (lerp) |
+| **useRobotSync** | Sync local state with robot state |
+| **useActiveMoves** | Track active movements from store |
+| **useInputProcessing** | Normalize and process raw inputs |
+| **usePositionHandlers** | Handle position change events |
 
 ### Utilities
-- **formatPoseForLog**: Formats poses for logging
-- **hasSignificantChange**: Detects significant changes in pose
+
+| Utility | Purpose |
+|---------|---------|
+| **formatPoseForLog** | Format pose data for readable logs |
+| **hasSignificantChange** | Detect significant pose changes |
+| **intelligentLogging** | Throttled logging to reduce noise |
 
 ## 🔧 Usage
 
 ```jsx
-import RobotPositionControl from '@views/active-robot/position-control';
+import Controller from '@views/active-robot/controller';
 
-<RobotPositionControl 
+<Controller 
   isActive={isActive}
   darkMode={darkMode}
   onResetReady={handleResetReady}
@@ -68,15 +84,66 @@ import RobotPositionControl from '@views/active-robot/position-control';
 
 ```javascript
 // Main component
-import RobotPositionControl from '@views/active-robot/position-control';
+import Controller from '@views/active-robot/controller';
 
 // Individual components
-import { Joystick2D, VerticalSlider, SimpleSlider, CircularSlider } from '@views/active-robot/position-control/components';
+import { 
+  Joystick2D, 
+  VerticalSlider, 
+  SimpleSlider, 
+  CircularSlider 
+} from '@views/active-robot/controller/components';
 
 // Hooks
-import { useRobotPosition, useRobotAPI, useRobotSmoothing, useRobotSync, useActiveMoves } from '@views/active-robot/position-control/hooks';
+import { 
+  useRobotPosition, 
+  useRobotAPI, 
+  useRobotSmoothing, 
+  useRobotSync, 
+  useActiveMoves,
+  useInputProcessing,
+  usePositionHandlers
+} from '@views/active-robot/controller/hooks';
 
 // Utils
-import { formatPoseForLog, hasSignificantChange } from '@views/active-robot/position-control/utils';
+import { 
+  formatPoseForLog, 
+  hasSignificantChange,
+  intelligentLogging 
+} from '@views/active-robot/controller/utils';
 ```
 
+## 🎮 Control Flow
+
+```mermaid
+flowchart LR
+    subgraph Input["User Input"]
+        Joystick["Joystick2D"]
+        Sliders["Sliders"]
+    end
+    
+    subgraph Processing["Processing"]
+        InputProc["useInputProcessing"]
+        Smoothing["useRobotSmoothing"]
+        Position["useRobotPosition"]
+    end
+    
+    subgraph Output["Output"]
+        API["useRobotAPI"]
+        Daemon["Daemon API"]
+    end
+    
+    Joystick --> InputProc
+    Sliders --> InputProc
+    InputProc --> Smoothing
+    Smoothing --> Position
+    Position --> API
+    API --> Daemon
+```
+
+## ⚡ Performance
+
+- **requestAnimationFrame**: Continuous animation loop for smooth updates
+- **Throttled API calls**: Prevents flooding the daemon
+- **Intelligent logging**: Reduces console noise in production
+- **Memoized components**: Prevents unnecessary re-renders
