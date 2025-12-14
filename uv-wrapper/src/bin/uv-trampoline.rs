@@ -395,10 +395,34 @@ fn main() -> ExitCode {
     println!("🔍 Checking args: {:?}", args);
     let mut cmd = if !args.is_empty() && (args[0].contains("python") || args[0].contains("mjpython")) {
         println!("✅ Detected Python executable: {}", args[0]);
+        
+        // Convert Unix-style path to Windows-style if needed
+        #[cfg(target_os = "windows")]
+        let python_arg = {
+            let arg = &args[0];
+            // Convert .venv/bin/python3 to .venv/Scripts/python.exe on Windows
+            if arg.contains(".venv/bin/python") || arg.contains(".venv\\bin\\python") {
+                let converted = arg
+                    .replace(".venv/bin/python3", ".venv/Scripts/python.exe")
+                    .replace(".venv\\bin\\python3", ".venv\\Scripts\\python.exe")
+                    .replace(".venv/bin/python", ".venv/Scripts/python.exe")
+                    .replace(".venv\\bin\\python", ".venv\\Scripts\\python.exe")
+                    .replace("/", "\\"); // Convert forward slashes to backslashes
+                println!("🔄 Converted Unix path to Windows: {} -> {}", arg, converted);
+                converted
+            } else {
+                arg.replace("/", "\\") // Just convert slashes
+            }
+        };
+        
+        #[cfg(not(target_os = "windows"))]
+        let python_arg = args[0].clone();
+        
         // First argument is a Python executable - execute it directly
-        let python_path = if args[0].starts_with("/") || args[0].starts_with(".") {
+        let python_path = if python_arg.starts_with("/") || python_arg.starts_with(".") || 
+                          (cfg!(target_os = "windows") && (python_arg.starts_with(".") || python_arg.chars().nth(1) == Some(':'))) {
             // Relative or absolute path - resolve relative to working_dir
-            let python_exe = working_dir.join(&args[0]);
+            let python_exe = working_dir.join(&python_arg);
             println!("🔍 Resolved Python path: {:?}", python_exe);
             if !python_exe.exists() {
                 eprintln!("❌ Error: Python executable not found at {:?}", python_exe);
@@ -407,8 +431,8 @@ fn main() -> ExitCode {
             python_exe
         } else {
             // Just a name like "python" or "python3" - use as-is
-            println!("🔍 Using Python from PATH: {}", args[0]);
-            PathBuf::from(&args[0])
+            println!("🔍 Using Python from PATH: {}", python_arg);
+            PathBuf::from(&python_arg)
         };
         
         // On macOS, check if python3 needs signing before launching
