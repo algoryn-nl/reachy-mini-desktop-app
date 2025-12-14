@@ -28,7 +28,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             platform: windows-x86_64
-          - os: ubuntu-latest
+          - os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x86_64
 
@@ -68,7 +68,7 @@ jobs:
           TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-sidecar-unix.sh || echo "Sidecar build skipped"
 
       - name: Update Linux resources config with cpython folder name
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         shell: bash
         run: |
           # Find the actual cpython folder name created by uv-bundle
@@ -657,7 +657,7 @@ jobs:
           Write-Host "✅ MSI signed and verified successfully!"
 
       - name: Build Tauri app (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         shell: bash
         working-directory: src-tauri
         run: |
@@ -695,7 +695,7 @@ jobs:
           yarn tauri build --target ${{ matrix.target }}
 
       - name: Add post-install scripts to .deb (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         shell: bash
         working-directory: src-tauri
         run: |
@@ -1065,7 +1065,7 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           files: |
             ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi', matrix.target) || '' }}
-            ${{ matrix.os == 'ubuntu-latest' && format('src-tauri/target/{0}/release/bundle/deb/*.deb', matrix.target) || '' }}
+            ${{ matrix.os == 'ubuntu-20.04' && format('src-tauri/target/{0}/release/bundle/deb/*.deb', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.dmg', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.zip', matrix.target) || '' }}
             releases/**/*.tar.gz
