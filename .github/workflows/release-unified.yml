@@ -1040,13 +1040,52 @@ jobs:
             releases/**
           retention-days: 30
 
+      - name: Extract changelog for version
+        if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin'
+        id: changelog
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "📝 Extracting changelog for version $VERSION..."
+          
+          CHANGELOG_FILE="CHANGELOG.md"
+          if [ ! -f "$CHANGELOG_FILE" ]; then
+            echo "⚠️ No CHANGELOG.md found, using default message"
+            echo "body=See the assets to download this version and install." >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Extract the section for this version
+          # Matches from "## [X.Y.Z]" until the next "## [" or end of file
+          NOTES=$(awk -v ver="$VERSION" '
+            BEGIN { found=0; output="" }
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]") > 0) found=1
+              next
+            }
+            found { output = output $0 "\n" }
+            END { print output }
+          ' "$CHANGELOG_FILE")
+          
+          if [ -z "$NOTES" ] || [ "$NOTES" = $'\n' ]; then
+            echo "⚠️ No changelog entry found for version $VERSION"
+            echo "body=See the assets to download this version and install." >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found changelog for version $VERSION"
+            # Write to file to handle multiline
+            echo "$NOTES" > /tmp/release_notes.md
+            echo "body_path=/tmp/release_notes.md" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: 'Reachy Mini Control v${{ steps.version.outputs.version }}'
-          body: 'See the assets to download this version and install.'
+          body_path: ${{ steps.changelog.outputs.body_path }}
+          body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') }}
           files: |

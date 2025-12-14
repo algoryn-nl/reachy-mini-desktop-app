@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert, LinearProgress, ButtonGroup, Switch, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import CloseIcon from '@mui/icons-material/Close';
+import FullscreenOverlay from '../../components/FullscreenOverlay';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
@@ -64,6 +67,9 @@ function ActiveRobotView({
   // Toast notifications
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
   const [toastProgress, setToastProgress] = useState(100);
+  
+  // Logs fullscreen modal
+  const [logsFullscreenOpen, setLogsFullscreenOpen] = useState(false);
   
   // Audio controls - Extracted to hook
   const {
@@ -462,6 +468,22 @@ function ActiveRobotView({
                 <InfoOutlinedIcon sx={{ fontSize: 12, color: darkMode ? '#666' : '#999', opacity: 0.6, cursor: 'help' }} />
               </Tooltip>
             </Box>
+            <Tooltip title="Fullscreen logs" arrow placement="top">
+              <IconButton
+                onClick={() => setLogsFullscreenOpen(true)}
+                sx={{
+                  padding: '2px',
+                  opacity: 0.5,
+                  transition: 'opacity 0.2s ease',
+                  '&:hover': {
+                    opacity: 1,
+                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <OpenInFullIcon sx={{ fontSize: 12, color: darkMode ? '#666' : '#999' }} />
+              </IconButton>
+            </Tooltip>
           </Box>
           
           <Box sx={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -637,6 +659,62 @@ function ActiveRobotView({
           </Box>
         </Box>
       </Snackbar>
+      
+      {/* Logs Fullscreen Modal */}
+      <FullscreenOverlay
+        open={logsFullscreenOpen}
+        onClose={() => setLogsFullscreenOpen(false)}
+        darkMode={darkMode}
+      >
+        <Box
+          sx={{
+            width: 'calc(100% - 80px)',
+            height: 'calc(100% - 80px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            position: 'relative',
+          }}
+        >
+          {/* Close button */}
+          <IconButton
+            onClick={() => setLogsFullscreenOpen(false)}
+            size="small"
+            sx={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              padding: '4px',
+              color: darkMode ? '#888' : '#666',
+              '&:hover': {
+                bgcolor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+              },
+              zIndex: 10,
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          
+          <Typography
+            sx={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: darkMode ? '#888' : '#999',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Logs
+          </Typography>
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <LogConsole 
+              logs={logs} 
+              darkMode={darkMode} 
+              height="100%"
+            />
+          </Box>
+        </Box>
+      </FullscreenOverlay>
     </Box>
   );
 }
