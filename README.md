@@ -6,7 +6,7 @@
   <h1>Reachy Mini Control</h1>
   
   <p>
-    <img src="https://img.shields.io/badge/version-0.3.3-blue.svg" alt="Version" />
+    <img src="https://img.shields.io/badge/version-0.7.5-blue.svg" alt="Version" />
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" />
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg" alt="Platform" />
     <img src="https://img.shields.io/badge/tauri-2.0-FFC131?logo=tauri&logoColor=white" alt="Tauri" />
@@ -15,7 +15,7 @@
 
 A modern desktop application for controlling and monitoring your Reachy Mini robot. Built with Tauri and React for a native, performant experience.
 
-This desktop application provides a unified interface to manage your Reachy Mini robot. It handles the robot daemon lifecycle, offers real-time 3D visualization of the robot's state, and includes an integrated app store to discover and install applications from Hugging Face Spaces. The app automatically detects USB-connected robots and provides direct access to audio controls, camera feeds, and robot choreographies. For development, a simulation mode is available that uses MuJoCo physics to test without physical hardware.
+This desktop application provides a unified interface to manage your Reachy Mini robot. It handles the robot daemon lifecycle, offers real-time 3D visualization of the robot's state, and includes an integrated app store to discover and install applications from Hugging Face Spaces. The app automatically detects USB-connected robots and provides direct access to audio controls, camera feeds, and robot choreographies.
 
 ![Desktop Application Screenshot](src/assets/desktop-app-screenshot.png)
 
@@ -37,7 +37,6 @@ This desktop application provides a unified interface to manage your Reachy Mini
   - Dark mode support
   - Responsive design
 - 🔌 **USB Detection** - Automatic detection of Reachy Mini via USB
-- 🎭 **Simulation Mode** - Test and develop without hardware using MuJoCo simulation
 - 📱 **Cross-platform** - Works on macOS, Windows, and Linux
 
 ## 🚀 Quick Start
@@ -139,20 +138,28 @@ Apps are managed through the FastAPI daemon API, which handles installation and 
 
 **Development:**
 ```bash
-yarn dev                    # Start Vite dev server
+yarn dev                    # Start Vite dev server only
 yarn tauri:dev              # Run Tauri app in dev mode
-yarn tauri:dev:sim          # Run Tauri app in simulation mode (skip USB detection)
 ```
 
 **Building:**
 ```bash
-yarn build:sidecar-macos    # Build sidecar for macOS (PyPI)
-yarn build:sidecar-linux    # Build sidecar for Linux (PyPI)
-yarn build:sidecar-windows  # Build sidecar for Windows (PyPI)
-yarn build:sidecar-macos:develop    # Build sidecar with GitHub develop branch (macOS)
-yarn build:sidecar-linux:develop    # Build sidecar with GitHub develop branch (Linux)
-yarn build:sidecar-windows:develop  # Build sidecar with GitHub develop branch (Windows)
-yarn tauri:build            # Build production bundle (requires sidecar built first)
+# Build sidecar (required before tauri:build)
+yarn build:sidecar-macos              # macOS (PyPI)
+yarn build:sidecar-linux              # Linux (PyPI)
+yarn build:sidecar-windows            # Windows (PyPI)
+
+# Build sidecar with specific branch
+yarn build:sidecar-macos:develop      # macOS with develop branch
+yarn build:sidecar-macos:main         # macOS with main branch
+yarn build:sidecar:branch             # Interactive branch selection
+
+# Build application
+yarn tauri:build                      # Build production bundle
+
+# Build web dashboard (for daemon)
+yarn build:web                        # Build web version
+yarn deploy:daemon-v2                 # Deploy to daemon dashboard
 ```
 
 **Updates:**
@@ -164,61 +171,20 @@ yarn serve:updates          # Serve updates locally for testing
 
 **Testing:**
 ```bash
-yarn test:sidecar          # Test the sidecar build
-yarn test:app              # Test the complete application
-yarn test:updater          # Test the update system
-yarn test:update-prod      # Test production updates
-yarn test:all              # Run all tests
+yarn test:sidecar           # Test the sidecar build
+yarn test:app               # Test the complete application
+yarn test:updater           # Test the update system
+yarn test:update-prod       # Test production updates
+yarn test:all               # Run all tests
 ```
 
-**Daemon Management:**
+**Utilities:**
 ```bash
-yarn check-daemon          # Check daemon status and health
-yarn kill-daemon           # Stop all running daemon processes
-```
-
-**macOS Permissions (Development):**
-```bash
-yarn reset-permissions     # Reset Camera and Microphone permissions for testing
-```
-Note: 
-- Dev mode uses strict permission checking (same as production): only Authorized (3) = granted
-- Use `yarn reset-permissions` to test the permission flow
-- You may need to run `yarn reset-permissions` with `sudo` if you get permission errors
-
-### 🎭 Simulation Mode
-
-To develop or test the application without a USB-connected robot, use simulation mode:
-
-```bash
-# Via npm/yarn script (recommended)
-yarn tauri:dev:sim
-
-# Or manually with environment variable
-VITE_SIM_MODE=true yarn tauri:dev
-
-# Or via localStorage (in browser console)
-localStorage.setItem('simMode', 'true')
-# Then reload the application
-```
-
-**Simulation mode behavior:**
-- ✅ Skip USB detection (goes directly to `ReadyToStartView`)
-- ✅ Simulates a USB connection (`/dev/tty.usbserial-SIMULATED`)
-- ✅ Visual indicator "🎭 SIM" in the top bar
-- ✅ **The daemon automatically starts in simulation mode (MuJoCo)** with the `--sim` argument
-- ✅ **MuJoCo is automatically installed** on first startup in simulation mode
-  - Installation happens in the background via `uv pip install reachy-mini[mujoco]`
-  - If MuJoCo is already installed, installation will be quick (verification only)
-- 🍎 **On macOS**: Automatically uses `mjpython` (required by MuJoCo) with automatic shebang correction
-
-**Disable simulation mode:**
-```bash
-# Remove the environment variable
-yarn tauri:dev
-
-# Or via localStorage
-localStorage.removeItem('simMode')
+yarn check-daemon           # Check daemon status and health
+yarn kill-daemon            # Stop all running daemon processes
+yarn kill-zombie-apps       # Kill zombie app processes
+yarn reset-permissions      # Reset macOS permissions (dev)
+yarn clean                  # Clean build artifacts
 ```
 
 ### Project Structure
