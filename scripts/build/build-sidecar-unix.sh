@@ -34,10 +34,12 @@ cargo build --release --bin uv-bundle
 REACHY_MINI_SOURCE="${REACHY_MINI_SOURCE:-pypi}"
 
 echo "📦 Installing sidecar with REACHY_MINI_SOURCE=$REACHY_MINI_SOURCE..."
+# Install reachy-mini with placo_kinematics AND mujoco pre-bundled
+# This ensures MuJoCo binaries are signed at build-time (fixes macOS signature issues)
 ./target/release/uv-bundle \
     --install-dir "../$DST_DIR" \
     --python-version 3.12 \
-    --dependencies "reachy-mini[placo_kinematics]" \
+    --dependencies "reachy-mini[placo_kinematics,mujoco]" \
     --reachy-mini-source "$REACHY_MINI_SOURCE"
 
 # Build uv-trampoline

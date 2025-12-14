@@ -15,7 +15,9 @@ Push-Location uv-wrapper
     
     # Use REACHY_MINI_SOURCE env var if set, default to 'pypi'
     $ReachyMiniSource = if ($env:REACHY_MINI_SOURCE) { $env:REACHY_MINI_SOURCE } else { "pypi" }
-    target/release/uv-bundle.exe --install-dir ..\$DST_DIR --python-version 3.12 --dependencies "reachy-mini[placo_kinematics]" --reachy-mini-source $ReachyMiniSource
+    # Install reachy-mini with placo_kinematics AND mujoco pre-bundled
+    # This ensures MuJoCo binaries are signed at build-time (fixes macOS signature issues)
+    target/release/uv-bundle.exe --install-dir ..\$DST_DIR --python-version 3.12 --dependencies "reachy-mini[placo_kinematics,mujoco]" --reachy-mini-source $ReachyMiniSource
 
     cargo build --release --bin uv-trampoline
     Copy-Item target/release/uv-trampoline.exe ../$DST_DIR/uv-trampoline-$TRIPLET.exe -Force

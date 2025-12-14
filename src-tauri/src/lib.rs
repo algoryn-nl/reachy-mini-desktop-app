@@ -18,62 +18,26 @@ use signal_hook::{consts::TERM_SIGNALS, iterator::Signals};
 // TAURI COMMANDS
 // ============================================================================
 
-/// Install MuJoCo dependencies for simulation mode
-/// Uses uv-trampoline to install mujoco and reachy-mini[mujoco] in the same environment as the daemon
-/// Monitors installation in background
+/// Check MuJoCo availability for simulation mode
+/// MuJoCo is now pre-bundled at build-time, so this is a no-op
+/// Kept for backward compatibility with frontend calls
 #[tauri::command]
-fn install_mujoco(app_handle: tauri::AppHandle) -> Result<String, String> {
-    println!("[tauri] 🎭 Installing MuJoCo dependencies for simulation mode...");
-    
-    // Use uv-trampoline to run: uv pip install mujoco reachy-mini[mujoco]
-    // Install mujoco first, then reachy-mini[mujoco] to ensure all dependencies are available
-    // This ensures we install in the same Python environment as the daemon
-    let (mut rx, _child) = app_handle
-        .shell()
-        .sidecar("uv-trampoline")
-        .map_err(|e| format!("Failed to find uv-trampoline: {}", e))?
-        .args(&["pip", "install", "mujoco", "reachy-mini[mujoco]"])
-        .spawn()
-        .map_err(|e| format!("Failed to spawn uv-trampoline: {}", e))?;
-    
-    // Monitor output in background using shared helper
-    crate::spawn_sidecar_monitor!(rx, app_handle, Some("mujoco-install".to_string()));
-    
-    // Wait a bit for installation to start (it runs async)
-    // Note: We can't easily wait for completion without blocking, so we rely on
-    // the frontend to detect when MuJoCo is available via health checks
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    
-    Ok("MuJoCo installation started".to_string())
+fn install_mujoco(_app_handle: tauri::AppHandle) -> Result<String, String> {
+    // MuJoCo is pre-bundled at build-time (via reachy-mini[placo_kinematics,mujoco])
+    // This ensures all binaries are properly signed before notarization
+    // No runtime installation needed - fixes macOS signature issues (Issue #16)
+    println!("[tauri] 🎭 MuJoCo is pre-bundled, skipping installation");
+    Ok("MuJoCo already installed (pre-bundled)".to_string())
 }
 
 #[tauri::command]
 fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>, sim_mode: Option<bool>) -> Result<String, String> {
     let sim_mode = sim_mode.unwrap_or(false);
     
-    // 🎭 If simulation mode, ensure MuJoCo is installed first
-    // Installation happens asynchronously, we wait a bit for it to complete
+    // 🎭 Simulation mode: MuJoCo is pre-bundled at build-time
+    // No installation needed - all binaries are already signed (fixes Issue #16)
     if sim_mode {
-        add_log(&state, "🎭 Installing MuJoCo dependencies for simulation mode...".to_string());
-        match install_mujoco(app_handle.clone()) {
-            Ok(_) => {
-                add_log(&state, "✅ MuJoCo installation started, waiting...".to_string());
-                // Wait a bit longer for installation to complete (mujoco can take time)
-                std::thread::sleep(std::time::Duration::from_secs(5));
-            }
-            Err(e) => {
-                // ✅ Improved error handling: Log detailed error but continue
-                // MuJoCo might already be installed, or installation might be in progress
-                let error_msg = format!("⚠️ MuJoCo installation warning: {}", e);
-                add_log(&state, error_msg.clone());
-                println!("[tauri] ⚠️ MuJoCo installation returned error: {}", e);
-                println!("[tauri] ⚠️ Continuing anyway - MuJoCo might already be installed or installation in progress");
-                // Note: We continue because:
-                // 1. MuJoCo might already be installed (uv pip install is idempotent)
-                // 2. Installation runs asynchronously, error might be transient
-                // 3. If MuJoCo is truly missing, the daemon will fail to start and we'll catch it via sidecar-terminated
-            }
-        }
+        add_log(&state, "🎭 Starting simulation mode (MuJoCo pre-bundled)...".to_string());
     }
     
     // 1. ⚡ Aggressive cleanup of all existing daemons (including zombies)
