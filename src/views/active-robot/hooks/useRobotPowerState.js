@@ -30,7 +30,7 @@ export function useRobotPowerState(isActive) {
 
     const data = robotStateFull.data;
     
-    // ✅ Utiliser control_mode du daemon (enabled/disabled)
+    // ✅ Use control_mode from daemon (enabled/disabled)
     const motorsOn = data.control_mode === 'enabled';
     
     // ✅ Movement detection based on position changes

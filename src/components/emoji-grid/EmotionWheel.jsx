@@ -63,18 +63,23 @@ function DiceIcon({ value = 6, size = 32, color = '#FF9500', isShaking = false }
  * Curated emotions for the wheel - 12 emotions arranged in a circle
  */
 const WHEEL_EMOTIONS = [
-  'amazed1',
-  'attentive2',
-  'inquiring3',
+  // Positive emotions
+  'loving1',
+  'grateful1',
+  'helpful1',
+  'surprised1',
+  'thoughtful1',
+  // Interaction
+  'yes1',
+  'no1',
+  // Neutral/Negative emotions
+  'boredom2',
   'anxiety1',
   'downcast1',
-  'lost1',
   'sad1',
   'sad2',
   'dying1',
-  'irritated1',
   'reprimand1',
-  'reprimand2',
 ];
 
 /**
@@ -144,7 +149,7 @@ export const EmotionWheel = forwardRef(function EmotionWheel({
   
   // Sounds
   const [playDiceSound] = useSound(diceRollSound, { volume: 0.25 });
-  const [playTick] = useSound(tickSound, { volume: 0.15 });
+  const [playTick] = useSound(tickSound, { volume: 0.035 });
 
   // GSAP animation functions
   const showDice = useCallback(() => {
@@ -214,7 +219,7 @@ export const EmotionWheel = forwardRef(function EmotionWheel({
   playTickRef.current = playTick;
 
   const wheelSize = 380;
-  const centerSize = 140;
+  const centerSize = 160;
   const emojiSize = 36;
   
   // Calculate positions for 12 items in a circle

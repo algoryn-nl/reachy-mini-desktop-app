@@ -18,10 +18,17 @@ export default function ControlButtons({
   isActive = false,
 }) {
   const { robotState, actions } = useActiveRobotContext();
-  const { rightPanelView } = robotState;
+  const { rightPanelView, currentApp } = robotState;
   const { setRightPanelView } = actions;
   const isExpressionsOpen = rightPanelView === 'expressions';
   const isControllerOpen = rightPanelView === 'controller';
+  
+  // Check if any app is currently running or starting (based on currentApp state)
+  const isAnyAppActive = currentApp && currentApp.state && 
+    (currentApp.state === 'running' || currentApp.state === 'starting');
+  
+  // Disable buttons when robot is not active or when an app is running
+  const isDisabled = !isActive || isAnyAppActive;
   
   const handleExpressionsClick = () => {
     if (isExpressionsOpen) {
@@ -49,7 +56,7 @@ export default function ControlButtons({
     alignItems: 'center',
     gap: 1.5,
     transition: 'all 0.2s ease',
-    opacity: !isActive ? 0.5 : 1,
+    opacity: isDisabled ? 0.5 : 1,
     flex: 1,
     position: 'relative',
   };
@@ -208,7 +215,7 @@ export default function ControlButtons({
           </Typography>
           <Button
             onClick={handleExpressionsClick}
-            disabled={!isActive}
+            disabled={isDisabled}
             variant="outlined"
             startIcon={isExpressionsOpen ? <CloseIcon sx={{ fontSize: 14 }} /> : <OpenInNewIcon sx={{ fontSize: 14 }} />}
             sx={{
@@ -265,7 +272,7 @@ export default function ControlButtons({
           </Typography>
           <Button
             onClick={handleControllerClick}
-            disabled={!isActive}
+            disabled={isDisabled}
             variant="outlined"
             startIcon={isControllerOpen ? <CloseIcon sx={{ fontSize: 14 }} /> : <OpenInNewIcon sx={{ fontSize: 14 }} />}
             sx={{

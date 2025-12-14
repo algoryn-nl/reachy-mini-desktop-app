@@ -1,109 +1,109 @@
-# 🎨 Guide pour créer l'image de fond du DMG
+# 🎨 Guide for Creating DMG Background Image
 
-## Dimensions de l'image
+## Image Dimensions
 
-**⚠️ IMPORTANT : Pour éviter le décalage, utilisez une image légèrement plus grande que la fenêtre !**
+**⚠️ IMPORTANT: To avoid offset, use an image slightly larger than the window!**
 
-- **Fenêtre** : 800×600 points (taille logique standard)
-- **Image recommandée** : **864×664 pixels** (800+64 × 600+64)
-  - Les +64 pixels compensent les marges internes du Finder
-  - C'est la méthode standard recommandée par la communauté
-- **Format** : PNG (avec transparence possible)
-- **Résolution** : 72 DPI
+- **Window**: 800×600 points (standard logical size)
+- **Recommended image**: **864×664 pixels** (800+64 × 600+64)
+  - The +64 pixels compensate for Finder's internal margins
+  - This is the standard method recommended by the community
+- **Format**: PNG (transparency possible)
+- **Resolution**: 72 DPI
 
-**Note** : Le Finder a des marges internes qui causent un décalage si l'image fait exactement 800×600. En utilisant 864×664 px, l'image remplit correctement la fenêtre sans décalage.
+**Note**: Finder has internal margins that cause offset if the image is exactly 800×600. Using 864×664 px, the image fills the window correctly without offset.
 
-## Système de coordonnées
+## Coordinate System
 
-**Important** : macOS utilise un système de coordonnées depuis le **bas gauche** de la fenêtre.
+**Important**: macOS uses a coordinate system from the **bottom left** of the window.
 
-### Conversion pour ton image
+### Conversion for Your Image
 
-Quand tu crées ton image dans un éditeur (Photoshop, Figma, etc.), tu penses depuis le **haut gauche** (0,0 en haut).
+When you create your image in an editor (Photoshop, Figma, etc.), you think from the **top left** (0,0 at top).
 
-**Pour convertir les coordonnées macOS vers ton image :**
+**To convert macOS coordinates to your image:**
 
-- **macOS** : (0,0) = bas gauche
-- **Ton image** : (0,0) = haut gauche
+- **macOS**: (0,0) = bottom left
+- **Your image**: (0,0) = top left
 
-**Formule de conversion :**
+**Conversion formula:**
 ```
-Image Y = Hauteur de l'image - macOS Y
+Image Y = Image height - macOS Y
 ```
 
-### Positions standard pour les icônes
+### Standard Icon Positions
 
-**Pour une image 864×664 px (recommandée, compense les marges du Finder)** :
-- **Icône de l'app** :
-  - Position dans ton image (haut gauche) : **x=200, y=236**
-  - Coordonnées macOS (bas gauche) : x=200, y=236
-  - L'icône est centrée verticalement (128px de haut)
+**For an 864×664 px image (recommended, compensates for Finder margins)**:
+- **App icon**:
+  - Position in your image (top left): **x=200, y=236**
+  - macOS coordinates (bottom left): x=200, y=236
+  - Icon is vertically centered (128px height)
 
-- **Lien Applications** :
-  - Position dans ton image (haut gauche) : **x=550, y=236**
-  - Coordonnées macOS (bas gauche) : x=550, y=236
-  - L'icône est centrée verticalement (128px de haut)
+- **Applications link**:
+  - Position in your image (top left): **x=550, y=236**
+  - macOS coordinates (bottom left): x=550, y=236
+  - Icon is vertically centered (128px height)
 
-**Pour une image 1600×1200 px (Retina 2x, meilleure qualité)** :
-- **Icône de l'app** :
-  - Position dans ton image (haut gauche) : **x=400, y=472**
-  - Le script utilisera une fenêtre de 800×600 points, icônes à x=200, y=236
+**For a 1600×1200 px image (Retina 2x, better quality)**:
+- **App icon**:
+  - Position in your image (top left): **x=400, y=472**
+  - Script will use 800×600 point window, icons at x=200, y=236
 
-- **Lien Applications** :
-  - Position dans ton image (haut gauche) : **x=1100, y=472**
-  - Le script utilisera une fenêtre de 800×600 points, icônes à x=550, y=236
+- **Applications link**:
+  - Position in your image (top left): **x=1100, y=472**
+  - Script will use 800×600 point window, icons at x=550, y=236
 
-**Pour une image 2400×1800 px (Retina 3x, qualité maximale)** :
-- **Icône de l'app** :
-  - Position dans ton image (haut gauche) : **x=600, y=708**
-  - Le script utilisera une fenêtre de 800×600 points, icônes à x=200, y=236
+**For a 2400×1800 px image (Retina 3x, maximum quality)**:
+- **App icon**:
+  - Position in your image (top left): **x=600, y=708**
+  - Script will use 800×600 point window, icons at x=200, y=236
 
-- **Lien Applications** :
-  - Position dans ton image (haut gauche) : **x=1650, y=708**
-  - Le script utilisera une fenêtre de 800×600 points, icônes à x=550, y=236
+- **Applications link**:
+  - Position in your image (top left): **x=1650, y=708**
+  - Script will use 800×600 point window, icons at x=550, y=236
 
-## Guide visuel pour créer l'image (864×664 px recommandé)
+## Visual Guide for Creating the Image (864×664 px recommended)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    (0,0) - Haut gauche                 │
+│                    (0,0) - Top left                     │
 │                                                          │
 │                                                          │
 │  [App]                    [Applications]                │
 │  x=200                    x=550                         │
 │  y=236                    y=236                         │
-│  (depuis haut)            (depuis haut)                  │
-│  (icône 128×128)          (icône 128×128)                │
+│  (from top)               (from top)                    │
+│  (128×128 icon)           (128×128 icon)                │
 │                                                          │
 │                                                          │
 │                                                          │
-│                    (800,600) - Bas droite               │
+│                    (800,600) - Bottom right             │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Tailles des icônes
+## Icon Sizes
 
-- **Taille d'affichage** : 128×128 px (points)
-- **Espacement recommandé** : ~20–30 px entre les icônes
-- **Marge depuis les bords** : ~50 px
+- **Display size**: 128×128 px (points)
+- **Recommended spacing**: ~20–30 px between icons
+- **Margin from edges**: ~50 px
 
-## Conseils pour créer l'image
+## Tips for Creating the Image
 
-1. **Crée une image** dans ton éditeur :
-   - **864×664 px** (recommandé, compense les marges du Finder)
-   - Ou **800×600 px** si tu acceptes les petites marges
-2. **Place des guides visuels** aux positions standard :
-   - **App** : x=200, y=236 (depuis le haut gauche) pour 800×600
-   - **Applications** : x=550, y=236 (depuis le haut gauche) pour 800×600
-   - Pour 1600×1200 : multiplie par 2 (x=400, y=472)
-3. **Ajoute une flèche ou instructions** entre les deux (optionnel)
-4. **Laisse de la marge** sur les bords (50 px minimum)
-5. **Exporte en PNG** : `background.png`
-6. **Le script détecte automatiquement** la taille et ajuste tout !
+1. **Create an image** in your editor:
+   - **864×664 px** (recommended, compensates for Finder margins)
+   - Or **800×600 px** if you accept small margins
+2. **Place visual guides** at standard positions:
+   - **App**: x=200, y=236 (from top left) for 800×600
+   - **Applications**: x=550, y=236 (from top left) for 800×600
+   - For 1600×1200: multiply by 2 (x=400, y=472)
+3. **Add an arrow or instructions** between the two (optional)
+4. **Leave margin** on edges (50 px minimum)
+5. **Export as PNG**: `background.png`
+6. **The script automatically detects** the size and adjusts everything!
 
 ## Test
 
-Une fois l'image créée, teste avec :
+Once the image is created, test with:
 ```bash
 ./scripts/build/customize-dmg.sh \
   "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Reachy Mini Control.app" \
@@ -111,5 +111,4 @@ Une fois l'image créée, teste avec :
   "src-tauri/dmg-assets/background.png"
 ```
 
-Si les positions ne sont pas parfaites, ajuste les valeurs `x` et `y` dans `scripts/build/customize-dmg.sh`.
-
+If positions aren't perfect, adjust `x` and `y` values in `scripts/build/customize-dmg.sh`.

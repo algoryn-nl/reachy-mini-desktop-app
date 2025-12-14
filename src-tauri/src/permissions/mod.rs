@@ -1,10 +1,10 @@
-/// Module pour gérer les permissions cross-platform (caméra, micro, etc.)
+/// Module for managing cross-platform permissions (camera, microphone, etc.)
 /// 
-/// Note: Les permissions camera/microphone sont gérées par le plugin tauri-plugin-macos-permissions
-/// Ce module fournit uniquement les fonctions pour ouvrir les Réglages Système
-/// et la fonction d'initialisation au démarrage.
+/// Note: Camera/microphone permissions are managed by tauri-plugin-macos-permissions
+/// This module only provides functions to open System Settings
+/// and the initialization function at startup.
 
-/// Log les permissions configurées au démarrage de l'app (macOS uniquement)
+/// Log configured permissions at app startup (macOS only)
 #[cfg(target_os = "macos")]
 pub fn request_all_permissions() {
     println!("🔐 macOS permissions configured:");

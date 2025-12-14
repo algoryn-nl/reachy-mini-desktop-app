@@ -322,7 +322,7 @@ class RobotModelCache {
                               materialName.includes('small_lens') ||
                               materialName.includes('lens_d40') ||
                               materialName.includes('lens_d30');
-            // Détection améliorée des antennes : par couleur OU par nom de matériau OU par nom de fichier STL
+            // Enhanced antenna detection: by color OR material name OR STL filename
             const isAntenna = originalColor === 0xFF9500 ||
                               materialName.includes('antenna') ||
                               stlFileNameLower.includes('antenna');

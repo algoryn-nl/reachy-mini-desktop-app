@@ -123,11 +123,11 @@ function URDFRobot({
                        materialName.includes('small_lens') ||
                        materialName.includes('lens_d40') ||
                        materialName.includes('lens_d30');
-      // Détection améliorée des antennes : userData OU nom de matériau OU nom de fichier STL
+      // Enhanced antenna detection: userData OR material name OR STL filename
       const isAntenna = child.userData?.isAntenna || 
                        materialName.includes('antenna') ||
                        stlFileName.includes('antenna');
-      // Détection de l'arducam (caméra)
+      // Arducam (camera) detection
       const isArducam = materialName.includes('arducam') ||
                        stlFileName.includes('arducam');
       
@@ -171,8 +171,8 @@ function URDFRobot({
         });
       } else {
         // Normal mode: flat shading classique
-        // Pour un vrai flat shading, on doit calculer les normales par face (pas par vertex)
-        // Supprimer les normales existantes et recalculer les normales par face
+        // For true flat shading, we need to compute normals per face (not per vertex)
+        // Remove existing normals and recompute face normals
         if (child.geometry.attributes.normal) {
           child.geometry.deleteAttribute('normal');
         }
@@ -187,7 +187,7 @@ function URDFRobot({
             flatShading: true, // ✅ Flat shading classique - normales par face
           });
         } else if (isAntenna) {
-          // Antennes : grises claires en dark mode, noires en light mode
+          // Antennas: light gray in dark mode, black in light mode
           const antennaColor = isDarkMode ? 0x999999 : 0x000000;
           child.material = new THREE.MeshStandardMaterial({
             color: antennaColor,
@@ -198,9 +198,9 @@ function URDFRobot({
           // Force material update
           child.material.needsUpdate = true;
         } else if (isArducam) {
-          // Arducam : gris similaire aux autres pièces grises du robot (0.301961 = 0x4D4D4D)
+          // Arducam: gray similar to other gray robot parts (0.301961 = 0x4D4D4D)
           child.material = new THREE.MeshStandardMaterial({
-            color: 0x4D4D4D, // Gris moyen comme body_foot_3dprint, stewart_tricap_3dprint, etc.
+            color: 0x4D4D4D, // Medium gray like body_foot_3dprint, stewart_tricap_3dprint, etc.
             flatShading: true,
             roughness: 0.7,
             metalness: 0.0,

@@ -4,45 +4,45 @@
 
 ```
 installation/
-├── constants.js              # Configuration et constantes
-├── helpers.js                # Fonctions utilitaires pures
-├── useInstallationPolling.js # Hook pour le polling
-├── useInstallationLifecycle.js # Hook principal du cycle de vie
-└── README.md                 # Cette documentation
+├── constants.js              # Configuration and constants
+├── helpers.js                # Pure utility functions
+├── useInstallationPolling.js # Polling hook
+├── useInstallationLifecycle.js # Main lifecycle hook
+└── README.md                 # This documentation
 ```
 
 ## 🎯 Architecture
 
-### Séparation des responsabilités
+### Separation of Concerns
 
-1. **constants.js** - Configuration centralisée
-   - Types de jobs (`install`, `remove`)
-   - États de résultat (`success`, `failed`, `in_progress`)
-   - Timings et délais
-   - Patterns de logs (success/error)
+1. **constants.js** - Centralized configuration
+   - Job types (`install`, `remove`)
+   - Result states (`success`, `failed`, `in_progress`)
+   - Timings and delays
+   - Log patterns (success/error)
 
-2. **helpers.js** - Fonctions pures et testables
-   - Recherche de jobs
-   - Détection de statut
-   - Analyse de logs
-   - Calculs de timing
-   - Vérification de présence dans la liste
+2. **helpers.js** - Pure and testable functions
+   - Job lookup
+   - Status detection
+   - Log analysis
+   - Timing calculations
+   - List presence verification
 
-3. **useInstallationPolling.js** - Logique de polling
-   - Gestion du polling pour attendre l'apparition de l'app
-   - Contrôle du polling (start/stop)
-   - Gestion des timeouts
+3. **useInstallationPolling.js** - Polling logic
+   - Polling management to wait for app appearance
+   - Polling control (start/stop)
+   - Timeout management
 
-4. **useInstallationLifecycle.js** - Orchestration principale
-   - Suivi du progrès du job
-   - Détection de la fin
-   - Détermination du résultat
-   - Gestion des timings minimums
-   - Affichage du résultat et fermeture
+4. **useInstallationLifecycle.js** - Main orchestration
+   - Job progress tracking
+   - Completion detection
+   - Result determination
+   - Minimum timing management
+   - Result display and closing
 
-## 🔄 Flux d'exécution
+## 🔄 Execution Flow
 
-### 1. Démarrage
+### 1. Start
 ```
 User clicks "Install"
   → handleInstall() [useAppHandlers]
@@ -54,7 +54,7 @@ User clicks "Install"
       → Returns job_id
 ```
 
-### 2. Suivi du progrès
+### 2. Progress Tracking
 ```
 useInstallationLifecycle effect:
   → Find job in activeJobs
@@ -64,7 +64,7 @@ useInstallationLifecycle effect:
     - OR job removed from activeJobs (after being seen)
 ```
 
-### 3. Détection du résultat
+### 3. Result Detection
 ```
 Priority order:
   1. Explicit status (high confidence)
@@ -79,7 +79,7 @@ Priority order:
      - Job disappeared cleanly → success (with warning)
 ```
 
-### 4. Gestion des timings
+### 4. Timing Management
 ```
 Calculate remaining minimum display time:
   - Install: 0ms (no minimum)
@@ -102,7 +102,7 @@ For successful install:
     → Show success anyway (with warning) → Close after 3s
 ```
 
-### 6. Affichage du résultat
+### 6. Result Display
 ```
 Show result state:
   → setInstallResult('success' | 'failed')
@@ -112,15 +112,15 @@ Show result state:
   → Close discover modal (if install success)
 ```
 
-## 📊 États et transitions
+## 📊 States and Transitions
 
-### États du store
-- `installingAppName` - Nom de l'app en cours
-- `installJobType` - Type: 'install' ou 'remove'
-- `installResult` - Résultat: null, 'success', 'failed'
-- `installStartTime` - Timestamp de début
-- `jobSeenOnce` - Flag: job vu au moins une fois
-- `processedJobs` - Array des jobs déjà traités
+### Store States
+- `installingAppName` - App name in progress
+- `installJobType` - Type: 'install' or 'remove'
+- `installResult` - Result: null, 'success', 'failed'
+- `installStartTime` - Start timestamp
+- `jobSeenOnce` - Flag: job seen at least once
+- `processedJobs` - Array of already processed jobs
 
 ### Transitions
 ```
@@ -145,15 +145,15 @@ TIMINGS = {
 }
 ```
 
-## 🧪 Testabilité
+## 🧪 Testability
 
-### Helpers (fonctions pures)
-Toutes les fonctions dans `helpers.js` sont pures et testables :
-- Pas de dépendances externes
-- Pas d'effets de bord
-- Input/Output clairs
+### Helpers (pure functions)
+All functions in `helpers.js` are pure and testable:
+- No external dependencies
+- No side effects
+- Clear Input/Output
 
-### Exemple de test
+### Test Example
 ```javascript
 import { determineInstallationResult } from './helpers';
 
@@ -165,42 +165,41 @@ test('should detect success from explicit status', () => {
 });
 ```
 
-## 🔍 Points d'attention
+## 🔍 Points of Attention
 
-### 1. Protection contre les boucles infinies
-- `processedJobs` array pour éviter de re-traiter le même job
-- `jobSeenOnce` flag pour éviter les faux positifs
+### 1. Protection Against Infinite Loops
+- `processedJobs` array to avoid re-processing the same job
+- `jobSeenOnce` flag to avoid false positives
 
-### 2. Gestion des timeouts
+### 2. Timeout Management
 - Polling timeout: 15s max
-- Si timeout, on affiche success quand même (avec warning)
-- Cela évite de bloquer l'UX en cas de délai réseau
+- If timeout, show success anyway (with warning)
+- This prevents blocking UX in case of network delay
 
-### 3. Confiance dans le résultat
-- **High**: Status explicite
-- **Medium**: Analyse de logs
-- **Low**: Assumption par défaut (avec warning)
+### 3. Result Confidence
+- **High**: Explicit status
+- **Medium**: Log analysis
+- **Low**: Default assumption (with warning)
 
 ### 4. Cleanup
-- Tous les timeouts sont nettoyés au unmount
-- Polling arrêté si installation annulée
-- Pas de memory leaks
+- All timeouts are cleaned up on unmount
+- Polling stopped if installation cancelled
+- No memory leaks
 
-## 📝 Améliorations futures
+## 📝 Future Improvements
 
-1. **Meilleur feedback utilisateur**
-   - Afficher le statut du polling ("Waiting for app to appear...")
-   - Indiquer le nombre de tentatives restantes
+1. **Better user feedback**
+   - Display polling status ("Waiting for app to appear...")
+   - Indicate remaining attempts
 
-2. **Gestion d'erreurs améliorée**
-   - Ne pas assumer success par défaut
-   - Logger plus d'informations pour debug
+2. **Improved error handling**
+   - Don't assume success by default
+   - Log more information for debug
 
-3. **Configuration dynamique**
-   - Permettre d'ajuster les timings selon le contexte
-   - A/B testing des délais
+3. **Dynamic configuration**
+   - Allow adjusting timings based on context
+   - A/B testing of delays
 
-4. **Métriques**
-   - Tracker le temps moyen d'installation
-   - Tracker les taux de succès/échec
-
+4. **Metrics**
+   - Track average installation time
+   - Track success/failure rates

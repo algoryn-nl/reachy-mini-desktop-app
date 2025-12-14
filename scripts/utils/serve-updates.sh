@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script pour servir les mises à jour en local pour les tests dev
+# Script to serve updates locally for dev testing
 # Usage: ./scripts/serve-updates.sh [port]
 
 set -e
@@ -23,19 +23,19 @@ echo -e "${BLUE}🌐 Starting update server on port ${PORT}${NC}"
 echo -e "${BLUE}   Serving from: ${UPDATES_DIR}${NC}"
 echo ""
 
-# Vérifier que le répertoire existe
+# Verify directory exists
 if [ ! -d "$UPDATES_DIR" ]; then
     echo -e "${YELLOW}⚠️  Directory ${UPDATES_DIR} does not exist, creating...${NC}"
     mkdir -p "$UPDATES_DIR"
 fi
 
-# Vérifier que Python est disponible
+# Verify Python is available
 if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}❌ python3 non trouvé${NC}"
+    echo -e "${RED}❌ python3 not found${NC}"
     exit 1
 fi
 
-# Vérifier que le port est libre
+# Verify port is free
 if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1 ; then
     echo -e "${YELLOW}⚠️  Port ${PORT} is already in use${NC}"
     echo -e "${YELLOW}   Kill existing process or use a different port${NC}"
@@ -48,7 +48,6 @@ echo ""
 echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
 echo ""
 
-# Démarrer le serveur
+# Start server
 cd "$UPDATES_DIR"
 python3 -m http.server "$PORT"
-

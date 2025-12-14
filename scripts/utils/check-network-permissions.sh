@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script pour diagnostiquer et corriger les problèmes de permissions réseau sur macOS
+# Script to diagnose and fix network permission issues on macOS
 # Usage: ./scripts/utils/check-network-permissions.sh [path-to-app]
 
 set -e
@@ -151,4 +151,3 @@ fi
 echo -e "${BLUE}To fix signature issues:${NC}"
 echo "   ./scripts/utils/fix-app-signature.sh \"$APP_BUNDLE\""
 echo ""
-

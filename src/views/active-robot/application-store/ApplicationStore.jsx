@@ -42,6 +42,7 @@ export default function ApplicationStore({
   const { 
     darkMode: contextDarkMode,
     isActive: contextIsActive,
+    isAppRunning,
     installingAppName,
     installJobType,
     installResult,
@@ -390,6 +391,7 @@ export default function ApplicationStore({
         currentApp={currentApp}
         isBusy={effectiveIsBusy}
         isJobRunning={isJobRunning}
+        isAppRunning={isAppRunning}
         handleStartApp={handleStartApp}
         handleUninstall={handleUninstall}
         getJobInfo={getJobInfo}

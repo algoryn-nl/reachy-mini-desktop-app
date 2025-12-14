@@ -230,7 +230,7 @@ export const EMOTION_EMOJIS = {
   'understanding2': '🤝',  // Mutual understanding
   
   // Negative Responses
-  'no1': '🙅',             // No gesture
+  'no1': '👎',             // Thumbs down
   'no_excited1': '🙅‍♂️',    // Emphatic no
   'go_away1': '👉',        // Pointing away
   'reprimand1': '😤',      // Stern disapproval
