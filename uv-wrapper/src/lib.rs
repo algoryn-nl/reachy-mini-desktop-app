@@ -26,7 +26,15 @@ pub fn lookup_bin_folder(possible_folders: &[&str], bin: &str) -> Option<std::pa
 
 fn possible_abs_bin(possible_folders: &[&str]) -> Vec<std::path::PathBuf> {
     let cur_folder = get_current_folder();
-    possible_folders.iter().map(|p| cur_folder.join(p)).collect()
+    possible_folders.iter().map(|p| {
+        let path = std::path::Path::new(p);
+        // If the path is absolute, use it as-is; otherwise join with cur_folder
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            cur_folder.join(p)
+        }
+    }).collect()
 }
 
 pub fn run_command(cmd: &str) -> Result<std::process::ExitStatus, std::io::Error> {
