@@ -130,7 +130,7 @@ export default function CameraFeed({ width = 240, height = 180, isLarge = false 
               letterSpacing: '0.5px',
             }}
           >
-            {hasError ? 'Camera unavailable' : 'Connecting...'}
+            {hasError ? 'Camera coming soon' : 'Connecting...'}
           </Typography>
         </Box>
       )}
