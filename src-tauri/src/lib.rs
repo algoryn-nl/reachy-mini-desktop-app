@@ -172,6 +172,22 @@ pub fn run() {
                 _ => {}
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            match event {
+                tauri::RunEvent::ExitRequested { .. } => {
+                    // ⌘Q (Cmd+Q) on macOS triggers this event
+                    // Kill daemon via port 8000 + process name (reliable cleanup)
+                    println!("🔴 ExitRequested (Cmd+Q) - killing daemon");
+                    cleanup_system_daemons();
+                }
+                tauri::RunEvent::Exit => {
+                    // Final cleanup when app is about to exit
+                    println!("🔴 Exit event - final cleanup");
+                    cleanup_system_daemons();
+                }
+                _ => {}
+            }
+        });
 }
