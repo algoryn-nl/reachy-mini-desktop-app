@@ -133,6 +133,7 @@ function AudioControls({
         </Box>
 
         {/* Visualizer - responsive width */}
+        {/* Temporarily disabled - no example curve for now
         <Box sx={{ width: '100%', height: '28px', flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box' }}>
           <AudioLevelBars 
             isActive={isActive} 
@@ -140,6 +141,7 @@ function AudioControls({
             barCount={8} 
           />
         </Box>
+        */}
       </Box>
     </Box>
   );

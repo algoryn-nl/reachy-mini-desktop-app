@@ -7,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../../store/useAppStore';
 import { usePermissions } from '../../hooks/system';
-import { logInfo, logError, logWarning, logSuccess } from '../../utils/logging/logger';
+import { logInfo, logError } from '../../utils/logging/logger';
 import LogConsole from '@components/LogConsole';
 import LockedReachy from '../../assets/locked-reachy.svg';
 import SleepingReachy from '../../assets/sleeping-reachy.svg';
@@ -191,7 +191,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     restartStarted: false,
   });
 
-  // Listen to Rust logs from backend
+  // Listen to Rust logs from backend (only show errors)
   React.useEffect(() => {
     let unlistenRustLog;
     
@@ -202,20 +202,9 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
             ? event.payload 
             : event.payload?.toString() || '';
           
-          // Display Rust logs in the UI logger
-          if (message.includes("[Permissions]")) {
-            if (message.includes("✅") || message.includes("success")) {
-              logSuccess(message);
-            } else if (message.includes("❌") || message.includes("error") || message.includes("Error")) {
-              logError(message);
-            } else if (message.includes("⚠️") || message.includes("warning")) {
-              logWarning(message);
-            } else {
-              logInfo(message);
-            }
-          } else {
-            // Other Rust logs (non-permissions)
-            logInfo(message);
+          // Only show errors from Rust backend
+          if (message.includes("❌") || message.includes("error") || message.includes("Error")) {
+            logError(message);
           }
         });
       } catch (error) {
@@ -232,28 +221,13 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     };
   }, []);
 
-  // Test plugin availability on mount
+  // Test plugin availability on mount (silent)
   React.useEffect(() => {
     const testPlugin = async () => {
-      logInfo('[Permissions] 🔍 Testing plugin availability on mount...');
-      logInfo(`[Permissions] Environment: ${process.env.NODE_ENV}`);
-      logInfo(`[Permissions] Tauri API available: ${typeof invoke === 'function'}`);
       try {
-        logInfo('[Permissions] Attempting to invoke plugin command...');
-        // Format: plugin:macos-permissions|check_camera_permission (with underscores, no params)
-        const testResult = await invoke('plugin:macos-permissions|check_camera_permission');
-        logSuccess(`[Permissions] ✅ Plugin is available, camera check result: ${testResult} (type: ${typeof testResult})`);
+        await invoke('plugin:macos-permissions|check_camera_permission');
       } catch (error) {
-        logError(`[Permissions] ❌ Plugin not available or error: ${error.message}`);
-        logError(`[Permissions] Error name: ${error.name}`);
-        logError(`[Permissions] Error code: ${error.code || 'N/A'}`);
-        if (error.stack) {
-          logError(`[Permissions] Stack: ${error.stack.substring(0, 300)}...`);
-        }
-        // Try to get more details if available
-        if (error.cause) {
-          logError(`[Permissions] Error cause: ${JSON.stringify(error.cause)}`);
-        }
+        logError(`[Permissions] ❌ Plugin error: ${error.message}`);
       }
     };
     testPlugin();
@@ -261,75 +235,30 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
 
   // Generic permission request handler
   const requestPermission = async (type) => {
-    logInfo(`[Permissions] 🔐 Starting ${type} permission request flow...`);
-    logInfo(`[Permissions] Timestamp: ${new Date().toISOString()}`);
     try {
-      // Use tauri-plugin-macos-permissions format
-      // Format: plugin:macos-permissions|check_camera_permission (with underscores, no params)
       const checkCommand = `plugin:macos-permissions|check_${type}_permission`;
       const requestCommand = `plugin:macos-permissions|request_${type}_permission`;
       const settingsCommand = `open_${type}_settings`;
       
-      logInfo(`[Permissions] 📋 Step 1: Checking ${type} permission status...`);
-      logInfo(`[Permissions] Command: ${checkCommand}`);
-      logInfo(`[Permissions] Invoke function available: ${typeof invoke === 'function'}`);
-      
-      const startTime = Date.now();
+      // Check current status
       let currentStatus;
       try {
-        // Plugin uses command names directly, no params
-        logInfo(`[Permissions] 🔍 Invoking plugin command: ${checkCommand}`);
-        console.log(`[Permissions] 🔍 Invoking plugin command: ${checkCommand}`);
         currentStatus = await invoke(checkCommand);
-        console.log(`[Permissions] ✅ Plugin returned: ${currentStatus} (type: ${typeof currentStatus})`);
       } catch (checkError) {
-        console.error(`[Permissions] ❌ Plugin command failed: ${checkCommand}`, checkError);
-        logError(`[Permissions] ❌ Check command failed`);
-        logError(`[Permissions] Error object: ${JSON.stringify(checkError)}`);
-        logError(`[Permissions] Error message: ${checkError?.message || 'undefined'}`);
-        logError(`[Permissions] Error name: ${checkError?.name || 'undefined'}`);
-        logError(`[Permissions] Error code: ${checkError?.code || 'N/A'}`);
-        logError(`[Permissions] Error toString: ${String(checkError)}`);
-        if (checkError?.stack) {
-          logError(`[Permissions] Stack: ${checkError.stack.substring(0, 500)}`);
-        }
-        throw checkError; // Re-throw to be caught by outer catch
+        throw checkError;
       }
-      const checkDuration = Date.now() - startTime;
-      
-      logInfo(`[Permissions] ✅ Check completed in ${checkDuration}ms, status: ${currentStatus} (type: ${typeof currentStatus})`);
-      logInfo(`[Permissions] Status is boolean: ${typeof currentStatus === 'boolean'}`);
-      logInfo(`[Permissions] Status value: ${String(currentStatus)}`);
       
       if (currentStatus === true) {
-        logSuccess(`[Permissions] ✅ ${type} permission already granted, no action needed`);
         return;
       }
       
-      logInfo(`[Permissions] 📋 Step 2: Requesting ${type} permission...`);
-      logInfo(`[Permissions] Command: ${requestCommand}`);
-      
-      const requestStartTime = Date.now();
+      // Request permission
       let result;
       try {
-        // Plugin uses command names directly, no params
-        logInfo(`[Permissions] 🔍 Invoking plugin command: ${requestCommand}`);
-        console.log(`[Permissions] 🔍 Invoking plugin command: ${requestCommand}`);
         result = await invoke(requestCommand);
-        console.log(`[Permissions] ✅ Plugin returned: ${result} (type: ${typeof result})`);
       } catch (requestError) {
-        console.error(`[Permissions] ❌ Plugin command failed: ${requestCommand}`, requestError);
-        logError(`[Permissions] ❌ Request command failed: ${requestError.message}`);
-        logError(`[Permissions] Request error name: ${requestError.name}`);
-        logError(`[Permissions] Request error code: ${requestError.code || 'N/A'}`);
-        throw requestError; // Re-throw to be caught by outer catch
+        throw requestError;
       }
-      const requestDuration = Date.now() - requestStartTime;
-      
-      logInfo(`[Permissions] ✅ Request completed in ${requestDuration}ms, result: ${result} (type: ${typeof result})`);
-      logInfo(`[Permissions] Result is null: ${result === null}`);
-      logInfo(`[Permissions] Result is false: ${result === false}`);
-      logInfo(`[Permissions] Result is true: ${result === true}`);
       
       if (type === 'camera') {
         dispatch({ type: 'SET_CAMERA_REQUESTED' });
@@ -338,32 +267,21 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       }
       
       if (result === null) {
-        // Popup shown, waiting for user response
-        logInfo(`[Permissions] ⏳ ${type} permission popup shown, waiting for user response...`);
-        logInfo(`[Permissions] This is expected behavior - macOS is showing the permission dialog`);
-        
-        // Start aggressive polling after popup is shown
-        // Check immediately, then every 500ms for 10 seconds, then back to normal interval
+        // Popup shown, start polling silently
         let checkCount = 0;
-        const maxChecks = 20; // 10 seconds at 500ms intervals
-        const checkCommand = type === 'camera' 
+        const maxChecks = 20;
+        const permCheckCommand = type === 'camera' 
           ? 'plugin:macos-permissions|check_camera_permission'
           : 'plugin:macos-permissions|check_microphone_permission';
         
         const aggressiveInterval = setInterval(async () => {
           checkCount++;
-          logInfo(`[Permissions] 🔄 Aggressive polling: checking ${type} permission (attempt ${checkCount}/${maxChecks})...`);
-          
-          // Refresh all permissions via hook
           await refreshPermissions();
           
-          // Also check the specific permission directly
           try {
-            const currentStatus = await invoke(checkCommand);
-            if (currentStatus === true) {
-              logSuccess(`[Permissions] ✅ ${type} permission granted! Stopping aggressive polling.`);
+            const status = await invoke(permCheckCommand);
+            if (status === true) {
               clearInterval(aggressiveInterval);
-              // Force one more refresh to update UI
               await refreshPermissions();
             }
           } catch (error) {
@@ -371,73 +289,63 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
           }
           
           if (checkCount >= maxChecks) {
-            logInfo(`[Permissions] ⏱️ Aggressive polling completed, returning to normal interval`);
             clearInterval(aggressiveInterval);
           }
-        }, 500); // Check every 500ms
+        }, 500);
         
         return;
       }
       
       if (result === false) {
-        // Permission denied or already asked, open settings
-        logWarning(`[Permissions] ⚠️ ${type} permission denied or already asked, opening System Settings...`);
-        logInfo(`[Permissions] Command: ${settingsCommand}`);
-        logInfo(`[Permissions] ℹ️  If the app doesn't appear in the list, click the "+" button to add it manually`);
-        logInfo(`[Permissions] ℹ️  App bundle ID: com.pollen-robotics.reachy-mini`);
+        // Permission denied, open settings
         try {
           await invoke(settingsCommand);
-          logSuccess(`[Permissions] ✅ System Settings opened for ${type}`);
-          logInfo(`[Permissions] 📋 Instructions: If "Reachy Mini Control" is not in the list, click the "+" button below the list to add it manually`);
         } catch (settingsError) {
-          logError(`[Permissions] ❌ Failed to open settings: ${settingsError.message}`);
           throw settingsError;
         }
-      } else if (result === true) {
-        logSuccess(`[Permissions] ✅ ${type} permission granted!`);
-      } else {
-        logWarning(`[Permissions] ⚠️ Unexpected result type: ${result} (${typeof result})`);
-        logWarning(`[Permissions] Result JSON: ${JSON.stringify(result)}`);
       }
     } catch (error) {
-      logError(`[Permissions] ❌ Failed to request ${type} permission`);
-      logError(`[Permissions] Error message: ${error.message}`);
-      logError(`[Permissions] Error name: ${error.name}`);
-      logError(`[Permissions] Error code: ${error.code || 'N/A'}`);
-      if (error.stack) {
-        const stackPreview = error.stack.substring(0, 400);
-        logError(`[Permissions] Stack: ${stackPreview}${error.stack.length > 400 ? '...' : ''}`);
-      }
-      if (error.cause) {
-        logError(`[Permissions] Error cause: ${JSON.stringify(error.cause)}`);
-      }
-      
+      logError(`[Permissions] ❌ ${type}: ${error.message}`);
       // Try to open settings as fallback
-      logInfo(`[Permissions] 🔄 Attempting fallback: opening System Settings...`);
       try {
         await invoke(`open_${type}_settings`);
-        logSuccess(`[Permissions] ✅ Fallback successful: System Settings opened`);
       } catch (settingsError) {
-        logError(`[Permissions] ❌ Fallback failed: ${settingsError.message}`);
-        logError(`[Permissions] Fallback error name: ${settingsError.name}`);
-        logError(`[Permissions] Fallback error code: ${settingsError.code || 'N/A'}`);
+        logError(`[Permissions] ❌ Failed to open settings: ${settingsError.message}`);
       }
     }
   };
 
   const openSettings = async (type) => {
-    logInfo(`[Permissions] 🔧 Opening System Settings for ${type}...`);
     try {
       await invoke(`open_${type}_settings`);
-      logSuccess(`[Permissions] ✅ System Settings opened for ${type}`);
     } catch (error) {
       logError(`[Permissions] ❌ Failed to open ${type} settings: ${error.message}`);
     }
   };
 
-  // Log permission state changes
+  // Track previous permission states to detect actual changes
+  const prevCameraGranted = React.useRef(null);
+  const prevMicrophoneGranted = React.useRef(null);
+
+  // Only log when a permission is granted (not initial state)
   React.useEffect(() => {
-    logInfo(`[Permissions] 📊 Permission state - Camera: ${cameraGranted ? '✅ Granted' : '❌ Not granted'}, Microphone: ${microphoneGranted ? '✅ Granted' : '❌ Not granted'}`);
+    // Skip initial render
+    if (prevCameraGranted.current === null) {
+      prevCameraGranted.current = cameraGranted;
+      prevMicrophoneGranted.current = microphoneGranted;
+      return;
+    }
+
+    // Log only when permission changes from false to true
+    if (!prevCameraGranted.current && cameraGranted) {
+      logInfo('✅ Camera permission granted');
+    }
+    if (!prevMicrophoneGranted.current && microphoneGranted) {
+      logInfo('✅ Microphone permission granted');
+    }
+
+    prevCameraGranted.current = cameraGranted;
+    prevMicrophoneGranted.current = microphoneGranted;
   }, [cameraGranted, microphoneGranted]);
 
   return (
