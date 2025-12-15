@@ -107,6 +107,34 @@ export const DAEMON_CONFIG = {
     REFRESH_DELAY: 500,            // Delay before refreshing app list (500ms)
   },
   
+  // Hardware scan configuration (StartingView / HardwareScanView)
+  HARDWARE_SCAN: {
+    // Polling configuration
+    CHECK_INTERVAL: 500,           // Check every 500ms
+    
+    // Timeouts (in attempts, multiply by CHECK_INTERVAL for ms)
+    DAEMON_MAX_ATTEMPTS: 120,      // 120 × 500ms = 60s max wait for daemon
+    MOVEMENT_MAX_ATTEMPTS: 60,     // 60 × 500ms = 30s max wait for movements
+    
+    // Progress bar distribution (percentages)
+    PROGRESS: {
+      SCAN_START: 0,               // 3D scan starts at 0%
+      SCAN_END: 30,                // 3D scan ends at 30% (fast phase)
+      DAEMON_CONNECTING_END: 50,   // Daemon connecting ends at 50%
+      DAEMON_INITIALIZING_END: 70, // Daemon initializing ends at 70%
+      MOVEMENT_DETECTING_END: 100, // Movement detection ends at 100%
+    },
+    
+    // Message thresholds (in seconds) - show different messages based on elapsed time
+    MESSAGE_THRESHOLDS: {
+      NORMAL: 0,                   // 0-10s: Normal messages
+      FIRST_LAUNCH: 10,            // 10-25s: "First launch may take longer..."
+      TAKING_TIME: 25,             // 25-40s: "Installing dependencies..."
+      LONG_WAIT: 40,               // 40-55s: "Almost there..."
+      VERY_LONG: 55,               // 55s+: "If this persists, check connection..."
+    },
+  },
+  
   // API endpoints
   ENDPOINTS: {
     BASE_URL: 'http://localhost:8000',

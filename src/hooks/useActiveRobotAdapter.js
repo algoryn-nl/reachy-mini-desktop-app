@@ -8,15 +8,8 @@ import useAppStore from '../store/useAppStore';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../config/daemon';
 import { getAppWindow } from '../utils/windowUtils';
 
-// Try to import Tauri shell, fallback to window.open
-let tauriShellOpen = null;
-try {
-  // Dynamic import will be resolved at build time
-  const shell = require('@tauri-apps/plugin-shell');
-  tauriShellOpen = shell.open;
-} catch (e) {
-  // Not in Tauri environment, will use fallback
-}
+// Import openUrl from tauriCompat for cross-platform URL opening
+import { openUrl } from '../utils/tauriCompat';
 
 /**
  * Adapter hook that creates the context configuration for ActiveRobotModule
@@ -194,25 +187,11 @@ export function useActiveRobotAdapter() {
   }), []);
   
   // ============================================
-  // SHELL API (Abstracted from Tauri)
+  // SHELL API (Uses tauriCompat for cross-platform support)
   // ============================================
-  const shellOpen = useCallback(async (url) => {
-    if (tauriShellOpen) {
-      try {
-        await tauriShellOpen(url);
-      } catch (error) {
-        console.warn('Tauri shell.open failed, falling back to window.open:', error);
-        window.open(url, '_blank');
-      }
-    } else {
-      // Fallback for non-Tauri environments (web, tests)
-      window.open(url, '_blank');
-    }
-  }, []);
-  
   const shellApi = useMemo(() => ({
-    open: shellOpen,
-  }), [shellOpen]);
+    open: openUrl,
+  }), []);
   
   // ============================================
   // WINDOW MANAGER (Abstracted from Tauri)

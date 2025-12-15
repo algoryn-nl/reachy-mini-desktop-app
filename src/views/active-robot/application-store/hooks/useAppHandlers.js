@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useActiveRobotContext } from '../../context';
 
 /**
@@ -23,6 +23,9 @@ export function useAppHandlers({
   
   const [expandedApp, setExpandedApp] = useState(null);
   const [startingApp, setStartingApp] = useState(null);
+  
+  // ✅ Track if we're waiting for polling to confirm app started
+  const waitingForPollingRef = useRef(false);
 
   // ✅ Helper: Handle installation errors consistently
   const handleInstallError = (err, appName, action = 'install') => {
@@ -101,19 +104,59 @@ export function useAppHandlers({
       }
       
       setStartingApp(appName);
+      waitingForPollingRef.current = true; // ✅ Mark that we're waiting for polling
+      
       const result = await startApp(appName);
       
       // ✅ Lock to prevent quick actions
       lockForApp(appName);
       
-      setStartingApp(null);
+      // ✅ DON'T clear startingApp here - let the effect do it when polling confirms
+      // The effect will clear startingApp when currentApp.state becomes 'starting' or 'running'
+      // This prevents the spinner from flickering
+      
     } catch (err) {
       console.error(`❌ Failed to start ${appName}:`, err);
       setStartingApp(null);
+      waitingForPollingRef.current = false;
       unlockApp(); // Ensure unlock on error
       alert(`Failed to start app: ${err.message}`);
     }
   };
+  
+  // ✅ Effect: Clear startingApp when polling confirms app is starting/running
+  // This prevents spinner flicker by keeping the local spinner until polling takes over
+  useEffect(() => {
+    if (!waitingForPollingRef.current) return;
+    
+    // Check if polling has confirmed the app state
+    const isPollingConfirmed = currentApp && 
+      currentApp.info && 
+      currentApp.info.name === startingApp && 
+      (currentApp.state === 'starting' || currentApp.state === 'running');
+    
+    if (isPollingConfirmed) {
+      console.log(`[AppHandlers] Polling confirmed ${startingApp} is ${currentApp.state}, clearing local spinner`);
+      setStartingApp(null);
+      waitingForPollingRef.current = false;
+    }
+  }, [currentApp, startingApp]);
+  
+  // ✅ Safety: Clear startingApp after timeout if polling doesn't confirm
+  // This prevents the spinner from being stuck forever
+  useEffect(() => {
+    if (!startingApp || !waitingForPollingRef.current) return;
+    
+    const safetyTimeout = setTimeout(() => {
+      if (waitingForPollingRef.current && startingApp) {
+        console.warn(`[AppHandlers] Safety timeout: clearing startingApp for ${startingApp}`);
+        setStartingApp(null);
+        waitingForPollingRef.current = false;
+      }
+    }, 5000); // 5 seconds max wait for polling
+    
+    return () => clearTimeout(safetyTimeout);
+  }, [startingApp]);
   
   // Check if an app is being installed/removed
   const isJobRunning = (appName, jobType) => {

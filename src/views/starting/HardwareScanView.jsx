@@ -52,10 +52,32 @@ function HardwareScanView({
   const [daemonAttempts, setDaemonAttempts] = useState(0);
   const [movementAttempts, setMovementAttempts] = useState(0);
   const [allMeshes, setAllMeshes] = useState([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0); // ✅ Track elapsed time for progressive messages
   const robotRefRef = useRef(null);
   const healthCheckIntervalRef = useRef(null);
   const movementCheckIntervalRef = useRef(null);
+  const elapsedTimerRef = useRef(null); // ✅ Timer for elapsed time
   const lastMovementStateRef = useRef(null); // Track last movement state to detect changes
+  
+  // ✅ Get message thresholds from config
+  const { MESSAGE_THRESHOLDS } = DAEMON_CONFIG.HARDWARE_SCAN;
+  
+  // ✅ Helper to get progressive message based on elapsed time
+  const getProgressiveMessage = useCallback(() => {
+    if (elapsedSeconds >= MESSAGE_THRESHOLDS.VERY_LONG) {
+      return { text: 'If this persists, check the', bold: 'robot connection', suffix: '' };
+    }
+    if (elapsedSeconds >= MESSAGE_THRESHOLDS.LONG_WAIT) {
+      return { text: 'Almost there,', bold: 'please wait', suffix: '...' };
+    }
+    if (elapsedSeconds >= MESSAGE_THRESHOLDS.TAKING_TIME) {
+      return { text: 'Installing', bold: 'dependencies', suffix: '...' };
+    }
+    if (elapsedSeconds >= MESSAGE_THRESHOLDS.FIRST_LAUNCH) {
+      return { text: 'First launch may take a bit', bold: 'longer', suffix: '' };
+    }
+    return null; // Use default message
+  }, [elapsedSeconds, MESSAGE_THRESHOLDS])
   
   // ✅ Helper to clear all intervals (DRY)
   const clearAllIntervals = useCallback(() => {
@@ -66,6 +88,10 @@ function HardwareScanView({
     if (movementCheckIntervalRef.current) {
       clearInterval(movementCheckIntervalRef.current);
       movementCheckIntervalRef.current = null;
+    }
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
     }
   }, []);
   
@@ -126,6 +152,7 @@ function HardwareScanView({
       setDaemonStep('connecting');
       setDaemonAttempts(0);
       setMovementAttempts(0);
+      setElapsedSeconds(0); // ✅ Reset elapsed time
       scannedPartsRef.current.clear(); // Reset scanned parts tracking
       
       // Clear all intervals
@@ -272,11 +299,17 @@ function HardwareScanView({
     setDaemonStep('connecting');
     setDaemonAttempts(0);
     setMovementAttempts(0);
+    setElapsedSeconds(0); // ✅ Reset elapsed time
     let attemptCount = 0;
     let daemonReady = false;
-    const MAX_ATTEMPTS = 120; // 120 attempts × 500ms = 60s max wait for daemon
-    const MAX_MOVEMENT_ATTEMPTS = 60; // 60 attempts × 500ms = 30s max wait for movements
-    const CHECK_INTERVAL = 500; // Check every 500ms
+    
+    // ✅ Use centralized config
+    const { CHECK_INTERVAL, DAEMON_MAX_ATTEMPTS, MOVEMENT_MAX_ATTEMPTS } = DAEMON_CONFIG.HARDWARE_SCAN;
+    
+    // ✅ Start elapsed time counter (updates every second)
+    elapsedTimerRef.current = setInterval(() => {
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
 
     // Step 1: Wait for daemon to be ready
     const checkHealth = async () => {
@@ -326,8 +359,8 @@ function HardwareScanView({
           }
           
           // ✅ If max attempts reached, set timeout error instead of continuing
-          if (movementAttemptCount >= MAX_MOVEMENT_ATTEMPTS) {
-            console.error(`❌ Movement check timeout after ${MAX_MOVEMENT_ATTEMPTS} attempts (${MAX_MOVEMENT_ATTEMPTS * CHECK_INTERVAL / 1000}s)`);
+          if (movementAttemptCount >= MOVEMENT_MAX_ATTEMPTS) {
+            console.error(`❌ Movement check timeout after ${MOVEMENT_MAX_ATTEMPTS} attempts (${MOVEMENT_MAX_ATTEMPTS * CHECK_INTERVAL / 1000}s)`);
             setWaitingForMovements(false);
             clearAllIntervals();
             
@@ -353,8 +386,8 @@ function HardwareScanView({
       }
 
       // ✅ If max attempts reached for daemon, set timeout error instead of continuing
-      if (attemptCount >= MAX_ATTEMPTS && !daemonReady) {
-        console.error(`❌ Daemon healthcheck timeout after ${MAX_ATTEMPTS} attempts (${MAX_ATTEMPTS * CHECK_INTERVAL / 1000}s)`);
+      if (attemptCount >= DAEMON_MAX_ATTEMPTS && !daemonReady) {
+        console.error(`❌ Daemon healthcheck timeout after ${DAEMON_MAX_ATTEMPTS} attempts (${DAEMON_MAX_ATTEMPTS * CHECK_INTERVAL / 1000}s)`);
         setWaitingForDaemon(false);
         clearAllIntervals();
         
@@ -712,21 +745,40 @@ function HardwareScanView({
             <Box sx={{ margin: "auto", width: '300px' }}>
               <LinearProgress 
                 variant="determinate"
-                value={
-                  // Hardware scan: 0-50%
-                  !scanComplete && !waitingForDaemon && scanProgress.total > 0
-                    ? (scanProgress.current / scanProgress.total) * 50
-                    // Software startup: 50-100%
-                    : waitingForDaemon && daemonStep === 'connecting'
-                    ? 50 + Math.min(16.5, (daemonAttempts / 60) * 16.5) // 50-66.5% during connecting
-                    : waitingForDaemon && daemonStep === 'initializing'
-                    ? 66.5 + Math.min(16.5, (daemonAttempts / 60) * 16.5) // 66.5-83% during initializing
-                    : waitingForMovements
-                    ? 83 + Math.min(17, (movementAttempts / 40) * 17) // 83-100% during detecting movements
-                    : scanComplete && !waitingForDaemon && !waitingForMovements
-                    ? 100
-                    : 0
-                }
+                value={(() => {
+                  // ✅ Use centralized progress distribution
+                  const { PROGRESS, DAEMON_MAX_ATTEMPTS, MOVEMENT_MAX_ATTEMPTS } = DAEMON_CONFIG.HARDWARE_SCAN;
+                  
+                  // Hardware scan: 0-30%
+                  if (!scanComplete && !waitingForDaemon && scanProgress.total > 0) {
+                    return (scanProgress.current / scanProgress.total) * PROGRESS.SCAN_END;
+                  }
+                  
+                  // Daemon connecting: 30-50%
+                  if (waitingForDaemon && daemonStep === 'connecting') {
+                    const range = PROGRESS.DAEMON_CONNECTING_END - PROGRESS.SCAN_END;
+                    return PROGRESS.SCAN_END + Math.min(range, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * range);
+                  }
+                  
+                  // Daemon initializing: 50-70%
+                  if (waitingForDaemon && daemonStep === 'initializing') {
+                    const range = PROGRESS.DAEMON_INITIALIZING_END - PROGRESS.DAEMON_CONNECTING_END;
+                    return PROGRESS.DAEMON_CONNECTING_END + Math.min(range, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * range);
+                  }
+                  
+                  // Detecting movements: 70-100%
+                  if (waitingForMovements) {
+                    const range = PROGRESS.MOVEMENT_DETECTING_END - PROGRESS.DAEMON_INITIALIZING_END;
+                    return PROGRESS.DAEMON_INITIALIZING_END + Math.min(range, (movementAttempts / MOVEMENT_MAX_ATTEMPTS) * range);
+                  }
+                  
+                  // Scan complete
+                  if (scanComplete && !waitingForDaemon && !waitingForMovements) {
+                    return 100;
+                  }
+                  
+                  return 0;
+                })()}
                 sx={{ 
                   height: 4,
                   borderRadius: 2,
@@ -771,6 +823,28 @@ function HardwareScanView({
                   'Initializing scan...'
                 )}
               </Typography>
+              
+              {/* ✅ Progressive message based on elapsed time */}
+              {(waitingForDaemon || waitingForMovements) && getProgressiveMessage() && (
+                <Typography
+                  sx={{
+                    fontSize: 12,
+                    fontWeight: 400,
+                    color: elapsedSeconds >= MESSAGE_THRESHOLDS.VERY_LONG 
+                      ? (darkMode ? '#f59e0b' : '#d97706') // Warning color after 45s
+                      : (darkMode ? '#888' : '#666'),
+                    mt: 0.5,
+                    opacity: 1,
+                    transition: 'all 0.3s ease-in-out',
+                  }}
+                >
+                  {getProgressiveMessage().text}{' '}
+                  <Box component="span" sx={{ fontWeight: 600 }}>
+                    {getProgressiveMessage().bold}
+                  </Box>
+                  {getProgressiveMessage().suffix}
+                </Typography>
+              )}
             </Box>
               </>
             )}

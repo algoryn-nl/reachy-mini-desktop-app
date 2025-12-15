@@ -10,6 +10,9 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DiscoverAppsButton from '../discover/Button';
 import ReachiesCarousel from '@components/ReachiesCarousel';
 
+// ✅ Timeout for app to transition from "starting" to "running"
+const APP_STARTING_TIMEOUT = 60000; // 60 seconds max for app to fully start
+
 /**
  * Hook to check if a URL is accessible
  * Polls the URL until it responds successfully or times out
@@ -127,6 +130,83 @@ function useUrlAccessibility(url, enabled = false, onTimeout = null, timeoutMs =
   }, [url, enabled, timeoutMs]); // Removed onTimeout from deps, using ref instead
 
   return { isAccessible, isChecking };
+}
+
+/**
+ * Hook to detect if an app is stuck in "starting" state
+ * Triggers onTimeout callback if app doesn't reach "running" within timeout
+ * @param {boolean} isStarting - Whether app is in "starting" state
+ * @param {boolean} isRunning - Whether app is in "running" state  
+ * @param {function} onTimeout - Callback when timeout is reached
+ * @param {number} timeoutMs - Timeout in milliseconds (default APP_STARTING_TIMEOUT)
+ */
+function useAppStartingTimeout(isStarting, isRunning, onTimeout, timeoutMs = APP_STARTING_TIMEOUT) {
+  const startTimeRef = useRef(null);
+  const timeoutIdRef = useRef(null);
+  const hasTimedOutRef = useRef(false);
+  const onTimeoutRef = useRef(onTimeout);
+  onTimeoutRef.current = onTimeout;
+
+  useEffect(() => {
+    // Reset when app starts running (success)
+    if (isRunning) {
+      startTimeRef.current = null;
+      hasTimedOutRef.current = false;
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
+      return;
+    }
+
+    // Start timer when app enters "starting" state
+    if (isStarting && !startTimeRef.current && !hasTimedOutRef.current) {
+      startTimeRef.current = Date.now();
+      console.log('[AppStartingTimeout] Starting timeout timer');
+      
+      timeoutIdRef.current = setTimeout(() => {
+        if (startTimeRef.current && !hasTimedOutRef.current) {
+          console.warn(`[AppStartingTimeout] App stuck in "starting" state for ${timeoutMs / 1000}s`);
+          hasTimedOutRef.current = true;
+          if (onTimeoutRef.current) {
+            onTimeoutRef.current();
+          }
+        }
+      }, timeoutMs);
+    }
+
+    // Cleanup when app is no longer starting (stopped or error)
+    if (!isStarting && !isRunning) {
+      startTimeRef.current = null;
+      hasTimedOutRef.current = false;
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current);
+        timeoutIdRef.current = null;
+      }
+    };
+  }, [isStarting, isRunning, timeoutMs]);
+}
+
+/**
+ * Invisible component that watches for app starting timeout
+ * Must be rendered as a child component to use hooks properly in a loop
+ */
+function AppStartingTimeoutWatcher({ isStarting, isRunning, onTimeout, appName }) {
+  useAppStartingTimeout(isStarting, isRunning, () => {
+    console.error(`[${appName}] App stuck in starting state - triggering timeout`);
+    if (onTimeout) {
+      onTimeout();
+    }
+  });
+  
+  return null; // This component renders nothing
 }
 
 /**
@@ -427,6 +507,19 @@ export default function InstalledAppsSection({
                   filter: (isBusy && !isCurrentlyRunning) ? 'grayscale(50%)' : 'none',
                 }}
               >
+                {/* ✅ Timeout watcher for "starting" state - stops app if stuck */}
+                <AppStartingTimeoutWatcher
+                  isStarting={isAppStarting}
+                  isRunning={isCurrentlyRunning}
+                  appName={app.name}
+                  onTimeout={() => {
+                    console.error(`[${app.name}] App startup timeout - stopping app`);
+                    if (isThisAppCurrent) {
+                      stopCurrentApp();
+                    }
+                  }}
+                />
+                
                 {/* Header - Always visible */}
                 <Box
                   sx={{
@@ -571,7 +664,13 @@ export default function InstalledAppsSection({
                           },
                         }}
                       >
-                        <SettingsOutlinedIcon sx={{ fontSize: 16 }} />
+                        <SettingsOutlinedIcon 
+                          sx={{ 
+                            fontSize: 16,
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.3s ease',
+                          }} 
+                        />
                       </IconButton>
                     </Tooltip>
                     
@@ -590,8 +689,9 @@ export default function InstalledAppsSection({
                       }}
                     />
                     
-                    {/* Start/Stop button */}
+                    {/* Start/Stop button - 3 states: Running (Stop), Starting (Disabled with spinner), Idle (Start) */}
                     {isCurrentlyRunning ? (
+                      // ✅ App is running: Show active Stop button
                       <Tooltip title="Stop app" arrow placement="top">
                         <IconButton
                           size="small"
@@ -619,15 +719,41 @@ export default function InstalledAppsSection({
                           <StopCircleOutlinedIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                       </Tooltip>
+                    ) : isStarting ? (
+                      // ✅ App is starting: Show disabled button with spinner (Stop-like style)
+                      <Tooltip title="App is starting..." arrow placement="top">
+                        <span> {/* Wrapper needed for disabled button tooltip */}
+                          <IconButton
+                            size="small"
+                            disabled
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              color: '#FF9500',
+                              border: '1px solid #FF9500',
+                              borderRadius: '8px',
+                              transition: 'all 0.2s ease',
+                              '&:disabled': {
+                                color: '#FF9500',
+                                borderColor: 'rgba(255, 149, 0, 0.5)',
+                                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.05)' : 'rgba(255, 149, 0, 0.03)',
+                              },
+                            }}
+                          >
+                            <CircularProgress size={14} thickness={5} sx={{ color: '#FF9500' }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                     ) : (
+                      // ✅ App is idle: Show Start button
                       <Button
                         size="small"
-                        disabled={isStarting || isBusy || isRemoving}
+                        disabled={isBusy || isRemoving}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStartApp(app.name);
                         }}
-                        endIcon={isStarting ? <CircularProgress size={12} sx={{ color: '#FF9500' }} /> : <PlayArrowOutlinedIcon sx={{ fontSize: 13 }} />}
+                        endIcon={<PlayArrowOutlinedIcon sx={{ fontSize: 13 }} />}
                         sx={{
                           minWidth: 'auto',
                           px: 1.5,
@@ -652,7 +778,7 @@ export default function InstalledAppsSection({
                           },
                         }}
                       >
-                        {isStarting ? 'Starting...' : 'Start'}
+                        Start
                       </Button>
                     )}
                   </Box>

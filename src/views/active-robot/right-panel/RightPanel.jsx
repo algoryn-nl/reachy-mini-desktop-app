@@ -37,6 +37,7 @@ export default function RightPanel({
         pt: 0,
         bgcolor: 'transparent !important',
         backgroundColor: 'transparent !important',
+        position: 'relative',
         // Scrollbar styling
         '&::-webkit-scrollbar': {
           width: '6px',
@@ -53,6 +54,24 @@ export default function RightPanel({
         },
       }}
     >
+      {/* Top gradient for depth effect on scroll */}
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '32px',
+          background: darkMode
+            ? 'linear-gradient(to bottom, rgba(26, 26, 26, 1) 0%, rgba(26, 26, 26, 0.6) 40%, rgba(26, 26, 26, 0) 100%)'
+            : 'linear-gradient(to bottom, rgba(250, 250, 252, 1) 0%, rgba(250, 250, 252, 0.6) 40%, rgba(250, 250, 252, 0) 100%)',
+          pointerEvents: 'none',
+          zIndex: 10,
+          flexShrink: 0,
+          marginBottom: '-32px', // Overlay on top of content
+        }}
+      />
+      
       {/* Conditional rendering based on rightPanelView */}
       {rightPanelView === 'controller' ? (
         <ControllerSection
@@ -86,6 +105,24 @@ export default function RightPanel({
           />
         </>
       )}
+      
+      {/* Bottom gradient for depth effect on scroll */}
+      <Box
+        sx={{
+          position: 'sticky',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '32px',
+          background: darkMode
+            ? 'linear-gradient(to top, rgba(26, 26, 26, 1) 0%, rgba(26, 26, 26, 0.6) 40%, rgba(26, 26, 26, 0) 100%)'
+            : 'linear-gradient(to top, rgba(250, 250, 252, 1) 0%, rgba(250, 250, 252, 0.6) 40%, rgba(250, 250, 252, 0) 100%)',
+          pointerEvents: 'none',
+          zIndex: 10,
+          flexShrink: 0,
+          marginTop: '-32px', // Overlay on top of content
+        }}
+      />
     </Box>
   );
 }
