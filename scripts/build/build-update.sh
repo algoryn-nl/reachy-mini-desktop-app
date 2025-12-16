@@ -309,8 +309,18 @@ elif [[ "$PLATFORM" == windows-* ]]; then
         (cd "$(dirname "$BUNDLE_FILE")" && zip -j "$ZIP_FILE" "$MSI_BASENAME")
     else
         # Fallback: use PowerShell on Windows
+        # Convert Unix-style paths to Windows paths for PowerShell
         echo -e "${YELLOW}   zip not found, trying PowerShell...${NC}"
-        powershell -Command "Compress-Archive -Path '$BUNDLE_FILE' -DestinationPath '$ZIP_FILE' -Force"
+        if command -v cygpath &> /dev/null; then
+            WIN_BUNDLE_FILE=$(cygpath -w "$BUNDLE_FILE")
+            WIN_ZIP_FILE=$(cygpath -w "$ZIP_FILE")
+        else
+            # Manual conversion: /d/path -> D:\path
+            WIN_BUNDLE_FILE=$(echo "$BUNDLE_FILE" | sed 's|^/\([a-z]\)/|\U\1:\\|' | sed 's|/|\\|g')
+            WIN_ZIP_FILE=$(echo "$ZIP_FILE" | sed 's|^/\([a-z]\)/|\U\1:\\|' | sed 's|/|\\|g')
+        fi
+        echo -e "${BLUE}   Windows paths: ${WIN_BUNDLE_FILE} -> ${WIN_ZIP_FILE}${NC}"
+        powershell -Command "Compress-Archive -Path '$WIN_BUNDLE_FILE' -DestinationPath '$WIN_ZIP_FILE' -Force"
     fi
     
     if [ ! -f "$ZIP_FILE" ]; then
