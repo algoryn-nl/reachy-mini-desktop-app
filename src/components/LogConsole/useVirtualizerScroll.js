@@ -95,10 +95,7 @@ export const useVirtualizerScroll = ({
       }
       
       if (!scrollElement) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('[useVirtualizerScroll] ⚠️ No scroll element available, retrying in 50ms...');
-        }
-        // Retry after a short delay
+        // Retry after a short delay (silently to avoid console spam)
         setTimeout(() => {
           if (isAutoScrollEnabledRef.current) {
             performScroll();
