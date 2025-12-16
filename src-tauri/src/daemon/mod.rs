@@ -89,6 +89,7 @@ pub fn cleanup_system_daemons() {
     }
     #[cfg(target_os = "windows")]
     {
+        println!("Cleaning up system daemons on Windows...");
         use std::process::Command;
 
         // Windows: Use netstat and taskkill to find and kill processes on port 8000
@@ -107,6 +108,7 @@ pub fn cleanup_system_daemons() {
                 }
             }
             for pid_str in pids {
+                println!("Killing process with PID: {}", pid_str);
                 let _ = Command::new("taskkill")
                     .args(&["/PID", &pid_str, "/F"])
                     .output();

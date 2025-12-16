@@ -65,8 +65,8 @@ pub fn build_daemon_args(sim_mode: bool) -> Result<Vec<String>, String> {
         python_cmd.to_string(),
         "-m".to_string(),
         "reachy_mini.daemon.app.main".to_string(),
-        "--kinematics-engine".to_string(),
-        "Placo".to_string(),
+        // "--kinematics-engine".to_string(),
+        // "Placo".to_string(),
         "--desktop-app-daemon".to_string(),
     ];
     
