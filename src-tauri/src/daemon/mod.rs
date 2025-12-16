@@ -87,6 +87,32 @@ pub fn cleanup_system_daemons() {
             
         std::thread::sleep(std::time::Duration::from_millis(300));
     }
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+
+        // Windows: Use netstat and taskkill to find and kill processes on port 8000
+        let output = Command::new("netstat").args(&["-ano"]).output();
+
+        if let Ok(output) = output {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            let mut pids = Vec::new();
+            for line in output_str.lines() {
+                if line.contains(":8000") && line.contains("LISTENING") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    let pid = parts.last().unwrap().to_string();
+                    if pid != "0" && !pids.contains(&pid) {
+                        pids.push(pid);
+                    }
+                }
+            }
+            for pid_str in pids {
+                let _ = Command::new("taskkill")
+                    .args(&["/PID", &pid_str, "/F"])
+                    .output();
+            }
+        }
+    }
 }
 
 /// Kill daemon completely (local sidecar process + system)
