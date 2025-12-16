@@ -4,7 +4,8 @@
 # Usage: ./scripts/build-update.sh [dev|prod] [version]
 #
 # With createUpdaterArtifacts: true in tauri.conf.json, Tauri automatically generates:
-# - Windows: *.msi.zip + *.msi.zip.sig
+# - Windows MSI: *.msi + *.msi.sig (NOT .msi.zip)
+# - Windows NSIS: *.nsis.zip + *.nsis.zip.sig
 # - Linux: *.AppImage.tar.gz + *.AppImage.tar.gz.sig  
 # - macOS: *.app.tar.gz + *.app.tar.gz.sig
 #
@@ -212,14 +213,36 @@ if [ ! -f "$SIG_FILE" ]; then
     exit 1
 fi
 
-# Read signature (Tauri generates base64-encoded signatures)
+# Read signature
+# Tauri may generate signatures in raw minisign format or base64
+# We need to detect and encode to base64 if necessary
 echo -e "${BLUE}🔐 Reading signature from: ${SIG_FILE}${NC}"
-SIGNATURE=$(cat "$SIG_FILE" | tr -d '\n\r')
+
+FIRST_LINE=$(head -1 "$SIG_FILE")
+
+if echo "$FIRST_LINE" | grep -q "untrusted comment"; then
+    # Raw minisign text format → encode to base64
+    echo -e "${BLUE}   Signature is in raw minisign format, encoding to base64...${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        SIGNATURE=$(base64 -i "$SIG_FILE" | tr -d '\n\r')
+    else
+        SIGNATURE=$(base64 -w 0 "$SIG_FILE" | tr -d '\r')
+    fi
+else
+    # Already base64 format → use as-is
+    echo -e "${BLUE}   Signature is already in base64 format${NC}"
+    SIGNATURE=$(cat "$SIG_FILE" | tr -d '\n\r\t ')
+fi
 
 # Verify signature is not empty
 if [ -z "$SIGNATURE" ]; then
     echo -e "${RED}❌ Signature file is empty${NC}"
     exit 1
+fi
+
+# Verify it's valid base64
+if ! echo "$SIGNATURE" | grep -qE '^[A-Za-z0-9+/=]+$'; then
+    echo -e "${YELLOW}⚠️  Warning: Signature may contain invalid base64 characters${NC}"
 fi
 
 echo -e "${GREEN}✅ Signature loaded (${#SIGNATURE} chars)${NC}"
