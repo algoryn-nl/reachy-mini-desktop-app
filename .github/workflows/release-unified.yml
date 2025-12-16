@@ -367,9 +367,18 @@ jobs:
             else
               echo "⚠️ Warning: Could not verify private key (may require password or key mismatch)"
             fi
+            
+            # ✅ Export cleaned key to GITHUB_ENV for use in build steps
+            # Read the cleaned key from file (single line, no spaces/newlines)
+            CLEANED_SIGNING_KEY=$(cat ~/.tauri/reachy-mini.key)
+            echo "TAURI_SIGNING_PRIVATE_KEY=$CLEANED_SIGNING_KEY" >> $GITHUB_ENV
+            echo "✅ Exported cleaned signing key to GITHUB_ENV"
           else
             echo "⚠️ No signing key provided, generating temporary key..."
             yarn tauri signer generate -w ~/.tauri/reachy-mini.key --ci || true
+            # Export the generated key
+            CLEANED_SIGNING_KEY=$(cat ~/.tauri/reachy-mini.key)
+            echo "TAURI_SIGNING_PRIVATE_KEY=$CLEANED_SIGNING_KEY" >> $GITHUB_ENV
           fi
 
       - name: Extract version before build
@@ -518,7 +527,8 @@ jobs:
           # signingIdentity is set to "-" in tauri.macos.conf.json to disable auto-signing
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # Required for createUpdaterArtifacts to generate .app.tar.gz.sig
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          # Use cleaned key from GITHUB_ENV (set in Setup Tauri Signing Key step)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
@@ -620,8 +630,9 @@ jobs:
       - name: Build Tauri app (Windows)
         if: matrix.os == 'windows-latest'
         env:
-          # Required for createUpdaterArtifacts to generate .msi.zip.sig
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          # Required for createUpdaterArtifacts to generate .msi.sig
+          # Use cleaned key from GITHUB_ENV (set in Setup Tauri Signing Key step)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
@@ -738,7 +749,8 @@ jobs:
           rm -rf target/${{ matrix.target }}/release/bundle
           
           # Set signing key for createUpdaterArtifacts to generate .AppImage.tar.gz.sig
-          export TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_KEY }}"
+          # Use cleaned key from GITHUB_ENV (set in Setup Tauri Signing Key step)
+          export TAURI_SIGNING_PRIVATE_KEY="${{ env.TAURI_SIGNING_PRIVATE_KEY }}"
           export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
           
           yarn tauri build --target ${{ matrix.target }}
