@@ -174,6 +174,29 @@ export function useAppFetching() {
       let daemonApps = await response.json();
       console.log(`✅ Fetched ${daemonApps.length} apps from daemon (before filtering)`);
       
+      // ✅ FIX: Deduplicate apps by name (daemon returns duplicates from multiple sources)
+      // Keep first occurrence - hf_space apps come first and have better metadata
+      const seenNames = new Set();
+      const beforeDedup = daemonApps.length;
+      daemonApps = daemonApps.filter(app => {
+        const name = app.name?.toLowerCase();
+        if (!name || seenNames.has(name)) {
+          return false;
+        }
+        seenNames.add(name);
+        return true;
+      });
+      if (beforeDedup !== daemonApps.length) {
+        console.log(`✅ Deduplicated ${beforeDedup - daemonApps.length} duplicate apps from daemon response`);
+      }
+      
+      // ✅ FIX: Exclude apps with source_kind 'installed' - they will be fetched separately
+      const beforeInstalledFilter = daemonApps.length;
+      daemonApps = daemonApps.filter(app => app.source_kind !== 'installed');
+      if (beforeInstalledFilter !== daemonApps.length) {
+        console.log(`✅ Filtered out ${beforeInstalledFilter - daemonApps.length} 'installed' apps (fetched separately)`);
+      }
+      
       // ✅ FIX: Exclude official apps from the list
       // Fetch official app IDs to filter them out
       const officialAppIds = await fetchOfficialAppIds();
