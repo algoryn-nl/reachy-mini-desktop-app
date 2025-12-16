@@ -128,6 +128,11 @@ export function deepEqual(a, b) {
 export function extractChangedUpdates(prevState, newState, relevantKeys) {
   const changedUpdates = {};
   
+  // Guard against undefined state (can happen during initialization)
+  if (!prevState || !newState) {
+    return changedUpdates;
+  }
+  
   relevantKeys.forEach(key => {
     const prevValue = prevState[key];
     const newValue = newState[key];
