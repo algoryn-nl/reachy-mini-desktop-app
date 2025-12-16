@@ -136,20 +136,22 @@ if [[ "$PLATFORM" == darwin-* ]]; then
     fi
     
 elif [[ "$PLATFORM" == windows-* ]]; then
-    # Windows: Look for .msi.zip (Tauri auto-generated with createUpdaterArtifacts)
+    # Windows MSI: Tauri generates .msi + .msi.sig (NOT .msi.zip)
+    # The updater uses the .msi directly with its signature
     MSI_DIR="$BUNDLE_DIR/msi"
     if [ -d "$MSI_DIR" ]; then
-        UPDATER_FILE=$(find "$MSI_DIR" -name "*.msi.zip" -type f 2>/dev/null | head -1)
+        # Look for .msi file (not .msi.zip)
+        UPDATER_FILE=$(find "$MSI_DIR" -name "*.msi" -type f ! -name "*.sig" 2>/dev/null | head -1)
         if [ -n "$UPDATER_FILE" ] && [ -f "$UPDATER_FILE" ]; then
             SIG_FILE="${UPDATER_FILE}.sig"
             if [ -f "$SIG_FILE" ]; then
                 FILE_NAME=$(basename "$UPDATER_FILE")
-                echo -e "${GREEN}✅ Found Windows updater artifact: ${FILE_NAME}${NC}"
+                echo -e "${GREEN}✅ Found Windows MSI updater artifact: ${FILE_NAME}${NC}"
             fi
         fi
     fi
     
-    # Also check for NSIS if MSI not found
+    # Also check for NSIS (.nsis.zip) if MSI not found
     if [ -z "$UPDATER_FILE" ] || [ ! -f "$UPDATER_FILE" ]; then
         NSIS_DIR="$BUNDLE_DIR/nsis"
         if [ -d "$NSIS_DIR" ]; then

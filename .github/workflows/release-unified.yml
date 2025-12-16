@@ -517,15 +517,12 @@ jobs:
           # We'll sign manually after build with our script that signs ALL binaries
           # signingIdentity is set to "-" in tauri.macos.conf.json to disable auto-signing
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Required for createUpdaterArtifacts to generate .app.tar.gz.sig
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
         run: |
-          # Read the prepared signing key (cleaned and formatted by Setup Tauri Signing Key step)
-          if [ -f ~/.tauri/reachy-mini.key ]; then
-            export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/reachy-mini.key)
-            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-          fi
-          
           # Explicitly unset any signing/notarization variables to prevent Tauri from auto-signing/notarizing
           # These might be set in GITHUB_ENV from previous steps
           unset APPLE_SIGNING_IDENTITY || true
@@ -622,14 +619,13 @@ jobs:
 
       - name: Build Tauri app (Windows)
         if: matrix.os == 'windows-latest'
+        env:
+          # Required for createUpdaterArtifacts to generate .msi.zip.sig
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
         run: |
-          # Read the prepared signing key (cleaned and formatted by Setup Tauri Signing Key step)
-          if [ -f ~/.tauri/reachy-mini.key ]; then
-            export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/reachy-mini.key)
-            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-          fi
           yarn tauri build --target ${{ matrix.target }}
 
       - name: Sign all binaries (Windows)
@@ -741,11 +737,9 @@ jobs:
           # Clean previous build artifacts to avoid conflicts
           rm -rf target/${{ matrix.target }}/release/bundle
           
-          # Read the prepared signing key (cleaned and formatted by Setup Tauri Signing Key step)
-          if [ -f ~/.tauri/reachy-mini.key ]; then
-            export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/reachy-mini.key)
-            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-          fi
+          # Set signing key for createUpdaterArtifacts to generate .AppImage.tar.gz.sig
+          export TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_KEY }}"
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
           
           yarn tauri build --target ${{ matrix.target }}
 
@@ -1107,8 +1101,7 @@ jobs:
           files: |
             src-tauri/target/*/release/bundle/deb/*.deb
             src-tauri/target/*/release/bundle/msi/*.msi
-            src-tauri/target/*/release/bundle/msi/*.msi.zip
-            src-tauri/target/*/release/bundle/msi/*.msi.zip.sig
+            src-tauri/target/*/release/bundle/msi/*.msi.sig
             src-tauri/target/*/release/bundle/appimage/*.AppImage
             src-tauri/target/*/release/bundle/appimage/*.AppImage.tar.gz
             src-tauri/target/*/release/bundle/appimage/*.AppImage.tar.gz.sig
@@ -1127,8 +1120,7 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           files: |
             ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi', matrix.target) || '' }}
-            ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi.zip', matrix.target) || '' }}
-            ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi.zip.sig', matrix.target) || '' }}
+            ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi.sig', matrix.target) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/deb/*.deb', matrix.target) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage', matrix.target) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage.tar.gz', matrix.target) || '' }}
