@@ -8,6 +8,11 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    watch: {
+      // Ignore app venvs to prevent page reloads during app installation
+      // (Gradio packages contain tsconfig.json files that trigger Vite reloads)
+      ignored: ['**/src-tauri/target/**', '**/*_venv/**'],
+    },
   },
   envPrefix: ['VITE_', 'TAURI_'],
   resolve: {
