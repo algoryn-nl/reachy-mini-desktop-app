@@ -517,12 +517,15 @@ jobs:
           # We'll sign manually after build with our script that signs ALL binaries
           # signingIdentity is set to "-" in tauri.macos.conf.json to disable auto-signing
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Required for createUpdaterArtifacts to generate .app.tar.gz.sig
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
         run: |
+          # Read the prepared signing key (cleaned and formatted by Setup Tauri Signing Key step)
+          if [ -f ~/.tauri/reachy-mini.key ]; then
+            export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/reachy-mini.key)
+            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+          fi
+          
           # Explicitly unset any signing/notarization variables to prevent Tauri from auto-signing/notarizing
           # These might be set in GITHUB_ENV from previous steps
           unset APPLE_SIGNING_IDENTITY || true
@@ -619,13 +622,14 @@ jobs:
 
       - name: Build Tauri app (Windows)
         if: matrix.os == 'windows-latest'
-        env:
-          # Required for createUpdaterArtifacts to generate .msi.zip.sig
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
         run: |
+          # Read the prepared signing key (cleaned and formatted by Setup Tauri Signing Key step)
+          if [ -f ~/.tauri/reachy-mini.key ]; then
+            export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/reachy-mini.key)
+            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+          fi
           yarn tauri build --target ${{ matrix.target }}
 
       - name: Sign all binaries (Windows)
@@ -737,9 +741,11 @@ jobs:
           # Clean previous build artifacts to avoid conflicts
           rm -rf target/${{ matrix.target }}/release/bundle
           
-          # Set signing key for createUpdaterArtifacts to generate .AppImage.tar.gz.sig
-          export TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_KEY }}"
-          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+          # Read the prepared signing key (cleaned and formatted by Setup Tauri Signing Key step)
+          if [ -f ~/.tauri/reachy-mini.key ]; then
+            export TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/reachy-mini.key)
+            export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+          fi
           
           yarn tauri build --target ${{ matrix.target }}
 
