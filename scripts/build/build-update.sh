@@ -296,24 +296,50 @@ elif [[ "$PLATFORM" == windows-* ]]; then
     fi
     
     echo -e "${BLUE}📦 Found MSI: ${BUNDLE_FILE}${NC}"
-    cp "$BUNDLE_FILE" "$OUTPUT_DIR/"
-    BUNDLE_FILE="$OUTPUT_DIR/$(basename "$BUNDLE_FILE")"
+    
+    # Tauri updater expects .msi.zip format for Windows
+    # Create a ZIP archive of the MSI file
+    MSI_BASENAME=$(basename "$BUNDLE_FILE")
+    ZIP_FILE="$OUTPUT_DIR/${MSI_BASENAME}.zip"
+    
+    echo -e "${BLUE}📦 Creating ZIP archive for updater: ${ZIP_FILE}${NC}"
+    
+    # Use zip command (available on Windows Git Bash and Linux/macOS)
+    if command -v zip &> /dev/null; then
+        (cd "$(dirname "$BUNDLE_FILE")" && zip -j "$ZIP_FILE" "$MSI_BASENAME")
+    else
+        # Fallback: use PowerShell on Windows
+        echo -e "${YELLOW}   zip not found, trying PowerShell...${NC}"
+        powershell -Command "Compress-Archive -Path '$BUNDLE_FILE' -DestinationPath '$ZIP_FILE' -Force"
+    fi
+    
+    if [ ! -f "$ZIP_FILE" ]; then
+        echo -e "${RED}❌ Failed to create ZIP archive${NC}"
+        exit 1
+    fi
+    
+    # The bundle file for signing is now the ZIP
+    BUNDLE_FILE="$ZIP_FILE"
+    echo -e "${GREEN}✅ ZIP archive created: ${BUNDLE_FILE}${NC}"
+    
 elif [[ "$PLATFORM" == linux-* ]]; then
-    # Find .deb file - try multiple methods for robustness
-    DEB_DIR="$BUNDLE_DIR/deb"
+    # Tauri updater for Linux requires AppImage format (not .deb)
+    # Find .AppImage file
+    APPIMAGE_DIR="$BUNDLE_DIR/appimage"
     
     # Always use absolute path from PROJECT_DIR
-    if [[ "$DEB_DIR" != /* ]]; then
+    if [[ "$APPIMAGE_DIR" != /* ]]; then
         # Relative path - make it absolute
-        DEB_DIR="$PROJECT_DIR/$DEB_DIR"
+        APPIMAGE_DIR="$PROJECT_DIR/$APPIMAGE_DIR"
     fi
     
     # Verify the directory exists
-    if [ ! -d "$DEB_DIR" ]; then
-        echo -e "${RED}❌ Debian package directory not found: ${DEB_DIR}${NC}"
+    if [ ! -d "$APPIMAGE_DIR" ]; then
+        echo -e "${RED}❌ AppImage directory not found: ${APPIMAGE_DIR}${NC}"
         echo -e "${YELLOW}   PROJECT_DIR: ${PROJECT_DIR}${NC}"
         echo -e "${YELLOW}   BUNDLE_DIR: ${BUNDLE_DIR}${NC}"
-        echo -e "${YELLOW}   Looking for .deb files in bundle directory:${NC}"
+        echo -e "${YELLOW}   Make sure 'appimage' is in tauri.conf.json targets!${NC}"
+        echo -e "${YELLOW}   Looking for AppImage files in bundle directory:${NC}"
         ABS_BUNDLE_DIR="$PROJECT_DIR/$BUNDLE_DIR"
         if [ -d "$ABS_BUNDLE_DIR" ]; then
             echo -e "${YELLOW}   Contents of: ${ABS_BUNDLE_DIR}${NC}"
@@ -328,23 +354,40 @@ elif [[ "$PLATFORM" == linux-* ]]; then
     fi
     
     # Try find first (works on Unix-like systems)
-    BUNDLE_FILE=$(find "$DEB_DIR" -name "*.deb" 2>/dev/null | head -1)
+    APPIMAGE_FILE=$(find "$APPIMAGE_DIR" -name "*.AppImage" 2>/dev/null | head -1)
     
     # If find failed, try ls as fallback
-    if [ -z "$BUNDLE_FILE" ]; then
-        BUNDLE_FILE=$(ls "$DEB_DIR"/*.deb 2>/dev/null | head -1)
+    if [ -z "$APPIMAGE_FILE" ]; then
+        APPIMAGE_FILE=$(ls "$APPIMAGE_DIR"/*.AppImage 2>/dev/null | head -1)
     fi
     
-    if [ -z "$BUNDLE_FILE" ] || [ ! -f "$BUNDLE_FILE" ]; then
-        echo -e "${RED}❌ Debian package not found in: ${DEB_DIR}${NC}"
-        echo -e "${YELLOW}   Contents of deb directory:${NC}"
-        ls -la "$DEB_DIR" || true
+    if [ -z "$APPIMAGE_FILE" ] || [ ! -f "$APPIMAGE_FILE" ]; then
+        echo -e "${RED}❌ AppImage not found in: ${APPIMAGE_DIR}${NC}"
+        echo -e "${YELLOW}   Contents of appimage directory:${NC}"
+        ls -la "$APPIMAGE_DIR" || true
         exit 1
     fi
     
-    echo -e "${BLUE}📦 Found Debian package: ${BUNDLE_FILE}${NC}"
-    cp "$BUNDLE_FILE" "$OUTPUT_DIR/"
-    BUNDLE_FILE="$OUTPUT_DIR/$(basename "$BUNDLE_FILE")"
+    echo -e "${BLUE}📦 Found AppImage: ${APPIMAGE_FILE}${NC}"
+    
+    # Tauri updater expects .AppImage.tar.gz format for Linux
+    # Create a tar.gz archive of the AppImage file
+    APPIMAGE_BASENAME=$(basename "$APPIMAGE_FILE")
+    TAR_FILE="$OUTPUT_DIR/${APPIMAGE_BASENAME}.tar.gz"
+    
+    echo -e "${BLUE}📦 Creating tar.gz archive for updater: ${TAR_FILE}${NC}"
+    
+    # Create tar.gz archive
+    tar -czf "$TAR_FILE" -C "$(dirname "$APPIMAGE_FILE")" "$APPIMAGE_BASENAME"
+    
+    if [ ! -f "$TAR_FILE" ]; then
+        echo -e "${RED}❌ Failed to create tar.gz archive${NC}"
+        exit 1
+    fi
+    
+    # The bundle file for signing is now the tar.gz
+    BUNDLE_FILE="$TAR_FILE"
+    echo -e "${GREEN}✅ tar.gz archive created: ${BUNDLE_FILE}${NC}"
 fi
 
 if [ ! -f "$BUNDLE_FILE" ]; then
@@ -535,21 +578,18 @@ JSON_DIR="$OUTPUT_DIR/$PLATFORM/$VERSION"
 mkdir -p "$JSON_DIR"
 
 # File name according to platform (must match the actual filenames uploaded to GitHub Releases)
+# Use the actual bundle file name that was created
+FILE_NAME=$(basename "$BUNDLE_FILE")
+
+# Log what we're using
 if [[ "$PLATFORM" == darwin-* ]]; then
-    # macOS uses TAR.GZ format (native Tauri format, already signed)
-    # The bundle file is already created and signed as: reachy-mini-control_${VERSION}_${PLATFORM}.app.tar.gz
-    FILE_NAME="reachy-mini-control_${VERSION}_${PLATFORM}.app.tar.gz"
+    echo -e "${BLUE}   macOS update file: ${FILE_NAME}${NC}"
 elif [[ "$PLATFORM" == windows-* ]]; then
-    # Windows MSI: Tauri generates names based on productName, typically:
-    # Reachy Mini Control_${VERSION}_x64-setup.msi (with spaces converted)
-    # But GitHub might have different naming. Use the actual filename from bundle if available.
-    # For now, use a pattern that matches common Tauri MSI naming
-    FILE_NAME="Reachy.Mini.Control_${VERSION}_x64-setup.msi"
+    # Windows uses .msi.zip format for updater
+    echo -e "${BLUE}   Windows update file: ${FILE_NAME}${NC}"
 elif [[ "$PLATFORM" == linux-* ]]; then
-    # Linux .deb: Tauri generates names based on productName
-    # Typically: reachy-mini-control_${VERSION}_amd64.deb
-    # But GitHub might have different naming. Use the actual filename from bundle if available.
-    FILE_NAME="reachy-mini-control_${VERSION}_amd64.deb"
+    # Linux uses .AppImage.tar.gz format for updater
+    echo -e "${BLUE}   Linux update file: ${FILE_NAME}${NC}"
 fi
 
 # File URL (dev = localhost, prod = to be configured)

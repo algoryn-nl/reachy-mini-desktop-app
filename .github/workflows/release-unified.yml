@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: write
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -1085,9 +1085,12 @@ jobs:
           files: |
             src-tauri/target/*/release/bundle/deb/*.deb
             src-tauri/target/*/release/bundle/msi/*.msi
+            src-tauri/target/*/release/bundle/appimage/*.AppImage
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.dmg
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.zip
             releases/**/*.tar.gz
+            releases/**/*.zip
+            releases/**/*.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -1099,9 +1102,12 @@ jobs:
           files: |
             ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi', matrix.target) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/deb/*.deb', matrix.target) || '' }}
+            ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.dmg', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.zip', matrix.target) || '' }}
             releases/**/*.tar.gz
+            releases/**/*.zip
+            releases/**/*.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
