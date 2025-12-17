@@ -13,3 +13,15 @@ export { createLogsSlice } from './logsSlice';
 export { createUISlice, setupSystemPreferenceListener } from './uiSlice';
 export { createAppsSlice } from './appsSlice';
 
+// ============================================================================
+// SELECTORS - Derive state from robotStatus (single source of truth)
+// ============================================================================
+export {
+  selectIsActive,
+  selectIsStarting,
+  selectIsStopping,
+  selectIsDaemonCrashed,
+  selectIsBusy,
+  selectIsReady,
+} from './robotSlice';
+

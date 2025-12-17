@@ -9,7 +9,7 @@ import { DAEMON_CONFIG } from '../../config/daemon';
  * Wrapper around HardwareScanView that handles the transition logic
  */
 function StartingView({ startupError, startDaemon }) {
-  const { darkMode, setIsStarting, setIsActive, setHardwareError, hardwareError } = useAppStore();
+  const { darkMode, transitionTo, setHardwareError, hardwareError } = useAppStore();
   
   const handleScanComplete = useCallback(() => {
     // ✅ HardwareScanView only calls this callback after successful healthcheck
@@ -17,12 +17,11 @@ function StartingView({ startupError, startDaemon }) {
     setTimeout(() => {
       // ✅ Clear any hardware errors when scan completes successfully
       setHardwareError(null);
-      // ✅ Direct transition to ActiveRobotView (no intermediate TransitionView)
+      // ✅ Direct transition to ActiveRobotView (state machine handles isActive/isStarting)
       // ActiveRobotView handles its own loading state for apps
-      setIsStarting(false);
-      setIsActive(true);
+      transitionTo.ready();
     }, DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE);
-  }, [setIsStarting, setIsActive, setHardwareError]);
+  }, [transitionTo, setHardwareError]);
 
   return (
     <Box

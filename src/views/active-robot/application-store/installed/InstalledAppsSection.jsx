@@ -352,6 +352,7 @@ export default function InstalledAppsSection({
   isBusy,
   isJobRunning,
   isAppRunning = false,
+  isStoppingApp = false,
   handleStartApp,
   handleUninstall,
   getJobInfo,
@@ -690,8 +691,33 @@ export default function InstalledAppsSection({
                       }}
                     />
                     
-                    {/* Start/Stop button - 3 states: Running (Stop), Starting (Disabled with spinner), Idle (Start) */}
-                    {isCurrentlyRunning ? (
+                    {/* Start/Stop button - 4 states: Stopping (spinner), Running (Stop), Starting (spinner), Idle (Start) */}
+                    {isStoppingApp && isThisAppCurrent ? (
+                      // ✅ This app is stopping: Show disabled button with red spinner
+                      <Tooltip title="Stopping app..." arrow placement="top">
+                        <span> {/* Wrapper needed for disabled button tooltip */}
+                          <IconButton
+                            size="small"
+                            disabled
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              color: '#ef4444',
+                              border: '1px solid #ef4444',
+                              borderRadius: '8px',
+                              transition: 'all 0.2s ease',
+                              '&:disabled': {
+                                color: '#ef4444',
+                                borderColor: 'rgba(239, 68, 68, 0.5)',
+                                bgcolor: darkMode ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.03)',
+                              },
+                            }}
+                          >
+                            <CircularProgress size={14} thickness={5} sx={{ color: '#ef4444' }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : isCurrentlyRunning ? (
                       // ✅ App is running: Show active Stop button
                       <Tooltip title="Stop app" arrow placement="top">
                         <IconButton

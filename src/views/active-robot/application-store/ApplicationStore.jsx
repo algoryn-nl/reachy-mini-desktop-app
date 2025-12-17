@@ -76,6 +76,7 @@ export default function ApplicationStore({
     stopCurrentApp,
     fetchAvailableApps,
     isLoading,
+    isStoppingApp,
   } = useApps(effectiveIsActive, officialOnly);
   
   // ✅ Notify parent when loading status changes
@@ -100,6 +101,7 @@ export default function ApplicationStore({
     installedApps,
     showToast,
     refreshApps: fetchAvailableApps,
+    isLoading,
     onInstallSuccess: () => {
       // Close discover modal when installation succeeds
       if (discoverModalOpen) {
@@ -278,6 +280,7 @@ export default function ApplicationStore({
         isBusy={effectiveIsBusy}
         isJobRunning={isJobRunning}
         isAppRunning={isAppRunning}
+        isStoppingApp={isStoppingApp}
         handleStartApp={handleStartApp}
         handleUninstall={handleUninstall}
         getJobInfo={getJobInfo}

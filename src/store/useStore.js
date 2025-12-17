@@ -47,12 +47,15 @@ export const useStore = create(
       logReset('all');
       
       set({
-        // Robot state reset
+        // Robot state reset (robotStatus is the source of truth)
         robotStatus: 'disconnected',
         busyReason: null,
+        // Derived booleans (kept in sync)
         isActive: false,
         isStarting: false,
         isStopping: false,
+        isDaemonCrashed: false,
+        // Connection
         connectionMode: null,
         remoteHost: null,
         isUsbConnected: false,
@@ -62,7 +65,6 @@ export const useStore = create(
         robotStateFull: { data: null, lastUpdate: null, error: null },
         activeMoves: [],
         consecutiveTimeouts: 0,
-        isDaemonCrashed: false,
         hardwareError: null,
         startupError: null,
         isCommandRunning: false,
@@ -86,6 +88,7 @@ export const useStore = create(
         installStartTime: null,
         processedJobs: [],
         jobSeenOnce: false,
+        isStoppingApp: false,
         
         // Logs reset (optional - can be preserved)
         appLogs: [],

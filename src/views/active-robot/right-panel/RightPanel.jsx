@@ -101,6 +101,7 @@ export default function RightPanel({
           {/* Control Buttons - Opens Controller and Expressions in right panel */}
           <ControlButtons
             isActive={isActive}
+            isBusy={isBusy}
             darkMode={darkMode}
           />
         </>

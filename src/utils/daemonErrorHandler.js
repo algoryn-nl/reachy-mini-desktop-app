@@ -17,7 +17,7 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   const useAppStore = require('../store/useAppStore').default;
   const store = useAppStore.getState();
   
-  const { setHardwareError, setIsStarting, setStartupError } = store;
+  const { setHardwareError, transitionTo, setStartupError } = store;
   
   let errorObject = null;
   let errorMessage = null;
@@ -111,8 +111,8 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   setHardwareError(errorObject);
   setStartupError(errorMessage);
   
-  // ✅ CRITICAL: Ensure isStarting is true to keep scan view active
-  setIsStarting(true);
+  // ✅ CRITICAL: Ensure robotStatus is 'starting' to keep scan view active
+  transitionTo.starting();
   
   // Log to frontend logs using standardized logger
   const logMessage = `Daemon ${errorType} error: ${errorMessage}`;

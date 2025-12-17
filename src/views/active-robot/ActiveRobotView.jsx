@@ -86,10 +86,20 @@ function ActiveRobotView({
   } = useAudioControls(isActive);
   
   // ✅ Apps loading state (for internal UI if needed)
+  // Only show "Preparing robot..." overlay on FIRST load, not on refreshes
   const [appsLoading, setAppsLoading] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
   
   // ✅ Callback to receive apps loading state from RightPanel
+  // Only set loading=true if we haven't loaded once yet (prevents overlay flash on refresh)
   const handleAppsLoadingChange = useCallback((loading) => {
+    if (loading && hasLoadedOnceRef.current) {
+      // Already loaded once, don't show overlay for refreshes
+      return;
+    }
+    if (!loading) {
+      hasLoadedOnceRef.current = true;
+    }
     setAppsLoading(loading);
   }, []);
   
@@ -97,6 +107,7 @@ function ActiveRobotView({
   useEffect(() => {
     if (isActive) {
       setAppsLoading(true);
+      hasLoadedOnceRef.current = false; // Reset on new session
     }
   }, [isActive]);
   

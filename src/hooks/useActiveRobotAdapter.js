@@ -131,10 +131,7 @@ export function useActiveRobotAdapter() {
       lockForInstall: store.lockForInstall,
       unlockInstall: store.unlockInstall,
       
-      // Robot state setters
-      setIsActive: store.setIsActive,
-      setIsStarting: store.setIsStarting,
-      setIsStopping: store.setIsStopping,
+      // Robot state setters (use transitionTo instead of setIsActive/setIsStarting/setIsStopping)
       setRobotStateFull: store.setRobotStateFull,
       setActiveMoves: store.setActiveMoves,
       setIsCommandRunning: store.setIsCommandRunning,

@@ -38,6 +38,9 @@ export const appsInitialState = {
   installStartTime: null,
   processedJobs: [],
   jobSeenOnce: false,
+  
+  // App stopping state (for UI feedback during stop request)
+  isStoppingApp: false,
 };
 
 /**
@@ -97,6 +100,8 @@ export const createAppsSlice = (set, get) => ({
   
   setAppsError: (error) => set({ appsError: error }),
   
+  setIsStoppingApp: (isStopping) => set({ isStoppingApp: isStopping }),
+  
   setAppsOfficialMode: (mode) => set({ 
     appsOfficialMode: mode,
     appsCacheValid: false,
@@ -114,6 +119,7 @@ export const createAppsSlice = (set, get) => ({
     appsError: null,
     appsLastFetch: null,
     appsCacheValid: false,
+    isStoppingApp: false,
   }),
   
   // ============================================

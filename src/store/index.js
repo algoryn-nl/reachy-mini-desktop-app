@@ -43,3 +43,13 @@ export {
   createAppsSlice,
 } from './slices';
 
+// Selectors - derive state from robotStatus
+export {
+  selectIsActive,
+  selectIsStarting,
+  selectIsStopping,
+  selectIsDaemonCrashed,
+  selectIsBusy,
+  selectIsReady,
+} from './slices';
+

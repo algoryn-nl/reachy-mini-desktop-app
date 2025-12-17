@@ -49,6 +49,7 @@ export default function ApplicationsSection({
     stopCurrentApp,
     fetchAvailableApps,
     isLoading,
+    isStoppingApp,
   } = useApps(effectiveIsActive, officialOnly);
   
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function ApplicationsSection({
     installedApps,
     showToast,
     refreshApps: fetchAvailableApps,
+    isLoading,
     onInstallSuccess: () => {
       const discoverIsOpen = modalStack[modalStack.length - 1] === 'discover';
       if (discoverIsOpen) {
@@ -272,6 +274,7 @@ export default function ApplicationsSection({
             currentApp={currentApp}
             isBusy={effectiveIsBusy}
             isJobRunning={isJobRunning}
+            isStoppingApp={isStoppingApp}
             handleStartApp={handleStartApp}
             handleUninstall={handleUninstall}
             getJobInfo={getJobInfo}

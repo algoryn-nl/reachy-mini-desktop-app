@@ -72,6 +72,7 @@ export function useAppsStore(isActive, official = true) {
     appsLastFetch,
     appsOfficialMode,
     appsCacheValid,
+    isStoppingApp,
     setAvailableApps,
     setInstalledApps,
     setCurrentApp,
@@ -492,8 +493,12 @@ export function useAppsStore(isActive, official = true) {
   
   /**
    * Stop current app
+   * ✅ Sets isStoppingApp immediately for UI feedback (spinner on button)
    */
   const stopCurrentApp = useCallback(async () => {
+    // ✅ Set stopping state immediately for UI feedback
+    useAppStore.getState().setIsStoppingApp(true);
+    
     try {
       const response = await fetchWithTimeout(
         buildApiUrl('/api/apps/stop-current-app'),
@@ -514,6 +519,9 @@ export function useAppsStore(isActive, official = true) {
       // ✅ Unlock robot to allow quick actions
       useAppStore.getState().unlockApp();
       
+      // ✅ Clear stopping state
+      useAppStore.getState().setIsStoppingApp(false);
+      
       // Refresh to verify
       setTimeout(() => fetchCurrentAppStatus(), DAEMON_CONFIG.INTERVALS.CURRENT_APP_REFRESH);
       
@@ -524,6 +532,8 @@ export function useAppsStore(isActive, official = true) {
       setAppsError(err.message);
       // ✅ Ensure unlock even on error
       useAppStore.getState().unlockApp();
+      // ✅ Clear stopping state even on error
+      useAppStore.getState().setIsStoppingApp(false);
       throw err;
     }
   }, [fetchCurrentAppStatus, setCurrentApp, logger, setAppsError]);
@@ -610,6 +620,7 @@ export function useAppsStore(isActive, official = true) {
     activeJobs,
     isLoading: appsLoading,
     error: appsError,
+    isStoppingApp,
     
     // Actions
     fetchAvailableApps,

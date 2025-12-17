@@ -6,14 +6,73 @@
  * - Robot status (disconnected, starting, ready, busy, stopping, crashed)
  * - Robot state polling data
  * - Visual effects
+ * 
+ * 🎯 STATE MACHINE: robotStatus is the SINGLE SOURCE OF TRUTH
+ * All boolean states (isActive, isStarting, etc.) are DERIVED from robotStatus
  */
 import { logConnect, logDisconnect, logReset, logReady, logBusy, logCrash } from '../storeLogger';
 
+// ============================================================================
+// SELECTORS - Derive boolean states from robotStatus
+// ============================================================================
+
+/**
+ * @param {Object} state - Store state
+ * @returns {boolean} True if robot is active (ready or busy)
+ */
+export const selectIsActive = (state) => 
+  state.robotStatus === 'ready' || state.robotStatus === 'busy';
+
+/**
+ * @param {Object} state - Store state
+ * @returns {boolean} True if daemon is starting
+ */
+export const selectIsStarting = (state) => 
+  state.robotStatus === 'starting';
+
+/**
+ * @param {Object} state - Store state
+ * @returns {boolean} True if daemon is stopping
+ */
+export const selectIsStopping = (state) => 
+  state.robotStatus === 'stopping';
+
+/**
+ * @param {Object} state - Store state
+ * @returns {boolean} True if daemon has crashed
+ */
+export const selectIsDaemonCrashed = (state) => 
+  state.robotStatus === 'crashed';
+
+/**
+ * @param {Object} state - Store state
+ * @returns {boolean} True if robot is busy
+ */
+export const selectIsBusy = (state) => 
+  state.robotStatus === 'busy' || state.isCommandRunning || state.isAppRunning || state.isInstalling || state.isStoppingApp;
+
+/**
+ * @param {Object} state - Store state
+ * @returns {boolean} True if robot is ready (not busy with any action)
+ */
+export const selectIsReady = (state) => 
+  state.robotStatus === 'ready' && !state.isCommandRunning && !state.isAppRunning && !state.isInstalling && !state.isStoppingApp;
+
+// ============================================================================
+// INITIAL STATE
+// ============================================================================
+
 /**
  * Initial state for robot slice
+ * 
+ * 🎯 robotStatus is the SINGLE SOURCE OF TRUTH
+ * The boolean states (isActive, isStarting, etc.) are kept in sync automatically
+ * by the transitionTo functions. They exist for backwards compatibility.
+ * 
+ * ⚠️ DO NOT use setIsActive/setIsStarting/setIsStopping - use transitionTo instead!
  */
 export const robotInitialState = {
-  // ✨ Main robot state (State Machine)
+  // ✨ Main robot state (State Machine) - SINGLE SOURCE OF TRUTH
   // Possible states: 'disconnected', 'ready-to-start', 'starting', 'ready', 'busy', 'stopping', 'crashed'
   robotStatus: 'disconnected',
   
@@ -21,16 +80,16 @@ export const robotInitialState = {
   // Possible values: null, 'moving', 'command', 'app-running', 'installing'
   busyReason: null,
   
-  // Legacy states (for backwards compatibility)
-  isActive: false,
-  isStarting: false,
-  isStopping: false,
+  // 🔄 Derived states (kept in sync by transitionTo - DO NOT SET DIRECTLY)
+  isActive: false,      // true when robotStatus is 'ready' or 'busy'
+  isStarting: false,    // true when robotStatus is 'starting'
+  isStopping: false,    // true when robotStatus is 'stopping'
+  isDaemonCrashed: false, // true when robotStatus is 'crashed'
   
   // Daemon metadata
   daemonVersion: null,
   startupError: null,
   hardwareError: null,
-  isDaemonCrashed: false,
   consecutiveTimeouts: 0,
   startupTimeoutId: null,
   
@@ -64,6 +123,10 @@ export const robotInitialState = {
   effectTimestamp: 0,
 };
 
+// ============================================================================
+// SLICE CREATOR
+// ============================================================================
+
 /**
  * Create robot slice
  * @param {Function} set - Zustand set function
@@ -73,15 +136,21 @@ export const robotInitialState = {
 export const createRobotSlice = (set, get) => ({
   ...robotInitialState,
   
-  // ✨ Transition actions (State Machine)
+  // ============================================================================
+  // STATE MACHINE TRANSITIONS
+  // These are the ONLY way to change robot state. They keep booleans in sync.
+  // ============================================================================
+  
   transitionTo: {
     disconnected: () => {
       set({
         robotStatus: 'disconnected',
         busyReason: null,
+        // Derived booleans (kept in sync)
         isActive: false,
         isStarting: false,
         isStopping: false,
+        isDaemonCrashed: false,
         isCommandRunning: false,
         isAppRunning: false,
         isInstalling: false,
@@ -92,9 +161,11 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'ready-to-start',
         busyReason: null,
+        // Derived booleans
         isActive: false,
         isStarting: false,
         isStopping: false,
+        isDaemonCrashed: false,
       });
     },
     
@@ -102,9 +173,11 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'starting',
         busyReason: null,
+        // Derived booleans
         isActive: false,
         isStarting: true,
         isStopping: false,
+        isDaemonCrashed: false,
       });
     },
     
@@ -118,7 +191,7 @@ export const createRobotSlice = (set, get) => ({
       }
       
       // 🛡️ Guard: Don't transition if stopping (prevents chaos during shutdown)
-      if (state.isStopping) {
+      if (state.robotStatus === 'stopping') {
         return; // Silently ignore during shutdown
       }
       
@@ -128,7 +201,7 @@ export const createRobotSlice = (set, get) => ({
       }
       
       // 🛡️ Guard: Don't log/transition if already ready (prevents flicker)
-      if (state.robotStatus === 'ready' && state.isActive) {
+      if (state.robotStatus === 'ready') {
         return; // Already ready, skip
       }
       
@@ -136,9 +209,11 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'ready',
         busyReason: null,
+        // Derived booleans
         isActive: true,
         isStarting: false,
         isStopping: false,
+        isDaemonCrashed: false,
         isCommandRunning: false,
         isAppRunning: false,
         isInstalling: false,
@@ -149,7 +224,7 @@ export const createRobotSlice = (set, get) => ({
       const state = get();
       
       // 🛡️ Guard: Don't transition if stopping (prevents chaos during shutdown)
-      if (state.isStopping) {
+      if (state.robotStatus === 'stopping') {
         return; // Silently ignore during shutdown
       }
       
@@ -163,7 +238,11 @@ export const createRobotSlice = (set, get) => ({
         const updates = {
           robotStatus: 'busy',
           busyReason: reason,
+          // Derived booleans
           isActive: true,
+          isStarting: false,
+          isStopping: false,
+          isDaemonCrashed: false,
         };
         
         if (reason === 'command') updates.isCommandRunning = true;
@@ -178,11 +257,13 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'stopping',
         busyReason: null,
+        // Derived booleans
         isActive: false,
+        isStarting: false,
         isStopping: true,
+        isDaemonCrashed: false,
         // 🛡️ Reset timeouts to prevent false crash detection during intentional stop
         consecutiveTimeouts: 0,
-        isDaemonCrashed: false,
       });
     },
     
@@ -191,22 +272,22 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'crashed',
         busyReason: null,
+        // Derived booleans
         isActive: false,
+        isStarting: false,
+        isStopping: false,
         isDaemonCrashed: true,
       });
     },
   },
   
-  // Helper methods
-  isBusy: () => {
-    const state = get();
-    return state.robotStatus === 'busy' || state.isCommandRunning || state.isAppRunning || state.isInstalling;
-  },
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
   
-  isReady: () => {
-    const state = get();
-    return state.robotStatus === 'ready';
-  },
+  isBusy: () => selectIsBusy(get()),
+  
+  isReady: () => selectIsReady(get()),
   
   getRobotStatusLabel: () => {
     const state = get();
@@ -235,7 +316,10 @@ export const createRobotSlice = (set, get) => ({
     return statusLabels[robotStatus] || 'Unknown';
   },
   
-  // App locking management
+  // ============================================================================
+  // APP LOCKING MANAGEMENT
+  // ============================================================================
+  
   lockForApp: (appName) => {
     get().transitionTo.busy('app-running');
     set({ currentAppName: appName });
@@ -246,57 +330,9 @@ export const createRobotSlice = (set, get) => ({
     set({ currentAppName: null });
   },
   
-  // Legacy setters (minimal logging - key events only via storeLogger)
-  setIsActive: (value) => {
-    const state = get();
-    
-    // 🛡️ Guard: Skip if already in desired state (prevents redundant transitions)
-    if (value === state.isActive) {
-      return;
-    }
-    
-    // 🛡️ Guard: Block setIsActive(true) if stopping (prevents chaos during shutdown)
-    if (value && state.isStopping) {
-      return; // Silently ignore during shutdown
-    }
-    
-    // 🛡️ Guard: Block setIsActive(true) if no connection (prevents crash after resetAll)
-    if (value && !state.connectionMode) {
-      return; // Silently ignore after disconnect
-    }
-    
-    if (value && state.hardwareError) {
-      console.warn('[Store] ⚠️ Cannot set isActive=true: hardware error present');
-      return;
-    }
-    
-    if (value && !state.isStarting && !state.isStopping) {
-      if (state.robotStatus !== 'busy') {
-        state.transitionTo.ready();
-      }
-    } else if (!value && state.robotStatus !== 'starting' && state.robotStatus !== 'stopping') {
-      state.transitionTo.readyToStart();
-    }
-    set({ isActive: value });
-  },
-  
-  setIsStarting: (value) => {
-    const state = get();
-    if (value) {
-      state.transitionTo.starting();
-    }
-    set({ isStarting: value });
-  },
-  
-  setIsStopping: (value) => {
-    const state = get();
-    if (value) {
-      state.transitionTo.stopping();
-    } else {
-      state.transitionTo.readyToStart();
-    }
-    set({ isStopping: value });
-  },
+  // ============================================================================
+  // SETTERS
+  // ============================================================================
   
   setDaemonVersion: (value) => set({ daemonVersion: value }),
   setStartupError: (value) => set({ startupError: value }),
@@ -326,7 +362,10 @@ export const createRobotSlice = (set, get) => ({
     return mode === 'usb' || mode === 'simulation';
   },
   
-  // 🌐 Reset connection state
+  // ============================================================================
+  // CONNECTION LIFECYCLE
+  // ============================================================================
+  
   resetConnection: () => {
     const prevState = get();
     logDisconnect(prevState.connectionMode);
@@ -334,9 +373,12 @@ export const createRobotSlice = (set, get) => ({
     set({
       robotStatus: 'disconnected',
       busyReason: null,
+      // Derived booleans
       isActive: false,
       isStarting: false,
       isStopping: false,
+      isDaemonCrashed: false,
+      // Connection
       connectionMode: null,
       remoteHost: null,
       isUsbConnected: false,
@@ -346,11 +388,9 @@ export const createRobotSlice = (set, get) => ({
       robotStateFull: { data: null, lastUpdate: null, error: null },
       activeMoves: [],
       consecutiveTimeouts: 0,
-      isDaemonCrashed: false,
     });
   },
   
-  // 🌐 Start connection - atomic action
   startConnection: (mode, options = {}) => {
     const { portName, remoteHost } = options;
     logConnect(mode, options);
@@ -362,12 +402,14 @@ export const createRobotSlice = (set, get) => ({
       usbPortName: portName || null,
       robotStatus: 'starting',
       busyReason: null,
-      isStarting: true,
+      // Derived booleans
       isActive: false,
+      isStarting: true,
       isStopping: false,
+      isDaemonCrashed: false,
+      // Metadata
       hardwareError: null,
       startupError: null,
-      isDaemonCrashed: false,
       consecutiveTimeouts: 0,
       robotStateFull: { data: null, lastUpdate: null, error: null },
       activeMoves: [],
@@ -378,6 +420,10 @@ export const createRobotSlice = (set, get) => ({
       currentAppName: null,
     });
   },
+  
+  // ============================================================================
+  // ROBOT STATE POLLING
+  // ============================================================================
   
   setRobotStateFull: (value) => set((state) => {
     if (typeof value === 'function') {
@@ -398,13 +444,16 @@ export const createRobotSlice = (set, get) => ({
     set({ isCommandRunning: value });
   },
   
-  // Timeout/crash management
+  // ============================================================================
+  // TIMEOUT/CRASH MANAGEMENT
+  // ============================================================================
+  
   incrementTimeouts: () => {
     const state = get();
     const newCount = state.consecutiveTimeouts + 1;
-    const isCrashed = newCount >= 3;
+    const shouldCrash = newCount >= 3;
     
-    if (isCrashed && !state.isDaemonCrashed) {
+    if (shouldCrash && state.robotStatus !== 'crashed') {
       state.transitionTo.crashed();
     }
     
@@ -417,7 +466,10 @@ export const createRobotSlice = (set, get) => ({
     get().transitionTo.crashed();
   },
   
-  // Startup timeout management
+  // ============================================================================
+  // STARTUP TIMEOUT MANAGEMENT
+  // ============================================================================
+  
   setStartupTimeout: (timeoutId) => set({ startupTimeoutId: timeoutId }),
   
   clearStartupTimeout: () => {
@@ -428,8 +480,10 @@ export const createRobotSlice = (set, get) => ({
     }
   },
   
-  // 3D visual effects
+  // ============================================================================
+  // VISUAL EFFECTS
+  // ============================================================================
+  
   triggerEffect: (effectType) => set({ activeEffect: effectType, effectTimestamp: Date.now() }),
   stopEffect: () => set({ activeEffect: null }),
 });
-

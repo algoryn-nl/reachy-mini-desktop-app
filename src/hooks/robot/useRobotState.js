@@ -20,7 +20,7 @@ export function useRobotState(isActive) {
     setActiveMoves,
     incrementTimeouts,
     resetTimeouts,
-    setIsActive,
+    transitionTo,
     clearStartupTimeout,
     setHardwareError,
   } = useAppStore();
@@ -93,9 +93,10 @@ export function useRobotState(isActive) {
             // ✅ CRITICAL: If daemon is still starting, don't clear hardwareError yet
             // Wait for startup to complete (isStarting = false) before clearing errors
             // This prevents clearing errors if daemon responds briefly before crashing
-            if (!currentState.hardwareError && !currentState.isActive) {
-              // ✅ Only set isActive if not already active (prevents redundant state updates)
-              setIsActive(true);
+            const isActive = currentState.robotStatus === 'ready' || currentState.robotStatus === 'busy';
+            if (!currentState.hardwareError && !isActive) {
+              // ✅ Transition to ready (state machine handles everything)
+              transitionTo.ready();
               // ✅ Clear startup timeout since daemon is now active
               clearStartupTimeout();
               consecutiveSuccessRef.current = 0; // Reset counter
@@ -112,7 +113,7 @@ export function useRobotState(isActive) {
               if (consecutiveSuccessRef.current >= 3) {
                 console.log('✅ Daemon responding successfully multiple times after startup, clearing hardwareError');
                 setHardwareError(null);
-                setIsActive(true);
+                transitionTo.ready();
                 clearStartupTimeout();
                 consecutiveSuccessRef.current = 0;
               }

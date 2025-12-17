@@ -225,6 +225,9 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
       }
       
       // Update job in activeJobs
+      // ⚠️ IMPORTANT: If job is finished, we DON'T update status here
+      // We'll set it to 'refreshing' in the isFinished block below
+      // This prevents useInstallationLifecycle from seeing 'completed' before the refresh
       setActiveJobs(prev => {
         const job = prev.get(jobId);
         if (!job) return prev;
@@ -232,7 +235,9 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
         const updated = new Map(prev);
         updated.set(jobId, {
           ...job,
-          status: jobStatus.status,
+          // Only update status if job is NOT finished
+          // Otherwise, keep current status until we set 'refreshing'
+          status: isFinished ? job.status : jobStatus.status,
           logs: jobStatus.logs || [],
           fetchFailCount: 0,
         });
@@ -304,9 +309,12 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
         }
       }
       
-      // If finished, mark as finished IMMEDIATELY then cleanup
+      // If finished, mark as "refreshing" then refresh, then mark as "completed"
+      // This ensures the modal waits for the apps list to update before closing
       if (isFinished) {
-        // Mark job as finished (changes status)
+        const finalStatus = jobStatus.status; // "completed" or "failed"
+        
+        // Step 1: Mark job as "refreshing" (modal stays open during refresh)
         setActiveJobs(prev => {
           const job = prev.get(jobId);
           if (!job) return prev;
@@ -314,44 +322,50 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
           const updated = new Map(prev);
           updated.set(jobId, {
             ...job,
-            status: jobStatus.status, // "completed" or "failed"
+            status: 'refreshing', // Intermediate state - modal stays open
+            finalStatus: finalStatus, // Store final status for later
           });
           return updated;
         });
         
-        // Refresh list after short delay (let daemon update its DB)
-        // ✅ FIX: Track timeout for cleanup
-        const refreshTimeoutId = setTimeout(() => {
-          fetchAvailableApps();
-          // Remove from tracking when executed
-          const timeouts = jobTimeouts.current.get(jobId);
-          if (timeouts) {
-            timeouts.delete(refreshTimeoutId);
-            if (timeouts.size === 0) {
-              jobTimeouts.current.delete(jobId);
-            }
+        // Step 2: Refresh apps list and WAIT for it to complete
+        const refreshAndComplete = async () => {
+          // Short delay to let daemon update its DB
+          await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.APP_INSTALLATION.REFRESH_DELAY));
+          
+          // Refresh apps list and WAIT for it to complete
+          try {
+            await fetchAvailableApps();
+          } catch (err) {
+            console.warn('[AppJobs] Failed to refresh apps after job completion:', err);
           }
-        }, DAEMON_CONFIG.APP_INSTALLATION.REFRESH_DELAY);
-        addJobTimeout(jobId, refreshTimeoutId);
-        
-        // Remove job: very fast if success, 8s if failure (to see error)
-        const delay = jobStatus.status === 'failed' ? 8000 : 100;
-        const removeTimeoutId = setTimeout(() => {
+          
+          // Step 3: NOW mark job as truly completed (this triggers modal close)
+          setActiveJobs(prev => {
+            const job = prev.get(jobId);
+            if (!job) return prev;
+            
+            const updated = new Map(prev);
+            updated.set(jobId, {
+              ...job,
+              status: job.finalStatus || finalStatus, // Use stored final status
+            });
+            return updated;
+          });
+          
+          // Step 4: Remove job after delay (instant for success, 8s for failure to see error)
+          const extraDelay = finalStatus === 'failed' ? 8000 : 100;
+          await new Promise(resolve => setTimeout(resolve, extraDelay));
+          
           setActiveJobs(prev => {
             const updated = new Map(prev);
             updated.delete(jobId);
             return updated;
           });
-          // Remove from tracking when executed
-          const timeouts = jobTimeouts.current.get(jobId);
-          if (timeouts) {
-            timeouts.delete(removeTimeoutId);
-            if (timeouts.size === 0) {
-              jobTimeouts.current.delete(jobId);
-            }
-          }
-        }, delay);
-        addJobTimeout(jobId, removeTimeoutId);
+        };
+        
+        // Execute the async cleanup
+        refreshAndComplete();
       }
     };
     

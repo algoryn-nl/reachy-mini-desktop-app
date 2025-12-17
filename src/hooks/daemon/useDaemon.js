@@ -12,14 +12,10 @@ import { handleDaemonError } from '../../utils/daemonErrorHandler';
 export const useDaemon = () => {
   const logger = useLogger();
   const { 
-    isActive,
-    isStarting,
-    isStopping,
+    robotStatus,
     startupError,
     // Note: connectionMode is read via getState() inside callbacks for fresh value
-    setIsStarting, 
-    setIsStopping,
-    setIsActive,
+    transitionTo,
     setDaemonVersion,
     setStartupError,
     setHardwareError,
@@ -27,6 +23,11 @@ export const useDaemon = () => {
     clearStartupTimeout,
     resetAll, // ✅ Use resetAll instead of resetConnection to also clear apps
   } = useAppStore();
+  
+  // Derived from robotStatus (state machine)
+  const isActive = robotStatus === 'ready' || robotStatus === 'busy';
+  const isStarting = robotStatus === 'starting';
+  const isStopping = robotStatus === 'stopping';
   
   // ✅ Event Bus for centralized event handling
   const eventBus = useDaemonEventBus();
@@ -82,7 +83,7 @@ export const useDaemon = () => {
         // Specific error config found
         const errorObject = createErrorFromConfig(data.errorConfig, data.errorLine);
         setHardwareError(errorObject);
-        setIsStarting(true);
+        transitionTo.starting(); // Keep in starting state to show error
       } else if (data.isGeneric) {
         // Generic runtime error - don't override specific error if already set
         const currentError = currentState.hardwareError;
@@ -99,7 +100,7 @@ export const useDaemon = () => {
       unsubCrash();
       unsubHardwareError();
     };
-  }, [eventBus, setHardwareError, setIsStarting, clearStartupTimeout, logger]);
+  }, [eventBus, setHardwareError, transitionTo, clearStartupTimeout, logger]);
 
   // ✅ checkStatus removed - useDaemonHealthCheck handles all status checking
   // It polls every 1.33s, updates isActive, and handles crash detection
@@ -432,8 +433,8 @@ export const useDaemon = () => {
     console.log(`   Mode: ${currentConnectionMode}`);
     console.log(`   App running: ${currentIsAppRunning}${currentAppName ? ` (${currentAppName})` : ''}`);
     
-    setIsStopping(true);
-    console.log('   → State: isStopping = true');
+    transitionTo.stopping();
+    console.log('   → State: robotStatus = stopping');
     
     // ✅ Clear startup timeout if daemon is being stopped
     clearStartupTimeout();
@@ -556,7 +557,7 @@ export const useDaemon = () => {
       console.error('❌ Error stopping daemon:', e);
       resetAll();
     }
-  }, [clearStartupTimeout, resetAll, setIsStopping]);
+  }, [clearStartupTimeout, resetAll, transitionTo]);
 
   return {
     isActive,
