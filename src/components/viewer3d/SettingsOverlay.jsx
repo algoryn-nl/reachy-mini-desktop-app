@@ -14,11 +14,6 @@ import {
   Checkbox,
   FormControlLabel,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
 } from '@mui/material';
 import WifiIcon from '@mui/icons-material/Wifi';
 import SignalWifi4BarIcon from '@mui/icons-material/SignalWifi4Bar';
@@ -34,6 +29,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import FullscreenOverlay from '../FullscreenOverlay';
 import useAppStore from '../../store/useAppStore';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
+import reachyUpdateBoxSvg from '../../assets/reachy-update-box.svg';
 
 /**
  * Section Header Component
@@ -163,7 +159,7 @@ export default function SettingsOverlay({
         
         // Give user time to see the action, then disconnect
         setTimeout(() => {
-          useAppStore.getState().resetConnection();
+          useAppStore.getState().resetAll(); // ✅ Use resetAll to also clear apps
         }, 1000);
       } else {
         const error = await response.json();
@@ -263,12 +259,24 @@ export default function SettingsOverlay({
   // EFFECTS
   // ═══════════════════════════════════════════════════════════════════
 
+  // Initial fetch when overlay opens
   useEffect(() => {
     if (open && isWifiMode) {
       checkForUpdate();
       fetchWifiStatus();
     }
   }, [open, isWifiMode, checkForUpdate, fetchWifiStatus]);
+
+  // Auto-refresh WiFi networks every 3 seconds
+  useEffect(() => {
+    if (!open || !isWifiMode) return;
+    
+    const interval = setInterval(() => {
+      fetchWifiStatus();
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [open, isWifiMode, fetchWifiStatus]);
 
   useEffect(() => {
     if (open && isWifiMode) {
@@ -863,85 +871,251 @@ export default function SettingsOverlay({
         )}
       </Box>
       
-      {/* Update Confirmation Dialog */}
-      <Dialog
+      {/* Update Confirmation Overlay */}
+      <FullscreenOverlay
         open={showUpdateConfirm}
         onClose={() => setShowUpdateConfirm(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            bgcolor: 'background.paper',
-            maxWidth: 400,
-          }
-        }}
+        darkMode={darkMode}
+        zIndex={10003}
+        backdropOpacity={0.85}
+        backdropBlur={12}
       >
-        <DialogTitle sx={{ fontWeight: 600 }}>
-          Start Update?
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ color: 'text.secondary' }}>
-            Update to <strong>{updateInfo?.available_version}</strong>?
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 380,
+            mx: 'auto',
+            px: 3,
+            textAlign: 'center',
+          }}
+        >
+          {/* Reachy in box illustration */}
+          <Box sx={{ mb: 3 }}>
+            <img
+              src={reachyUpdateBoxSvg}
+              alt="Reachy Update"
+              style={{
+                width: 140,
+                height: 140,
+              }}
+            />
+          </Box>
+          
+          {/* Title */}
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              color: 'text.primary',
+              mb: 2,
+            }}
+          >
+            Start Update?
+          </Typography>
+          
+          {/* Description */}
+          <Typography
+            sx={{
+              color: 'text.secondary',
+              fontSize: 14,
+              lineHeight: 1.6,
+              mb: 4,
+            }}
+          >
+            Update to <strong style={{ color: darkMode ? '#fff' : '#333' }}>{updateInfo?.available_version}</strong>
             <br /><br />
-            The robot will restart and you will be <strong>disconnected</strong>.
+            The robot will restart and you will be <strong style={{ color: darkMode ? '#fff' : '#333' }}>disconnected</strong>.
             <br />
-            Reconnect after ~2 minutes when the update is complete.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button 
-            onClick={() => setShowUpdateConfirm(false)}
-            sx={{ color: 'text.secondary' }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={confirmUpdate}
-            variant="contained"
-            color="primary"
-          >
-            Update Now
-          </Button>
-        </DialogActions>
-      </Dialog>
+            Reconnect after ~2 minutes when complete.
+          </Typography>
+          
+          {/* Actions */}
+          <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
+            <Button 
+              onClick={() => setShowUpdateConfirm(false)}
+              variant="text"
+              sx={{ 
+                color: 'text.secondary',
+                textTransform: 'none',
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+                '&:hover': {
+                  bgcolor: 'transparent',
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmUpdate}
+              variant="outlined"
+              color="primary"
+              sx={{ 
+                minWidth: 160,
+                px: 3,
+                py: 1.25,
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: 14,
+                position: 'relative',
+                overflow: 'visible',
+                // Pulse animation
+                animation: 'updatePulse 3s ease-in-out infinite',
+                '@keyframes updatePulse': {
+                  '0%, 100%': {
+                    boxShadow: (theme) => darkMode
+                      ? `0 0 0 0 ${theme.palette.primary.main}66`
+                      : `0 0 0 0 ${theme.palette.primary.main}4D`,
+                  },
+                  '50%': {
+                    boxShadow: (theme) => darkMode
+                      ? `0 0 0 8px ${theme.palette.primary.main}00`
+                      : `0 0 0 8px ${theme.palette.primary.main}00`,
+                  },
+                },
+                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: (theme) => darkMode
+                    ? `0 6px 16px ${theme.palette.primary.main}33`
+                    : `0 6px 16px ${theme.palette.primary.main}26`,
+                  animation: 'none',
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+              }}
+            >
+              Update now
+            </Button>
+          </Box>
+        </Box>
+      </FullscreenOverlay>
       
-      {/* WiFi Confirmation Dialog */}
-      <Dialog
+      {/* WiFi Confirmation Overlay */}
+      <FullscreenOverlay
         open={showWifiConfirm}
         onClose={() => setShowWifiConfirm(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            bgcolor: 'background.paper',
-            maxWidth: 400,
-          }
-        }}
+        darkMode={darkMode}
+        zIndex={10003}
+        backdropOpacity={0.85}
+        backdropBlur={12}
       >
-        <DialogTitle sx={{ fontWeight: 600 }}>
-          Connect to WiFi?
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ color: 'text.secondary' }}>
-            Connect Reachy to "<strong>{selectedSSID}</strong>"?
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 380,
+            mx: 'auto',
+            px: 3,
+            textAlign: 'center',
+          }}
+        >
+          {/* Reachy in box illustration */}
+          <Box sx={{ mb: 3 }}>
+            <img
+              src={reachyUpdateBoxSvg}
+              alt="Reachy"
+              style={{
+                width: 140,
+                height: 140,
+              }}
+            />
+          </Box>
+          
+          {/* Title */}
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              color: 'text.primary',
+              mb: 2,
+            }}
+          >
+            Connect to WiFi?
+          </Typography>
+          
+          {/* Description */}
+          <Typography
+            sx={{
+              color: 'text.secondary',
+              fontSize: 14,
+              lineHeight: 1.6,
+              mb: 4,
+            }}
+          >
+            Connect Reachy to "<strong style={{ color: darkMode ? '#fff' : '#333' }}>{selectedSSID}</strong>"
             <br /><br />
-            If this is a different network than your computer, you may <strong>lose connection</strong> to the robot.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button 
-            onClick={() => setShowWifiConfirm(false)}
-            sx={{ color: 'text.secondary' }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={confirmWifiConnect}
-            variant="contained"
-            color="primary"
-          >
-            Connect
-          </Button>
-        </DialogActions>
-      </Dialog>
+            If this is a different network than your computer, you may <strong style={{ color: darkMode ? '#fff' : '#333' }}>lose connection</strong> to the robot.
+            <br /><br />
+            You may need to <strong style={{ color: darkMode ? '#fff' : '#333' }}>reboot the robot</strong> after the network change.
+          </Typography>
+          
+          {/* Actions */}
+          <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
+            <Button 
+              onClick={() => setShowWifiConfirm(false)}
+              variant="text"
+              sx={{ 
+                color: 'text.secondary',
+                textTransform: 'none',
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+                '&:hover': {
+                  bgcolor: 'transparent',
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmWifiConnect}
+              variant="outlined"
+              color="primary"
+              sx={{ 
+                minWidth: 160,
+                px: 3,
+                py: 1.25,
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: 14,
+                position: 'relative',
+                overflow: 'visible',
+                // Pulse animation
+                animation: 'wifiPulse 3s ease-in-out infinite',
+                '@keyframes wifiPulse': {
+                  '0%, 100%': {
+                    boxShadow: (theme) => darkMode
+                      ? `0 0 0 0 ${theme.palette.primary.main}66`
+                      : `0 0 0 0 ${theme.palette.primary.main}4D`,
+                  },
+                  '50%': {
+                    boxShadow: (theme) => darkMode
+                      ? `0 0 0 8px ${theme.palette.primary.main}00`
+                      : `0 0 0 8px ${theme.palette.primary.main}00`,
+                  },
+                },
+                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: (theme) => darkMode
+                    ? `0 6px 16px ${theme.palette.primary.main}33`
+                    : `0 6px 16px ${theme.palette.primary.main}26`,
+                  animation: 'none',
+                },
+                '&:active': {
+                  transform: 'translateY(0)',
+                },
+              }}
+            >
+              Connect
+            </Button>
+          </Box>
+        </Box>
+      </FullscreenOverlay>
     </FullscreenOverlay>
   );
 }

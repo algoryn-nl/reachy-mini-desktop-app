@@ -6,7 +6,7 @@ import URDFRobot from './URDFRobot';
 import ScanEffect from './effects/ScanEffect';
 import PremiumScanEffect from './effects/PremiumScanEffect';
 import ErrorHighlight from './effects/ErrorHighlight';
-import ParticleEffect from './effects/ParticleEffect';
+// import ParticleEffect from './effects/ParticleEffect'; // TODO: Disabled for now
 import CinematicCamera from './CinematicCamera';
 import HeadFollowCamera from './HeadFollowCamera';
 import useAppStore from '../../store/useAppStore';
@@ -432,8 +432,8 @@ function Scene({
         />
       )}
       
-      {/* Visual particle effects (sleep, love, etc.) */}
-      {!hideEffects && activeEffect && (
+      {/* Visual particle effects (sleep, love, etc.) - DISABLED */}
+      {/* {!hideEffects && activeEffect && (
         <ParticleEffect
           type={activeEffect}
           spawnPoint={headPosition}
@@ -441,7 +441,7 @@ function Scene({
           enabled={true}
           duration={4.0}
         />
-      )}
+      )} */}
     </>
   );
 }

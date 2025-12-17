@@ -219,14 +219,7 @@ pub fn spawn_and_monitor_sidecar(
     // which runs in the correct working directory context
     
     if sim_mode {
-        #[cfg(target_os = "macos")]
-        {
-            println!("[tauri] 🎭 Launching daemon in simulation mode (MuJoCo) with mjpython");
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            println!("[tauri] 🎭 Launching daemon in simulation mode (MuJoCo)");
-        }
+        println!("[tauri] 🎭 Launching daemon in simulation mode (MuJoCo headless)");
     }
     
     // Convert Vec<String> to Vec<&str> for args()

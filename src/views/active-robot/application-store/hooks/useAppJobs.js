@@ -34,7 +34,6 @@ export function useAppJobs(setActiveJobs, fetchAvailableApps) {
         // Don't throw for permission errors during polling
         // Continue polling, job can resume after acceptance
         if (response.status === 403 || response.status === 401) {
-          console.warn(`⚠️ Permission issue while polling job ${jobId}, continuing...`);
           return null; // Return null to continue polling
         }
         throw new Error(`Failed to fetch job status: ${response.status}`);

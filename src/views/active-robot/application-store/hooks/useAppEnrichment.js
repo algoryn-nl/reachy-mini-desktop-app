@@ -44,12 +44,6 @@ export function useAppEnrichment() {
       // For official apps: use metadata directly from /api/spaces (already in daemonApp.extra)
       if (isOfficialApp) {
         hfMetadata = extractSpacesMetadata(spaceData);
-        console.log(`✅ Using /api/spaces metadata for official app: ${daemonApp.name}`, {
-          id: spaceData.id,
-          hasCardData: !!spaceData.cardData,
-          hasLastModified: !!spaceData.lastModified,
-          likes: spaceData.likes,
-        });
       } else {
         // Only search in hfMetadataMap for non-official apps
         hfMetadata = findAppInMetadataMap(daemonApp, hfMetadataMap, hfApps);
@@ -73,26 +67,6 @@ export function useAppEnrichment() {
             custom_app_url: installedAppData.extra.custom_app_url,
           },
         };
-      }
-      
-      // Debug: log final metadata for official apps
-      if (isOfficialApp) {
-        console.log(`📊 Final metadata for official app ${daemonApp.name}:`, {
-          likes: enrichedApp.extra.likes,
-          lastModified: enrichedApp.extra.lastModified,
-          hasCardData: !!enrichedApp.extra.cardData,
-          emoji: enrichedApp.extra.cardData?.emoji,
-          description: enrichedApp.description,
-        });
-      }
-      
-      // Debug: log runtime data for troubleshooting
-      if (daemonApp.name && (daemonApp.extra?.runtime || hfMetadata?.runtime)) {
-        console.log(`🔍 Runtime for "${daemonApp.name}":`, {
-          fromDaemon: daemonApp.extra?.runtime,
-          fromHF: hfMetadata?.runtime,
-          consolidated: enrichedApp.extra.runtime,
-        });
       }
       
       return enrichedApp;

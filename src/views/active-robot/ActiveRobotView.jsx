@@ -33,7 +33,6 @@ function ActiveRobotView({
   logs,
   daemonVersion,
   usbPortName,
-  onAppsReady, // ✅ Callback to notify when apps are loaded
 }) {
   // Get dependencies from context
   const { robotState, actions, windowManager } = useActiveRobotContext();
@@ -86,21 +85,13 @@ function ActiveRobotView({
     handleMicrophoneMute,
   } = useAudioControls(isActive);
   
-  // ✅ Apps loading state: notify parent when ready
+  // ✅ Apps loading state (for internal UI if needed)
   const [appsLoading, setAppsLoading] = useState(true);
   
-  // ✅ Callback to receive apps loading state
+  // ✅ Callback to receive apps loading state from RightPanel
   const handleAppsLoadingChange = useCallback((loading) => {
     setAppsLoading(loading);
-    
-    // ✅ Notify parent when apps are loaded to close TransitionView
-    if (!loading && onAppsReady) {
-      // Wait short delay for render to complete
-      setTimeout(() => {
-        onAppsReady();
-      }, 300);
-    }
-  }, [onAppsReady]);
+  }, []);
   
   // ✅ Reset state when arriving on view
   useEffect(() => {
@@ -241,15 +232,9 @@ function ActiveRobotView({
         >
           <Box
             sx={{
-              bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '20px',
               p: 5,
               maxWidth: 380,
               textAlign: 'center',
-              border: `1px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'}`,
-              boxShadow: darkMode 
-                ? '0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(239, 68, 68, 0.1)' 
-                : '0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(239, 68, 68, 0.1)',
             }}
           >
             {/* Error icon */}
@@ -292,27 +277,21 @@ function ActiveRobotView({
                 lineHeight: 1.6,
               }}
             >
-              The daemon is not responding. Restart the application to restore the connection.
+              The daemon is not responding.
             </Typography>
             
             {/* Restart button */}
             <Button
-              variant="contained"
+              variant="outlined"
+              color="primary"
               onClick={handleRestartDaemon}
               sx={{
-                bgcolor: '#FF9500',
-                color: 'white',
                 fontWeight: 600,
                 fontSize: 13,
                 px: 4,
                 py: 1.25,
                 borderRadius: '12px',
                 textTransform: 'none',
-                boxShadow: '0 4px 12px rgba(255, 149, 0, 0.3)',
-                '&:hover': {
-                  bgcolor: '#ff8800',
-                  boxShadow: '0 6px 16px rgba(255, 149, 0, 0.4)',
-                },
               }}
             >
               Restart Application
@@ -320,6 +299,47 @@ function ActiveRobotView({
           </Box>
         </Box>
       )}
+      
+      {/* Loading overlay - shown while apps are being fetched */}
+      {appsLoading && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 0.98)' : 'rgba(250, 250, 252, 0.98)',
+            backdropFilter: 'blur(20px)',
+            zIndex: 9998, // Below crash overlay (9999)
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <CircularProgress 
+            size={32} 
+            thickness={3}
+            sx={{ 
+              color: darkMode ? '#fff' : '#1a1a1a',
+              opacity: 0.7,
+            }} 
+          />
+          <Typography
+            sx={{
+              fontSize: 13,
+              color: darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
+              fontWeight: 500,
+              letterSpacing: '0.3px',
+            }}
+          >
+            Preparing robot...
+          </Typography>
+        </Box>
+      )}
+      
       {/* Content - 2 columns */}
       <Box
         sx={{

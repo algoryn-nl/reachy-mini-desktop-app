@@ -62,7 +62,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
                 body: JSON.stringify(requestBody),
               },
               DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-              { label: 'Continuous move (body_yaw)', silent: true }
+              { label: 'Continuous move (body_yaw)', silent: true, fireAndForget: true }
             ).catch((error) => {
               console.error('❌ set_target (body_yaw only) error:', error);
             });
@@ -81,7 +81,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
                 body: JSON.stringify(requestBody),
               },
               DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-              { label: 'Continuous move', silent: true }
+              { label: 'Continuous move', silent: true, fireAndForget: true }
             ).catch((error) => {
               console.error('❌ set_target error:', error);
             });
@@ -108,9 +108,10 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
   // Send command using set_target (called by smoothing loop)
   // This is now called directly by the smoothing loop, so we just send immediately
   // No need for startContinuousUpdates - the smoothing loop handles continuous updates
-  // Add throttling to avoid sending too frequently (max ~30fps)
+  // Add throttling to avoid sending too frequently
+  // WiFi needs more time between requests than localhost
   const lastSendTimeRef = useRef(0);
-  const SEND_THROTTLE_MS = 33; // ~30fps
+  const SEND_THROTTLE_MS = 50; // ~20fps - works for both USB and WiFi
   
   const sendCommand = useCallback((headPose, antennas, bodyYaw) => {
     if (!isActive) return;
@@ -123,15 +124,8 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
     }
     lastSendTimeRef.current = now;
 
-    // Cancel previous request if still pending
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
-
-    // Send directly (smoothing loop handles the continuous updates)
+    // Fire and forget - don't abort previous requests
+    // The server handles the latest position, throttle prevents accumulation
     const requestBody = {
       target_head_pose: headPose,
       target_antennas: antennas,
@@ -144,15 +138,11 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
-        signal: abortControllerRef.current.signal,
       },
       DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-      { label: 'Set target (smoothed)', silent: true }
+      { label: 'Set target (smoothed)', silent: true, fireAndForget: true }
     ).catch((error) => {
-      // Ignore AbortError - it's normal when a new request cancels the previous one
-      if (error.name !== 'AbortError') {
-        console.error('❌ set_target error:', error);
-      }
+      console.error('❌ set_target error:', error);
     });
   }, [isActive, robotState.bodyYaw]);
 

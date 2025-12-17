@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import useSound from 'use-sound';
 import gsap from 'gsap';
+import { CircularProgress } from '@mui/material';
 import { EMOTION_EMOJIS } from '@constants/choreographies';
 import diceRollSound from '@assets/sounds/dice.mp3';
 import tickSound from '@assets/sounds/bite.mp3';
@@ -119,6 +120,8 @@ export const EmotionWheel = forwardRef(function EmotionWheel({
   darkMode = false,
   disabled = false,
   isBusy = false,
+  activeActionName = null,
+  isExecuting = false,
 }, ref) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [pressedIndex, setPressedIndex] = useState(null);
@@ -465,9 +468,11 @@ export const EmotionWheel = forwardRef(function EmotionWheel({
         
         const isHovered = hoveredIndex === index;
         const isActive = activeIndex === index;
+        const isActiveAction = activeActionName === emotion;
+        const showSpinner = isActiveAction && isExecuting && !isSpinning;
         const emoji = EMOTION_EMOJIS[emotion] || '😐';
-        const showHighlight = isActive || (!isSpinning && isHovered);
-        const isGhosted = (isBusy || isSpinning) && !isActive;
+        const showHighlight = isActive || isActiveAction || (!isSpinning && isHovered);
+        const isGhosted = (isBusy || isSpinning) && !isActive && !isActiveAction;
         
         return (
           <div
@@ -488,9 +493,24 @@ export const EmotionWheel = forwardRef(function EmotionWheel({
                   : 'saturate(0.85)',
               transition: isSpinning ? 'all 0.06s ease-out' : 'all 0.25s ease',
               zIndex: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: emojiSize,
+              height: emojiSize,
             }}
           >
-            {emoji}
+            {showSpinner ? (
+              <CircularProgress 
+                size={24} 
+                thickness={3}
+                sx={{ 
+                  color: '#FF9500',
+                }} 
+              />
+            ) : (
+              emoji
+            )}
           </div>
         );
       })}

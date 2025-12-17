@@ -31,6 +31,8 @@ export function EmojiPicker({
   darkMode = false,
   disabled = false,
   searchQuery = '',
+  activeActionName = null,
+  isExecuting = false,
 }) {
   // Prepare emotion items with emojis from constants
   // Sort to show wheel emotions first
@@ -103,6 +105,8 @@ export function EmojiPicker({
           darkMode={darkMode}
           disabled={disabled}
           searchQuery={searchQuery}
+          activeActionName={activeActionName}
+          isExecuting={isExecuting}
         />
       )}
       
@@ -115,6 +119,8 @@ export function EmojiPicker({
           darkMode={darkMode}
           disabled={disabled}
           searchQuery={searchQuery}
+          activeActionName={activeActionName}
+          isExecuting={isExecuting}
         />
       )}
     </div>

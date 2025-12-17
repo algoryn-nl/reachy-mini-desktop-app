@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import UsbIcon from '@mui/icons-material/Usb';
 import WifiIcon from '@mui/icons-material/Wifi';
@@ -8,6 +8,9 @@ import useAppStore from '../../store/useAppStore';
 import { useRobotDiscovery } from '../../hooks/system';
 import { useConnection, ConnectionMode } from '../../hooks/useConnection';
 import idleReachyGif from '../../assets/videos/idle-reachy.gif';
+
+// LocalStorage key for persisting last connection mode
+const LAST_CONNECTION_MODE_KEY = 'reachy-mini-last-connection-mode';
 
 /**
  * Connection card with icon, label, and status indicator
@@ -137,9 +140,13 @@ function ConnectionCard({
 export default function FindingRobotView() {
   const { darkMode } = useAppStore();
   const { isScanning, usbRobot, wifiRobot } = useRobotDiscovery();
-  const { connect, isConnecting } = useConnection();
+  const { connect, isConnecting, isDisconnecting } = useConnection();
   const [selectedMode, setSelectedMode] = useState(null);
   const [dots, setDots] = useState('');
+  const hasRestoredFromStorage = useRef(false);
+  
+  // Block interactions during connection state changes
+  const isBusy = isConnecting || isDisconnecting;
 
   // Animated ellipsis dots
   useEffect(() => {
@@ -149,26 +156,61 @@ export default function FindingRobotView() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-select USB if it becomes available and nothing selected
+  // Restore last selected mode from localStorage on mount
+  // Only run once, and only pre-select if that mode is currently available
   useEffect(() => {
-    if (usbRobot.available && !selectedMode && !isConnecting) {
-      setSelectedMode('usb');
+    if (hasRestoredFromStorage.current || selectedMode || isBusy) return;
+    
+    try {
+      const savedMode = localStorage.getItem(LAST_CONNECTION_MODE_KEY);
+      if (savedMode) {
+        // Only pre-select if the saved mode is available
+        const isAvailable = 
+          (savedMode === ConnectionMode.USB && usbRobot.available) ||
+          (savedMode === ConnectionMode.WIFI && wifiRobot.available) ||
+          savedMode === ConnectionMode.SIMULATION;
+        
+        if (isAvailable) {
+          console.log(`🔌 Restored last connection mode: ${savedMode}`);
+          setSelectedMode(savedMode);
+          hasRestoredFromStorage.current = true;
+        }
+      }
+    } catch (e) {
+      // localStorage might not be available
     }
-  }, [usbRobot.available, selectedMode, isConnecting]);
+  }, [usbRobot.available, wifiRobot.available, selectedMode, isBusy]);
 
-  // Auto-select WiFi if it becomes available and nothing selected (and no USB)
+  // Auto-select USB if it becomes available and nothing selected (fallback if no saved preference)
   useEffect(() => {
-    if (wifiRobot.available && !selectedMode && !usbRobot.available && !isConnecting) {
-      setSelectedMode('wifi');
+    if (usbRobot.available && !selectedMode && !isBusy && !hasRestoredFromStorage.current) {
+      setSelectedMode(ConnectionMode.USB);
     }
-  }, [wifiRobot.available, selectedMode, usbRobot.available, isConnecting]);
+  }, [usbRobot.available, selectedMode, isBusy]);
+
+  // Auto-select WiFi if it becomes available and nothing selected (and no USB, fallback)
+  useEffect(() => {
+    if (wifiRobot.available && !selectedMode && !usbRobot.available && !isBusy && !hasRestoredFromStorage.current) {
+      setSelectedMode(ConnectionMode.WIFI);
+    }
+  }, [wifiRobot.available, selectedMode, usbRobot.available, isBusy]);
+
+  // Save selected mode to localStorage when user makes a selection
+  const handleSelectMode = useCallback((mode) => {
+    setSelectedMode(mode);
+    try {
+      localStorage.setItem(LAST_CONNECTION_MODE_KEY, mode);
+    } catch (e) {
+      // localStorage might not be available
+    }
+  }, []);
 
   /**
    * Handle Start button click
    * Uses unified connect() from useConnection - same API for all modes
    */
   const handleStart = useCallback(async () => {
-    if (!selectedMode || isConnecting) return;
+    if (!selectedMode || isBusy) return;
     
     // 🔌 Unified connection API - same for USB, WiFi, and Simulation
     switch (selectedMode) {
@@ -182,7 +224,7 @@ export default function FindingRobotView() {
         await connect(ConnectionMode.SIMULATION);
         break;
     }
-  }, [selectedMode, isConnecting, usbRobot, wifiRobot, connect]);
+  }, [selectedMode, isBusy, usbRobot, wifiRobot, connect]);
 
   const canStart = selectedMode && (
     (selectedMode === ConnectionMode.USB && usbRobot.available) ||
@@ -283,8 +325,8 @@ export default function FindingRobotView() {
             subtitle={usbRobot.available ? usbRobot.portName?.split('/').pop() : null}
             available={usbRobot.available}
             selected={selectedMode === ConnectionMode.USB}
-            onClick={() => usbRobot.available && setSelectedMode(ConnectionMode.USB)}
-            disabled={isConnecting}
+            onClick={() => usbRobot.available && handleSelectMode(ConnectionMode.USB)}
+            disabled={isBusy}
             darkMode={darkMode}
           />
           
@@ -294,8 +336,8 @@ export default function FindingRobotView() {
             subtitle={wifiRobot.available ? wifiRobot.host : null}
             available={wifiRobot.available}
             selected={selectedMode === ConnectionMode.WIFI}
-            onClick={() => wifiRobot.available && setSelectedMode(ConnectionMode.WIFI)}
-            disabled={isConnecting}
+            onClick={() => wifiRobot.available && handleSelectMode(ConnectionMode.WIFI)}
+            disabled={isBusy}
             darkMode={darkMode}
           />
           
@@ -306,8 +348,8 @@ export default function FindingRobotView() {
             available={true}
             alwaysAvailable={true}
             selected={selectedMode === ConnectionMode.SIMULATION}
-            onClick={() => setSelectedMode(ConnectionMode.SIMULATION)}
-            disabled={isConnecting}
+            onClick={() => handleSelectMode(ConnectionMode.SIMULATION)}
+            disabled={isBusy}
             darkMode={darkMode}
           />
         </Box>
@@ -316,8 +358,8 @@ export default function FindingRobotView() {
         <Button
           variant="outlined"
           onClick={handleStart}
-          disabled={!canStart || isConnecting}
-          startIcon={isConnecting ? (
+          disabled={!canStart || isBusy}
+          startIcon={isBusy ? (
             <CircularProgress size={18} sx={{ color: 'inherit' }} />
           ) : (
             <PlayArrowRoundedIcon sx={{ fontSize: 22 }} />
@@ -343,7 +385,7 @@ export default function FindingRobotView() {
                 },
               }}
             >
-          {isConnecting ? 'Connecting...' : 'Start'}
+          {isBusy ? (isDisconnecting ? 'Stopping...' : 'Connecting...') : 'Start'}
         </Button>
       </Box>
     </Box>

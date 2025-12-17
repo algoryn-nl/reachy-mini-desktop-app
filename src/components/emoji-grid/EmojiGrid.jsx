@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Collapse } from '@mui/material';
+import { Collapse, CircularProgress } from '@mui/material';
 
 const ROWS_VISIBLE = 3;
 
@@ -14,6 +14,8 @@ export function EmojiGrid({
   darkMode = false,
   disabled = false,
   searchQuery = '',
+  activeActionName = null,
+  isExecuting = false,
 }) {
   const [expanded, setExpanded] = useState(false);
   
@@ -55,11 +57,17 @@ export function EmojiGrid({
   const renderItem = (item, index) => {
     const isMatch = matchesSearch(item);
     const isGhosted = searchQuery.trim() && !isMatch;
+    const isActiveItem = activeActionName === item.name;
+    const showSpinner = isActiveItem && isExecuting;
     
     // Use ghost styles when item doesn't match search
     const itemBorderColor = isGhosted ? ghostBorderColor : borderColor;
     const itemBgColor = isGhosted ? ghostBgColor : bgColor;
     const itemOpacity = isGhosted ? 0.25 : (disabled ? 0.5 : 1);
+    
+    // Highlighted border for active item (executing or moving)
+    const activeBorderColor = '#FF9500';
+    const currentBorderColor = isActiveItem && disabled ? activeBorderColor : itemBorderColor;
     
     return (
       <button
@@ -77,7 +85,7 @@ export function EmojiGrid({
           alignItems: 'center',
           justifyContent: 'center',
           aspectRatio: '1 / 1',
-          border: `1px solid ${itemBorderColor}`,
+          border: `1px solid ${currentBorderColor}`,
           borderRadius: 12,
           background: itemBgColor,
           cursor: (disabled || isGhosted) ? 'default' : 'pointer',
@@ -85,6 +93,7 @@ export function EmojiGrid({
           transition: 'all 0.2s ease',
           minWidth: itemMinWidth,
           filter: isGhosted ? 'grayscale(100%)' : 'none',
+          position: 'relative',
         }}
         onMouseEnter={(e) => {
           if (!disabled && !isGhosted) {
@@ -97,7 +106,7 @@ export function EmojiGrid({
         onMouseLeave={(e) => {
           e.currentTarget.style.background = itemBgColor;
           e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.borderColor = itemBorderColor;
+          e.currentTarget.style.borderColor = currentBorderColor;
           e.currentTarget.style.boxShadow = 'none';
         }}
         onMouseDown={(e) => {
@@ -115,9 +124,19 @@ export function EmojiGrid({
           }
         }}
       >
-        <span style={{ fontSize: 24, lineHeight: 1 }}>
-          {item.emoji}
-        </span>
+        {showSpinner ? (
+          <CircularProgress 
+            size={20} 
+            thickness={3}
+            sx={{ 
+              color: '#FF9500',
+            }} 
+          />
+        ) : (
+          <span style={{ fontSize: 24, lineHeight: 1 }}>
+            {item.emoji}
+          </span>
+        )}
       </button>
     );
   };

@@ -63,7 +63,7 @@ cd reachy-mini-desktop-app/tauri-app
 yarn install
 
 # Run in development mode
-yarn tauri:devc
+yarn tauri:dev
 ```
 
 ```bash
@@ -190,6 +190,34 @@ yarn kill-zombie-apps       # Kill zombie app processes
 yarn reset-permissions      # Reset macOS permissions (dev)
 yarn clean                  # Clean build artifacts
 ```
+
+### 🔧 Debugging & Diagnostics
+
+**Diagnostic Export (Secret Shortcut):**
+
+Press `Cmd+Shift+D` (Mac) or `Ctrl+Shift+D` (Windows/Linux) anywhere in the app to download a complete diagnostic report. This generates a `.txt` file containing:
+
+- System info (OS, app version, screen size, etc.)
+- Robot state (connection mode, status, daemon version, errors)
+- Installed apps list
+- All frontend logs (last 500)
+- All daemon logs
+- All app logs (last 500)
+
+**DevTools Access:**
+```javascript
+// In browser console
+window.reachyDiagnostic.download()      // Download as JSON
+window.reachyDiagnostic.downloadText()  // Download as readable TXT
+window.reachyDiagnostic.copy()          // Copy JSON to clipboard
+window.reachyDiagnostic.generate()      // Get report object
+```
+
+This is useful for:
+- Bug reports and support tickets
+- Debugging connection issues
+- Analyzing app crashes
+- Sharing logs with the development team
 
 ### Project Structure
 

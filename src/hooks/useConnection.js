@@ -61,8 +61,10 @@ export function useConnection() {
    * @param {string} options.host - Remote host (for WiFi mode)
    */
   const connect = useCallback(async (mode, options = {}) => {
-    if (isStarting || isActive) {
-      console.warn('Already connected or connecting');
+    // ⚠️ Block connection if already connected, connecting, OR stopping
+    // This prevents race conditions when rapidly cycling connections
+    if (isStarting || isActive || isStopping) {
+      console.warn(`Cannot connect: isStarting=${isStarting}, isActive=${isActive}, isStopping=${isStopping}`);
       return false;
     }
 
@@ -106,7 +108,7 @@ export function useConnection() {
         }
       });
     });
-  }, [isStarting, isActive, startConnection, startDaemon]);
+  }, [isStarting, isActive, isStopping, startConnection, startDaemon]);
 
   /**
    * Disconnect from the current robot

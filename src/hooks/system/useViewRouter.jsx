@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
-import { PermissionsRequiredView, FindingRobotView, StartingView, TransitionView, ActiveRobotView, ClosingView, UpdateView, ActiveRobotModule } from '../../views';
+import { PermissionsRequiredView, FindingRobotView, StartingView, ClosingView, UpdateView, ActiveRobotModule } from '../../views';
 import AppTopBar from '../../components/AppTopBar';
 import { useActiveRobotAdapter } from '../useActiveRobotAdapter';
 
@@ -11,12 +11,11 @@ import { useActiveRobotAdapter } from '../useActiveRobotAdapter';
  * 0. Permissions (macOS only) - Blocks app until permissions granted
  * 1. Update view - Always first, before everything else
  * 2. Finding robot view - User selects connection (USB/WiFi/Sim) and clicks Start
- * 3. Starting daemon (visual scan) - USB/Simulation only
- * 4. Transition view - After scan, during resize
- * 5. Stopping daemon - Show spinner
- * 6. Active robot - Full control view
+ * 3. Starting daemon (visual scan)
+ * 4. Stopping daemon - Show spinner
+ * 5. Active robot - Full control view (handles its own loading state)
  * 
- * 🌐 WiFi mode: Skips Starting view (daemon already active on remote)
+ * 🌐 WiFi mode: Also passes through scan view for consistent UX
  * 
  * @param {object} props - View routing props
  * @returns {object} { viewComponent, viewProps }
@@ -38,13 +37,12 @@ export function useViewRouter({
   // USB/Connection
   shouldShowUsbCheck,
   isUsbConnected,
-  connectionMode, // 🌐 NEW: 'usb' | 'wifi' | 'simulation' | null
+  connectionMode, // 🌐 'usb' | 'wifi' | 'simulation' | null
   
   // Daemon
   isStarting,
   isStopping,
   isActive,
-  isTransitioning,
   hardwareError,
   startupError,
   startDaemon,
@@ -59,7 +57,6 @@ export function useViewRouter({
   logs,
   daemonVersion,
   usbPortName,
-  onAppsReady,
 }) {
   return useMemo(() => {
     // PRIORITY 0: Permissions view
@@ -112,31 +109,7 @@ export function useViewRouter({
       };
     }
 
-    // PRIORITY 5: Transition view
-    if (isTransitioning) {
-      return {
-        viewComponent: TransitionView,
-        viewProps: {},
-        showTopBar: true,
-        backgroundComponent: ActiveRobotModule,
-        backgroundProps: {
-          isActive,
-          isStarting,
-          isStopping,
-          stopDaemon,
-          sendCommand,
-          playRecordedMove,
-          isCommandRunning,
-          logs,
-          daemonVersion,
-          usbPortName,
-          onAppsReady,
-        },
-        needsContext: true, // Signal that contextConfig is needed
-      };
-    }
-
-    // PRIORITY 6: Stopping daemon
+    // PRIORITY 5: Stopping daemon
     if (isStopping) {
       return {
         viewComponent: ClosingView,
@@ -145,10 +118,8 @@ export function useViewRouter({
       };
     }
 
-    // PRIORITY 7: (REMOVED - ReadyToStartView merged into FindingRobotView)
-    // User now selects connection AND clicks Start in FindingRobotView
-
-    // PRIORITY 8: Active robot
+    // PRIORITY 6: Active robot
+    // ✅ ActiveRobotView handles its own loading state for apps
     return {
       viewComponent: ActiveRobotModule,
       viewProps: {
@@ -162,7 +133,6 @@ export function useViewRouter({
         logs,
         daemonVersion,
         usbPortName,
-        onAppsReady,
       },
       showTopBar: true,
       needsContext: true, // Signal that contextConfig is needed
@@ -183,7 +153,6 @@ export function useViewRouter({
     isStarting,
     isStopping,
     isActive,
-    isTransitioning,
     hardwareError,
     startupError,
     startDaemon,
@@ -194,7 +163,6 @@ export function useViewRouter({
     logs,
     daemonVersion,
     usbPortName,
-    onAppsReady,
   ]);
 }
 
@@ -203,42 +171,22 @@ export function useViewRouter({
  * Injects contextConfig for ActiveRobotModule when needsContext is true
  */
 export function ViewRouterWrapper({ viewConfig }) {
-  const { viewComponent: ViewComponent, viewProps, showTopBar, backgroundComponent: BackgroundComponent, backgroundProps, needsContext } = viewConfig;
+  const { viewComponent: ViewComponent, viewProps, showTopBar, needsContext } = viewConfig;
   
   // Get context config from adapter (only used when needsContext is true)
   // This is always called (React hooks rule) but only used when needed
   const contextConfig = useActiveRobotAdapter();
 
-  if (BackgroundComponent) {
-    // Transition view with background component
-    const bgPropsWithContext = needsContext 
-      ? { ...backgroundProps, contextConfig } 
-      : backgroundProps;
-    
-    return (
-      <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
-        {showTopBar && <AppTopBar />}
-        <Box sx={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
-          <BackgroundComponent {...bgPropsWithContext} />
-        </Box>
-        <ViewComponent {...viewProps} />
-      </Box>
-    );
-  }
+  const propsWithContext = needsContext 
+    ? { ...viewProps, contextConfig } 
+    : viewProps;
 
   if (!showTopBar) {
     // View has its own topbar (e.g., ClosingView)
-    const propsWithContext = needsContext 
-      ? { ...viewProps, contextConfig } 
-      : viewProps;
     return <ViewComponent {...propsWithContext} />;
   }
 
   // Standard view with topbar
-  const propsWithContext = needsContext 
-    ? { ...viewProps, contextConfig } 
-    : viewProps;
-  
   return (
     <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
       <AppTopBar />
