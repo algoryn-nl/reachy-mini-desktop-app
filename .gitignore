@@ -89,3 +89,4 @@ uv-wrapper/target/**/*
 
 # Tutorial videos - too large, never commit
 src/assets/tutorial/
+docs/latest.json
