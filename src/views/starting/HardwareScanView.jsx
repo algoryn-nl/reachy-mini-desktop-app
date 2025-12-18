@@ -160,8 +160,10 @@ function HardwareScanView({
       clearAllIntervals();
       lastMovementStateRef.current = null; // Reset movement tracking
       
-      // ✅ Don't reset hardwareError here - let startDaemon handle it
+      // ✅ CRITICAL: Reset hardwareError before restarting
+      // Otherwise transitionTo.ready() will be blocked by the guard that checks hardwareError
       // If the error persists, it will be re-detected by the stderr listener
+      setHardwareError(null);
       
       // If startDaemon is provided, use it instead of reloading
       if (startDaemon) {

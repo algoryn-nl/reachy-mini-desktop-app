@@ -22,6 +22,7 @@ export function useRobotWebSocket(isActive) {
     yawBody: 0, // yaw rotation of the body (extracted from headJoints[0])
     antennas: [0, 0], // [left, right]
     passiveJoints: null, // Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z]
+    dataVersion: 0, // ⚡ OPTIMIZED: Increments on each change, allows useFrame to skip comparisons
   });
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null); // ✅ Track reconnect timeout for cleanup
@@ -71,7 +72,8 @@ export function useRobotWebSocket(isActive) {
       try {
         // 🚀 GAME-CHANGING: Single WebSocket with ALL data (includes passive_joints)
         // 🌐 Dynamic URL based on connection mode (USB/WiFi/Simulation)
-        const wsUrl = `${getWsBaseUrl()}/api/state/ws/full?frequency=10&with_head_pose=true&use_pose_matrix=true&with_head_joints=true&with_antenna_positions=true&with_passive_joints=true`;
+        // ⚡ 20 Hz for smoother robot visualization (MuJoCo control loop runs at 50 Hz)
+        const wsUrl = `${getWsBaseUrl()}/api/state/ws/full?frequency=20&with_head_pose=true&use_pose_matrix=true&with_head_joints=true&with_antenna_positions=true&with_passive_joints=true`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -154,7 +156,8 @@ export function useRobotWebSocket(isActive) {
                   return prev;
                 }
                 
-                return { ...prev, ...newState };
+                // ⚡ OPTIMIZED: Increment dataVersion so useFrame can skip comparisons
+                return { ...prev, ...newState, dataVersion: prev.dataVersion + 1 };
               });
             }
           } catch (err) {
