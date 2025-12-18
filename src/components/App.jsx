@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDaemon, useDaemonHealthCheck } from '../hooks/daemon';
 import { useUsbDetection, useLogs, useWindowResize, useUpdater, useUpdateViewState, usePermissions, useUsbCheckTiming } from '../hooks/system';
@@ -8,12 +8,15 @@ import { DAEMON_CONFIG, setAppStoreInstance } from '../config/daemon';
 import { isDevMode } from '../utils/devMode';
 import useAppStore from '../store/useAppStore';
 
+// Initialize diagnostic export tools (exposes window.reachyDiagnostic)
+import '../utils/diagnosticExport';
+
 function App() {
   // Initialize the store in daemon.js for centralized logging
   useEffect(() => {
     setAppStoreInstance(useAppStore);
   }, []);
-  const { daemonVersion, hardwareError, isTransitioning, setIsTransitioning, setHardwareError } = useAppStore();
+  const { daemonVersion, hardwareError, setHardwareError, connectionMode } = useAppStore();
   const { isActive, isStarting, isStopping, startupError, startDaemon, stopDaemon, fetchDaemonVersion } = useDaemon();
   const { isUsbConnected, usbPortName, checkUsbRobot } = useUsbDetection();
   const { sendCommand, playRecordedMove, isCommandRunning } = useRobotCommands();
@@ -33,11 +36,6 @@ function App() {
     if (hasChecked && permissionsGrantedOnFirstCheckRef.current === null) {
       // First check completed - remember if permissions were already granted
       permissionsGrantedOnFirstCheckRef.current = permissionsGranted;
-      if (permissionsGranted) {
-        console.log('[App] ✅ Permissions already granted on first check - no restart needed');
-      } else {
-        console.log('[App] ❌ Permissions not granted on first check - will restart when granted');
-      }
     }
   }, [hasChecked, permissionsGranted]);
   
@@ -55,8 +53,6 @@ function App() {
       restartStartedRef.current = true;
       const isDev = isDevMode();
       setIsRestarting(true);
-      
-      console.log('[App] 🔄 Permissions just granted - restarting app...');
       
       if (isDev) {
         // Dev mode: show restart UI for 3 seconds, then continue (simulate restart)
@@ -154,20 +150,31 @@ function App() {
 
   // Determine current view for automatic resize
   const currentView = useMemo(() => {
+    // 🔍 DEBUG: Log state when computing currentView
+    console.log('[App] 🎯 Computing currentView', {
+      isActive,
+      hardwareError: !!hardwareError,
+      isStopping,
+    });
+    
     // Compact view: ClosingView (stopping)
     if (isStopping) {
+      console.log('[App] → currentView = compact (isStopping)');
       return 'compact';
     }
     
-    // ⚡ Expanded view: daemon active OR transitioning (but NEVER during StartingView)
-    // BLOCK resize as long as isStarting = true (scan in progress)
-    if (!isStarting && (isActive || isTransitioning) && !hardwareError) {
+    // ⚡ Expanded view: daemon active
+    // isActive becomes true when transitionTo.ready() is called
+    // (after scan complete + daemon health check passes)
+    if (isActive && !hardwareError) {
+      console.log('[App] → currentView = expanded (isActive && !hardwareError)');
       return 'expanded';
     }
     
-    // Compact view: all others (RobotNotDetected, Starting, ReadyToStart)
+    // Compact view: all others (FindingRobot, Starting, ReadyToStart)
+    console.log('[App] → currentView = compact (default)');
     return 'compact';
-  }, [isActive, hardwareError, isStopping, isTransitioning, isStarting]);
+  }, [isActive, hardwareError, isStopping]);
 
   // Hook to automatically resize the window
   useWindowResize(currentView);
@@ -199,12 +206,13 @@ function App() {
     };
   }, [fetchLogs, checkUsbRobot, fetchDaemonVersion, shouldShowUpdateView]);
 
-  // Stop daemon automatically if robot gets disconnected
+  // Stop daemon automatically if USB robot gets disconnected (USB mode only)
+  // 🌐 WiFi mode doesn't use isUsbConnected, so skip this check
   useEffect(() => {
-    if (!isUsbConnected && isActive) {
+    if (connectionMode === 'usb' && !isUsbConnected && isActive) {
       stopDaemon();
     }
-  }, [isUsbConnected, isActive, stopDaemon]);
+  }, [connectionMode, isUsbConnected, isActive, stopDaemon]);
 
   // Reset hardware error when returning to ready-to-start view
   useEffect(() => {
@@ -212,14 +220,6 @@ function App() {
       setHardwareError(null);
     }
   }, [isUsbConnected, isActive, isStarting, hardwareError, setHardwareError]);
-
-  // ✅ Callback to close TransitionView when apps are loaded
-  // ⚠️ IMPORTANT: All hooks must be called before conditional returns
-  const handleAppsReady = useCallback(() => {
-    if (isTransitioning) {
-      setIsTransitioning(false);
-    }
-  }, [isTransitioning, setIsTransitioning]);
 
   // Determine which view to display based on app state
   const viewConfig = useViewRouter({
@@ -234,10 +234,10 @@ function App() {
     onInstallUpdate: installUpdate,
     shouldShowUsbCheck,
     isUsbConnected,
+    connectionMode,
     isStarting,
     isStopping,
     isActive,
-    isTransitioning,
     hardwareError,
     startupError,
     startDaemon,
@@ -248,7 +248,6 @@ function App() {
     logs,
     daemonVersion,
     usbPortName,
-    onAppsReady: handleAppsReady,
   });
 
   return <ViewRouterWrapper viewConfig={viewConfig} />;

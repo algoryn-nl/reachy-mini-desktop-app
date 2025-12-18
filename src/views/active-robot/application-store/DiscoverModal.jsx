@@ -14,6 +14,7 @@ import Footer from './discover/components/Footer';
  */
 export default function DiscoverModal({
   open: isOpen,
+  hidden = false,
   onClose,
   filteredApps,
   darkMode,
@@ -51,11 +52,13 @@ export default function DiscoverModal({
   return (
     <FullscreenOverlay
       open={isOpen}
+      hidden={hidden}
       onClose={onClose}
       darkMode={darkMode}
       zIndex={10002} // Above settings overlay
       centeredX={true} // Center horizontally
       centeredY={false} // Don't center vertically
+      debugName="DiscoverModal"
     >
       <Box
         sx={{

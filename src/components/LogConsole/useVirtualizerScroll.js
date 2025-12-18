@@ -40,26 +40,8 @@ export const useVirtualizerScroll = ({
    * Force scroll to absolute bottom
    */
   const scrollToBottom = useCallback((smooth = false) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useVirtualizerScroll] scrollToBottom called:', {
-        hasVirtualizer: !!virtualizer,
-        enabled,
-        isAutoScrollEnabled: isAutoScrollEnabledRef.current,
-        totalCount,
-        smooth,
-        compact,
-      });
-    }
-    
     if (!virtualizer || !enabled || !isAutoScrollEnabledRef.current || totalCount === 0) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useVirtualizerScroll] scrollToBottom skipped (conditions not met)');
-      }
       return;
-    }
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useVirtualizerScroll] 🚀 Starting programmatic scroll to bottom');
     }
     
     // Mark that we're scrolling programmatically
@@ -82,10 +64,8 @@ export const useVirtualizerScroll = ({
       if (virtualizer && typeof virtualizer.getScrollElement === 'function') {
         try {
           scrollElement = virtualizer.getScrollElement();
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[useVirtualizerScroll] Error calling getScrollElement:', error);
-          }
+        } catch {
+          // Ignore
         }
       }
       
@@ -121,24 +101,8 @@ export const useVirtualizerScroll = ({
         // Add paddingBottom to allow scrolling to see the last item with padding
         const maxScrollTop = Math.max(0, virtualizerTotalSize + paddingBottom - clientHeight);
         
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useVirtualizerScroll] 📊 Scroll calculation:', {
-            virtualizerTotalSize,
-            paddingBottom,
-            itemSpacing,
-            clientHeight,
-            maxScrollTop,
-            currentScrollTop,
-            needsScroll: Math.abs(currentScrollTop - maxScrollTop) > 1,
-          });
-        }
-        
         // ALWAYS scroll to max position (force it)
         scrollElement.scrollTop = maxScrollTop;
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useVirtualizerScroll] ✅ FORCED scroll to:', maxScrollTop, 'from:', currentScrollTop);
-        }
         
         // Update last scroll position
         lastScrollTopRef.current = scrollElement.scrollTop;
@@ -179,13 +143,6 @@ export const useVirtualizerScroll = ({
               // Force to exact max if needed
               if (Math.abs(scrollTop - maxScrollTop) > 1) {
                 scrollElement.scrollTop = maxScrollTop;
-                if (process.env.NODE_ENV === 'development') {
-                  console.log('[useVirtualizerScroll] 🔧 Final correction:', {
-                    oldScrollTop: scrollTop,
-                    newScrollTop: maxScrollTop,
-                    difference: scrollTop - maxScrollTop,
-                  });
-                }
               }
               
               // Update last scroll position
@@ -197,23 +154,14 @@ export const useVirtualizerScroll = ({
               }
               scrollTimeoutRef.current = setTimeout(() => {
                 isScrollingProgrammaticallyRef.current = false;
-                if (process.env.NODE_ENV === 'development') {
-                  console.log('[useVirtualizerScroll] ✅ Scroll complete, final position:', scrollElement.scrollTop);
-                }
               }, 300);
-            } catch (error) {
+            } catch {
               isScrollingProgrammaticallyRef.current = false;
-              if (process.env.NODE_ENV === 'development') {
-                console.warn('[useVirtualizerScroll] Error in double-check:', error);
-              }
             }
           });
         });
-      } catch (error) {
+      } catch {
         isScrollingProgrammaticallyRef.current = false;
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('[useVirtualizerScroll] ❌ Scroll error:', error);
-        }
       }
     };
     
@@ -294,19 +242,8 @@ export const useVirtualizerScroll = ({
     
     const wasAutoScrollEnabled = isAutoScrollEnabledRef.current;
     
-    // Log when touching the bottom
+    // Track if we're at bottom
     if (atBottom && !wasAtBottomRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useVirtualizerScroll] 🎯 Touched bottom of scroll container', {
-          scrollTop,
-          scrollHeight,
-          virtualizerTotalSize,
-          paddingBottom,
-          clientHeight,
-          distanceFromBottom,
-          maxScrollTop,
-        });
-      }
       wasAtBottomRef.current = true;
     } else if (!atBottom && wasAtBottomRef.current) {
       wasAtBottomRef.current = false;
@@ -316,34 +253,12 @@ export const useVirtualizerScroll = ({
     if (atBottom) {
       if (!wasAutoScrollEnabled) {
         isAutoScrollEnabledRef.current = true;
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useVirtualizerScroll] ✅ Auto-scroll RE-ENABLED (user reached bottom)', {
-            distanceFromBottom,
-            scrollTop,
-            scrollHeight,
-            virtualizerTotalSize,
-            paddingBottom,
-            clientHeight,
-          });
-        }
-      } else if (process.env.NODE_ENV === 'development') {
-        console.log('[useVirtualizerScroll] 📍 At bottom, auto-scroll already enabled', {
-          distanceFromBottom,
-        });
       }
     } else if (scrolledUp) {
       // User scrolled UP significantly (not down): disable auto-scroll
       // This only happens on manual user scroll, not during programmatic scroll
       if (wasAutoScrollEnabled) {
         isAutoScrollEnabledRef.current = false;
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useVirtualizerScroll] ⛔ Auto-scroll DISABLED (user scrolled up)', {
-            scrollDelta,
-            scrollTop,
-            lastScrollTop,
-            distanceFromBottom,
-          });
-        }
       }
     }
     // If scrolled down or small movement, don't change state (might be catching up or programmatic)
@@ -366,16 +281,6 @@ export const useVirtualizerScroll = ({
    * Auto-scroll when new logs are added (only if auto-scroll is enabled)
    */
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useVirtualizerScroll] Effect triggered:', {
-        enabled,
-        hasVirtualizer: !!virtualizer,
-        totalCount,
-        prevCount: prevLogCountRef.current,
-        isAutoScrollEnabled: isAutoScrollEnabledRef.current,
-      });
-    }
-    
     if (!enabled || !virtualizer) {
       prevLogCountRef.current = totalCount;
       return;
@@ -384,31 +289,13 @@ export const useVirtualizerScroll = ({
     const prevCount = prevLogCountRef.current;
     const hasNewLogs = totalCount > prevCount;
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useVirtualizerScroll] Checking new logs:', {
-        hasNewLogs,
-        isAutoScrollEnabled: isAutoScrollEnabledRef.current,
-        willScroll: hasNewLogs && isAutoScrollEnabledRef.current,
-      });
-    }
-    
     if (hasNewLogs && isAutoScrollEnabledRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useVirtualizerScroll] 📜 New logs detected, triggering auto-scroll:', {
-          newLogsCount: totalCount - prevCount,
-          totalCount,
-        });
-      }
       // Use double requestAnimationFrame to ensure virtualizer has rendered
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollToBottom(false);
         });
       });
-    } else if (hasNewLogs && !isAutoScrollEnabledRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useVirtualizerScroll] ⏸️ New logs but auto-scroll is disabled, skipping');
-      }
     }
     
     prevLogCountRef.current = totalCount;

@@ -16,6 +16,7 @@ import { useActiveRobotContext } from '../context';
 export default function ControlButtons({ 
   darkMode = false,
   isActive = false,
+  isBusy = false,
 }) {
   const { robotState, actions } = useActiveRobotContext();
   const { rightPanelView, currentApp } = robotState;
@@ -27,8 +28,8 @@ export default function ControlButtons({
   const isAnyAppActive = currentApp && currentApp.state && 
     (currentApp.state === 'running' || currentApp.state === 'starting');
   
-  // Disable buttons when robot is not active or when an app is running
-  const isDisabled = !isActive || isAnyAppActive;
+  // Disable buttons when robot is not active, when an app is running, or when busy (stopping app, etc.)
+  const isDisabled = !isActive || isAnyAppActive || isBusy;
   
   const handleExpressionsClick = () => {
     if (isExpressionsOpen) {
@@ -135,7 +136,7 @@ export default function ControlButtons({
       sx={{
         px: 3,
         pt: 4,
-        pb: 3,
+        pb: 2.5,
         display: 'flex',
         flexDirection: 'column',
         gap: 1.5,

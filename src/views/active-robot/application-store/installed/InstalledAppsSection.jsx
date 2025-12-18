@@ -9,6 +9,7 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DiscoverAppsButton from '../discover/Button';
 import ReachiesCarousel from '@components/ReachiesCarousel';
+import { getDaemonHostname } from '../../../../config/daemon';
 
 // ✅ Timeout for app to transition from "starting" to "running"
 const APP_STARTING_TIMEOUT = 60000; // 60 seconds max for app to fully start
@@ -74,9 +75,9 @@ function useUrlAccessibility(url, enabled = false, onTimeout = null, timeoutMs =
       }
 
       try {
-        // Remap hostname to current location
+        // Remap hostname to daemon host (supports USB localhost and WiFi remote)
         const targetUrl = new URL(url);
-        targetUrl.hostname = window.location.hostname;
+        targetUrl.hostname = getDaemonHostname();
         
         // Use AbortController for timeout on individual requests
         const controller = new AbortController();
@@ -254,7 +255,7 @@ function OpenAppButton({ customAppUrl, isStartingOrRunning, isRunning, darkMode,
     e.stopPropagation();
     try {
       const url = new URL(customAppUrl);
-      url.hostname = window.location.hostname;
+      url.hostname = getDaemonHostname();
       
       try {
         const { open } = await import('@tauri-apps/plugin-shell');
@@ -351,6 +352,7 @@ export default function InstalledAppsSection({
   isBusy,
   isJobRunning,
   isAppRunning = false,
+  isStoppingApp = false,
   handleStartApp,
   handleUninstall,
   getJobInfo,
@@ -689,8 +691,33 @@ export default function InstalledAppsSection({
                       }}
                     />
                     
-                    {/* Start/Stop button - 3 states: Running (Stop), Starting (Disabled with spinner), Idle (Start) */}
-                    {isCurrentlyRunning ? (
+                    {/* Start/Stop button - 4 states: Stopping (spinner), Running (Stop), Starting (spinner), Idle (Start) */}
+                    {isStoppingApp && isThisAppCurrent ? (
+                      // ✅ This app is stopping: Show disabled button with red spinner
+                      <Tooltip title="Stopping app..." arrow placement="top">
+                        <span> {/* Wrapper needed for disabled button tooltip */}
+                          <IconButton
+                            size="small"
+                            disabled
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              color: '#ef4444',
+                              border: '1px solid #ef4444',
+                              borderRadius: '8px',
+                              transition: 'all 0.2s ease',
+                              '&:disabled': {
+                                color: '#ef4444',
+                                borderColor: 'rgba(239, 68, 68, 0.5)',
+                                bgcolor: darkMode ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.03)',
+                              },
+                            }}
+                          >
+                            <CircularProgress size={14} thickness={5} sx={{ color: '#ef4444' }} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : isCurrentlyRunning ? (
                       // ✅ App is running: Show active Stop button
                       <Tooltip title="Stop app" arrow placement="top">
                         <IconButton

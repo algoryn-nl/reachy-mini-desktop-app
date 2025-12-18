@@ -20,7 +20,7 @@ export function useRobotState(isActive) {
     setActiveMoves,
     incrementTimeouts,
     resetTimeouts,
-    setIsActive,
+    transitionTo,
     clearStartupTimeout,
     setHardwareError,
   } = useAppStore();
@@ -47,6 +47,15 @@ export function useRobotState(isActive) {
     // Don't poll if daemon is crashed
     if (isDaemonCrashed) {
       console.warn('⚠️ Daemon crashed, stopping robot state polling');
+      return;
+    }
+    
+    // ⚠️ Sanity check: if isActive but no connectionMode, force crash state
+    // This can happen if state gets corrupted during rapid mode switching
+    const { connectionMode } = useAppStore.getState();
+    if (isActive && !connectionMode) {
+      console.error('🔴 Invalid state detected: isActive=true but connectionMode=null. Triggering crash...');
+      useAppStore.getState().transitionTo.crashed();
       return;
     }
     
@@ -84,11 +93,17 @@ export function useRobotState(isActive) {
             // ✅ CRITICAL: If daemon is still starting, don't clear hardwareError yet
             // Wait for startup to complete (isStarting = false) before clearing errors
             // This prevents clearing errors if daemon responds briefly before crashing
-            if (!currentState.hardwareError) {
-              setIsActive(true);
+            const isActive = currentState.robotStatus === 'ready' || currentState.robotStatus === 'busy';
+            if (!currentState.hardwareError && !isActive) {
+              // ✅ Transition to ready (state machine handles everything)
+              transitionTo.ready();
               // ✅ Clear startup timeout since daemon is now active
               clearStartupTimeout();
               consecutiveSuccessRef.current = 0; // Reset counter
+            } else if (!currentState.hardwareError && currentState.isActive) {
+              // Already active, just clear timeout if needed
+              clearStartupTimeout();
+              consecutiveSuccessRef.current = 0;
             } else if (!currentState.isStarting) {
               // ✅ Only clear hardwareError if daemon is NOT starting anymore
               // This means startup completed, so if daemon responds successfully,
@@ -98,7 +113,7 @@ export function useRobotState(isActive) {
               if (consecutiveSuccessRef.current >= 3) {
                 console.log('✅ Daemon responding successfully multiple times after startup, clearing hardwareError');
                 setHardwareError(null);
-                setIsActive(true);
+                transitionTo.ready();
                 clearStartupTimeout();
                 consecutiveSuccessRef.current = 0;
               }
@@ -124,18 +139,27 @@ export function useRobotState(isActive) {
             return;
           }
           
-          // ❌ Timeout → increment counter for crash detection
-          if (error.name === 'TimeoutError' || error.message?.includes('timed out')) {
-            console.warn('⚠️ Robot state fetch timeout, incrementing counter');
+          // ❌ Network error → increment counter for crash detection
+          // This includes: TimeoutError, "Load failed", "Could not connect", etc.
+          const isNetworkError = 
+            error.name === 'TimeoutError' || 
+            error.message?.includes('timed out') ||
+            error.message?.includes('Load failed') ||
+            error.message?.includes('Could not connect') ||
+            error.message?.includes('NetworkError') ||
+            error.message?.includes('Failed to fetch');
+          
+          if (isNetworkError) {
+            console.warn('⚠️ Robot state fetch failed (network error), incrementing counter');
             incrementTimeouts();
             // ✅ Emit health failure event to bus
-            eventBus.emit('daemon:health:failure', { error: 'Timeout', type: 'timeout' });
+            eventBus.emit('daemon:health:failure', { error: error.message || 'Network error', type: 'network' });
             setRobotStateFull(prev => ({
               ...prev,
-              error: 'Timeout',
+              error: error.message || 'Network error',
             }));
           } else {
-            // Other error
+            // Other error (not network related)
             console.warn('⚠️ Robot state fetch error:', error.message);
             // ✅ Emit health failure event to bus
             eventBus.emit('daemon:health:failure', { error: error.message, type: 'error' });

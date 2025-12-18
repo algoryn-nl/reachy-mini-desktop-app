@@ -202,13 +202,13 @@ const RootComponent = isWebMode ? WebApp : (DEV_MODE ? DevPlayground : App);
 
 console.log(`[Main] Mode: ${isWebMode ? 'WEB' : (DEV_MODE ? 'DEV' : 'TAURI')}`);
 
+// 🚀 No StrictMode for production robot app
+// StrictMode double-invokes effects in dev, causing WebSocket/connection issues
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ThemeWrapper>
-      <div style={{ width: '100%', height: '100%' }}>
-        <RootComponent />
-      </div>
-    </ThemeWrapper>
-  </React.StrictMode>
+  <ThemeWrapper>
+    <div style={{ width: '100%', height: '100%' }}>
+      <RootComponent />
+    </div>
+  </ThemeWrapper>
 );
 

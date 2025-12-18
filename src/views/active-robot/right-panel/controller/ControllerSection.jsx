@@ -129,53 +129,14 @@ export default function ControllerSection({
           <Tooltip 
             title={
               isGamepadConnected
-                ? (
-                  <Box sx={{ p: 1 }}>
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1.5, color: darkMode ? '#fff' : '#333' }}>
-                      Bindings Gamepad
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>Left stick :</strong> Position X/Y
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>Right stick :</strong> Pitch/Yaw
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>D-pad ↑/↓ :</strong> Position Z
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>D-pad ←/→ :</strong> Body Yaw
-                      </Typography>
-                      <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                        <strong>L1/R1 :</strong> Left/Right antennas
-                      </Typography>
-                    </Box>
-                  </Box>
-                )
-                : (
-                  <Box sx={{ p: 1 }}>
-                    <Typography sx={{ fontSize: 11, color: darkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
-                      Connect a gamepad to control the robot
-                    </Typography>
-                  </Box>
-                )
+                ? "Left stick: X/Y\nRight stick: Pitch/Yaw\nD-pad ↑↓: Z\nD-pad ←→: Body\nL1/R1: Antennas"
+                : "Connect a gamepad to control the robot"
             }
             arrow 
             placement="right"
             componentsProps={{
               tooltip: {
-                sx: {
-                  maxWidth: 280,
-                  bgcolor: darkMode ? 'rgba(26, 26, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-                  border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.4)'}`,
-                  boxShadow: darkMode ? '0 8px 24px rgba(0, 0, 0, 0.5)' : '0 8px 24px rgba(0, 0, 0, 0.15)',
-                }
-              },
-              arrow: {
-                sx: {
-                  color: darkMode ? 'rgba(26, 26, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-                }
+                sx: { whiteSpace: 'pre-line' }
               }
             }}
           >
@@ -184,7 +145,6 @@ export default function ControllerSection({
               label=""
               size="medium"
               variant="outlined"
-              color={isGamepadConnected ? 'primary' : 'default'}
               sx={{
                 height: 30,
                 width: 30,
@@ -193,22 +153,14 @@ export default function ControllerSection({
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: isGamepadConnected ? 1 : 0.6,
-                borderColor: darkMode 
-                  ? (isGamepadConnected
-                        ? 'rgba(255, 149, 0, 0.5)' 
-                        : 'rgba(255, 255, 255, 0.2)')
-                  : (isGamepadConnected
-                        ? 'rgba(255, 149, 0, 0.5)'
-                        : 'rgba(0, 0, 0, 0.2)'),
+                borderColor: isGamepadConnected
+                  ? '#FF9500'
+                  : (darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'),
                 '& .MuiChip-icon': {
                   fontSize: '1rem',
-                  color: darkMode 
-                    ? (isGamepadConnected
+                  color: isGamepadConnected
                           ? '#FF9500' 
-                          : 'rgba(255, 255, 255, 0.7)')
-                    : (isGamepadConnected
-                          ? '#FF9500'
-                          : 'rgba(0, 0, 0, 0.7)'),
+                    : (darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)'),
                   margin: 0,
                   padding: 0,
                   display: 'flex',
@@ -251,7 +203,7 @@ export default function ControllerSection({
       </Box>
       
       {/* Controller component with padding */}
-      <Box sx={{ pt: 3, pr: 3, pb: 3, pl: 3 }}>
+      <Box sx={{ pt: 1, pr: 3, pb: 1.5, pl: 3 }}>
         <Controller
           isActive={isActive}
           darkMode={darkMode}

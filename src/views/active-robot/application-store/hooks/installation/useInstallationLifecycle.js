@@ -36,6 +36,7 @@ import { useInstallationPolling } from './useInstallationPolling';
  * @param {Function} params.showToast - Toast notification function
  * @param {Function} params.refreshApps - Function to refresh apps list
  * @param {Function} params.onInstallSuccess - Callback when installation succeeds
+ * @param {boolean} params.isLoading - Whether apps are currently being fetched
  */
 export function useInstallationLifecycle({
   activeJobs,
@@ -43,6 +44,7 @@ export function useInstallationLifecycle({
   showToast,
   refreshApps,
   onInstallSuccess,
+  isLoading = false,
 }) {
   const pendingTimeouts = useRef([]);
   const { stopPolling } = useInstallationPolling();
@@ -159,6 +161,10 @@ export function useInstallationLifecycle({
   
   /**
    * Main effect: Track job progress and handle completion
+   * 
+   * ✅ IMPROVED: Only close modal when job is REMOVED from activeJobs
+   * This ensures the apps list is refreshed BEFORE the modal closes
+   * (useAppJobs refreshes the list before removing the job)
    */
   useEffect(() => {
     // Early return: no installation in progress
@@ -175,43 +181,71 @@ export function useInstallationLifecycle({
     // Find job in activeJobs
     const job = findJobByAppName(activeJobs, installingAppName);
     
+    // 🔍 DEBUG: Log job state for debugging
+    console.log('[InstallLifecycle] Checking job:', {
+      installingAppName,
+      jobFound: !!job,
+      jobStatus: job?.status,
+      jobSeenOnce,
+      installStartTime: !!installStartTime,
+      activeJobsSize: activeJobs?.size,
+      isLoading,
+    });
+    
     // Mark job as seen if found
     if (job && !jobSeenOnce) {
       markJobAsSeen();
     }
     
-    // Determine if job is finished
-    const jobWasRemoved = wasJobRemoved(job, installStartTime, jobSeenOnce);
-    const jobIsCompleted = isJobCompleted(job);
+    // ✅ IMPROVED: Only react when job is REMOVED from activeJobs
+    // useAppJobs will:
+    // 1. Set status to 'refreshing' when job completes
+    // 2. Refresh the apps list (await)
+    // 3. Set status to 'completed' or 'failed'
+    // 4. REMOVE the job from activeJobs
+    // We only close the modal at step 4, ensuring the list is updated
+    const jobWasRemovedResult = wasJobRemoved(job, installStartTime, jobSeenOnce);
+    
+    // For failed jobs, we also react to the 'failed' status to show error immediately
+    // (user can see the error while apps list refreshes in background)
     const jobIsFailed = isJobFailed(job);
     
-    // Early return: job still in progress
-    if (!jobWasRemoved && !jobIsCompleted && !jobIsFailed) {
+    // ✅ CRITICAL FIX: Wait for apps to finish loading before closing
+    // This prevents closing the modal while fetchAvailableApps is still in progress
+    const shouldWaitForLoading = jobWasRemovedResult && isLoading;
+    
+    // 🔍 DEBUG: Log decision
+    console.log('[InstallLifecycle] Decision:', {
+      jobWasRemoved: jobWasRemovedResult,
+      jobIsFailed,
+      isLoading,
+      shouldWaitForLoading,
+      willClose: (jobWasRemovedResult || jobIsFailed) && !shouldWaitForLoading,
+    });
+    
+    // Early return: job still in progress or refreshing
+    // Note: We deliberately ignore 'completed' status here - we wait for removal
+    // ✅ Also wait if apps are still loading (even if job was removed)
+    if (!jobWasRemovedResult && !jobIsFailed) {
+      return;
+    }
+    
+    // ✅ Wait for loading to finish before closing
+    if (shouldWaitForLoading) {
       return;
     }
     
     // Mark job as processed immediately to avoid re-processing
     markJobAsProcessed(installingAppName, installJobType);
     
-    // Determine installation result with confidence level
-    const result = determineInstallationResult(job);
-    
-    // Log warning if low confidence (default assumption)
-    if (result.confidence === 'low') {
-      console.warn(
-        `⚠️ Installation result determined with low confidence for ${installingAppName}. ` +
-        `Job status: ${job?.status || 'unknown'}, Logs: ${job?.logs?.length || 0} entries. ` +
-        `Assuming success by default.`
-      );
-    }
-    
-    // For successful installations: close immediately (no minimum display time)
-    // For failed installations: show error immediately
-    if (result.wasFailed) {
+    // Determine installation result
+    // For removed jobs: check last known status or assume success
+    // For failed jobs: show error
+    if (jobIsFailed) {
       showErrorAndClose(false);
     } else {
-      // Success: close immediately, no delay
-      handleSuccessfulCompletion(result.wasCompleted);
+      // Job was removed = success (apps list already refreshed by useAppJobs)
+      handleSuccessfulCompletion(true);
     }
   }, [
     activeJobs,
@@ -221,6 +255,7 @@ export function useInstallationLifecycle({
     installStartTime,
     jobSeenOnce,
     processedJobs,
+    isLoading,
     markJobAsSeen,
     markJobAsProcessed,
     closeAfterDelay,

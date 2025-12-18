@@ -4,9 +4,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useActiveRobotContext } from '../../context';
 import FullscreenOverlay from '@components/FullscreenOverlay';
 import HowToCreateApp from '@assets/reachy-how-to-create-app.svg';
-import JoystickIcon from '@assets/joystick.svg';
-import BlueprintIcon from '@assets/blueprint.svg';
-import RocketIcon from '@assets/rocket.svg';
+import ExploratorIcon from '@assets/exporator.svg';
+import AstronautIcon from '@assets/astronaut.svg';
 
 /**
  * Modal overlay for tutorial on creating your own Reachy Mini app
@@ -15,6 +14,7 @@ import RocketIcon from '@assets/rocket.svg';
  */
 export default function CreateAppTutorialModal({
   open: isOpen,
+  hidden = false,
   onClose,
   darkMode,
 }) {
@@ -23,23 +23,23 @@ export default function CreateAppTutorialModal({
   const tutorials = [
     {
       id: 'console',
-      icon: JoystickIcon,
-      title: 'Get familiar with the robot',
-      description: 'Use the daemon API via console commands',
-      url: 'https://github.com/pollen-robotics/reachy_mini/blob/main/docs/rest-api.md',
+      icon: ExploratorIcon,
+      title: 'Explore',
+      description: 'Discover the REST API endpoints',
+      url: 'https://github.com/pollen-robotics/reachy_mini/blob/main/docs/old_doc/rest-api.md',
     },
     {
       id: 'create',
-      icon: BlueprintIcon,
-      title: 'Create your own app',
-      description: 'Build your app with the Python SDK',
-      url: 'https://github.com/pollen-robotics/reachy_mini/blob/main/docs/python-sdk.md',
+      icon: HowToCreateApp,
+      title: 'Build',
+      description: 'Create real world applications with the SDK',
+      url: 'https://github.com/pollen-robotics/reachy_mini/blob/main/docs/SDK/',
     },
     {
       id: 'deploy',
-      icon: RocketIcon,
+      icon: AstronautIcon,
       title: 'Deploy',
-      description: 'Share your app on Hugging Face Spaces',
+      description: 'Publish on Hugging Face Spaces',
       url: 'https://huggingface.co/blog/pollen-robotics/make-and-publish-your-reachy-mini-apps',
     },
   ];
@@ -55,11 +55,13 @@ export default function CreateAppTutorialModal({
   return (
     <FullscreenOverlay
       open={isOpen}
+      hidden={hidden}
       onClose={onClose}
       darkMode={darkMode}
       zIndex={10003}
+      debugName="CreateAppTutorial"
       centeredX={true}
-      centeredY={false}
+      centeredY={true}
     >
       <Box
         sx={{
@@ -68,8 +70,7 @@ export default function CreateAppTutorialModal({
           maxWidth: '700px',
           display: 'flex',
           flexDirection: 'column',
-          mt: 8,
-          mb: 4,
+          my: 'auto',
         }}
       >
         {/* Close button - top right */}
@@ -94,79 +95,63 @@ export default function CreateAppTutorialModal({
         </IconButton>
 
         {/* Header */}
-        <Box sx={{ mb: 6, textAlign: 'center' }}>
-              <Box
-                component="img"
-            src={HowToCreateApp}
-            alt="How to create app"
-                sx={{
-              width: 200,
-                  height: 'auto',
-              mb: 3,
-              opacity: darkMode ? 0.9 : 1,
-            }}
-          />
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
           <Typography
             sx={{
-              fontSize: 40,
+              fontSize: 28,
               fontWeight: 700,
               color: darkMode ? '#f5f5f5' : '#1a1a1a',
-              letterSpacing: '-0.8px',
+              letterSpacing: '-0.5px',
               lineHeight: 1.1,
-              mb: 1.5,
+              mb: 1,
             }}
           >
-            Build your own application
+            Build your own app
           </Typography>
           <Typography
             sx={{
-              fontSize: 16,
-              color: darkMode ? '#aaa' : '#666',
+              fontSize: 14,
+              color: darkMode ? '#888' : '#888',
               fontWeight: 400,
-              lineHeight: 1.6,
-              maxWidth: '600px',
-              mx: 'auto',
+              lineHeight: 1.5,
             }}
           >
-            Create interactive apps for <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ccc' : '#555' }}>Reachy Mini</Box> using the <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ccc' : '#555' }}>Python SDK</Box>. Deploy on <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ccc' : '#555' }}>Hugging Face Spaces</Box> and share with the <Box component="span" sx={{ fontWeight: 600, color: darkMode ? '#ccc' : '#555' }}>community</Box>.
+            Create, build & deploy with Python SDK
           </Typography>
         </Box>
 
-        {/* Tutorials layout */}
+        {/* Tutorials layout - 3 cards in a row */}
         <Box
           sx={{
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: 'row',
+            gap: 2,
             mb: 6,
-            maxWidth: '1400px',
             mx: 'auto',
             width: '100%',
-            borderRadius: '20px',
-            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.18)'}`,
-            bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
-            overflow: 'hidden',
           }}
         >
-          {tutorials.map((tutorial, index) => (
+          {tutorials.map((tutorial) => (
             <Box
               key={tutorial.id}
               onClick={() => handleTutorialClick(tutorial.url)}
               sx={{
-                px: 3,
-                py: 2.5,
-                minHeight: 'auto',
+                flex: 1,
+                p: 3,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
+                textAlign: 'center',
                 gap: 2,
-                width: '100%',
                 cursor: 'pointer',
-                bgcolor: 'transparent',
-                transition: 'background-color 0.2s ease',
-                borderBottom: index < tutorials.length - 1
-                  ? `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`
-                  : 'none',
+                borderRadius: '16px',
+                border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'}`,
+                bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : '#ffffff',
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.02)',
+                  borderColor: darkMode ? 'rgba(255, 149, 0, 0.4)' : 'rgba(255, 149, 0, 0.5)',
+                  transform: 'translateY(-2px)',
                 },
               }}
             >
@@ -175,28 +160,27 @@ export default function CreateAppTutorialModal({
                 src={tutorial.icon}
                 alt={tutorial.title}
                 sx={{
-                  width: 64,
-                  height: 64,
-                  flexShrink: 0,
+                  width: 140,
+                  height: 140,
                   objectFit: 'contain',
                 }}
               />
-              <Box sx={{ flex: 1 }}>
+              <Box>
                 <Typography
                   sx={{
-                    fontSize: 24,
+                    fontSize: 16,
                     fontWeight: 700,
                     color: darkMode ? '#f5f5f5' : '#1a1a1a',
-                    letterSpacing: '-0.4px',
-                    mb: 0.5,
+                    letterSpacing: '-0.2px',
+                    mb: 0.25,
                   }}
                 >
                   {tutorial.title}
                 </Typography>
                 <Typography
                   sx={{
-                    fontSize: 13,
-                    color: darkMode ? '#aaa' : '#666',
+                    fontSize: 12,
+                    color: darkMode ? '#888' : '#888',
                   }}
                 >
                   {tutorial.description}
@@ -206,66 +190,6 @@ export default function CreateAppTutorialModal({
           ))}
         </Box>
 
-        {/* Footer note */}
-        <Box
-          sx={{
-            textAlign: 'center',
-            pt: 3,
-            mb: 6,
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: 12,
-              color: darkMode ? '#888' : '#999',
-              lineHeight: 1.6,
-            }}
-          >
-            Need help? Check out the{' '}
-            <Box
-              component="span"
-              onClick={async () => {
-                try {
-                  await open('http://localhost:8000/docs');
-                } catch (err) {
-                  console.error('Failed to open API docs:', err);
-                }
-              }}
-              sx={{
-                color: '#FF9500',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                '&:hover': {
-                  opacity: 0.8,
-                },
-              }}
-            >
-              API documentation
-            </Box>
-            {' '}or browse{' '}
-            <Box
-              component="span"
-              onClick={async () => {
-                try {
-                  await open('https://huggingface.co/spaces?q=reachy_mini');
-                } catch (err) {
-                  console.error('Failed to open spaces:', err);
-                }
-              }}
-              sx={{
-                color: '#FF9500',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                '&:hover': {
-                  opacity: 0.8,
-                },
-              }}
-            >
-              existing apps
-            </Box>
-            {' '}for inspiration.
-          </Typography>
-        </Box>
       </Box>
     </FullscreenOverlay>
   );

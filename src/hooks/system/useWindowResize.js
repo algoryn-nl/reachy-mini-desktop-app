@@ -7,31 +7,56 @@ import { moveWindow, Position } from '@tauri-apps/plugin-positioner';
  * Redimensionner la fenêtre instantanément en gardant le centre
  * Sur macOS, les animations de resize par setSize() causent du flickering
  * Solution : resize instantané + repositionnement pour centrer
+ * 
+ * ⚠️ IMPORTANT: On utilise scaleFactor pour convertir PhysicalSize → LogicalSize
+ * car innerSize() retourne des pixels physiques, pas logiques.
+ * Sur macOS avec titlebar transparente, la hauteur peut varier de ~30px
+ * entre resize programmatique et resize manuel à cause de NSWindowStyleMaskFullSizeContentView.
  */
 async function resizeWindowInstantly(targetWidth, targetHeight) {
   // Mock pour le navigateur
   if (!window.__TAURI__) {
+    console.log('[resizeWindowInstantly] ⚠️ Not in Tauri, skipping');
     return;
   }
 
   try {
     const appWindow = getAppWindow();
+    console.log('[resizeWindowInstantly] 🎯 Got appWindow:', appWindow?.label);
     
-    // Obtenir la taille actuelle
+    // Obtenir la taille actuelle ET le scale factor pour comparer correctement
     const currentSize = await appWindow.innerSize();
-    const startWidth = currentSize.width;
-    const startHeight = currentSize.height;
+    const scaleFactor = await appWindow.scaleFactor();
+    
+    // Convertir PhysicalSize → LogicalSize pour comparaison cohérente
+    const currentLogicalWidth = Math.round(currentSize.width / scaleFactor);
+    const currentLogicalHeight = Math.round(currentSize.height / scaleFactor);
 
-    // If already at correct size, do nothing
-    if (startWidth === targetWidth && startHeight === targetHeight) {
+    console.log('[resizeWindowInstantly] 📐 Current size:', {
+      physical: { width: currentSize.width, height: currentSize.height },
+      logical: { width: currentLogicalWidth, height: currentLogicalHeight },
+      scaleFactor,
+      target: { width: targetWidth, height: targetHeight },
+    });
+
+    // If already at correct size (with 2px tolerance for rounding), do nothing
+    const widthMatch = Math.abs(currentLogicalWidth - targetWidth) <= 2;
+    const heightMatch = Math.abs(currentLogicalHeight - targetHeight) <= 2;
+    
+    if (widthMatch && heightMatch) {
+      console.log('[resizeWindowInstantly] ✅ Already at target size, skipping');
       return;
     }
 
-    // Apply resize
+    // Apply resize - setSize avec LogicalSize gère automatiquement le scale factor
+    console.log('[resizeWindowInstantly] 🔄 Calling setSize...');
     await appWindow.setSize(new LogicalSize(targetWidth, targetHeight));
+    console.log('[resizeWindowInstantly] ✅ setSize completed');
     
     // Center window on screen
+    console.log('[resizeWindowInstantly] 🔄 Calling moveWindow(Center)...');
     await moveWindow(Position.Center);
+    console.log('[resizeWindowInstantly] ✅ moveWindow completed');
   } catch (error) {
     console.error('❌ Window resize error:', error);
   }
@@ -46,10 +71,10 @@ export function useWindowResize(view) {
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Set sizes according to view (fixed height 670px, only width changes)
+    // Set sizes according to view (fixed height 650px, only width changes)
     const FIXED_HEIGHT = 670;
     const sizes = {
-      compact: { width: 450, height: FIXED_HEIGHT },    // Views: RobotNotDetected, ReadyToStart, Starting, Closing
+      compact: { width: 450, height: FIXED_HEIGHT },    // Views: FindingRobot, ReadyToStart, Starting, Closing
       expanded: { width: 900, height: FIXED_HEIGHT },   // View: ActiveRobotView (2x wider)
     };
 
@@ -77,6 +102,12 @@ export function useWindowResize(view) {
     if (previousView.current === view) {
       return;
     }
+
+    // 🔍 DEBUG: Log view change
+    console.log(`[WindowResize] 🎯 View changed: ${previousView.current} → ${view}`, {
+      targetWidth: targetSize.width,
+      targetHeight: targetSize.height,
+    });
 
     previousView.current = view;
 

@@ -9,6 +9,26 @@ import { hasSignificantChange, generateHeadPositionLog, generateBodyYawLog, gene
 // Body yaw range constants
 const BODY_YAW_RANGE = { min: -160 * Math.PI / 180, max: 160 * Math.PI / 180 };
 
+// Enable/disable right antenna mirroring (inversion)
+// When true: right antenna value is negated for symmetric movement
+// When false: right antenna value is sent as-is
+const ENABLE_RIGHT_ANTENNA_MIRRORING = false;
+
+/**
+ * Transform antennas for API: optionally invert right antenna for mirror behavior
+ * Left antenna: sent as-is
+ * Right antenna: inverted (negated) if ENABLE_RIGHT_ANTENNA_MIRRORING is true
+ * 
+ * @param {Array} antennas - [left, right] antenna values
+ * @returns {Array} - [left, right] or [left, -right] depending on config
+ */
+function transformAntennasForAPI(antennas) {
+  if (!antennas || antennas.length !== 2) return antennas;
+  return ENABLE_RIGHT_ANTENNA_MIRRORING 
+    ? [antennas[0], -antennas[1]] 
+    : antennas;
+}
+
 /**
  * Hook to manage position change handlers (UI sliders, joysticks)
  * Extracts handler logic from useRobotPosition for better separation of concerns
@@ -152,7 +172,7 @@ export function usePositionHandlers({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               target_head_pose: apiClampedHeadPose,
-              target_antennas: smoothed.antennas,
+              target_antennas: transformAntennasForAPI(smoothed.antennas),
               target_body_yaw: smoothed.bodyYaw,
             }),
           },
@@ -201,7 +221,7 @@ export function usePositionHandlers({
             body: JSON.stringify({
               target_body_yaw: smoothed.bodyYaw,
               target_head_pose: robotState.headPose,
-              target_antennas: robotState.antennas || [0, 0],
+              target_antennas: transformAntennasForAPI(robotState.antennas || [0, 0]),
             }),
           },
           DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
@@ -256,7 +276,7 @@ export function usePositionHandlers({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               target_head_pose: robotState.headPose,
-              target_antennas: smoothed.antennas,
+              target_antennas: transformAntennasForAPI(smoothed.antennas),
               target_body_yaw: robotState.bodyYaw || 0,
             }),
           },

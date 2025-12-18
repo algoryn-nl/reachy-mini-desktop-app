@@ -3,6 +3,26 @@ import { ROBOT_POSITION_RANGES } from '../../../../utils/inputConstants';
 import { clamp } from '../../../../utils/inputHelpers';
 import { useActiveRobotContext } from '../../context';
 
+// Enable/disable right antenna mirroring (inversion)
+// When true: right antenna value is negated for symmetric movement
+// When false: right antenna value is sent as-is
+const ENABLE_RIGHT_ANTENNA_MIRRORING = false;
+
+/**
+ * Transform antennas for API: optionally invert right antenna for mirror behavior
+ * Left antenna: sent as-is
+ * Right antenna: inverted (negated) if ENABLE_RIGHT_ANTENNA_MIRRORING is true
+ * 
+ * @param {Array} antennas - [left, right] antenna values
+ * @returns {Array} - [left, right] or [left, -right] depending on config
+ */
+function transformAntennasForAPI(antennas) {
+  if (!antennas || antennas.length !== 2) return antennas;
+  return ENABLE_RIGHT_ANTENNA_MIRRORING 
+    ? [antennas[0], -antennas[1]] 
+    : antennas;
+}
+
 /**
  * Hook for managing robot API calls
  * Handles continuous updates via requestAnimationFrame
@@ -52,7 +72,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
             const requestBody = {
               target_body_yaw: validBodyYaw,
               target_head_pose: robotState.headPose, // Send current head pose
-              target_antennas: robotState.antennas || [0, 0], // Send current antennas
+              target_antennas: transformAntennasForAPI(robotState.antennas || [0, 0]), // Send current antennas (right inverted)
             };
             fetchWithTimeout(
               buildApiUrl('/api/move/set_target'),
@@ -62,7 +82,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
                 body: JSON.stringify(requestBody),
               },
               DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-              { label: 'Continuous move (body_yaw)', silent: true }
+              { label: 'Continuous move (body_yaw)', silent: true, fireAndForget: true }
             ).catch((error) => {
               console.error('❌ set_target (body_yaw only) error:', error);
             });
@@ -70,7 +90,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
             // Normal case: send everything
             const requestBody = {
               target_head_pose: headPose,
-              target_antennas: antennas,
+              target_antennas: transformAntennasForAPI(antennas),
               target_body_yaw: validBodyYaw,
             };
             fetchWithTimeout(
@@ -81,7 +101,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
                 body: JSON.stringify(requestBody),
               },
               DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-              { label: 'Continuous move', silent: true }
+              { label: 'Continuous move', silent: true, fireAndForget: true }
             ).catch((error) => {
               console.error('❌ set_target error:', error);
             });
@@ -108,9 +128,10 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
   // Send command using set_target (called by smoothing loop)
   // This is now called directly by the smoothing loop, so we just send immediately
   // No need for startContinuousUpdates - the smoothing loop handles continuous updates
-  // Add throttling to avoid sending too frequently (max ~30fps)
+  // Add throttling to avoid sending too frequently
+  // WiFi needs more time between requests than localhost
   const lastSendTimeRef = useRef(0);
-  const SEND_THROTTLE_MS = 33; // ~30fps
+  const SEND_THROTTLE_MS = 50; // ~20fps - works for both USB and WiFi
   
   const sendCommand = useCallback((headPose, antennas, bodyYaw) => {
     if (!isActive) return;
@@ -123,18 +144,11 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
     }
     lastSendTimeRef.current = now;
 
-    // Cancel previous request if still pending
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new AbortController for this request
-    abortControllerRef.current = new AbortController();
-
-    // Send directly (smoothing loop handles the continuous updates)
+    // Fire and forget - don't abort previous requests
+    // The server handles the latest position, throttle prevents accumulation
     const requestBody = {
       target_head_pose: headPose,
-      target_antennas: antennas,
+      target_antennas: transformAntennasForAPI(antennas),
       target_body_yaw: validBodyYaw,
     };
     
@@ -144,15 +158,11 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
-        signal: abortControllerRef.current.signal,
       },
       DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-      { label: 'Set target (smoothed)', silent: true }
+      { label: 'Set target (smoothed)', silent: true, fireAndForget: true }
     ).catch((error) => {
-      // Ignore AbortError - it's normal when a new request cancels the previous one
-      if (error.name !== 'AbortError') {
-        console.error('❌ set_target error:', error);
-      }
+      console.error('❌ set_target error:', error);
     });
   }, [isActive, robotState.bodyYaw]);
 
@@ -170,7 +180,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
         yaw: clamp(headPose.yaw, ROBOT_POSITION_RANGES.YAW.min, ROBOT_POSITION_RANGES.YAW.max),
         roll: clamp(headPose.roll, ROBOT_POSITION_RANGES.ROLL.min, ROBOT_POSITION_RANGES.ROLL.max),
       } : robotState.headPose,
-      target_antennas: antennas || robotState.antennas || [0, 0],
+      target_antennas: transformAntennasForAPI(antennas || robotState.antennas || [0, 0]),
       target_body_yaw: validBodyYaw,
     };
 

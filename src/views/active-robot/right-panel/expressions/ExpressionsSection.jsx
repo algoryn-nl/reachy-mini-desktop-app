@@ -12,6 +12,9 @@ import { useLogger } from '@/utils/logging';
 const BUSY_DEBOUNCE_MS = 150;
 const EFFECT_DURATION_MS = 4000;
 
+// Debounce pour le reset de l'action active (évite le clignotement)
+const ACTIVE_ACTION_RESET_DEBOUNCE_MS = 100;
+
 // Effect mapping for 3D visual effects
 const EFFECT_MAP = {
   'goto_sleep': 'sleep',
@@ -69,12 +72,17 @@ export default function ExpressionsSection({
     robotStatus, 
     isCommandRunning, 
     isAppRunning, 
-    isInstalling 
+    isInstalling,
+    busyReason,
   } = robotState;
   const { setRightPanelView, triggerEffect, stopEffect } = actions;
   
   const isActive = isActiveFromContext ?? isActiveProp;
   const isReady = robotStatus === 'ready';
+  
+  // Track active action for spinner display
+  const [activeActionName, setActiveActionName] = useState(null);
+  const activeActionResetTimeoutRef = useRef(null);
   
   // Debounce isBusy
   const rawIsBusy = robotStatus === 'busy' || isCommandRunning || isAppRunning || isInstalling;
@@ -107,6 +115,9 @@ export default function ExpressionsSection({
   const effectTimeoutRef = useRef(null);
 
   const handleAction = useCallback((action) => {
+    // Track which action is being executed
+    setActiveActionName(action.name);
+    
     // Get emoji based on type
     let emoji = null;
     if (action.type === 'emotion') {
@@ -148,13 +159,42 @@ export default function ExpressionsSection({
       }
     };
   }, []);
+  
+  // Reset active action when robot is no longer busy
+  useEffect(() => {
+    // Clear any pending reset timeout
+    if (activeActionResetTimeoutRef.current) {
+      clearTimeout(activeActionResetTimeoutRef.current);
+      activeActionResetTimeoutRef.current = null;
+    }
+    
+    // Reset active action when robot becomes ready again
+    if (!isCommandRunning && busyReason !== 'moving' && activeActionName) {
+      // Small debounce to avoid flicker between command and moving states
+      activeActionResetTimeoutRef.current = setTimeout(() => {
+        setActiveActionName(null);
+      }, ACTIVE_ACTION_RESET_DEBOUNCE_MS);
+    }
+    
+    return () => {
+      if (activeActionResetTimeoutRef.current) {
+        clearTimeout(activeActionResetTimeoutRef.current);
+      }
+    };
+  }, [isCommandRunning, busyReason, activeActionName]);
 
   const handleWheelAction = useCallback((action) => {
     if (debouncedIsBusy) return;
     handleAction(action);
   }, [debouncedIsBusy, handleAction]);
 
+  // Check if an action is currently executing
+  const isExecuting = isCommandRunning || busyReason === 'moving';
+  
   const handleBack = () => {
+    // Block navigation if an action is in progress
+    if (isExecuting) return;
+    
     if (currentView === 'wheel') {
       // Go back to library
       setCurrentView('library');
@@ -192,10 +232,15 @@ export default function ExpressionsSection({
           <IconButton
             onClick={handleBack}
             size="small"
+            disabled={isExecuting}
             sx={{
-              color: '#FF9500',
+              color: isExecuting ? (darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)') : '#FF9500',
+              cursor: isExecuting ? 'not-allowed' : 'pointer',
               '&:hover': {
-                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
+                bgcolor: isExecuting ? 'transparent' : (darkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)'),
+              },
+              '&.Mui-disabled': {
+                color: darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
               },
             }}
           >
@@ -234,6 +279,8 @@ export default function ExpressionsSection({
               darkMode={darkMode}
               disabled={debouncedIsBusy || !isActive}
               isBusy={debouncedIsBusy}
+              activeActionName={activeActionName}
+              isExecuting={isCommandRunning || busyReason === 'moving'}
             />
           </Box>
 
@@ -295,7 +342,7 @@ export default function ExpressionsSection({
             overflow: 'auto',
             px: 2,
             py: 2,
-            pb: 8,
+            pb: 2,
           }}
         >
           <EmojiPicker
@@ -304,6 +351,8 @@ export default function ExpressionsSection({
             onAction={handleWheelAction}
             darkMode={darkMode}
             disabled={debouncedIsBusy || !isActive}
+            activeActionName={activeActionName}
+            isExecuting={isCommandRunning || busyReason === 'moving'}
           />
           
           {/* Footer link to wheel - disabled for now */}

@@ -76,6 +76,7 @@ export default function ApplicationStore({
     stopCurrentApp,
     fetchAvailableApps,
     isLoading,
+    isStoppingApp,
   } = useApps(effectiveIsActive, officialOnly);
   
   // ✅ Notify parent when loading status changes
@@ -92,7 +93,9 @@ export default function ApplicationStore({
     openModal,
     closeModal,
     discoverModalOpen,
+    discoverModalOnTop,
     createAppTutorialModalOpen,
+    createAppTutorialModalOnTop,
   } = useModalStack();
   
   useAppInstallation({
@@ -100,6 +103,7 @@ export default function ApplicationStore({
     installedApps,
     showToast,
     refreshApps: fetchAvailableApps,
+    isLoading,
     onInstallSuccess: () => {
       // Close discover modal when installation succeeds
       if (discoverModalOpen) {
@@ -278,6 +282,7 @@ export default function ApplicationStore({
         isBusy={effectiveIsBusy}
         isJobRunning={isJobRunning}
         isAppRunning={isAppRunning}
+        isStoppingApp={isStoppingApp}
         handleStartApp={handleStartApp}
         handleUninstall={handleUninstall}
         getJobInfo={getJobInfo}
@@ -470,6 +475,7 @@ export default function ApplicationStore({
       {/* Discover Modal */}
       <DiscoverModal
         open={discoverModalOpen}
+        hidden={!discoverModalOnTop}
         onClose={closeModal}
         filteredApps={filteredApps}
         darkMode={effectiveDarkMode}
@@ -494,6 +500,7 @@ export default function ApplicationStore({
       {/* Create App Tutorial Modal */}
       <CreateAppTutorialModal
         open={createAppTutorialModalOpen}
+        hidden={!createAppTutorialModalOnTop}
         onClose={closeModal}
         darkMode={effectiveDarkMode}
       />

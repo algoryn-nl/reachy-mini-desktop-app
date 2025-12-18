@@ -19,13 +19,25 @@ export function useModalStack() {
     setModalStack([]);
   };
   
-  // Derived state for each modal - only the top modal in stack is open
+  // Derived state for each modal
+  // isInStack: modal is in the stack (should be mounted)
+  // isOnTop: modal is at the top of the stack (should be visible/interactive)
   const discoverModalOpen = useMemo(() => 
+    modalStack.includes('discover'),
+    [modalStack]
+  );
+  
+  const discoverModalOnTop = useMemo(() => 
     modalStack[modalStack.length - 1] === 'discover',
     [modalStack]
   );
   
   const createAppTutorialModalOpen = useMemo(() => 
+    modalStack.includes('createTutorial'),
+    [modalStack]
+  );
+  
+  const createAppTutorialModalOnTop = useMemo(() => 
     modalStack[modalStack.length - 1] === 'createTutorial',
     [modalStack]
   );
@@ -36,7 +48,9 @@ export function useModalStack() {
     closeModal,
     closeAllModals,
     discoverModalOpen,
+    discoverModalOnTop,
     createAppTutorialModalOpen,
+    createAppTutorialModalOnTop,
   };
 }
 

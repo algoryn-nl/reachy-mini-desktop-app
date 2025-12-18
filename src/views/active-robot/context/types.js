@@ -68,9 +68,6 @@
  * @property {function(string, string=): void} lockForInstall - Lock for installation
  * @property {function(): void} unlockInstall - Unlock after installation
  * 
- * @property {function(boolean): void} setIsActive
- * @property {function(boolean): void} setIsStarting
- * @property {function(boolean): void} setIsStopping
  * @property {function(Object): void} setRobotStateFull
  * @property {function(Object): void} setActiveMoves
  * @property {function(boolean): void} setIsCommandRunning
