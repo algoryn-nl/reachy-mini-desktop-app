@@ -36,7 +36,8 @@ function HardwareScanView({
   onScanComplete: onScanCompleteCallback,
   startDaemon,
 }) {
-  const { setHardwareError, darkMode, setIsStarting, isStarting, setRobotStateFull } = useAppStore();
+  const { setHardwareError, darkMode, transitionTo, robotStatus, setRobotStateFull } = useAppStore();
+  const isStarting = robotStatus === 'starting';
   const theme = useTheme();
   const { logs: startupLogs, hasError: hasStartupError, lastMessage } = useDaemonStartupLogs(isStarting);
   const totalScanParts = getTotalScanParts(); // Static total from scan parts list
@@ -164,7 +165,7 @@ function HardwareScanView({
       
       // If startDaemon is provided, use it instead of reloading
       if (startDaemon) {
-        setIsStarting(true);
+        transitionTo.starting();
         await startDaemon();
         // ✅ startDaemon will reset hardwareError, and if error persists,
         // it will be re-detected by sidecar-stderr listener or timeout
@@ -179,7 +180,7 @@ function HardwareScanView({
       // ✅ Keep scan view active - don't reload, let the error be handled by startDaemon
       // startDaemon will set hardwareError if it fails, keeping us in scan view
     }
-  }, [setIsStarting, startDaemon, clearAllIntervals]);
+  }, [transitionTo, startDaemon, clearAllIntervals]);
   
   /**
    * Check daemon health status AND robot ready state

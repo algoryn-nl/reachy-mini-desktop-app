@@ -9,25 +9,19 @@ import { DAEMON_CONFIG } from '../../config/daemon';
  * Wrapper around HardwareScanView that handles the transition logic
  */
 function StartingView({ startupError, startDaemon }) {
-  const { darkMode, setIsStarting, setIsTransitioning, setIsActive, setHardwareError, hardwareError } = useAppStore();
+  const { darkMode, transitionTo, setHardwareError, hardwareError } = useAppStore();
   
   const handleScanComplete = useCallback(() => {
     // ✅ HardwareScanView only calls this callback after successful healthcheck
-    // No need to check for errors here - they're already handled in HardwareScanView
-    
-    // ⚡ WAIT for pause to see "Starting Software..." message, then trigger transition
+    // ⚡ WAIT for pause to see "Starting Software..." message, then go to ActiveRobotView
     setTimeout(() => {
       // ✅ Clear any hardware errors when scan completes successfully
       setHardwareError(null);
-      // ✅ Transition: keep TransitionView displayed until apps are loaded
-      // (the onAppsReady callback in ActiveRobotView will close TransitionView)
-      setIsStarting(false);
-      setIsTransitioning(true);
-      setIsActive(true);
-      // ✅ No longer close TransitionView automatically after TRANSITION_DURATION
-      // It will be closed by onAppsReady when apps are loaded
+      // ✅ Direct transition to ActiveRobotView (state machine handles isActive/isStarting)
+      // ActiveRobotView handles its own loading state for apps
+      transitionTo.ready();
     }, DAEMON_CONFIG.ANIMATIONS.SCAN_COMPLETE_PAUSE);
-  }, [setIsStarting, setIsTransitioning, setIsActive, setHardwareError]);
+  }, [transitionTo, setHardwareError]);
 
   return (
     <Box

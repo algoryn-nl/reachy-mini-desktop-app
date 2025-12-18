@@ -72,6 +72,7 @@ export function useAppsStore(isActive, official = true) {
     appsLastFetch,
     appsOfficialMode,
     appsCacheValid,
+    isStoppingApp,
     setAvailableApps,
     setInstalledApps,
     setCurrentApp,
@@ -117,7 +118,8 @@ export function useAppsStore(isActive, official = true) {
     // Prevent duplicate fetches
     if (isFetchingRef.current) {
       console.log('⏭️ Fetch already in progress, skipping...');
-      return availableApps;
+      // ✅ Read from store to avoid stale closure
+      return useAppStore.getState().availableApps;
     }
     
     // Check if mode changed (need to refetch)
@@ -129,15 +131,18 @@ export function useAppsStore(isActive, official = true) {
       // Continue to fetch with new mode (don't use cache)
     }
     
+    // ✅ Read current cache from store (avoid stale closure)
+    const currentAvailableApps = useAppStore.getState().availableApps;
+    
     // ✅ IMPROVED: Don't use cache if it's empty (prevents showing empty list when apps exist)
     // Use cache if valid and not forcing refresh and mode hasn't changed
-    if (!forceRefresh && !modeChanged && isCacheValid() && availableApps.length > 0) {
+    if (!forceRefresh && !modeChanged && isCacheValid() && currentAvailableApps.length > 0) {
       console.log('✅ Using cached apps (valid for', Math.round((CACHE_DURATION - (Date.now() - appsLastFetch)) / 1000), 's)');
-      return availableApps;
+      return currentAvailableApps;
     }
     
     // ✅ IMPROVED: If cache is empty, force refresh to avoid showing empty list
-    if (!forceRefresh && !modeChanged && isCacheValid() && availableApps.length === 0) {
+    if (!forceRefresh && !modeChanged && isCacheValid() && currentAvailableApps.length === 0) {
       console.log('⚠️ Cache is empty, forcing refresh to fetch apps');
       // Continue to fetch below
     }
@@ -240,14 +245,16 @@ export function useAppsStore(isActive, official = true) {
       console.error('❌ Failed to fetch apps:', err);
       setAppsError(err.message);
       setAppsLoading(false);
-      return availableApps; // Return cached apps on error
+      // ✅ Read from store to avoid stale closure
+      return useAppStore.getState().availableApps; // Return cached apps on error
     } finally {
       isFetchingRef.current = false;
     }
   }, [
     official,
     appsOfficialMode,
-    availableApps,
+    // ✅ REMOVED availableApps from deps to prevent infinite loop
+    // Now using useAppStore.getState().availableApps instead
     appsLastFetch,
     isCacheValid,
     fetchOfficialApps,
@@ -486,8 +493,12 @@ export function useAppsStore(isActive, official = true) {
   
   /**
    * Stop current app
+   * ✅ Sets isStoppingApp immediately for UI feedback (spinner on button)
    */
   const stopCurrentApp = useCallback(async () => {
+    // ✅ Set stopping state immediately for UI feedback
+    useAppStore.getState().setIsStoppingApp(true);
+    
     try {
       const response = await fetchWithTimeout(
         buildApiUrl('/api/apps/stop-current-app'),
@@ -508,6 +519,9 @@ export function useAppsStore(isActive, official = true) {
       // ✅ Unlock robot to allow quick actions
       useAppStore.getState().unlockApp();
       
+      // ✅ Clear stopping state
+      useAppStore.getState().setIsStoppingApp(false);
+      
       // Refresh to verify
       setTimeout(() => fetchCurrentAppStatus(), DAEMON_CONFIG.INTERVALS.CURRENT_APP_REFRESH);
       
@@ -518,6 +532,8 @@ export function useAppsStore(isActive, official = true) {
       setAppsError(err.message);
       // ✅ Ensure unlock even on error
       useAppStore.getState().unlockApp();
+      // ✅ Clear stopping state even on error
+      useAppStore.getState().setIsStoppingApp(false);
       throw err;
     }
   }, [fetchCurrentAppStatus, setCurrentApp, logger, setAppsError]);
@@ -604,6 +620,7 @@ export function useAppsStore(isActive, official = true) {
     activeJobs,
     isLoading: appsLoading,
     error: appsError,
+    isStoppingApp,
     
     // Actions
     fetchAvailableApps,

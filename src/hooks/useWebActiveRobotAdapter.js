@@ -7,7 +7,7 @@
 
 import { useMemo, useCallback } from 'react';
 import useAppStore from '../store/useAppStore';
-import { DAEMON_CONFIG, buildApiUrl, fetchWithTimeout } from '../config/daemon';
+import { DAEMON_CONFIG, buildApiUrl, fetchWithTimeout, getBaseUrl } from '../config/daemon';
 import { openUrl } from '../utils/tauriCompat';
 
 /**
@@ -116,9 +116,7 @@ export function useWebActiveRobotAdapter() {
       unlockApp: store.unlockApp,
       lockForInstall: store.lockForInstall,
       unlockInstall: store.unlockInstall,
-      setIsActive: store.setIsActive,
-      setIsStarting: store.setIsStarting,
-      setIsStopping: store.setIsStopping,
+      // Use transitionTo instead of legacy setters
       setRobotStateFull: store.setRobotStateFull,
       setActiveMoves: store.setActiveMoves,
       setIsCommandRunning: store.setIsCommandRunning,
@@ -152,7 +150,7 @@ export function useWebActiveRobotAdapter() {
   // ============================================
   
   const api = useMemo(() => ({
-    baseUrl: DAEMON_CONFIG.ENDPOINTS.BASE_URL,
+    getBaseUrl, // 🌐 Dynamic base URL based on connection mode
     timeouts: DAEMON_CONFIG.TIMEOUTS,
     intervals: DAEMON_CONFIG.INTERVALS,
     endpoints: DAEMON_CONFIG.ENDPOINTS,

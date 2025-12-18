@@ -319,47 +319,13 @@ export default function UpdateView({
         ) : null}
       </Box>
 
-      {/* Update logs console - positioned above online/offline indicator */}
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: hasInternetChecked ? 56 : 16, // Above online/offline indicator if visible
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: 'calc(100% - 32px)',
-          maxWidth: '420px',
-          zIndex: 1000,
-          opacity: 0.6, // Semi-transparent by default
-          transition: 'opacity 0.3s ease-in-out',
-          '&:hover': {
-            opacity: 1, // Full opacity on hover
-          },
-        }}
-      >
-        <LogConsole
-          logs={[]}
-          darkMode={darkMode}
-          includeStoreLogs={true}
-          compact={true}
-          showTimestamp={true}
-          lines={6}
-          sx={{
-            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.8)',
-            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)'}`,
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            borderRadius: 2,
-          }}
-        />
-      </Box>
-
-      {/* Internet connectivity indicator - discrete pastille at bottom center */}
+      {/* Internet connectivity indicator - discrete pastille above logs */}
       {/* Only display after first check is complete */}
       {hasInternetChecked && (
         <Box
           sx={{
             position: 'absolute',
-            bottom: 16,
+            bottom: 180, // Above logs console
             left: '50%',
             transform: 'translateX(-50%)',
             display: 'flex',
@@ -397,6 +363,40 @@ export default function UpdateView({
         </Typography>
         </Box>
       )}
+
+      {/* Update logs console - positioned at the bottom */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)',
+          maxWidth: '420px',
+          zIndex: 1000,
+          opacity: 0.6, // Semi-transparent by default
+          transition: 'opacity 0.3s ease-in-out',
+          '&:hover': {
+            opacity: 1, // Full opacity on hover
+          },
+        }}
+      >
+        <LogConsole
+          logs={[]}
+          darkMode={darkMode}
+          includeStoreLogs={true}
+          compact={true}
+          showTimestamp={true}
+          lines={6}
+          sx={{
+            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.8)',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)'}`,
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: 2,
+          }}
+        />
+      </Box>
     </Box>
   );
 }

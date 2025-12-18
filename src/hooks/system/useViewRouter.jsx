@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
-import { PermissionsRequiredView, RobotNotDetectedView, StartingView, ReadyToStartView, TransitionView, ActiveRobotView, ClosingView, UpdateView, ActiveRobotModule } from '../../views';
+import { PermissionsRequiredView, FindingRobotView, StartingView, ClosingView, UpdateView, ActiveRobotModule } from '../../views';
 import AppTopBar from '../../components/AppTopBar';
 import { useActiveRobotAdapter } from '../useActiveRobotAdapter';
 
@@ -10,13 +10,12 @@ import { useActiveRobotAdapter } from '../useActiveRobotAdapter';
  * Priority order:
  * 0. Permissions (macOS only) - Blocks app until permissions granted
  * 1. Update view - Always first, before everything else
- * 2. USB check view - Show during USB detection (minimum 2s)
- * 3. Robot not connected (after USB check minimum time)
- * 4. Starting daemon (visual scan)
- * 5. Transition view - After scan, during resize
- * 6. Stopping daemon - Show spinner
- * 7. Ready to start - Robot connected but daemon not active
- * 8. Active robot - Full control view
+ * 2. Finding robot view - User selects connection (USB/WiFi/Sim) and clicks Start
+ * 3. Starting daemon (visual scan)
+ * 4. Stopping daemon - Show spinner
+ * 5. Active robot - Full control view (handles its own loading state)
+ * 
+ * 🌐 WiFi mode: Also passes through scan view for consistent UX
  * 
  * @param {object} props - View routing props
  * @returns {object} { viewComponent, viewProps }
@@ -35,15 +34,15 @@ export function useViewRouter({
   updateError,
   onInstallUpdate,
   
-  // USB
+  // USB/Connection
   shouldShowUsbCheck,
   isUsbConnected,
+  connectionMode, // 🌐 'usb' | 'wifi' | 'simulation' | null
   
   // Daemon
   isStarting,
   isStopping,
   isActive,
-  isTransitioning,
   hardwareError,
   startupError,
   startDaemon,
@@ -58,7 +57,6 @@ export function useViewRouter({
   logs,
   daemonVersion,
   usbPortName,
-  onAppsReady,
 }) {
   return useMemo(() => {
     // PRIORITY 0: Permissions view
@@ -86,25 +84,20 @@ export function useViewRouter({
       };
     }
 
-    // PRIORITY 2: USB check view
-    if (shouldShowUsbCheck) {
+    // PRIORITY 2: Finding robot view
+    // 🌐 Show FindingRobotView until user selects a connection mode
+    // Don't auto-advance when USB is detected - wait for user selection
+    // Note: FindingRobotView uses useConnection hook internally (no props needed)
+    if (shouldShowUsbCheck || !connectionMode) {
       return {
-        viewComponent: RobotNotDetectedView,
-        viewProps: { startDaemon },
+        viewComponent: FindingRobotView,
+        viewProps: {},
         showTopBar: true,
       };
     }
 
-    // PRIORITY 3: Robot not connected
-    if (!isUsbConnected) {
-      return {
-        viewComponent: RobotNotDetectedView,
-        viewProps: { startDaemon },
-        showTopBar: true,
-      };
-    }
-
-    // PRIORITY 4: Starting daemon
+    // PRIORITY 4: Starting daemon (all modes including WiFi)
+    // 🌐 WiFi mode also passes through scan view for consistent UX
     if (isStarting || hardwareError) {
       return {
         viewComponent: StartingView,
@@ -116,31 +109,7 @@ export function useViewRouter({
       };
     }
 
-    // PRIORITY 5: Transition view
-    if (isTransitioning) {
-      return {
-        viewComponent: TransitionView,
-        viewProps: {},
-        showTopBar: true,
-        backgroundComponent: ActiveRobotModule,
-        backgroundProps: {
-          isActive,
-          isStarting,
-          isStopping,
-          stopDaemon,
-          sendCommand,
-          playRecordedMove,
-          isCommandRunning,
-          logs,
-          daemonVersion,
-          usbPortName,
-          onAppsReady,
-        },
-        needsContext: true, // Signal that contextConfig is needed
-      };
-    }
-
-    // PRIORITY 6: Stopping daemon
+    // PRIORITY 5: Stopping daemon
     if (isStopping) {
       return {
         viewComponent: ClosingView,
@@ -149,20 +118,8 @@ export function useViewRouter({
       };
     }
 
-    // PRIORITY 7: Ready to start
-    if (isUsbConnected && !isActive && !isStarting) {
-      return {
-        viewComponent: ReadyToStartView,
-        viewProps: {
-          startDaemon,
-          isStarting,
-          usbPortName,
-        },
-        showTopBar: true,
-      };
-    }
-
-    // PRIORITY 8: Active robot
+    // PRIORITY 6: Active robot
+    // ✅ ActiveRobotView handles its own loading state for apps
     return {
       viewComponent: ActiveRobotModule,
       viewProps: {
@@ -176,7 +133,6 @@ export function useViewRouter({
         logs,
         daemonVersion,
         usbPortName,
-        onAppsReady,
       },
       showTopBar: true,
       needsContext: true, // Signal that contextConfig is needed
@@ -193,10 +149,10 @@ export function useViewRouter({
     onInstallUpdate,
     shouldShowUsbCheck,
     isUsbConnected,
+    connectionMode,
     isStarting,
     isStopping,
     isActive,
-    isTransitioning,
     hardwareError,
     startupError,
     startDaemon,
@@ -207,7 +163,6 @@ export function useViewRouter({
     logs,
     daemonVersion,
     usbPortName,
-    onAppsReady,
   ]);
 }
 
@@ -216,42 +171,22 @@ export function useViewRouter({
  * Injects contextConfig for ActiveRobotModule when needsContext is true
  */
 export function ViewRouterWrapper({ viewConfig }) {
-  const { viewComponent: ViewComponent, viewProps, showTopBar, backgroundComponent: BackgroundComponent, backgroundProps, needsContext } = viewConfig;
+  const { viewComponent: ViewComponent, viewProps, showTopBar, needsContext } = viewConfig;
   
   // Get context config from adapter (only used when needsContext is true)
   // This is always called (React hooks rule) but only used when needed
   const contextConfig = useActiveRobotAdapter();
 
-  if (BackgroundComponent) {
-    // Transition view with background component
-    const bgPropsWithContext = needsContext 
-      ? { ...backgroundProps, contextConfig } 
-      : backgroundProps;
-    
-    return (
-      <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
-        {showTopBar && <AppTopBar />}
-        <Box sx={{ position: 'absolute', opacity: 0, pointerEvents: 'none', zIndex: -1 }}>
-          <BackgroundComponent {...bgPropsWithContext} />
-        </Box>
-        <ViewComponent {...viewProps} />
-      </Box>
-    );
-  }
+  const propsWithContext = needsContext 
+    ? { ...viewProps, contextConfig } 
+    : viewProps;
 
   if (!showTopBar) {
     // View has its own topbar (e.g., ClosingView)
-    const propsWithContext = needsContext 
-      ? { ...viewProps, contextConfig } 
-      : viewProps;
     return <ViewComponent {...propsWithContext} />;
   }
 
   // Standard view with topbar
-  const propsWithContext = needsContext 
-    ? { ...viewProps, contextConfig } 
-    : viewProps;
-  
   return (
     <Box sx={{ position: 'relative', width: '100%', height: '100vh' }}>
       <AppTopBar />

@@ -85,8 +85,7 @@ function LogConsole({
       }).join('\n');
       
       await navigator.clipboard.writeText(logsText);
-    } catch (error) {
-      console.error('Failed to copy logs:', error);
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = normalizedLogs.map(log => {
@@ -99,8 +98,8 @@ function LogConsole({
       textArea.select();
       try {
         document.execCommand('copy');
-      } catch (err) {
-        console.error('Fallback copy failed:', err);
+      } catch {
+        // Silently fail
       }
       document.body.removeChild(textArea);
     }

@@ -1,10 +1,19 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { arraysEqual } from '../../../utils/arraysEqual';
+import { getWsBaseUrl, isWiFiMode } from '../../../config/daemon';
+import { useKinematicsWasm } from '../../../utils/kinematics-wasm/useKinematicsWasm';
+
+// Max reconnection attempts in WiFi mode before giving up
+// (WebSocket may be blocked by Private Network Access in browsers)
+const MAX_WIFI_RECONNECT_ATTEMPTS = 3;
 
 /**
  * 🚀 GAME-CHANGING: Unified WebSocket hook for ALL robot data
  * Retrieves in real-time: head_pose, head_joints, antennas, passive_joints
  * Merges useRobotWebSocket + useRobotParts to avoid DOUBLE WebSocket
+ * 
+ * ⚠️ WiFi mode: WebSocket may fail due to browser Private Network Access (PNA)
+ * After MAX_WIFI_RECONNECT_ATTEMPTS failures, stops reconnecting to avoid IPC spam
  */
 export function useRobotWebSocket(isActive) {
   const [robotState, setRobotState] = useState({
@@ -12,14 +21,30 @@ export function useRobotWebSocket(isActive) {
     headJoints: null, // Array of 7 values [yaw_body, stewart_1, ..., stewart_6]
     yawBody: 0, // yaw rotation of the body (extracted from headJoints[0])
     antennas: [0, 0], // [left, right]
-    passiveJoints: null, // 🚀 NEW: Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z]
+    passiveJoints: null, // Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z]
   });
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null); // ✅ Track reconnect timeout for cleanup
   const isMountedRef = useRef(true);
+  const reconnectAttemptsRef = useRef(0); // Track reconnection attempts
+  const isWiFiRef = useRef(false); // Track if we're in WiFi mode
+  
+  // 🦀 WASM kinematics for calculating passive joints locally
+  const { isReady: wasmReady, calculatePassiveJoints } = useKinematicsWasm();
+  const wasmReadyRef = useRef(false);
+  
+  // Keep ref in sync with wasmReady state
+  useEffect(() => {
+    wasmReadyRef.current = wasmReady;
+    if (wasmReady) {
+      console.log('🦀 WASM Kinematics ready for passive joints calculation');
+    }
+  }, [wasmReady]);
 
   useEffect(() => {
     isMountedRef.current = true; // Reset mount state
+    reconnectAttemptsRef.current = 0; // Reset attempts on new effect
+    isWiFiRef.current = isWiFiMode(); // Check mode at start
     
     if (!isActive) {
       // Close WebSocket connection if daemon is inactive
@@ -37,14 +62,24 @@ export function useRobotWebSocket(isActive) {
 
     // Connexion WebSocket au daemon
     const connectWebSocket = () => {
+      // ⚠️ WiFi mode: Check if we've exceeded max reconnection attempts
+      if (isWiFiRef.current && reconnectAttemptsRef.current >= MAX_WIFI_RECONNECT_ATTEMPTS) {
+        console.warn(`🌐 WiFi WebSocket: Max reconnection attempts (${MAX_WIFI_RECONNECT_ATTEMPTS}) reached. WebSocket disabled to prevent IPC spam. 3D model will use HTTP polling fallback.`);
+        return; // Don't reconnect - use HTTP polling instead
+      }
+      
       try {
         // 🚀 GAME-CHANGING: Single WebSocket with ALL data (includes passive_joints)
-        const ws = new WebSocket(
-          'ws://localhost:8000/api/state/ws/full?frequency=10&with_head_pose=true&use_pose_matrix=true&with_head_joints=true&with_antenna_positions=true&with_passive_joints=true'
-        );
+        // 🌐 Dynamic URL based on connection mode (USB/WiFi/Simulation)
+        const wsUrl = `${getWsBaseUrl()}/api/state/ws/full?frequency=10&with_head_pose=true&use_pose_matrix=true&with_head_joints=true&with_antenna_positions=true&with_passive_joints=true`;
+        const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-          // WebSocket connected
+          // WebSocket connected - reset attempts counter on success
+          reconnectAttemptsRef.current = 0;
+          if (isWiFiRef.current) {
+            console.log('🌐 WiFi WebSocket: Connected successfully!');
+          }
         };
 
         ws.onmessage = (event) => {
@@ -76,14 +111,25 @@ export function useRobotWebSocket(isActive) {
               newState.antennas = data.antennas_position;
             }
             
-            // 🚀 GAME-CHANGING: Passive joints (21 values: passive_1_x/y/z to passive_7_x/y/z)
-            // Only available if Placo is active (kinematics_engine == "Placo")
+            // 🦀 Passive joints (21 values: passive_1_x/y/z to passive_7_x/y/z)
+            // Either from daemon (full kinematics solver) or calculated locally via WASM
             if (data.passive_joints !== null && data.passive_joints !== undefined) {
+              // Daemon provides passive joints directly
               if (Array.isArray(data.passive_joints) && data.passive_joints.length >= 21) {
                 newState.passiveJoints = data.passive_joints;
               }
+            } else if (wasmReadyRef.current && newState.headJoints && newState.headPose) {
+              // 🦀 WASM fallback: Calculate passive joints locally
+              // Uses headJoints [yaw_body, stewart_1, ..., stewart_6] and headPose (4x4 matrix)
+              const calculatedPassiveJoints = calculatePassiveJoints(
+                newState.headJoints,
+                newState.headPose
+              );
+              if (calculatedPassiveJoints && calculatedPassiveJoints.length === 21) {
+                newState.passiveJoints = calculatedPassiveJoints;
+              }
             } else {
-              // Explicitly null if Placo is not active
+              // No passive joints available
               newState.passiveJoints = null;
             }
             
@@ -117,14 +163,29 @@ export function useRobotWebSocket(isActive) {
         };
 
         ws.onerror = (error) => {
+          // Only log full error in development, minimal log in production
+          if (isWiFiRef.current) {
+            console.warn(`🌐 WiFi WebSocket error (attempt ${reconnectAttemptsRef.current + 1}/${MAX_WIFI_RECONNECT_ATTEMPTS})`);
+          } else {
           console.error('❌ WebSocket error:', error);
+          }
         };
 
         ws.onclose = () => {
+          // Increment reconnection attempts
+          reconnectAttemptsRef.current++;
+          
           // ✅ Cleanup previous timeout if exists
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
           }
+          
+          // In WiFi mode, check if we should stop reconnecting
+          if (isWiFiRef.current && reconnectAttemptsRef.current >= MAX_WIFI_RECONNECT_ATTEMPTS) {
+            console.warn(`🌐 WiFi WebSocket: Stopping reconnection after ${MAX_WIFI_RECONNECT_ATTEMPTS} failed attempts. This is expected due to browser Private Network Access restrictions.`);
+            return; // Don't schedule reconnect
+          }
+          
           reconnectTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current && isActive) {
               connectWebSocket();

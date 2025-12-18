@@ -27,7 +27,6 @@ import ActiveRobotView from './ActiveRobotView';
  * @param {Array} props.logs - Log entries
  * @param {string} props.daemonVersion - Daemon version
  * @param {string} props.usbPortName - USB port name
- * @param {Function} props.onAppsReady - Callback when apps are loaded
  */
 function ActiveRobotModule({
   contextConfig,
@@ -41,7 +40,6 @@ function ActiveRobotModule({
   logs,
   daemonVersion,
   usbPortName,
-  onAppsReady,
 }) {
   // If no contextConfig provided, throw error (should use adapter)
   if (!contextConfig) {
@@ -64,7 +62,6 @@ function ActiveRobotModule({
         logs={logs}
         daemonVersion={daemonVersion}
         usbPortName={usbPortName}
-        onAppsReady={onAppsReady}
       />
     </ActiveRobotProvider>
   );

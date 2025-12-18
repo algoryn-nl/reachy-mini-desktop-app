@@ -3,6 +3,8 @@
  */
 
 import { logApiCall, logPermission, logTimeout, logError, logSuccess } from '../utils/logging';
+import { useRobotStore } from '../store/useRobotStore';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
 export const DAEMON_CONFIG = {
   // API timeouts (in milliseconds)
@@ -16,7 +18,7 @@ export const DAEMON_CONFIG = {
     APPS_LIST: 5000,        // Available apps list
     APP_INSTALL: 60000,     // Launch installation (increased for system popups)
     APP_REMOVE: 90000,      // Uninstall app (increased for system popups)
-    APP_START: 30000,       // Start app
+    APP_START: 60000,       // Start app
     APP_STOP: 30000,        // Stop app
     JOB_STATUS: 120000,     // Poll job status (long installations)
     PERMISSION_POPUP_WAIT: 30000, // Max wait for system popup (macOS/Windows)
@@ -60,11 +62,9 @@ export const DAEMON_CONFIG = {
   // Animation/transition durations
   ANIMATIONS: {
     MODEL_LOAD_TIME: 1000,       // ⚡ 3D model loading time (margin)
-    SCAN_DURATION: 3000,       // 3D mesh scan duration (2 minutes for debugging centering)
+    SCAN_DURATION: 3000,         // 3D mesh scan duration
     SCAN_INTERNAL_DELAYS: 250,   // X-ray return delay for last mesh
-    SCAN_COMPLETE_PAUSE: 600,    // ⚡ Pause to SEE scan success before transition (3x faster: ~0.6s instead of 1.8s)
-    TRANSITION_DURATION: 800,    // TransitionView duration (resize + spinner visible)
-    VIEW_FADE_DELAY: 100,        // Delay between hide StartingView and show TransitionView
+    SCAN_COMPLETE_PAUSE: 600,    // ⚡ Pause to SEE scan success before transition
     SLEEP_DURATION: 4000,        // goto_sleep duration before kill
     STARTUP_MIN_DELAY: 2000,     // Delay before first check on startup
     SPINNER_RENDER_DELAY: 100,   // Delay to render spinner before starting daemon
@@ -90,7 +90,7 @@ export const DAEMON_CONFIG = {
   
   // Robot movement and commands
   MOVEMENT: {
-    CONTINUOUS_MOVE_TIMEOUT: 200, // Timeout for continuous move requests (200ms)
+    CONTINUOUS_MOVE_TIMEOUT: 1000, // Timeout for continuous move requests (1s - needs to be long for WiFi)
     MOVEMENT_DETECTION_TIMEOUT: 800, // Timeout to detect if robot is moving (800ms)
     COMMAND_LOCK_DURATION: 2000,   // Default lock duration for commands (2s)
     RECORDED_MOVE_LOCK_DURATION: 5000, // Lock duration for recorded moves (5s)
@@ -137,9 +137,14 @@ export const DAEMON_CONFIG = {
   
   // API endpoints
   ENDPOINTS: {
-    BASE_URL: 'http://localhost:8000',
+    // ⚠️ BASE_URL is now dynamic - use getBaseUrl() instead of DAEMON_CONFIG.ENDPOINTS.BASE_URL
+    BASE_URL_LOCAL: 'http://localhost:8000',
+    BASE_URL_DEFAULT_WIFI: 'http://reachy-mini.home:8000',
     STATE_FULL: '/api/state/full',
     DAEMON_STATUS: '/api/daemon/status',
+    // 🌐 WiFi daemon control (handshake for remote sessions)
+    DAEMON_START: '/api/daemon/start',
+    DAEMON_STOP: '/api/daemon/stop',
     EMOTIONS_LIST: '/api/move/recorded-move-datasets/list/pollen-robotics/reachy-mini-emotions-library',
     VOLUME_CURRENT: '/api/volume/current',
     VOLUME_SET: '/api/volume/set',
@@ -212,10 +217,11 @@ function isLikelySystemPopupTimeout(error, duration, timeoutMs) {
 }
 
 export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions = {}) {
-  const { silent = false, label = null } = logOptions;
+  const { silent = false, label = null, fireAndForget = false } = logOptions;
   
-  // Extract endpoint from URL
-  const endpoint = url.replace(DAEMON_CONFIG.ENDPOINTS.BASE_URL, '');
+  // Extract endpoint from URL (handle both local and remote URLs)
+  const currentBaseUrl = getBaseUrl();
+  const endpoint = url.replace(currentBaseUrl, '').replace(DAEMON_CONFIG.ENDPOINTS.BASE_URL_LOCAL, '');
   const baseEndpoint = endpoint.split('?')[0]; // Without query params
   
   // Check if it's a silent endpoint
@@ -224,31 +230,44 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
   const method = options.method || 'GET';
   const startTime = Date.now();
   
-  try {
-    // Create AbortController to be able to cancel manually if needed
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  // 🔧 UNIFIED: Always use tauriFetch for ALL requests
+  // tauriFetch from @tauri-apps/plugin-http:
+  // - ✅ Supports body JSON (via standard Request API)
+  // - ✅ Supports AbortController.signal (calls fetch_cancel on abort)
+  // - ✅ Bypasses WebView restrictions (CORS, PNA) for remote/WiFi
+  // - ✅ Works for localhost, remote IPs, and HTTPS
+  
+  // For fire-and-forget requests (like continuous movement), don't use abort signal
+  // This prevents premature cancellation on slow networks (WiFi)
+  let controller = null;
+  let timeoutId = null;
+  
+  if (!fireAndForget) {
+    // Create AbortController for timeout + external signal combination
+    controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
-    // If an external signal is provided, combine it with the timeout signal
-    let finalSignal = controller.signal;
+    // Combine external signal with timeout signal if provided
     if (options.signal) {
-      // Combine external signal with timeout: abort if either is aborted
       const externalSignal = options.signal;
       if (externalSignal.aborted) {
         controller.abort();
       } else {
-        externalSignal.addEventListener('abort', () => {
-          controller.abort();
-        });
+        externalSignal.addEventListener('abort', () => controller.abort());
       }
     }
-    
-    const response = await fetch(url, {
-      ...options,
-      signal: finalSignal,
+  }
+  
+  try {
+    const response = await tauriFetch(url, {
+      method: options.method || 'GET',
+      headers: options.headers,
+      body: options.body,
+      signal: controller?.signal,
+      connectTimeout: timeoutMs,
     });
     
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     
     // Log result if not silent
@@ -269,6 +288,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
     
     return response;
   } catch (error) {
+    if (timeoutId) clearTimeout(timeoutId);
     const duration = Date.now() - startTime;
     
     // Log error if not silent
@@ -333,10 +353,73 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
 }
 
 /**
- * Helper to build full API URL
+ * 🌐 Get the current base URL based on connection mode
+ * - WiFi mode: uses remoteHost from store (e.g. 'http://reachy-mini.home:8000')
+ * - USB/Simulation: uses localhost
+ */
+export function getBaseUrl() {
+  const { connectionMode, remoteHost } = useRobotStore.getState();
+  
+  if (connectionMode === 'wifi' && remoteHost) {
+    // Ensure proper URL format
+    const host = remoteHost.includes('://') ? remoteHost : `http://${remoteHost}`;
+    return host.endsWith(':8000') ? host : `${host}:8000`;
+  }
+  
+  // Default: local daemon (USB or simulation)
+  return DAEMON_CONFIG.ENDPOINTS.BASE_URL_LOCAL;
+}
+
+/**
+ * 🌐 Get WebSocket base URL based on connection mode
+ */
+export function getWsBaseUrl() {
+  const httpUrl = getBaseUrl();
+  return httpUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+}
+
+/**
+ * 🌐 Check if currently in WiFi mode
+ * @returns {boolean} True if connected via WiFi
+ */
+export function isWiFiMode() {
+  const { connectionMode } = useRobotStore.getState();
+  return connectionMode === 'wifi';
+}
+
+/**
+ * Helper to build full API URL (now dynamic based on connection mode)
  */
 export function buildApiUrl(endpoint) {
-  return `${DAEMON_CONFIG.ENDPOINTS.BASE_URL}${endpoint}`;
+  const baseUrl = getBaseUrl();
+  const fullUrl = `${baseUrl}${endpoint}`;
+  
+  // 🔍 DEBUG: Log URL generation for debugging connection mode issues
+  if (endpoint.includes('set_target') || endpoint.includes('daemon')) {
+    const { connectionMode, remoteHost } = useRobotStore.getState();
+    console.log(`🔗 [buildApiUrl] mode=${connectionMode}, host=${remoteHost}, url=${fullUrl}`);
+  }
+  
+  return fullUrl;
+}
+
+/**
+ * 🌐 Get daemon hostname only (without protocol or port)
+ * Used for remapping app URLs to the correct robot host
+ * @returns {string} Hostname like 'localhost', 'reachy-mini.home', or '192.168.1.18'
+ */
+export function getDaemonHostname() {
+  const { connectionMode, remoteHost } = useRobotStore.getState();
+  
+  if (connectionMode === 'wifi' && remoteHost) {
+    // Strip protocol if present
+    const cleanHost = remoteHost.replace(/^https?:\/\//, '');
+    // Strip port if present
+    return cleanHost.replace(/:8000$/, '');
+  }
+  
+  // Default: localhost
+  return 'localhost';
 }
 
 /**
@@ -389,31 +472,4 @@ export async function fetchExternal(url, options = {}, timeoutMs, logOptions = {
   return fetchWithTimeout(url, options, timeoutMs, logOptions);
 }
 
-/**
- * ⚡ DRY helper to manage StartingView → TransitionView → ActiveRobotView transition
- * Avoids duplication of transition code (used 2× in useDaemon)
- * 
- * @param {object} callbacks - setState functions
- * @param {Function} callbacks.setIsStarting - Function to change isStarting
- * @param {Function} callbacks.setIsTransitioning - Function to change isTransitioning
- * @param {Function} callbacks.setIsActive - Function to change isActive
- * @param {number} remainingTime - Time to wait before starting transition
- */
-export function transitionToActiveView({ setIsStarting, setIsTransitioning, setIsActive }, remainingTime) {
-  setTimeout(() => {
-    // ⚡ Step 1: Hide StartingView
-    setIsStarting(false);
-    
-    // ⚡ Step 2: After micro-delay, show TransitionView and trigger resize
-    setTimeout(() => {
-      setIsTransitioning(true);
-      
-      // ⚡ Step 3: After resize, switch to ActiveRobotView
-      setTimeout(() => {
-        setIsActive(true);
-        setIsTransitioning(false);
-      }, DAEMON_CONFIG.ANIMATIONS.TRANSITION_DURATION);
-    }, DAEMON_CONFIG.ANIMATIONS.VIEW_FADE_DELAY);
-  }, remainingTime);
-}
 

@@ -12,18 +12,22 @@ import { handleDaemonError } from '../../utils/daemonErrorHandler';
 export const useDaemon = () => {
   const logger = useLogger();
   const { 
-    isActive,
-    isStarting,
-    isStopping,
+    robotStatus,
     startupError,
-    setIsStarting, 
-    setIsStopping,
+    // Note: connectionMode is read via getState() inside callbacks for fresh value
+    transitionTo,
     setDaemonVersion,
     setStartupError,
     setHardwareError,
     setStartupTimeout,
-    clearStartupTimeout
+    clearStartupTimeout,
+    resetAll, // ✅ Use resetAll instead of resetConnection to also clear apps
   } = useAppStore();
+  
+  // Derived from robotStatus (state machine)
+  const isActive = robotStatus === 'ready' || robotStatus === 'busy';
+  const isStarting = robotStatus === 'starting';
+  const isStopping = robotStatus === 'stopping';
   
   // ✅ Event Bus for centralized event handling
   const eventBus = useDaemonEventBus();
@@ -79,7 +83,7 @@ export const useDaemon = () => {
         // Specific error config found
         const errorObject = createErrorFromConfig(data.errorConfig, data.errorLine);
         setHardwareError(errorObject);
-        setIsStarting(true);
+        transitionTo.starting(); // Keep in starting state to show error
       } else if (data.isGeneric) {
         // Generic runtime error - don't override specific error if already set
         const currentError = currentState.hardwareError;
@@ -96,7 +100,7 @@ export const useDaemon = () => {
       unsubCrash();
       unsubHardwareError();
     };
-  }, [eventBus, setHardwareError, setIsStarting, clearStartupTimeout, logger]);
+  }, [eventBus, setHardwareError, transitionTo, clearStartupTimeout, logger]);
 
   // ✅ checkStatus removed - useDaemonHealthCheck handles all status checking
   // It polls every 1.33s, updates isActive, and handles crash detection
@@ -268,14 +272,94 @@ export const useDaemon = () => {
   }, [eventBus, clearStartupTimeout, setStartupTimeout]);
 
   const startDaemon = useCallback(async () => {
-    // ✅ Emit start attempt event
+    // 🌐 Read connectionMode from store at execution time (not render time)
+    // This ensures we have the latest value after startConnection() is called
+    const currentConnectionMode = useAppStore.getState().connectionMode;
+    
+    // 🌐 WiFi mode: daemon is remote, initialize it if needed
+    // Then let HardwareScanView handle the detection (same as USB)
+    // This ensures the scan animation plays consistently
+    if (currentConnectionMode === 'wifi') {
+      console.log('🌐 WiFi mode: checking remote daemon');
+      eventBus.emit('daemon:start:attempt');
+      
+      // Wait a moment for React to render the scan view
+      await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SPINNER_RENDER_DELAY));
+      
+      try {
+        // Check daemon status
+        const statusResponse = await fetchWithTimeout(
+          buildApiUrl(DAEMON_CONFIG.ENDPOINTS.DAEMON_STATUS),
+          {},
+          DAEMON_CONFIG.TIMEOUTS.STARTUP_CHECK,
+          { label: 'WiFi daemon status check' }
+        );
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Daemon status check failed: ${statusResponse.status}`);
+        }
+        
+        const statusData = await statusResponse.json();
+        console.log(`🌐 WiFi daemon state: ${statusData.state}`);
+        
+        // ⚠️ ALWAYS wake up the robot in WiFi mode!
+        // - If daemon is not_initialized/starting: use /api/daemon/start?wake_up=true
+        // - If daemon is already running: use /api/move/play/wake_up (explicit wake up)
+        // This is because stopDaemon sends goto_sleep but daemon keeps running on the Pi
+        if (statusData.state === 'not_initialized' || statusData.state === 'starting') {
+          console.log(`🌐 Daemon not initialized, starting with wake_up...`);
+          try {
+            await fetchWithTimeout(
+              buildApiUrl('/api/daemon/start?wake_up=true'),
+              { method: 'POST' },
+              DAEMON_CONFIG.TIMEOUTS.STARTUP_CHECK * 2,
+              { label: 'WiFi daemon start' }
+            );
+          } catch (e) {
+            console.log('🌐 Daemon start request sent (response may be delayed)');
+          }
+        } else if (statusData.state === 'running') {
+          // Daemon already running - send explicit wake_up move
+          console.log(`🌐 Daemon already running, sending wake_up move...`);
+          try {
+            await fetchWithTimeout(
+              buildApiUrl('/api/move/play/wake_up'),
+              { method: 'POST' },
+              DAEMON_CONFIG.TIMEOUTS.COMMAND,
+              { label: 'WiFi robot wake up' }
+            );
+            // Wait for wake up animation to complete
+            console.log(`🌐 Waiting for wake_up animation...`);
+            await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
+          } catch (e) {
+            console.log('🌐 Wake up move sent (robot may already be awake)');
+          }
+        }
+        
+        // ✅ Don't call transitionTo.ready() here!
+        // Let HardwareScanView detect when daemon is ready via its health checks
+        // This ensures the scan animation plays (same UX as USB mode)
+        console.log('🌐 WiFi daemon accessible - HardwareScanView will handle transition');
+        eventBus.emit('daemon:start:success', { existing: true, wifi: true });
+        
+        // Note: isStarting stays true, HardwareScanView will:
+        // 1. Show the scan animation
+        // 2. Poll until daemon is fully ready (control_mode available)
+        // 3. Call onScanComplete() which sets isStarting=false, isActive=true
+        
+      } catch (e) {
+        console.error('🌐 WiFi daemon connection failed:', e);
+        resetAll(); // ✅ Use resetAll to also clear apps
+        eventBus.emit('daemon:start:error', new Error(`WiFi daemon error: ${e.message}`));
+      }
+      return;
+    }
+    
+    // ✅ USB/Simulation mode - startConnection() already set isStarting=true
+    // Emit start attempt event
     eventBus.emit('daemon:start:attempt');
     
-    // First reset errors but don't change view yet
-    setStartupError(null);
-    setHardwareError(null);
-    
-    // Wait a moment for React to render the spinner
+    // Wait a moment for React to render
     await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SPINNER_RENDER_DELAY));
     
     try {
@@ -288,12 +372,9 @@ export const useDaemon = () => {
           { label: 'Check existing daemon' }
         );
         if (response.ok) {
-          // Wait to see the spinner in the button
-          await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
-          setIsStarting(true);
-          // ✅ Emit success event for existing daemon
+          // Daemon already active - transition to ready
+          useAppStore.getState().transitionTo.ready();
           eventBus.emit('daemon:start:success', { existing: true });
-          // Daemon already active, no need for startup timeout
           return;
         }
       } catch (e) {
@@ -313,9 +394,9 @@ export const useDaemon = () => {
         eventBus.emit('daemon:start:error', e);
       });
       
-      // Wait to see the spinner in the button, then switch to scan view
+      // Wait a bit for daemon to initialize
       await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
-      setIsStarting(true);
+      // Note: isStarting already set by startConnection() in FindingRobotView
       
       // ✅ Set explicit startup timeout - longer for simulation mode (MuJoCo install takes time)
       const startupTimeout = simMode 
@@ -338,40 +419,145 @@ export const useDaemon = () => {
       // ✅ Emit error event instead of handling directly
       eventBus.emit('daemon:start:error', e);
     }
-  }, [eventBus, setIsStarting, setStartupTimeout]);
+  }, [eventBus, setStartupTimeout, resetAll]);
 
   const stopDaemon = useCallback(async () => {
-    setIsStopping(true);
+    // 🌐 Read connectionMode from store at execution time
+    const currentConnectionMode = useAppStore.getState().connectionMode;
+    const currentIsAppRunning = useAppStore.getState().isAppRunning;
+    const currentAppName = useAppStore.getState().currentAppName;
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🛑 SHUTDOWN SEQUENCE STARTED');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`   Mode: ${currentConnectionMode}`);
+    console.log(`   App running: ${currentIsAppRunning}${currentAppName ? ` (${currentAppName})` : ''}`);
+    
+    transitionTo.stopping();
+    console.log('   → State: robotStatus = stopping');
+    
     // ✅ Clear startup timeout if daemon is being stopped
     clearStartupTimeout();
     // 🧹 Clear simulation mode from localStorage on shutdown
     disableSimulationMode();
+    
+    // 🛡️ First, stop any running app to avoid command conflicts
+    // This prevents jerky movements when goto_sleep conflicts with app commands
+    // ⚠️ ONLY call stop-current-app if an app is actually running
+    // Calling it on an already-stopped app seems to cause wake_up side effects
+    // ⚠️ ALWAYS wait 1.5s before sending goto_sleep
+    // Even if isAppRunning=false, an app might have just stopped and the daemon
+    // Python is still executing its goto_target(INIT_HEAD_POSE) which takes ~1s
+    // This prevents race conditions where goto_target and goto_sleep conflict
+    if (currentIsAppRunning) {
+      try {
+        console.log('');
+        console.log('📱 STEP 1: Stop running app');
+        console.log(`   → Sending stop-current-app...`);
+        await fetchWithTimeout(
+          buildApiUrl('/api/apps/stop-current-app'),
+          { method: 'POST' },
+          DAEMON_CONFIG.TIMEOUTS.APP_STOP,
+          { label: 'Stop app before shutdown', silent: true }
+        );
+        console.log('   ✅ App stop command sent');
+      } catch (e) {
+        console.log(`   ⚠️ Failed to stop app: ${e.message}`);
+      }
+    } else {
+      console.log('');
+      console.log('📱 STEP 1: No app running');
+    }
+    
+    // Always wait for any potential goto_target to complete
+    // This handles the case where user stopped app manually right before shutdown
+    console.log('   → Waiting 1.5s for any daemon goto_target to complete...');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log('   ✅ Safe to send goto_sleep');
+    
+    // 🌐 WiFi mode: just disconnect, daemon stays running on remote
+    if (currentConnectionMode === 'wifi') {
+      console.log('');
+      console.log('🌐 WIFI MODE: Disconnect sequence');
+      
+      // Send robot to sleep position before disconnecting
+      try {
+        console.log('');
+        console.log('😴 STEP 2: Send goto_sleep');
+        console.log('   → Sending /api/move/play/goto_sleep...');
+        await fetchWithTimeout(
+          buildApiUrl('/api/move/play/goto_sleep'),
+          { method: 'POST' },
+          DAEMON_CONFIG.TIMEOUTS.COMMAND,
+          { label: 'Sleep before disconnect' }
+        );
+        console.log(`   → Waiting ${DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION}ms for sleep animation...`);
+        await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
+        console.log('   ✅ Sleep animation complete');
+      } catch (e) {
+        console.log(`   ⚠️ Sleep command skipped: ${e.message}`);
+      }
+      
+      // Reset connection state to return to FindingRobotView
+      console.log('');
+      console.log('🔄 STEP 3: Reset state');
+      console.log(`   → Scheduling resetAll in ${DAEMON_CONFIG.ANIMATIONS.STOP_DAEMON_DELAY}ms...`);
+      setTimeout(() => {
+        console.log('   → Calling resetAll()');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🛑 SHUTDOWN COMPLETE (WiFi)');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        resetAll();
+      }, DAEMON_CONFIG.ANIMATIONS.STOP_DAEMON_DELAY);
+      return;
+    }
+    
+    // USB/Simulation mode: kill local daemon
+    console.log('');
+    console.log('🔌 USB/SIMULATION MODE: Shutdown sequence');
+    
     try {
       // First send robot to sleep position
       try {
+        console.log('');
+        console.log('😴 STEP 2: Send goto_sleep');
+        console.log('   → Sending /api/move/play/goto_sleep...');
         await fetchWithTimeout(
           buildApiUrl('/api/move/play/goto_sleep'),
           { method: 'POST' },
           DAEMON_CONFIG.TIMEOUTS.COMMAND,
           { label: 'Sleep before shutdown' }
         );
-        // Wait for movement to complete
+        console.log(`   → Waiting ${DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION}ms for sleep animation...`);
         await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
+        console.log('   ✅ Sleep animation complete');
       } catch (e) {
-        // Robot already inactive or sleep error
+        console.log(`   ⚠️ Sleep command skipped: ${e.message}`);
       }
       
       // Then kill the daemon
+      console.log('');
+      console.log('💀 STEP 3: Kill daemon process');
+      console.log('   → Invoking stop_daemon...');
       await invoke('stop_daemon');
-      // ✅ No need to manually checkStatus - useDaemonHealthCheck will detect the change automatically
+      console.log('   ✅ Daemon killed');
+      
+      // Reset connection state to return to FindingRobotView
+      console.log('');
+      console.log('🔄 STEP 4: Reset state');
+      console.log(`   → Scheduling resetAll in ${DAEMON_CONFIG.ANIMATIONS.STOP_DAEMON_DELAY}ms...`);
       setTimeout(() => {
-        setIsStopping(false);
+        console.log('   → Calling resetAll()');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🛑 SHUTDOWN COMPLETE (USB)');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        resetAll();
       }, DAEMON_CONFIG.ANIMATIONS.STOP_DAEMON_DELAY);
     } catch (e) {
-      console.error(e);
-      setIsStopping(false);
+      console.error('❌ Error stopping daemon:', e);
+      resetAll();
     }
-  }, [setIsStopping, clearStartupTimeout]);
+  }, [clearStartupTimeout, resetAll, transitionTo]);
 
   return {
     isActive,

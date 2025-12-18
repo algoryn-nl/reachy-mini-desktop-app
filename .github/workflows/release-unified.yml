@@ -367,9 +367,18 @@ jobs:
             else
               echo "⚠️ Warning: Could not verify private key (may require password or key mismatch)"
             fi
+            
+            # ✅ Export cleaned key to GITHUB_ENV for use in build steps
+            # Read the cleaned key from file (single line, no spaces/newlines)
+            CLEANED_SIGNING_KEY=$(cat ~/.tauri/reachy-mini.key)
+            echo "TAURI_SIGNING_PRIVATE_KEY=$CLEANED_SIGNING_KEY" >> $GITHUB_ENV
+            echo "✅ Exported cleaned signing key to GITHUB_ENV"
           else
             echo "⚠️ No signing key provided, generating temporary key..."
             yarn tauri signer generate -w ~/.tauri/reachy-mini.key --ci || true
+            # Export the generated key
+            CLEANED_SIGNING_KEY=$(cat ~/.tauri/reachy-mini.key)
+            echo "TAURI_SIGNING_PRIVATE_KEY=$CLEANED_SIGNING_KEY" >> $GITHUB_ENV
           fi
 
       - name: Extract version before build
@@ -517,6 +526,10 @@ jobs:
           # We'll sign manually after build with our script that signs ALL binaries
           # signingIdentity is set to "-" in tauri.macos.conf.json to disable auto-signing
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Required for createUpdaterArtifacts to generate .app.tar.gz.sig
+          # Use cleaned key from GITHUB_ENV (set in Setup Tauri Signing Key step)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
         run: |
@@ -616,6 +629,11 @@ jobs:
 
       - name: Build Tauri app (Windows)
         if: matrix.os == 'windows-latest'
+        env:
+          # Required for createUpdaterArtifacts to generate .msi.sig
+          # Use cleaned key from GITHUB_ENV (set in Setup Tauri Signing Key step)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         working-directory: src-tauri
         run: |
@@ -693,13 +711,23 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
         working-directory: src-tauri
+        env:
+          # Required for AppImage tools to work without FUSE (not available in GitHub Actions)
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          # Enable verbose output for linuxdeploy debugging
+          DEBUG: 1
+          VERBOSE: 1
+          # Prevent linuxdeploy from leaving temp files
+          NO_CLEANUP: 0
         run: |
           # Install dependencies required for .deb and AppImage build
+          # patchelf is CRITICAL for linuxdeploy to work
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
+            libappindicator3-dev \
             librsvg2-dev \
             libgdk-pixbuf2.0-dev \
             libpango1.0-dev \
@@ -718,7 +746,12 @@ jobs:
             libc-bin \
             dpkg-dev \
             libfuse2 \
-            squashfs-tools
+            squashfs-tools \
+            patchelf
+          
+          # Verify patchelf is installed (critical for linuxdeploy)
+          echo "🔍 Verifying patchelf installation..."
+          which patchelf && patchelf --version
           
           # Tauri handles .deb package creation automatically
           # Set environment variables for pkg-config if needed
@@ -727,7 +760,24 @@ jobs:
           # Clean previous build artifacts to avoid conflicts
           rm -rf target/${{ matrix.target }}/release/bundle
           
-          yarn tauri build --target ${{ matrix.target }}
+          # Set signing key for createUpdaterArtifacts to generate .AppImage.tar.gz.sig
+          # Use cleaned key from GITHUB_ENV (set in Setup Tauri Signing Key step)
+          export TAURI_SIGNING_PRIVATE_KEY="${{ env.TAURI_SIGNING_PRIVATE_KEY }}"
+          export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+          
+          # Show disk space before build
+          echo "📊 Disk space before build:"
+          df -h .
+          
+          # Show resources size
+          echo "📦 Resources size:"
+          du -sh ../binaries/* 2>/dev/null || echo "No binaries yet"
+          du -sh ../binaries/.venv 2>/dev/null || echo "No venv yet"
+          TOTAL_SIZE=$(du -sh ../binaries 2>/dev/null | cut -f1 || echo "unknown")
+          echo "📦 Total binaries size: $TOTAL_SIZE"
+          
+          # Build with verbose output
+          yarn tauri build --target ${{ matrix.target }} -v
 
       - name: Add post-install scripts to .deb (Linux)
         if: matrix.os == 'ubuntu-22.04'
@@ -1087,12 +1137,15 @@ jobs:
           files: |
             src-tauri/target/*/release/bundle/deb/*.deb
             src-tauri/target/*/release/bundle/msi/*.msi
+            src-tauri/target/*/release/bundle/msi/*.msi.sig
             src-tauri/target/*/release/bundle/appimage/*.AppImage
+            src-tauri/target/*/release/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/*/release/bundle/appimage/*.AppImage.tar.gz.sig
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.dmg
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.zip
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
             releases/**/*.tar.gz
-            releases/**/*.zip
-            releases/**/*.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -1103,13 +1156,16 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           files: |
             ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi', matrix.target) || '' }}
+            ${{ matrix.os == 'windows-latest' && format('src-tauri/target/{0}/release/bundle/msi/*.msi.sig', matrix.target) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/deb/*.deb', matrix.target) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage', matrix.target) || '' }}
+            ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage.tar.gz', matrix.target) || '' }}
+            ${{ matrix.os == 'ubuntu-22.04' && format('src-tauri/target/{0}/release/bundle/appimage/*.AppImage.tar.gz.sig', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.dmg', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.zip', matrix.target) || '' }}
+            ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.app.tar.gz', matrix.target) || '' }}
+            ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.app.tar.gz.sig', matrix.target) || '' }}
             releases/**/*.tar.gz
-            releases/**/*.zip
-            releases/**/*.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -45,10 +45,6 @@ export default function WebApp() {
     // Could implement via REST API if needed
   }, []);
   
-  const onAppsReady = useCallback(() => {
-    console.log('[WebMode] Apps ready');
-  }, []);
-  
   // Check daemon connection on mount
   useEffect(() => {
     const checkDaemon = async () => {
@@ -170,7 +166,6 @@ export default function WebApp() {
           logs={logs}
           daemonVersion={daemonVersion}
           usbPortName="web"
-          onAppsReady={onAppsReady}
         />
       </Box>
     </Box>

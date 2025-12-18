@@ -55,6 +55,7 @@ export default function DiscoverModal({
       darkMode={darkMode}
       zIndex={10002} // Above settings overlay
       centeredX={true} // Center horizontally
+      debugName="DiscoverModalLegacy"
       centeredY={false} // Don't center vertically
     >
       <Box

@@ -138,7 +138,8 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
           />
         </Box>
 
-        {/* ANTENNAS - Right Card (controls Right antenna) */}
+        {/* ANTENNAS - Right Card (controls Right antenna) - MIRRORED behavior */}
+        {/* Right antenna: UI shows normal values, but API sends inverted (-value) */}
         <Box sx={{
           px: 1,
           py: 0.5,
@@ -255,6 +256,7 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
               flex: '0 0 auto',
               display: 'flex',
               alignItems: 'center',
+              px: 2.5,
               '& > *': {
                 bgcolor: 'transparent !important',
                 border: 'none !important',
