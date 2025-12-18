@@ -7,7 +7,7 @@
   
   <p>
     <img src="https://img.shields.io/github/v/release/pollen-robotics/reachy-mini-desktop-app?label=version&color=blue" alt="Version" />
-    <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" />
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" />
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg" alt="Platform" />
     <img src="https://img.shields.io/badge/tauri-2.0-FFC131?logo=tauri&logoColor=white" alt="Tauri" />
   </p>
@@ -493,7 +493,7 @@ Three files must be updated together when bumping version:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the **Apache 2.0 License**. See the [LICENSE](./LICENCE) file for details.
 
 ## 🙏 Acknowledgments
 
