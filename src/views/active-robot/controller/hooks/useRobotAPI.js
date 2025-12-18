@@ -3,17 +3,24 @@ import { ROBOT_POSITION_RANGES } from '../../../../utils/inputConstants';
 import { clamp } from '../../../../utils/inputHelpers';
 import { useActiveRobotContext } from '../../context';
 
+// Enable/disable right antenna mirroring (inversion)
+// When true: right antenna value is negated for symmetric movement
+// When false: right antenna value is sent as-is
+const ENABLE_RIGHT_ANTENNA_MIRRORING = false;
+
 /**
- * Transform antennas for API: invert right antenna for mirror behavior
+ * Transform antennas for API: optionally invert right antenna for mirror behavior
  * Left antenna: sent as-is
- * Right antenna: inverted (negated) so both antennas move symmetrically
+ * Right antenna: inverted (negated) if ENABLE_RIGHT_ANTENNA_MIRRORING is true
  * 
  * @param {Array} antennas - [left, right] antenna values
- * @returns {Array} - [left, -right] transformed values
+ * @returns {Array} - [left, right] or [left, -right] depending on config
  */
 function transformAntennasForAPI(antennas) {
   if (!antennas || antennas.length !== 2) return antennas;
-  return [antennas[0], -antennas[1]];
+  return ENABLE_RIGHT_ANTENNA_MIRRORING 
+    ? [antennas[0], -antennas[1]] 
+    : antennas;
 }
 
 /**
