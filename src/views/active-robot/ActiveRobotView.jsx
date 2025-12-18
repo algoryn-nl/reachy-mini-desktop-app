@@ -374,7 +374,6 @@ function ActiveRobotView({
             pt: '33px', // Padding top to account for AppTopBar
             overflowY: 'auto',
             overflowX: 'hidden',
-            scrollbarGutter: 'stable',
             position: 'relative',
             // z-index hierarchy: 1-2 = layout base elements
             zIndex: 1,

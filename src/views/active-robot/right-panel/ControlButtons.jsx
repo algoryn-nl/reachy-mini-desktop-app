@@ -136,7 +136,7 @@ export default function ControlButtons({
       sx={{
         px: 3,
         pt: 4,
-        pb: 3,
+        pb: 2.5,
         display: 'flex',
         flexDirection: 'column',
         gap: 1.5,

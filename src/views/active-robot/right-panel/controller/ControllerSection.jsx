@@ -203,7 +203,7 @@ export default function ControllerSection({
       </Box>
       
       {/* Controller component with padding */}
-      <Box sx={{ pt: 1, pr: 3, pb: 3, pl: 3 }}>
+      <Box sx={{ pt: 1, pr: 3, pb: 1.5, pl: 3 }}>
         <Controller
           isActive={isActive}
           darkMode={darkMode}

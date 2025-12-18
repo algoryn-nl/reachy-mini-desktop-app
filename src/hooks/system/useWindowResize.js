@@ -57,7 +57,7 @@ export function useWindowResize(view) {
   const isInitialized = useRef(false);
 
   useEffect(() => {
-    // Set sizes according to view (fixed height 670px, only width changes)
+    // Set sizes according to view (fixed height 650px, only width changes)
     const FIXED_HEIGHT = 670;
     const sizes = {
       compact: { width: 450, height: FIXED_HEIGHT },    // Views: FindingRobot, ReadyToStart, Starting, Closing

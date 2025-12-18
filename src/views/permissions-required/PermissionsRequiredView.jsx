@@ -441,11 +441,12 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
               />
             </Box>
             <Typography
-              variant="h5"
               sx={{
-                fontWeight: 400,
-                color: darkMode ? '#fff' : '#1a1a1a',
-                mb: 2,
+                fontSize: 20,
+                fontWeight: 600,
+                color: darkMode ? '#f5f5f5' : '#333',
+                mb: 0.25,
+                textAlign: 'center',
               }}
             >
               Restarting...
@@ -483,11 +484,12 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
             </Box>
 
             <Typography
-              variant="h5"
               sx={{
-                fontWeight: 400,
-                color: darkMode ? '#fff' : '#1a1a1a',
-                mb: 2,
+                fontSize: 20,
+                fontWeight: 600,
+                color: darkMode ? '#f5f5f5' : '#333',
+                mb: 0.25,
+                textAlign: 'center',
               }}
             >
               Access Required

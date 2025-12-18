@@ -20,12 +20,14 @@ function ConnectionCard({
   icon: Icon, 
   label,
   subtitle,
+  fullSubtitle = null,
   available, 
   selected,
   onClick, 
   disabled,
   darkMode,
   alwaysAvailable = false,
+  betaTag = false,
 }) {
   const isClickable = (available || alwaysAvailable) && !disabled;
   const isAvailable = available || alwaysAvailable;
@@ -40,8 +42,7 @@ function ConnectionCard({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 0.5,
-        p: 1.5,
-        pt: 2,
+        p: 2,
         borderRadius: '12px',
         border: '1px solid',
         borderColor: selected 
@@ -62,49 +63,88 @@ function ConnectionCard({
         } : {},
       }}
     >
-      {/* Status indicator - top left */}
-      {!alwaysAvailable && (
+      {/* Status indicator - top left (subtle circle) */}
+      {!alwaysAvailable && !selected && (
         <Box
           sx={{
             position: 'absolute',
-            top: 8,
-            left: 8,
-            width: 8,
-            height: 8,
+            top: 6,
+            right: 6,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
-            bgcolor: available ? '#22c55e' : '#ef4444',
-            boxShadow: available 
-              ? '0 0 6px rgba(34, 197, 94, 0.5)' 
-              : '0 0 6px rgba(239, 68, 68, 0.5)',
+            bgcolor: darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          <Box
+            sx={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              bgcolor: available ? '#22c55e' : '#ef4444',
+            }}
+          />
+        </Box>
       )}
       
-      {/* Selection checkmark - top right (outlined style) */}
+      {/* Beta tag - top left for alwaysAvailable cards */}
+      {betaTag && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 6,
+            left: 6,
+            px: 0.5,
+            py: 0.15,
+            borderRadius: '4px',
+            bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+            border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.25)'}`,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 8,
+              fontWeight: 600,
+              color: '#FF9500',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              lineHeight: 1,
+            }}
+          >
+            beta
+          </Typography>
+        </Box>
+      )}
+      
+      {/* Selection checkmark - top right (outlined) */}
       {selected && (
         <Box
           sx={{
             position: 'absolute',
             top: 6,
             right: 6,
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
-            bgcolor: 'transparent',
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 1)' : 'rgba(253, 252, 250, 1)',
+            border: '1.5px solid',
+            borderColor: 'primary.main',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            animation: 'checkmarkPop 0.2s ease-out',
+            animation: 'checkmarkPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
             '@keyframes checkmarkPop': {
               '0%': { transform: 'scale(0)', opacity: 0 },
-              '70%': { transform: 'scale(1.1)' },
               '100%': { transform: 'scale(1)', opacity: 1 },
             },
           }}
         >
           <CheckRoundedIcon 
             sx={{ 
-              fontSize: 12, 
+              fontSize: 10, 
               color: 'primary.main',
             }} 
           />
@@ -143,6 +183,7 @@ function ConnectionCard({
       {/* Subtitle (port name, host, etc.) */}
       {subtitle && (
         <Typography
+          title={fullSubtitle || undefined}
           sx={{
             fontSize: 10,
             fontWeight: 400,
@@ -320,7 +361,7 @@ export default function FindingRobotView() {
             textAlign: 'center',
           }}
         >
-          Reachy Mini
+          Connect to Reachy
         </Typography>
           
         {/* Subtitle - scanning status */}
@@ -334,10 +375,10 @@ export default function FindingRobotView() {
           }}
         >
           {isScanning 
-            ? `Scanning${dots}`
+            ? `Looking for robots${dots}`
             : usbRobot.available || wifiRobot.available
-              ? 'Select connection type'
-              : 'No robot found'
+              ? 'Choose how to connect'
+              : 'No robot detected'
           }
         </Typography>
 
@@ -355,6 +396,7 @@ export default function FindingRobotView() {
             icon={UsbOutlinedIcon}
             label="USB"
             subtitle={usbRobot.available ? usbRobot.portName?.split('/').pop() : null}
+            fullSubtitle={usbRobot.available ? usbRobot.portName : null}
             available={usbRobot.available}
             selected={selectedMode === ConnectionMode.USB}
             onClick={() => usbRobot.available && handleSelectMode(ConnectionMode.USB)}
@@ -366,6 +408,7 @@ export default function FindingRobotView() {
             icon={WifiOutlinedIcon}
             label="WiFi"
             subtitle={wifiRobot.available ? wifiRobot.host : null}
+            fullSubtitle={wifiRobot.available ? wifiRobot.host : null}
             available={wifiRobot.available}
             selected={selectedMode === ConnectionMode.WIFI}
             onClick={() => wifiRobot.available && handleSelectMode(ConnectionMode.WIFI)}
@@ -376,7 +419,7 @@ export default function FindingRobotView() {
           <ConnectionCard
             icon={ViewInArOutlinedIcon}
             label="Simulation"
-            subtitle="Virtual"
+            subtitle="Beta"
             available={true}
             alwaysAvailable={true}
             selected={selectedMode === ConnectionMode.SIMULATION}

@@ -124,10 +124,15 @@ function LogConsole({
         fontSize,
     ...TEXT_SELECT_STYLES,
         transition: 'box-shadow 0.3s ease',
-          '&::-webkit-scrollbar': { width: simpleStyle ? '5px' : (compact ? '4px' : '4px') },
+          '&::-webkit-scrollbar': { width: 6 },
           '&::-webkit-scrollbar-track': { background: 'transparent' },
-          '&::-webkit-scrollbar-thumb': { background: 'transparent', borderRadius: simpleStyle ? '2.5px' : '2px' },
-          '&:hover::-webkit-scrollbar-thumb': { background: simpleStyle ? (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)') : (darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)') },
+          '&::-webkit-scrollbar-thumb': { 
+            background: darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)', 
+            borderRadius: 3,
+          },
+          '&:hover::-webkit-scrollbar-thumb': { 
+            background: darkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
+          },
         ...sx,
   }), [height, containerHeight, maxHeight, simpleStyle, compact, darkMode, fontSize, normalizedLogs.length, sx]);
 
@@ -212,6 +217,20 @@ function LogConsole({
                   paddingRight: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].horizontal}px`,
                   paddingTop: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].vertical}px`,
                   paddingBottom: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].vertical}px`,
+            // Custom scrollbar styling
+            '&::-webkit-scrollbar': {
+              width: 6,
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+              borderRadius: 3,
+              '&:hover': {
+                background: darkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
+              },
+            },
           }}
         >
           <Box
