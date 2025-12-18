@@ -268,6 +268,22 @@ export default function FindingRobotView() {
     }
   }, [wifiRobot.available, selectedMode, usbRobot.available, isBusy]);
 
+  // Auto-deselect if selected mode becomes unavailable
+  // USB/WiFi can become unavailable if cable is unplugged or network changes
+  useEffect(() => {
+    if (isBusy) return; // Don't deselect during connection
+    
+    if (selectedMode === ConnectionMode.USB && !usbRobot.available) {
+      console.log('🔌 USB became unavailable, deselecting');
+      setSelectedMode(null);
+    }
+    if (selectedMode === ConnectionMode.WIFI && !wifiRobot.available) {
+      console.log('🔌 WiFi became unavailable, deselecting');
+      setSelectedMode(null);
+    }
+    // Simulation is always available, no need to check
+  }, [selectedMode, usbRobot.available, wifiRobot.available, isBusy]);
+
   // Save selected mode to localStorage when user makes a selection
   const handleSelectMode = useCallback((mode) => {
     setSelectedMode(mode);
