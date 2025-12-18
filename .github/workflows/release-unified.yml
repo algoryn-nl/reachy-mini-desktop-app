@@ -28,9 +28,11 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             platform: windows-x86_64
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x86_64
+          # Linux disabled temporarily - AppImage bundling fails due to Python venv native deps
+          # See: https://github.com/pollen-robotics/reachy-mini-desktop-app/issues/35
+          # - os: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   platform: linux-x86_64
 
     runs-on: ${{ matrix.os }}
 
