@@ -1,0 +1,20 @@
+{
+  "version": "0.7.27",
+  "notes": "Update for version 0.7.27",
+  "pub_date": "2025-12-17T13:59:12Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTVlUFh2Z25YcHgzQm5xcjA2WW96NHNYVXpMbnRpMWVyLzFlb24xSHJwTDFCVjFRRGdZMTVvUk1IcWR3b1dKQU9hOWMrM2FuVWpqNTlWVnk1anlkVVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1OTgwNTkxCWZpbGU6UmVhY2h5IE1pbmkgQ29udHJvbF8wLjcuMjdfeDY0X2VuLVVTLm1zaS56aXAKRkczaEF4dmJ0R213M0VobytpYkhMdzlxZ29BQm5jMVl6aFFubXdWd05Rd1lZditnSFhoMFNYQTI3VUJLVElPOG0yVHV1bU9nRnhUdDRWaVprd1hXRHc9PQo=",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.7.27/Reachy.Mini.Control_0.7.27_x64_en-US.msi.zip"
+    },
+    "darwin-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTdTNzVKQ3F3dCs2bDZnWlptczRmcGhOYkFSSXFLc3BUTk80bkhQZE82K3ZpdTFXZVJ2MjVCZ1Q1clRLMXlYRWtEKy8wVjZjdXJKQ2dZN0l6UzJsUHdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1OTgyMTA3CWZpbGU6cmVhY2h5LW1pbmktY29udHJvbF8wLjcuMjdfZGFyd2luLXg4Nl82NC5hcHAudGFyLmd6ClM3QUFPeGpnbm82VW4rL05sVnp1K2JwODRhOEdZbmxmOFRIM21udXROaEdVRGxiZDJIS2w4b05aSmhkTU5LZExTV1VWQXBPVnpKMU9SWHhqNWV3OUFnPT0K",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.7.27/reachy-mini-control_0.7.27_darwin-x86_64.app.tar.gz"
+    },
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTlLU1BZaDNqdXZTNk5MMFlDK3VtZzFMK3NUTmpadm5zWis5eUU3M2xWeUNUT01laWxVbzZWS2twQmdGbnBFL3FNSmlsSU1ZTjdvL0p5NEQ1OE1WWXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1OTgyNDg1CWZpbGU6cmVhY2h5LW1pbmktY29udHJvbF8wLjcuMjdfZGFyd2luLWFhcmNoNjQuYXBwLnRhci5negp2ejc0TlBWT2NHQjFIcmlRL3ptMlVGT0dOM0xTdnZNb3lJbDVJTkN6Q1BuWGFXOUlpWlhENjhUelhzcFVSNHhJaWM2TVB4RmFLTjBJUGNZRzd1b1ZCQT09Cg==",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.7.27/reachy-mini-control_0.7.27_darwin-aarch64.app.tar.gz"
+    }
+  }
+}
+
