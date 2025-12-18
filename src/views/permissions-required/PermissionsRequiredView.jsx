@@ -8,6 +8,7 @@ import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../../store/useAppStore';
 import { usePermissions } from '../../hooks/system';
 import { logInfo, logError } from '../../utils/logging/logger';
+import { isMacOS } from '../../utils/platform';
 import LogConsole from '@components/LogConsole';
 import LockedReachy from '../../assets/locked-reachy.svg';
 import SleepingReachy from '../../assets/sleeping-reachy.svg';
@@ -221,13 +222,18 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     };
   }, []);
 
-  // Test plugin availability on mount (silent)
+  // Test plugin availability on mount (silent) - macOS only
   React.useEffect(() => {
+    if (!isMacOS()) {
+      return; // Skip on non-macOS platforms
+    }
+
     const testPlugin = async () => {
       try {
         await invoke('plugin:macos-permissions|check_camera_permission');
       } catch (error) {
-        logError(`[Permissions] ❌ Plugin error: ${error.message}`);
+        const errorMsg = error?.message || error?.toString() || 'Unknown plugin error';
+        logError(`[Permissions] ❌ Plugin error: ${errorMsg}`);
       }
     };
     testPlugin();
@@ -235,11 +241,17 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
 
   // Generic permission request handler
   const requestPermission = async (type) => {
+    // Skip on non-macOS platforms - permissions are handled by the webview
+    if (!isMacOS()) {
+      logInfo(`[Permissions] ℹ️ Non-macOS platform - permissions handled automatically`);
+      return;
+    }
+
     try {
       const checkCommand = `plugin:macos-permissions|check_${type}_permission`;
       const requestCommand = `plugin:macos-permissions|request_${type}_permission`;
       const settingsCommand = `open_${type}_settings`;
-      
+
       // Check current status
       let currentStatus;
       try {
@@ -247,11 +259,11 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       } catch (checkError) {
         throw checkError;
       }
-      
+
       if (currentStatus === true) {
         return;
       }
-      
+
       // Request permission
       let result;
       try {
@@ -259,25 +271,25 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       } catch (requestError) {
         throw requestError;
       }
-      
+
       if (type === 'camera') {
         dispatch({ type: 'SET_CAMERA_REQUESTED' });
       } else {
         dispatch({ type: 'SET_MICROPHONE_REQUESTED' });
       }
-      
+
       if (result === null) {
         // Popup shown, start polling silently
         let checkCount = 0;
         const maxChecks = 20;
-        const permCheckCommand = type === 'camera' 
+        const permCheckCommand = type === 'camera'
           ? 'plugin:macos-permissions|check_camera_permission'
           : 'plugin:macos-permissions|check_microphone_permission';
-        
+
         const aggressiveInterval = setInterval(async () => {
           checkCount++;
           await refreshPermissions();
-          
+
           try {
             const status = await invoke(permCheckCommand);
             if (status === true) {
@@ -287,15 +299,15 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
           } catch (error) {
             // Ignore errors during polling
           }
-          
+
           if (checkCount >= maxChecks) {
             clearInterval(aggressiveInterval);
           }
         }, 500);
-        
+
         return;
       }
-      
+
       if (result === false) {
         // Permission denied, open settings
         try {
@@ -305,21 +317,30 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
         }
       }
     } catch (error) {
-      logError(`[Permissions] ❌ ${type}: ${error.message}`);
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      logError(`[Permissions]${type}: ${errorMsg}`);
       // Try to open settings as fallback
       try {
         await invoke(`open_${type}_settings`);
       } catch (settingsError) {
-        logError(`[Permissions] ❌ Failed to open settings: ${settingsError.message}`);
+        const settingsErrorMsg = settingsError?.message || settingsError?.toString() || 'Unknown error';
+        logError(`[Permissions] ❌ Failed to open settings: ${settingsErrorMsg}`);
       }
     }
   };
 
   const openSettings = async (type) => {
+    // Skip on non-macOS platforms
+    if (!isMacOS()) {
+      logInfo(`[Permissions] ℹ️ Non-macOS platform - no settings to open`);
+      return;
+    }
+
     try {
       await invoke(`open_${type}_settings`);
     } catch (error) {
-      logError(`[Permissions] ❌ Failed to open ${type} settings: ${error.message}`);
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      logError(`[Permissions] ❌ Failed to open ${type} settings: ${errorMsg}`);
     }
   };
 
