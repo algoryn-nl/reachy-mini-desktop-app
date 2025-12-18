@@ -696,6 +696,7 @@ function ActiveRobotView({
         open={logsFullscreenOpen}
         onClose={() => setLogsFullscreenOpen(false)}
         darkMode={darkMode}
+        debugName="LogsFullscreen"
       >
         <Box
           sx={{

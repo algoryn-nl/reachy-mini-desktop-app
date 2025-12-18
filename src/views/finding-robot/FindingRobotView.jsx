@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
-import UsbIcon from '@mui/icons-material/Usb';
-import WifiIcon from '@mui/icons-material/Wifi';
-import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import UsbOutlinedIcon from '@mui/icons-material/UsbOutlined';
+import WifiOutlinedIcon from '@mui/icons-material/WifiOutlined';
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
+import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import useAppStore from '../../store/useAppStore';
 import { useRobotDiscovery } from '../../hooks/system';
 import { useConnection, ConnectionMode } from '../../hooks/useConnection';
@@ -39,9 +40,9 @@ function ConnectionCard({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 0.5,
-        p: 2,
-        pt: 2.5,
-        borderRadius: '14px',
+        p: 1.5,
+        pt: 2,
+        borderRadius: '12px',
         border: '1px solid',
         borderColor: selected 
           ? 'primary.main'
@@ -53,8 +54,8 @@ function ConnectionCard({
         opacity: isAvailable ? 1 : 0.5,
         transition: 'all 0.2s ease',
         flex: 1,
-        minWidth: 90,
-        minHeight: 100,
+        minWidth: 85,
+        minHeight: 88,
         '&:hover': isClickable && !selected ? {
           borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
           bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
@@ -79,6 +80,37 @@ function ConnectionCard({
         />
       )}
       
+      {/* Selection checkmark - top right (outlined style) */}
+      {selected && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            bgcolor: 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'checkmarkPop 0.2s ease-out',
+            '@keyframes checkmarkPop': {
+              '0%': { transform: 'scale(0)', opacity: 0 },
+              '70%': { transform: 'scale(1.1)' },
+              '100%': { transform: 'scale(1)', opacity: 1 },
+            },
+          }}
+        >
+          <CheckRoundedIcon 
+            sx={{ 
+              fontSize: 12, 
+              color: 'primary.main',
+            }} 
+          />
+        </Box>
+      )}
+      
       {/* Icon */}
       <Icon 
         sx={{ 
@@ -94,7 +126,7 @@ function ConnectionCard({
       {/* Label */}
       <Typography
         sx={{
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: selected ? 600 : 500,
           color: selected
             ? 'primary.main'
@@ -112,7 +144,7 @@ function ConnectionCard({
       {subtitle && (
         <Typography
           sx={{
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: 400,
             color: darkMode ? '#666' : '#999',
             textAlign: 'center',
@@ -259,9 +291,9 @@ export default function FindingRobotView() {
         {/* Reachy GIF */}
         <Box 
           sx={{ 
-            width: 160,
-            height: 160,
-            mb: 2,
+            width: 250,
+            height: 250,
+            mb: 1.5,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -274,53 +306,53 @@ export default function FindingRobotView() {
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              }} 
-            />
+            }} 
+          />
         </Box>
         
         {/* Title */}
-          <Typography
-            sx={{
-            fontSize: 22,
-              fontWeight: 600,
-              color: darkMode ? '#f5f5f5' : '#333',
-            mb: 0.5,
-              textAlign: 'center',
-            }}
-          >
+        <Typography
+          sx={{
+            fontSize: 20,
+            fontWeight: 600,
+            color: darkMode ? '#f5f5f5' : '#333',
+            mb: 0.25,
+            textAlign: 'center',
+          }}
+        >
           Reachy Mini
-          </Typography>
+        </Typography>
           
         {/* Subtitle - scanning status */}
-            <Typography
-              sx={{
-                fontSize: 13,
-                color: darkMode ? '#888' : '#666',
+        <Typography
+          sx={{
+            fontSize: 12,
+            color: darkMode ? '#888' : '#666',
             textAlign: 'center',
-            mb: 3,
-            minHeight: 20,
-              }}
-            >
+            mb: 2.5,
+            minHeight: 18,
+          }}
+        >
           {isScanning 
             ? `Scanning${dots}`
             : usbRobot.available || wifiRobot.available
               ? 'Select connection type'
               : 'No robot found'
           }
-            </Typography>
+        </Typography>
 
         {/* Connection options - 3 cards */}
         <Box
-                sx={{
+          sx={{
             display: 'flex',
             gap: 1.5,
             width: '100%',
-            maxWidth: 340,
-            mb: 3,
+            maxWidth: 320,
+            mb: 2.5,
           }}
         >
           <ConnectionCard
-            icon={UsbIcon}
+            icon={UsbOutlinedIcon}
             label="USB"
             subtitle={usbRobot.available ? usbRobot.portName?.split('/').pop() : null}
             available={usbRobot.available}
@@ -331,7 +363,7 @@ export default function FindingRobotView() {
           />
           
           <ConnectionCard
-            icon={WifiIcon}
+            icon={WifiOutlinedIcon}
             label="WiFi"
             subtitle={wifiRobot.available ? wifiRobot.host : null}
             available={wifiRobot.available}
@@ -342,9 +374,9 @@ export default function FindingRobotView() {
           />
           
           <ConnectionCard
-            icon={SportsEsportsIcon}
+            icon={ViewInArOutlinedIcon}
             label="Simulation"
-            subtitle="MuJoCo"
+            subtitle="Virtual"
             available={true}
             alwaysAvailable={true}
             selected={selectedMode === ConnectionMode.SIMULATION}
@@ -359,10 +391,10 @@ export default function FindingRobotView() {
           variant="outlined"
           onClick={handleStart}
           disabled={!canStart || isBusy}
-          startIcon={isBusy ? (
+          endIcon={isBusy ? (
             <CircularProgress size={18} sx={{ color: 'inherit' }} />
           ) : (
-            <PlayArrowRoundedIcon sx={{ fontSize: 22 }} />
+            <PlayArrowOutlinedIcon sx={{ fontSize: 22 }} />
           )}
               sx={{
             minWidth: 140,
@@ -372,16 +404,33 @@ export default function FindingRobotView() {
             fontWeight: 600,
             textTransform: 'none',
             borderWidth: 1,
-            borderColor: canStart ? 'primary.main' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-            color: canStart ? 'primary.main' : (darkMode ? '#666' : '#999'),
+            borderColor: canStart ? '#FF9500' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+            color: canStart ? '#FF9500' : (darkMode ? '#666' : '#999'),
+            // Pulse animation when ready
+            animation: (canStart && !isBusy) ? 'startPulse 3s ease-in-out infinite' : 'none',
+            '@keyframes startPulse': {
+              '0%, 100%': {
+                boxShadow: darkMode
+                  ? '0 0 0 0 rgba(255, 149, 0, 0.4)'
+                  : '0 0 0 0 rgba(255, 149, 0, 0.3)',
+              },
+              '50%': {
+                boxShadow: darkMode
+                  ? '0 0 0 8px rgba(255, 149, 0, 0)'
+                  : '0 0 0 8px rgba(255, 149, 0, 0)',
+              },
+            },
                 '&:hover': {
               borderWidth: 1,
-              bgcolor: canStart ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+              bgcolor: canStart ? 'rgba(255, 149, 0, 0.1)' : 'transparent',
+              borderColor: canStart ? '#FF9500' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+              animation: 'none', // Stop pulse on hover
             },
             '&:disabled': {
               borderWidth: 1,
               borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
               color: darkMode ? '#555' : '#bbb',
+              animation: 'none',
                 },
               }}
             >

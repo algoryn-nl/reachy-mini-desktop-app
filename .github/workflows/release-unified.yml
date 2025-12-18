@@ -714,13 +714,20 @@ jobs:
         env:
           # Required for AppImage tools to work without FUSE (not available in GitHub Actions)
           APPIMAGE_EXTRACT_AND_RUN: 1
+          # Enable verbose output for linuxdeploy debugging
+          DEBUG: 1
+          VERBOSE: 1
+          # Prevent linuxdeploy from leaving temp files
+          NO_CLEANUP: 0
         run: |
-          # Install dependencies required for .deb build
+          # Install dependencies required for .deb and AppImage build
+          # patchelf is CRITICAL for linuxdeploy to work
           sudo apt-get update
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
+            libappindicator3-dev \
             librsvg2-dev \
             libgdk-pixbuf2.0-dev \
             libpango1.0-dev \
@@ -739,7 +746,12 @@ jobs:
             libc-bin \
             dpkg-dev \
             libfuse2 \
-            squashfs-tools
+            squashfs-tools \
+            patchelf
+          
+          # Verify patchelf is installed (critical for linuxdeploy)
+          echo "🔍 Verifying patchelf installation..."
+          which patchelf && patchelf --version
           
           # Tauri handles .deb package creation automatically
           # Set environment variables for pkg-config if needed
@@ -753,7 +765,19 @@ jobs:
           export TAURI_SIGNING_PRIVATE_KEY="${{ env.TAURI_SIGNING_PRIVATE_KEY }}"
           export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
           
-          yarn tauri build --target ${{ matrix.target }}
+          # Show disk space before build
+          echo "📊 Disk space before build:"
+          df -h .
+          
+          # Show resources size
+          echo "📦 Resources size:"
+          du -sh ../binaries/* 2>/dev/null || echo "No binaries yet"
+          du -sh ../binaries/.venv 2>/dev/null || echo "No venv yet"
+          TOTAL_SIZE=$(du -sh ../binaries 2>/dev/null | cut -f1 || echo "unknown")
+          echo "📦 Total binaries size: $TOTAL_SIZE"
+          
+          # Build with verbose output
+          yarn tauri build --target ${{ matrix.target }} -v
 
       - name: Add post-install scripts to .deb (Linux)
         if: matrix.os == 'ubuntu-22.04'

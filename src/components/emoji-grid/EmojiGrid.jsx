@@ -19,9 +19,8 @@ export function EmojiGrid({
 }) {
   const [expanded, setExpanded] = useState(false);
   
-  // Responsive: auto-fit columns based on container width
-  // Each item is ~50px wide minimum
-  const itemMinWidth = 60;
+  // Fixed 6 columns layout
+  const COLUMNS = 6;
   
   // Check if an item matches the search query
   const matchesSearch = (item) => {
@@ -46,13 +45,16 @@ export function EmojiGrid({
   const ghostBorderColor = darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
   const ghostBgColor = darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)';
   
-  // Calculate how many items to show initially (estimate based on typical width)
-  const estimatedColumns = 6;
-  const itemsVisible = estimatedColumns * ROWS_VISIBLE;
+  // Calculate how many items to show initially (3 rows of 5 columns)
+  const itemsVisible = COLUMNS * ROWS_VISIBLE;
   const hasMore = items.length > itemsVisible;
   
   const visibleItems = items.slice(0, itemsVisible);
   const hiddenItems = items.slice(itemsVisible);
+  
+  // Flex layout constants
+  const GAP = 12;
+  const itemWidth = `calc((100% - ${GAP * (COLUMNS - 1)}px) / ${COLUMNS})`;
   
   const renderItem = (item, index) => {
     const isMatch = matchesSearch(item);
@@ -84,6 +86,7 @@ export function EmojiGrid({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          width: itemWidth,
           aspectRatio: '1 / 1',
           border: `1px solid ${currentBorderColor}`,
           borderRadius: 12,
@@ -91,9 +94,9 @@ export function EmojiGrid({
           cursor: (disabled || isGhosted) ? 'default' : 'pointer',
           opacity: itemOpacity,
           transition: 'all 0.2s ease',
-          minWidth: itemMinWidth,
           filter: isGhosted ? 'grayscale(100%)' : 'none',
           position: 'relative',
+          boxSizing: 'border-box',
         }}
         onMouseEnter={(e) => {
           if (!disabled && !isGhosted) {
@@ -142,20 +145,21 @@ export function EmojiGrid({
   };
   
   const gridStyle = {
-    display: 'grid',
-    // Auto-fit: as many columns as fit, each at least itemMinWidth
-    gridTemplateColumns: `repeat(auto-fill, minmax(${itemMinWidth}px, 1fr))`,
-    gap: 8,
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: GAP,
+    width: '100%',
+    boxSizing: 'border-box',
   };
   
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%', marginBottom: 10 }}>
       {/* Section title with toggle button aligned right */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: 24,
         paddingLeft: 2,
         paddingRight: 2,
       }}>
@@ -217,7 +221,7 @@ export function EmojiGrid({
       {/* Animated accordion for hidden items */}
       {hasMore && (
         <Collapse in={expanded} timeout={300}>
-          <div style={{ ...gridStyle, marginTop: 8 }}>
+          <div style={{ ...gridStyle }}>
             {hiddenItems.map((item, idx) => renderItem(item, itemsVisible + idx))}
           </div>
         </Collapse>

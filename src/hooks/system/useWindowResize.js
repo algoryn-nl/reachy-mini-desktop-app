@@ -7,6 +7,11 @@ import { moveWindow, Position } from '@tauri-apps/plugin-positioner';
  * Redimensionner la fenêtre instantanément en gardant le centre
  * Sur macOS, les animations de resize par setSize() causent du flickering
  * Solution : resize instantané + repositionnement pour centrer
+ * 
+ * ⚠️ IMPORTANT: On utilise scaleFactor pour convertir PhysicalSize → LogicalSize
+ * car innerSize() retourne des pixels physiques, pas logiques.
+ * Sur macOS avec titlebar transparente, la hauteur peut varier de ~30px
+ * entre resize programmatique et resize manuel à cause de NSWindowStyleMaskFullSizeContentView.
  */
 async function resizeWindowInstantly(targetWidth, targetHeight) {
   // Mock pour le navigateur
@@ -17,17 +22,23 @@ async function resizeWindowInstantly(targetWidth, targetHeight) {
   try {
     const appWindow = getAppWindow();
     
-    // Obtenir la taille actuelle
+    // Obtenir la taille actuelle ET le scale factor pour comparer correctement
     const currentSize = await appWindow.innerSize();
-    const startWidth = currentSize.width;
-    const startHeight = currentSize.height;
+    const scaleFactor = await appWindow.scaleFactor();
+    
+    // Convertir PhysicalSize → LogicalSize pour comparaison cohérente
+    const currentLogicalWidth = Math.round(currentSize.width / scaleFactor);
+    const currentLogicalHeight = Math.round(currentSize.height / scaleFactor);
 
-    // If already at correct size, do nothing
-    if (startWidth === targetWidth && startHeight === targetHeight) {
+    // If already at correct size (with 2px tolerance for rounding), do nothing
+    const widthMatch = Math.abs(currentLogicalWidth - targetWidth) <= 2;
+    const heightMatch = Math.abs(currentLogicalHeight - targetHeight) <= 2;
+    
+    if (widthMatch && heightMatch) {
       return;
     }
 
-    // Apply resize
+    // Apply resize - setSize avec LogicalSize gère automatiquement le scale factor
     await appWindow.setSize(new LogicalSize(targetWidth, targetHeight));
     
     // Center window on screen

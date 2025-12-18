@@ -342,7 +342,7 @@ export default function ExpressionsSection({
             overflow: 'auto',
             px: 2,
             py: 2,
-            pb: 8,
+            pb: 2,
           }}
         >
           <EmojiPicker

@@ -170,6 +170,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
         // Allow manual close - unlock install state when overlay is closed
         unlockInstall();
       }}
+      debugName="InstallProgress"
       onBackdropClick={(e) => {
         // Prevent closing by clicking backdrop during installation
         // Only allow closing if installation failed (user can see error and close manually)

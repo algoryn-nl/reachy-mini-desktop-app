@@ -93,7 +93,9 @@ export default function ApplicationStore({
     openModal,
     closeModal,
     discoverModalOpen,
+    discoverModalOnTop,
     createAppTutorialModalOpen,
+    createAppTutorialModalOnTop,
   } = useModalStack();
   
   useAppInstallation({
@@ -473,6 +475,7 @@ export default function ApplicationStore({
       {/* Discover Modal */}
       <DiscoverModal
         open={discoverModalOpen}
+        hidden={!discoverModalOnTop}
         onClose={closeModal}
         filteredApps={filteredApps}
         darkMode={effectiveDarkMode}
@@ -497,6 +500,7 @@ export default function ApplicationStore({
       {/* Create App Tutorial Modal */}
       <CreateAppTutorialModal
         open={createAppTutorialModalOpen}
+        hidden={!createAppTutorialModalOnTop}
         onClose={closeModal}
         darkMode={effectiveDarkMode}
       />

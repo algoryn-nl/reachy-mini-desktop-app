@@ -4,6 +4,19 @@ import { clamp } from '../../../../utils/inputHelpers';
 import { useActiveRobotContext } from '../../context';
 
 /**
+ * Transform antennas for API: invert right antenna for mirror behavior
+ * Left antenna: sent as-is
+ * Right antenna: inverted (negated) so both antennas move symmetrically
+ * 
+ * @param {Array} antennas - [left, right] antenna values
+ * @returns {Array} - [left, -right] transformed values
+ */
+function transformAntennasForAPI(antennas) {
+  if (!antennas || antennas.length !== 2) return antennas;
+  return [antennas[0], -antennas[1]];
+}
+
+/**
  * Hook for managing robot API calls
  * Handles continuous updates via requestAnimationFrame
  * 
@@ -52,7 +65,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
             const requestBody = {
               target_body_yaw: validBodyYaw,
               target_head_pose: robotState.headPose, // Send current head pose
-              target_antennas: robotState.antennas || [0, 0], // Send current antennas
+              target_antennas: transformAntennasForAPI(robotState.antennas || [0, 0]), // Send current antennas (right inverted)
             };
             fetchWithTimeout(
               buildApiUrl('/api/move/set_target'),
@@ -70,7 +83,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
             // Normal case: send everything
             const requestBody = {
               target_head_pose: headPose,
-              target_antennas: antennas,
+              target_antennas: transformAntennasForAPI(antennas),
               target_body_yaw: validBodyYaw,
             };
             fetchWithTimeout(
@@ -128,7 +141,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
     // The server handles the latest position, throttle prevents accumulation
     const requestBody = {
       target_head_pose: headPose,
-      target_antennas: antennas,
+      target_antennas: transformAntennasForAPI(antennas),
       target_body_yaw: validBodyYaw,
     };
     
@@ -160,7 +173,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
         yaw: clamp(headPose.yaw, ROBOT_POSITION_RANGES.YAW.min, ROBOT_POSITION_RANGES.YAW.max),
         roll: clamp(headPose.roll, ROBOT_POSITION_RANGES.ROLL.min, ROBOT_POSITION_RANGES.ROLL.max),
       } : robotState.headPose,
-      target_antennas: antennas || robotState.antennas || [0, 0],
+      target_antennas: transformAntennasForAPI(antennas || robotState.antennas || [0, 0]),
       target_body_yaw: validBodyYaw,
     };
 

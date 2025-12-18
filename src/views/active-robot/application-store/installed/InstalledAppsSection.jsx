@@ -382,7 +382,7 @@ export default function InstalledAppsSection({
               ? '1px dashed rgba(255, 255, 255, 0.3)' 
               : '1px dashed rgba(0, 0, 0, 0.3)',
             gap: 1.5,
-            minHeight: '280px',
+            minHeight: '270px',
           }}
         >
           {/* Reachies Carousel - Scrolling images */}
@@ -454,7 +454,7 @@ export default function InstalledAppsSection({
               flexDirection: 'column', 
               gap: 1, 
               mb: 0,
-              minHeight: '280px',
+              minHeight: '270px',
               borderRadius: '14px',
               bgcolor: 'transparent',
               border: darkMode 

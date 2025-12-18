@@ -5,7 +5,6 @@
 export { default as PermissionsRequiredView } from './permissions-required';
 export { default as FindingRobotView } from './finding-robot';
 export { default as StartingView } from './starting';
-export { default as ReadyToStartView } from './ready-to-start';
 export { default as ActiveRobotView } from './active-robot/ActiveRobotView';
 export { default as ActiveRobotModule } from './active-robot/ActiveRobotModule';
 export { default as ClosingView } from './closing';

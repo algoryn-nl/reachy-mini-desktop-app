@@ -370,6 +370,7 @@ export default function SettingsOverlay({
       darkMode={darkMode}
       zIndex={10001}
       centeredX={true}
+      debugName="Settings"
       centeredY={true}
     >
       <Box
@@ -878,6 +879,7 @@ export default function SettingsOverlay({
         darkMode={darkMode}
         zIndex={10003}
         backdropOpacity={0.85}
+        debugName="UpdateConfirm"
         backdropBlur={12}
       >
         <Box
@@ -1001,6 +1003,7 @@ export default function SettingsOverlay({
         darkMode={darkMode}
         zIndex={10003}
         backdropOpacity={0.85}
+        debugName="WifiConfirm"
         backdropBlur={12}
       >
         <Box
