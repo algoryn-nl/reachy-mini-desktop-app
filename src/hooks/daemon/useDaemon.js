@@ -475,27 +475,30 @@ export const useDaemon = () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
     console.log('   ✅ Safe to send goto_sleep');
     
-    // 🌐 WiFi mode: just disconnect, daemon stays running on remote
+    // 🌐 WiFi mode: stop daemon (with goto_sleep + motor disable), then disconnect
     if (currentConnectionMode === 'wifi') {
       console.log('');
       console.log('🌐 WIFI MODE: Disconnect sequence');
       
-      // Send robot to sleep position before disconnecting
+      // Call daemon stop API (same as dashboard) - this will:
+      // 1. Move robot to sleep position
+      // 2. Disable motors (MotorControlMode.Disabled)
+      // 3. Set daemon state to 'stopped' (but process keeps running on Pi)
       try {
         console.log('');
-        console.log('😴 STEP 2: Send goto_sleep');
-        console.log('   → Sending /api/move/play/goto_sleep...');
+        console.log('😴 STEP 2: Stop daemon with goto_sleep');
+        console.log('   → Sending /api/daemon/stop?goto_sleep=true...');
         await fetchWithTimeout(
-          buildApiUrl('/api/move/play/goto_sleep'),
+          buildApiUrl('/api/daemon/stop?goto_sleep=true'),
           { method: 'POST' },
-          DAEMON_CONFIG.TIMEOUTS.COMMAND,
-          { label: 'Sleep before disconnect' }
+          DAEMON_CONFIG.TIMEOUTS.COMMAND * 2, // Longer timeout for full stop sequence
+          { label: 'Daemon stop with sleep' }
         );
         console.log(`   → Waiting ${DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION}ms for sleep animation...`);
         await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
-        console.log('   ✅ Sleep animation complete');
+        console.log('   ✅ Daemon stopped, motors disabled');
       } catch (e) {
-        console.log(`   ⚠️ Sleep command skipped: ${e.message}`);
+        console.log(`   ⚠️ Daemon stop command skipped: ${e.message}`);
       }
       
       // Reset connection state to return to FindingRobotView
@@ -512,30 +515,33 @@ export const useDaemon = () => {
       return;
     }
     
-    // USB/Simulation mode: kill local daemon
+    // USB/Simulation mode: stop daemon (with goto_sleep + motor disable), then kill process
     console.log('');
     console.log('🔌 USB/SIMULATION MODE: Shutdown sequence');
     
     try {
-      // First send robot to sleep position
+      // Call daemon stop API (same as dashboard) - this will:
+      // 1. Move robot to sleep position
+      // 2. Disable motors (MotorControlMode.Disabled)
+      // 3. Stop the backend gracefully
       try {
         console.log('');
-        console.log('😴 STEP 2: Send goto_sleep');
-        console.log('   → Sending /api/move/play/goto_sleep...');
+        console.log('😴 STEP 2: Stop daemon with goto_sleep');
+        console.log('   → Sending /api/daemon/stop?goto_sleep=true...');
         await fetchWithTimeout(
-          buildApiUrl('/api/move/play/goto_sleep'),
+          buildApiUrl('/api/daemon/stop?goto_sleep=true'),
           { method: 'POST' },
-          DAEMON_CONFIG.TIMEOUTS.COMMAND,
-          { label: 'Sleep before shutdown' }
+          DAEMON_CONFIG.TIMEOUTS.COMMAND * 2, // Longer timeout for full stop sequence
+          { label: 'Daemon stop with sleep' }
         );
         console.log(`   → Waiting ${DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION}ms for sleep animation...`);
         await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
-        console.log('   ✅ Sleep animation complete');
+        console.log('   ✅ Daemon stopped, motors disabled');
       } catch (e) {
-        console.log(`   ⚠️ Sleep command skipped: ${e.message}`);
+        console.log(`   ⚠️ Daemon stop command skipped: ${e.message}`);
       }
       
-      // Then kill the daemon
+      // Then kill the daemon process
       console.log('');
       console.log('💀 STEP 3: Kill daemon process');
       console.log('   → Invoking stop_daemon...');
