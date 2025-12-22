@@ -117,8 +117,10 @@ fn main() {
                 ""
             };
             run_command(&format!(
-                "{}UV_PYTHON_INSTALL_DIR=. UV_WORKING_DIR=. ./uv pip install {}",
-                git_lfs_skip, deps_str
+                "{}{}UV_PYTHON_INSTALL_DIR=. UV_WORKING_DIR=. ./uv pip install {}",
+                git_lfs_skip,
+                if cfg!(target_os = "macos") { "MACOSX_DEPLOYMENT_TARGET=10.15 " } else { "" },
+                deps_str
             ))
             .expect("Failed to install dependencies");
         }
