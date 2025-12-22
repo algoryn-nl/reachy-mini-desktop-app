@@ -542,68 +542,8 @@ fn main() -> ExitCode {
             PathBuf::from(&python_arg)
         };
         
-        // On macOS, check if python3 needs signing before launching
-        // In production, binaries are already signed with Developer ID at build time
-        // In dev, we sign with ad-hoc and disable Library Validation
-        #[cfg(target_os = "macos")]
-        {
-            if let Some(python_parent) = python_path.parent() {
-                // python_parent is .venv/bin, so parent is .venv
-                if let Some(_venv_dir) = python_parent.parent() {
-                    // Check if we're in production (app bundle) or dev mode
-                    let is_production = std::env::current_exe()
-                        .ok()
-                        .map(|exe| exe.to_string_lossy().contains(".app/Contents"))
-                        .unwrap_or(false);
-                    
-                    // In production: verify that binaries are signed with correct entitlements
-                    // In dev: skip signing/verification entirely
-                    if is_production {
-                        // Check signature
-                        let check_signature = Command::new("codesign")
-                            .arg("-d")
-                            .arg("-v")
-                            .arg(&python_path)
-                            .output();
-                        
-                        let is_signed = match check_signature {
-                            Ok(output) => {
-                                let output_str = String::from_utf8_lossy(&output.stderr);
-                                output_str.contains("Authority=") && !output_str.contains("adhoc")
-                            }
-                            Err(_) => false,
-                        };
-                        
-                        // Check entitlements
-                        let check_entitlements = Command::new("codesign")
-                            .arg("-d")
-                            .arg("--entitlements")
-                            .arg("-")
-                            .arg(&python_path)
-                            .output();
-                        
-                        let has_disable_lib_validation = match check_entitlements {
-                            Ok(output) => {
-                                let output_str = String::from_utf8_lossy(&output.stdout);
-                                output_str.contains("disable-library-validation") && output_str.contains("<true/>")
-                            }
-                            Err(_) => false,
-                        };
-                        
-                        if is_signed && has_disable_lib_validation {
-                            println!("   ✓ Python binaries signed with disable-library-validation (production)");
-                        } else if is_signed {
-                            eprintln!("   ⚠️  Warning: Python binary is signed but missing disable-library-validation entitlement!");
-                            eprintln!("   This should not happen - entitlements should be applied at build time.");
-                        } else {
-                            eprintln!("   ⚠️  Warning: Python binary not properly signed in production!");
-                            eprintln!("   This should not happen - binaries should be signed at build time.");
-                        }
-                    }
-                    // In dev: no signing/verification needed
-                }
-            }
-        }
+        // On macOS, binaries are signed at build time via sign-all-binaries.sh
+        // Entitlements handle library validation, no runtime verification needed
         
         println!("🐍 Direct Python execution: {:?} with args: {:?}", python_path, &args[1..]);
         let mut cmd = Command::new(&python_path);
