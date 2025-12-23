@@ -612,6 +612,10 @@ fn main() -> ExitCode {
         #[cfg(not(target_os = "windows"))]
         let python_arg = args[0].clone();
         
+        // Check if this is mjpython - we need special handling on macOS
+        // because shebangs don't work with paths containing spaces
+        let is_mjpython = python_arg.contains("mjpython");
+        
         // First argument is a Python executable - execute it directly
         let python_path = if python_arg.starts_with("/") || python_arg.starts_with(".") || 
                           (cfg!(target_os = "windows") && (python_arg.starts_with(".") || python_arg.chars().nth(1) == Some(':'))) {
@@ -632,11 +636,43 @@ fn main() -> ExitCode {
         // On macOS, binaries are signed at build time via sign-all-binaries.sh
         // Entitlements handle library validation, no runtime verification needed
         
-        println!("🐍 Direct Python execution: {:?} with args: {:?}", python_path, &args[1..]);
-        let mut cmd = Command::new(&python_path);
-        cmd.env("UV_WORKING_DIR", &working_dir)
-           .env("UV_PYTHON_INSTALL_DIR", &working_dir)
-           .args(&args[1..]); // Pass remaining arguments
+        // On macOS with mjpython, we can't execute it directly because:
+        // 1. Its shebang contains a path with spaces (e.g., "/Applications/Reachy Mini Control.app/...")
+        // 2. Unix shebangs don't support paths with spaces
+        // Solution: Execute python3 directly with mjpython as a script argument
+        #[cfg(target_os = "macos")]
+        let cmd = if is_mjpython {
+            let venv_python = working_dir.join(".venv/bin/python3");
+            println!("🐍 Executing mjpython via python3 (shebang workaround for paths with spaces)");
+            println!("   Python: {:?}", venv_python);
+            println!("   Script: {:?}", python_path);
+            println!("   Args: {:?}", &args[1..]);
+            
+            let mut c = Command::new(&venv_python);
+            c.env("UV_WORKING_DIR", &working_dir)
+             .env("UV_PYTHON_INSTALL_DIR", &working_dir)
+             .arg(&python_path)  // mjpython script as first arg
+             .args(&args[1..]);  // remaining arguments
+            c
+        } else {
+            println!("🐍 Direct Python execution: {:?} with args: {:?}", python_path, &args[1..]);
+            let mut c = Command::new(&python_path);
+            c.env("UV_WORKING_DIR", &working_dir)
+             .env("UV_PYTHON_INSTALL_DIR", &working_dir)
+             .args(&args[1..]); // Pass remaining arguments
+            c
+        };
+        
+        #[cfg(not(target_os = "macos"))]
+        let mut cmd = {
+            println!("🐍 Direct Python execution: {:?} with args: {:?}", python_path, &args[1..]);
+            let mut c = Command::new(&python_path);
+            c.env("UV_WORKING_DIR", &working_dir)
+             .env("UV_PYTHON_INSTALL_DIR", &working_dir)
+             .args(&args[1..]); // Pass remaining arguments
+            c
+        };
+        
         cmd
     } else {
         println!("ℹ️  Using normal uv command execution");
