@@ -444,37 +444,74 @@ fn main() -> ExitCode {
         // Fix mjpython on macOS if needed
         #[cfg(target_os = "macos")]
         if args[0].contains("mjpython") {
-            println!("🔍 Detected mjpython, checking shebang...");
+            println!("🔍 Detected mjpython, checking Python interpreter...");
             
-            // First, fix the .venv/bin/python3 symlink if it's broken
-            // This is needed because the venv was created on CI with absolute paths
+            // Find the cpython bundled in the app (this always exists and works)
+            let cpython_python = find_cpython_folder(&working_dir)
+                .ok()
+                .map(|folder| working_dir.join(&folder).join("bin/python3"));
+            
             let venv_python = working_dir.join(".venv/bin/python3");
-            if venv_python.is_symlink() {
-                // Check if the symlink target exists
-                if !venv_python.exists() {
-                    println!("🔧 Fixing broken .venv/bin/python3 symlink...");
-                    // Find the cpython bundled in the app
-                    if let Ok(cpython_folder) = find_cpython_folder(&working_dir) {
-                        let cpython_python = working_dir.join(&cpython_folder).join("bin/python3");
-                        if cpython_python.exists() {
-                            // Remove the broken symlink and create a new one
+            
+            // Check if .venv/bin/python3 works
+            // It may be a broken binary, symlink, or script with wrong paths
+            println!("🔍 Testing .venv/bin/python3...");
+            let venv_python_works = if venv_python.exists() {
+                let test_result = Command::new(&venv_python)
+                    .arg("--version")
+                    .output();
+                match &test_result {
+                    Ok(output) if output.status.success() => {
+                        println!("   ✅ .venv/bin/python3 works");
+                        true
+                    }
+                    Ok(output) => {
+                        println!("   ❌ .venv/bin/python3 failed with status: {:?}", output.status);
+                        false
+                    }
+                    Err(e) => {
+                        println!("   ❌ .venv/bin/python3 cannot be executed: {}", e);
+                        false
+                    }
+                }
+            } else {
+                println!("   ❌ .venv/bin/python3 does not exist");
+                false
+            };
+            
+            // If .venv/bin/python3 doesn't work, replace it with a symlink to cpython
+            // This preserves the venv configuration (pyvenv.cfg) while using the working cpython
+            if !venv_python_works {
+                if let Some(ref cpython) = cpython_python {
+                    if cpython.exists() {
+                        println!("🔧 Fixing .venv/bin/python3 by creating symlink to cpython...");
+                        
+                        // Remove the broken file if it exists
+                        if venv_python.exists() || venv_python.is_symlink() {
                             if let Err(e) = fs::remove_file(&venv_python) {
-                                eprintln!("⚠️  Failed to remove broken symlink: {}", e);
+                                eprintln!("   ⚠️  Failed to remove broken python3: {}", e);
+                            }
+                        }
+                        
+                        // Create symlink to cpython
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::symlink;
+                            if let Err(e) = symlink(cpython, &venv_python) {
+                                eprintln!("   ⚠️  Failed to create python3 symlink: {}", e);
                             } else {
-                                #[cfg(unix)]
-                                {
-                                    use std::os::unix::fs::symlink;
-                                    if let Err(e) = symlink(&cpython_python, &venv_python) {
-                                        eprintln!("⚠️  Failed to create python3 symlink: {}", e);
-                                    } else {
-                                        println!("✅ Fixed .venv/bin/python3 symlink -> {:?}", cpython_python);
-                                    }
-                                }
+                                println!("   ✅ Created .venv/bin/python3 -> {:?}", cpython);
                             }
                         }
                     }
                 }
             }
+            
+            // Always use .venv/bin/python3 in the shebang because:
+            // - It's now either working or fixed to point to cpython
+            // - The pyvenv.cfg in .venv/ tells Python to use the venv's site-packages
+            let python_path = venv_python.clone();
+            let python_path_str = python_path.to_string_lossy();
             
             // Now fix mjpython script
             let mjpython_path = working_dir.join(&args[0]);
@@ -496,11 +533,7 @@ fn main() -> ExitCode {
                         || content.contains("/Users/runner/");
                     
                     if needs_fix {
-                        println!("🔧 Fixing mjpython script...");
-                        
-                        // Use .venv/bin/python3 (now that we've fixed the symlink)
-                        let python_path = working_dir.join(".venv/bin/python3");
-                        let python_path_str = python_path.to_string_lossy();
+                        println!("🔧 Fixing mjpython script to use {}...", python_path_str);
                         
                         let mut new_lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
                         
