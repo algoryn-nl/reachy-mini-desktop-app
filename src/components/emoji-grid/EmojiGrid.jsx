@@ -221,7 +221,7 @@ export function EmojiGrid({
       {/* Animated accordion for hidden items */}
       {hasMore && (
         <Collapse in={expanded} timeout={300}>
-          <div style={{ ...gridStyle }}>
+          <div style={{ ...gridStyle, marginTop: GAP }}>
             {hiddenItems.map((item, idx) => renderItem(item, itemsVisible + idx))}
           </div>
         </Collapse>

@@ -10,6 +10,11 @@ on:
         description: 'Version to release (e.g., 0.2.0)'
         required: false
         type: string
+      dry_run:
+        description: 'Dry run - build without creating release or updating latest.json'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-and-release:
@@ -37,6 +42,26 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Dry run mode notification
+        if: github.event.inputs.dry_run == 'true'
+        shell: bash
+        run: |
+          echo "🧪 ════════════════════════════════════════════════════════════════"
+          echo "🧪 DRY RUN MODE ENABLED"
+          echo "🧪 ════════════════════════════════════════════════════════════════"
+          echo "🧪"
+          echo "🧪 This build will:"
+          echo "🧪   ✅ Build all platforms"
+          echo "🧪   ✅ Sign binaries"
+          echo "🧪   ✅ Generate artifacts (downloadable from Actions tab)"
+          echo "🧪"
+          echo "🧪 This build will NOT:"
+          echo "🧪   ❌ Create a GitHub Release"
+          echo "🧪   ❌ Update latest.json on GitHub Pages"
+          echo "🧪   ❌ Notify users via auto-updater"
+          echo "🧪"
+          echo "🧪 ════════════════════════════════════════════════════════════════"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -1127,7 +1152,7 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
-        if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin'
+        if: matrix.os == 'macos-latest' && matrix.target == 'aarch64-apple-darwin' && github.event.inputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -1147,11 +1172,13 @@ jobs:
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
             src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
             releases/**/*.tar.gz
+            releases/**/*.zip
+            releases/**/*.zip.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts to existing release
-        if: matrix.os != 'macos-latest' || matrix.target != 'aarch64-apple-darwin'
+        if: (matrix.os != 'macos-latest' || matrix.target != 'aarch64-apple-darwin') && github.event.inputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -1167,13 +1194,31 @@ jobs:
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.app.tar.gz', matrix.target) || '' }}
             ${{ matrix.os == 'macos-latest' && format('src-tauri/target/{0}/release/bundle/macos/*.app.tar.gz.sig', matrix.target) || '' }}
             releases/**/*.tar.gz
+            releases/**/*.zip
+            releases/**/*.zip.sig
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dry run summary
+        if: github.event.inputs.dry_run == 'true'
+        shell: bash
+        run: |
+          echo ""
+          echo "🧪 ════════════════════════════════════════════════════════════════"
+          echo "🧪 DRY RUN BUILD COMPLETE - ${{ matrix.platform }}"
+          echo "🧪 ════════════════════════════════════════════════════════════════"
+          echo "🧪"
+          echo "🧪 Artifacts are available in the 'update-${{ matrix.platform }}' artifact"
+          echo "🧪 Download them from the Actions tab → this workflow run → Artifacts section"
+          echo "🧪"
+          echo "🧪 No release was created, no users will be notified."
+          echo "🧪 ════════════════════════════════════════════════════════════════"
 
   create-update-manifest:
     needs: build-and-release
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    # Skip this job in dry_run mode - don't update latest.json or create release
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.event.inputs.dry_run != 'true'
     permissions:
       contents: write
       actions: read
