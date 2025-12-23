@@ -6,6 +6,7 @@ mod python;
 mod signing;
 mod update;
 mod usb;
+mod wifi;
 mod window;
 
 use tauri::{State, Manager};
@@ -105,7 +106,8 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_http::init());
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_blec::init());
 
     let builder = if cfg!(target_os = "macos") {
         builder.plugin(tauri_plugin_macos_permissions::init())
@@ -154,6 +156,8 @@ pub fn run() {
             signing::sign_python_binaries,
             permissions::open_camera_settings,
             permissions::open_microphone_settings,
+            permissions::open_wifi_settings,
+            wifi::scan_local_wifi_networks,
             update::check_daemon_update,
             update::update_daemon
         ])
