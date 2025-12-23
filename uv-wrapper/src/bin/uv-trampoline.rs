@@ -445,36 +445,90 @@ fn main() -> ExitCode {
         #[cfg(target_os = "macos")]
         if args[0].contains("mjpython") {
             println!("🔍 Detected mjpython, checking shebang...");
-            // 1. Fix mjpython shebang (points to binaries/.venv instead of target/debug/.venv)
+            
+            // First, fix the .venv/bin/python3 symlink if it's broken
+            // This is needed because the venv was created on CI with absolute paths
+            let venv_python = working_dir.join(".venv/bin/python3");
+            if venv_python.is_symlink() {
+                // Check if the symlink target exists
+                if !venv_python.exists() {
+                    println!("🔧 Fixing broken .venv/bin/python3 symlink...");
+                    // Find the cpython bundled in the app
+                    if let Ok(cpython_folder) = find_cpython_folder(&working_dir) {
+                        let cpython_python = working_dir.join(&cpython_folder).join("bin/python3");
+                        if cpython_python.exists() {
+                            // Remove the broken symlink and create a new one
+                            if let Err(e) = fs::remove_file(&venv_python) {
+                                eprintln!("⚠️  Failed to remove broken symlink: {}", e);
+                            } else {
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::symlink;
+                                    if let Err(e) = symlink(&cpython_python, &venv_python) {
+                                        eprintln!("⚠️  Failed to create python3 symlink: {}", e);
+                                    } else {
+                                        println!("✅ Fixed .venv/bin/python3 symlink -> {:?}", cpython_python);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Now fix mjpython script
             let mjpython_path = working_dir.join(&args[0]);
             println!("🔍 mjpython path: {:?}", mjpython_path);
             if mjpython_path.exists() {
                 println!("✅ mjpython exists, reading content...");
                 if let Ok(content) = fs::read_to_string(&mjpython_path) {
-                    let first_line = content.lines().next().unwrap_or("");
+                    let lines: Vec<&str> = content.lines().collect();
+                    let first_line = lines.first().unwrap_or(&"");
+                    let second_line = lines.get(1).unwrap_or(&"");
                     println!("🔍 First line: {}", first_line);
-                    // Check if shebang needs fixing (contains path to binaries/.venv or binaries/cpython)
-                    // This handles both relative and absolute paths
-                    if content.contains("binaries/.venv") || content.contains("binaries/cpython") {
-                        println!("🔧 Fixing mjpython shebang...");
+                    println!("🔍 Second line: {}", second_line);
+                    
+                    // Check if shebang needs fixing:
+                    // - Contains path to binaries/.venv or binaries/cpython (CI build paths)
+                    // - Or contains /Users/runner/ (CI runner path)
+                    let needs_fix = content.contains("binaries/.venv") 
+                        || content.contains("binaries/cpython")
+                        || content.contains("/Users/runner/");
+                    
+                    if needs_fix {
+                        println!("🔧 Fixing mjpython script...");
+                        
+                        // Use .venv/bin/python3 (now that we've fixed the symlink)
                         let python_path = working_dir.join(".venv/bin/python3");
                         let python_path_str = python_path.to_string_lossy();
                         
-                        // Replace shebang line (first line)
-                        let lines: Vec<&str> = content.lines().collect();
-                        if !lines.is_empty() {
-                            let mut new_lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+                        let mut new_lines: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+                        
+                        // Detect script format:
+                        // - Polyglot: first line is #!/bin/sh, second line contains exec
+                        // - Direct Python: first line is #!/path/to/python
+                        let is_polyglot = first_line.contains("/bin/sh") && second_line.contains("exec");
+                        
+                        if is_polyglot && new_lines.len() >= 2 {
+                            // Polyglot format: fix the exec line (line 2)
+                            // Format: '''exec' '/path/to/python' "$0" "$@"
+                            println!("🔧 Detected polyglot format, fixing exec line...");
+                            new_lines[1] = format!("'''exec' '{}' \"$0\" \"$@\"", python_path_str);
+                        } else if !new_lines.is_empty() {
+                            // Direct Python shebang: fix the first line
+                            println!("🔧 Detected direct Python shebang, fixing first line...");
                             new_lines[0] = format!("#!{}", python_path_str);
-                            let new_content = new_lines.join("\n");
-                            
-                            if let Err(e) = fs::write(&mjpython_path, new_content) {
-                                eprintln!("⚠️  Failed to fix mjpython shebang: {}", e);
-                            } else {
-                                println!("✅ Fixed mjpython shebang to point to {}", python_path_str);
-                            }
+                        }
+                        
+                        let new_content = new_lines.join("\n");
+                        
+                        if let Err(e) = fs::write(&mjpython_path, new_content) {
+                            eprintln!("⚠️  Failed to fix mjpython: {}", e);
+                        } else {
+                            println!("✅ Fixed mjpython to use {}", python_path_str);
                         }
                     } else {
-                        println!("ℹ️  Shebang doesn't need fixing");
+                        println!("ℹ️  mjpython doesn't need fixing");
                     }
                 } else {
                     println!("⚠️  Failed to read mjpython");
