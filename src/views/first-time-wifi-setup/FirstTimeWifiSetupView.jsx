@@ -308,8 +308,8 @@ export default function FirstTimeWifiSetupView() {
         </Typography>
 
         {/* Stepper */}
-        <Box sx={{ width: '100%', maxWidth: 500, mb: 2, mt: 1 }}>
-          <Stepper activeStep={activeStep} alternativeLabel>
+        <Box sx={{ width: '100%', maxWidth: 500, mb: 2, mt: 1, mx: 'auto', display: 'flex', justifyContent: 'center' }}>
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ width: '100%' }}>
             {steps.map((label, index) => (
               <Step key={label} completed={activeStep > index}>
                 <StepLabel
