@@ -27,17 +27,35 @@ export const STARTUP_STAGES = {
   // ============================================
   // SIMULATION MODE STAGES (50-70%)
   // ============================================
+  INSTALLING_MUJOCO: {
+    id: 'installing_mujoco',
+    label: 'Installing MuJoCo',
+    description: 'Setting up physics simulation',
+    progressMin: 50,
+    progressMax: 60,
+    isSimOnly: true,
+    // Patterns to detect this stage from sidecar logs
+    logPatterns: [
+      'Installing MuJoCo',
+      'mujoco',
+      'pip install',
+      'Downloading',
+      'Collecting',
+    ],
+  },
+  
   STARTING_SIMULATION: {
     id: 'starting_simulation',
     label: 'Starting Simulation',
-    description: 'Launching mockup-sim backend',
-    progressMin: 50,
+    description: 'Launching MuJoCo physics engine',
+    progressMin: 60,
     progressMax: 70,
     isSimOnly: true,
     logPatterns: [
+      'mjpython',
       'simulation mode',
-      'mockup-sim',
-      '--mockup-sim',
+      'MuJoCo',
+      '--sim',
     ],
   },
   
@@ -125,6 +143,7 @@ export function getStagesForMode(isSimMode) {
   
   if (isSimMode) {
     stages.push(
+      STARTUP_STAGES.INSTALLING_MUJOCO,
       STARTUP_STAGES.STARTING_SIMULATION,
     );
   }
@@ -209,10 +228,17 @@ export function getStageDisplayText(stage, options = {}) {
         boldText: options.currentPart || 'scan',
       };
       
+    case 'installing_mujoco':
+      return {
+        title: stage.label,
+        subtitle: 'Setting up physics simulation...',
+        boldText: 'MuJoCo',
+      };
+      
     case 'starting_simulation':
       return {
         title: stage.label,
-        subtitle: 'Starting simulation mode...',
+        subtitle: 'Launching physics engine...',
         boldText: 'simulation',
       };
       

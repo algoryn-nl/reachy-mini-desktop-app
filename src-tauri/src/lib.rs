@@ -35,9 +35,10 @@ fn install_mujoco(_app_handle: tauri::AppHandle) -> Result<String, String> {
 fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>, sim_mode: Option<bool>) -> Result<String, String> {
     let sim_mode = sim_mode.unwrap_or(false);
     
-    // 🎭 Simulation mode: mockup-sim backend (no MuJoCo needed)
+    // 🎭 Simulation mode: MuJoCo is pre-bundled at build-time
+    // No installation needed - all binaries are already signed (fixes Issue #16)
     if sim_mode {
-        add_log(&state, "🎭 Starting simulation mode (mockup-sim)...".to_string());
+        add_log(&state, "🎭 Starting simulation mode (MuJoCo pre-bundled)...".to_string());
     }
     
     // 1. ⚡ Aggressive cleanup of all existing daemons (including zombies)
@@ -54,7 +55,7 @@ fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>, sim_mod
     
     // 3. Log success
     let success_msg = if sim_mode {
-        "✓ Daemon started in simulation mode (mockup-sim) via embedded sidecar"
+        "✓ Daemon started in simulation mode (MuJoCo) via embedded sidecar"
     } else {
         "✓ Daemon started via embedded sidecar"
     };
