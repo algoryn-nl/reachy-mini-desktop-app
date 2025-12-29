@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Typography, Button, CircularProgress } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import UsbOutlinedIcon from '@mui/icons-material/UsbOutlined';
+import PulseButton from '@components/PulseButton';
 import WifiOutlinedIcon from '@mui/icons-material/WifiOutlined';
 import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
@@ -55,8 +56,8 @@ function ConnectionCard({
         opacity: isAvailable ? 1 : 0.5,
         transition: 'all 0.2s ease',
         flex: 1,
-        minWidth: 85,
-        minHeight: 88,
+        minWidth: 110,
+        minHeight: 110,
         '&:hover': isClickable && !selected ? {
           borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
           bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
@@ -402,9 +403,10 @@ export default function FindingRobotView() {
         <Box
           sx={{
             display: 'flex',
+            justifyContent: 'center',
             gap: 1.5,
             width: '100%',
-            maxWidth: 320,
+            maxWidth: 380,
             mb: 2.5,
           }}
         >
@@ -446,8 +448,7 @@ export default function FindingRobotView() {
         </Box>
 
         {/* Start Button - Primary Outlined */}
-        <Button
-          variant="outlined"
+        <PulseButton
           onClick={handleStart}
           disabled={!canStart || isBusy}
           endIcon={isBusy ? (
@@ -455,46 +456,11 @@ export default function FindingRobotView() {
           ) : (
             <PlayArrowOutlinedIcon sx={{ fontSize: 22 }} />
           )}
-              sx={{
-            minWidth: 140,
-            minHeight: 44,
-            borderRadius: '12px',
-            fontSize: 14,
-            fontWeight: 600,
-            textTransform: 'none',
-            borderWidth: 1,
-            borderColor: canStart ? '#FF9500' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-            color: canStart ? '#FF9500' : (darkMode ? '#666' : '#999'),
-            // Pulse animation when ready
-            animation: (canStart && !isBusy) ? 'startPulse 3s ease-in-out infinite' : 'none',
-            '@keyframes startPulse': {
-              '0%, 100%': {
-                boxShadow: darkMode
-                  ? '0 0 0 0 rgba(255, 149, 0, 0.4)'
-                  : '0 0 0 0 rgba(255, 149, 0, 0.3)',
-              },
-              '50%': {
-                boxShadow: darkMode
-                  ? '0 0 0 8px rgba(255, 149, 0, 0)'
-                  : '0 0 0 8px rgba(255, 149, 0, 0)',
-              },
-            },
-                '&:hover': {
-              borderWidth: 1,
-              bgcolor: canStart ? 'rgba(255, 149, 0, 0.1)' : 'transparent',
-              borderColor: canStart ? '#FF9500' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-              animation: 'none', // Stop pulse on hover
-            },
-            '&:disabled': {
-              borderWidth: 1,
-              borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              color: darkMode ? '#555' : '#bbb',
-              animation: 'none',
-                },
-              }}
+          darkMode={darkMode}
+          sx={{ minWidth: 140, minHeight: 44 }}
             >
           {isBusy ? (isDisconnecting ? 'Stopping...' : 'Connecting...') : 'Start'}
-        </Button>
+        </PulseButton>
 
         {/* First time WiFi setup link */}
         <Box
