@@ -38,6 +38,7 @@ export function WebRTCStreamProvider({ children }) {
   // Stream state
   const [state, setState] = useState(StreamState.DISCONNECTED);
   const [stream, setStream] = useState(null);
+  const [audioTrack, setAudioTrack] = useState(null);
   const [error, setError] = useState(null);
 
   // Check if wireless version
@@ -120,6 +121,7 @@ export function WebRTCStreamProvider({ children }) {
     }
 
     setStream(null);
+    setAudioTrack(null);
   }, []);
 
   /**
@@ -241,8 +243,19 @@ export function WebRTCStreamProvider({ children }) {
             console.log('[WebRTCContext] Streams changed:', streams?.length || 0);
 
             if (streams && streams.length > 0) {
-              setStream(streams[0]);
+              const mediaStream = streams[0];
+              setStream(mediaStream);
               setState(StreamState.CONNECTED);
+              
+              // Extract audio track from stream (robot microphone)
+              const audioTracks = mediaStream.getAudioTracks();
+              if (audioTracks.length > 0) {
+                console.log('[WebRTCContext] Audio track found:', audioTracks[0].label);
+                setAudioTrack(audioTracks[0]);
+              } else {
+                console.log('[WebRTCContext] No audio tracks in stream');
+                setAudioTrack(null);
+              }
             }
           });
 
@@ -300,6 +313,7 @@ export function WebRTCStreamProvider({ children }) {
     // State
     state,
     stream,
+    audioTrack, // Robot microphone audio track
     error,
     isConnected: state === StreamState.CONNECTED,
     isConnecting: state === StreamState.CONNECTING,

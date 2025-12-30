@@ -6,6 +6,8 @@ import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AudioLevelBars from './AudioLevelBars';
+import { useWebRTCStreamContext } from '../../../contexts/WebRTCStreamContext';
+import useAudioAnalyser from '../../../hooks/media/useAudioAnalyser';
 
 /**
  * Audio Controls Component - Speaker and Microphone controls
@@ -26,6 +28,11 @@ function AudioControls({
   darkMode,
   disabled = false,
 }) {
+  // Get robot's microphone audio track from WebRTC stream
+  const { audioTrack, isConnected } = useWebRTCStreamContext();
+  
+  // Analyze audio levels from robot's microphone
+  const { level: robotMicLevel, isActive: isAnalysing } = useAudioAnalyser(audioTrack);
   // Shared styles
   const cardStyle = {
     height: 64,
@@ -134,16 +141,17 @@ function AudioControls({
           </Box>
         </Box>
 
-        {/* Visualizer - responsive width */}
-        {/* Temporarily disabled - no example curve for now
+        {/* Visualizer - shows real audio levels from robot's microphone */}
+        {label === 'Microphone' && isConnected && (
         <Box sx={{ width: '100%', height: '28px', flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box' }}>
           <AudioLevelBars 
-            isActive={isActive} 
+              isActive={isActive && isAnalysing} 
             color={darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)'} 
             barCount={8} 
+              externalLevel={robotMicLevel}
           />
         </Box>
-        */}
+        )}
       </Box>
     </Box>
   );
