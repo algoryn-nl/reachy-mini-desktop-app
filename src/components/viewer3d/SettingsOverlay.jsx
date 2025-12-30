@@ -2,70 +2,29 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
-  Switch, 
-  TextField, 
-  IconButton, 
   Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   CircularProgress,
-  Checkbox,
-  FormControlLabel,
-  Chip,
   Snackbar,
 } from '@mui/material';
-import WifiIcon from '@mui/icons-material/Wifi';
-import SignalWifi4BarIcon from '@mui/icons-material/SignalWifi4Bar';
-import WifiTetheringIcon from '@mui/icons-material/WifiTethering';
-import SignalWifiOffIcon from '@mui/icons-material/SignalWifiOff';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import NewReleasesOutlinedIcon from '@mui/icons-material/NewReleasesOutlined';
-import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
-import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import CloseIcon from '@mui/icons-material/Close';
 import FullscreenOverlay from '../FullscreenOverlay';
+import PulseButton from '../PulseButton';
 import useAppStore from '../../store/useAppStore';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
 import reachyUpdateBoxSvg from '../../assets/reachy-update-box.svg';
 import { invoke } from '@tauri-apps/api/core';
 import { logSuccess } from '../../utils/logging';
 
-/**
- * Section Header Component
- */
-function SectionHeader({ title, icon: Icon, darkMode, action }) {
-  const textColor = darkMode ? '#888' : '#666';
-  
-  return (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'space-between',
-      mb: 2,
-      pb: 1.5,
-      borderBottom: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {Icon && <Icon sx={{ fontSize: 18, color: textColor }} />}
-        <Typography sx={{ 
-          fontSize: 14, 
-          fontWeight: 700, 
-          color: darkMode ? '#f5f5f5' : '#333',
-          letterSpacing: '-0.2px',
-        }}>
-          {title}
-        </Typography>
-      </Box>
-      {action}
-    </Box>
-  );
-}
+// Sub-components
+import { 
+  SettingsUpdateCard, 
+  SettingsWifiCard, 
+  SettingsAppearanceCard,
+  SettingsCacheCard,
+  ChangeWifiOverlay,
+} from './settings';
+import { useWakeSleep } from '../../views/active-robot/hooks';
 
 /**
  * Settings Overlay for 3D Viewer Configuration
@@ -75,12 +34,14 @@ export default function SettingsOverlay({
   onClose, 
   darkMode,
 }) {
-  const { connectionMode, remoteHost } = useAppStore();
+  const { connectionMode, remoteHost, robotStatus } = useAppStore();
   const isWifiMode = connectionMode === 'wifi';
+  
+  // Wake/Sleep controls - used to put robot to sleep before update
+  const { goToSleep, isSleeping } = useWakeSleep();
   
   // Text colors
   const textPrimary = darkMode ? '#f5f5f5' : '#333';
-  const textSecondary = darkMode ? '#888' : '#666';
   const textMuted = darkMode ? '#666' : '#999';
   
   // ═══════════════════════════════════════════════════════════════════
@@ -127,7 +88,7 @@ export default function SettingsOverlay({
   // CONFIRMATION DIALOGS
   // ═══════════════════════════════════════════════════════════════════
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
-  const [showWifiConfirm, setShowWifiConfirm] = useState(false);
+  const [showChangeWifiOverlay, setShowChangeWifiOverlay] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════════
   // TOAST NOTIFICATIONS
@@ -221,6 +182,18 @@ export default function SettingsOverlay({
     setIsUpdating(true);
     
     try {
+      // 🛡️ Put robot to sleep before update if not already sleeping
+      // This ensures motors are disabled and robot is in safe position
+      if (!isSleeping) {
+        console.log('🔄 Putting robot to sleep before update...');
+        const sleepSuccess = await goToSleep();
+        if (!sleepSuccess) {
+          console.warn('⚠️ Failed to put robot to sleep, continuing with update anyway');
+        } else {
+          console.log('✅ Robot is now sleeping, proceeding with update');
+        }
+      }
+      
       if (isWifiMode) {
         // WiFi mode: Use daemon API
       const response = await fetchWithTimeout(
@@ -239,7 +212,7 @@ export default function SettingsOverlay({
         
         // Give user time to see the action, then disconnect
         setTimeout(() => {
-          useAppStore.getState().resetAll(); // ✅ Use resetAll to also clear apps
+            useAppStore.getState().resetAll();
         }, 1000);
       } else {
         const error = await response.json();
@@ -272,7 +245,7 @@ export default function SettingsOverlay({
       setWifiError(`Update failed: ${err}`);
       setIsUpdating(false);
     }
-  }, [isWifiMode, preRelease, onClose, showToast]);
+  }, [isWifiMode, preRelease, onClose, showToast, isSleeping, goToSleep]);
 
   // ═══════════════════════════════════════════════════════════════════
   // WIFI FUNCTIONS
@@ -319,15 +292,9 @@ export default function SettingsOverlay({
     }
   }, [isWifiMode]);
 
-  // Open WiFi confirmation dialog
-  const handleWifiConnectClick = useCallback(() => {
+  // Connect to WiFi (called from Change Network overlay)
+  const handleWifiConnect = useCallback(async () => {
     if (!selectedSSID || !wifiPassword) return;
-    setShowWifiConfirm(true);
-  }, [selectedSSID, wifiPassword]);
-
-  // Actually connect to WiFi after confirmation
-  const confirmWifiConnect = useCallback(async () => {
-    setShowWifiConfirm(false);
     setIsConnecting(true);
     setWifiError(null);
     
@@ -340,6 +307,8 @@ export default function SettingsOverlay({
       );
       
       if (response.ok) {
+        // Close overlay and reset form
+        setShowChangeWifiOverlay(false);
         setWifiPassword('');
         setSelectedSSID('');
         // Refresh status after network change
@@ -391,6 +360,8 @@ export default function SettingsOverlay({
   // STYLES
   // ═══════════════════════════════════════════════════════════════════
 
+  const textSecondary = darkMode ? '#888' : '#666';
+
   const inputStyles = {
     '& .MuiOutlinedInput-root': {
       bgcolor: darkMode ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.02)',
@@ -437,26 +408,6 @@ export default function SettingsOverlay({
     },
   };
 
-  // Get WiFi status display
-  const getWifiStatusText = () => {
-    if (!wifiStatus) return { icon: WifiIcon, text: 'Loading...' };
-    
-    switch (wifiStatus.mode) {
-      case 'hotspot':
-        return { icon: WifiTetheringIcon, text: 'Hotspot mode' };
-      case 'wlan':
-        return { icon: SignalWifi4BarIcon, text: wifiStatus.connected_network, subtitle: 'Connected' };
-      case 'disconnected':
-        return { icon: SignalWifiOffIcon, text: 'Disconnected' };
-      case 'busy':
-        return { icon: WifiIcon, text: 'Configuring...' };
-      default:
-        return { icon: WifiIcon, text: 'Unknown' };
-    }
-  };
-
-  const wifiConfig = getWifiStatusText();
-
   // Card style
   const cardStyle = {
     p: 2.5,
@@ -475,6 +426,7 @@ export default function SettingsOverlay({
       centeredX={true}
       debugName="Settings"
       centeredY={true}
+      showCloseButton={true}
     >
       <Box
         sx={{
@@ -494,16 +446,13 @@ export default function SettingsOverlay({
           },
         }}
       >
-        {/* ═══════════════════════════════════════════════════════════════════
-            HEADER
-        ═══════════════════════════════════════════════════════════════════ */}
+        {/* HEADER */}
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
-          justifyContent: 'space-between',
+          gap: 1.5,
           pb: 1,
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Typography sx={{ 
               fontSize: 20, 
               fontWeight: 700, 
@@ -536,611 +485,51 @@ export default function SettingsOverlay({
                 {remoteHost}
               </Typography>
             )}
-          </Box>
-        <IconButton
-          onClick={onClose}
-          sx={{
-            color: '#FF9500',
-            bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
-            border: '1px solid #FF9500',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              bgcolor: darkMode ? 'rgba(255, 255, 255, 0.12)' : '#ffffff',
-            },
-          }}
-        >
-          <CloseIcon sx={{ fontSize: 20 }} />
-        </IconButton>
         </Box>
 
-        {/* ═══════════════════════════════════════════════════════════════════
-            WIFI MODE: Two columns
-        ═══════════════════════════════════════════════════════════════════ */}
-        {isWifiMode ? (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            {/* LEFT COLUMN */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              
-              {/* UPDATE CARD */}
-              <Box sx={cardStyle}>
-                <SectionHeader 
-                  title="System Update" 
-                  icon={SystemUpdateAltIcon} 
+        {/* CONTENT - Grid Layout */}
+        <Box sx={{ 
+          display: 'grid',
+          gridTemplateColumns: isWifiMode ? 'repeat(2, 1fr)' : '1fr',
+          gap: 2,
+        }}>
+          {/* Row 1: Update + WiFi (or Update alone) */}
+              <SettingsUpdateCard
                   darkMode={darkMode}
-                  action={
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={preRelease}
-                          onChange={(e) => setPreRelease(e.target.checked)}
-                          size="small"
-                          color="primary"
-          sx={{
-                            color: darkMode ? '#555' : '#ccc',
-                            p: 0.5,
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography sx={{ fontSize: 10, color: textMuted }}>
-                          beta
-        </Typography>
-                      }
-                      sx={{ m: 0 }}
-                    />
-                  }
-                />
-
-                {/* Update Status */}
-                {isCheckingUpdate ? (
-                  <Box sx={{ 
-            display: 'flex',
-            flexDirection: 'column',
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-            gap: 1.5,
-                    height: 159,
-                  }}>
-                    <CircularProgress size={24} color="primary" />
-                    <Typography sx={{ fontSize: 12, color: textSecondary }}>
-                      Checking for updates...
-                    </Typography>
-                  </Box>
-                ) : updateInfo ? (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: 2,
-                    minHeight: 159, // Same as spinner state to avoid flicker
-                  }}>
-                    {/* Status badge with refresh */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        {updateInfo.is_available ? (
-                          <NewReleasesOutlinedIcon sx={{ fontSize: 20, color: textSecondary }} />
-                        ) : (
-                          <CheckCircleOutlineIcon sx={{ fontSize: 20, color: textSecondary }} />
-                        )}
-                        <Typography sx={{ 
-                          fontSize: 13, 
-                          fontWeight: 600,
-                          color: textPrimary,
-                        }}>
-                          {updateInfo.is_available ? 'Update available' : 'Up to date'}
-                        </Typography>
-                      </Box>
-                      <IconButton
-                        onClick={checkForUpdate}
-                        size="small"
-                        disabled={isCheckingUpdate}
-                        sx={{ 
-                          color: textMuted,
-                          p: 0.5,
-                          '&:hover': { color: textSecondary },
-                        }}
-                      >
-                        <RefreshIcon sx={{ 
-                          fontSize: 16,
-                          animation: isCheckingUpdate ? 'spin 1s linear infinite' : 'none',
-                          '@keyframes spin': {
-                            '0%': { transform: 'rotate(0deg)' },
-                            '100%': { transform: 'rotate(360deg)' },
-                          },
-                        }} />
-                      </IconButton>
-                    </Box>
-                    
-                    {/* Version info */}
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      gap: 2,
-                      p: 1.5,
-                      borderRadius: '10px',
-                      bgcolor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)',
-                    }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 9, color: textMuted, mb: 0.25, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Current
-                        </Typography>
-                        <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: textSecondary }}>
-                          {updateInfo.current_version}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ width: '1px', height: 28, bgcolor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 9, color: textMuted, mb: 0.25, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Available
-                        </Typography>
-                        <Typography sx={{ 
-                          fontSize: 12, 
-                          fontFamily: 'monospace', 
-                          color: textSecondary,
-                          fontWeight: updateInfo.is_available ? 600 : 400,
-                        }}>
-                          {updateInfo.available_version}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    
-                    {/* Update button */}
-                    {updateInfo.is_available && (
-                      <Button
-                        variant="outlined"
-                        onClick={handleUpdateClick}
-                        disabled={isUpdating}
-                        fullWidth
-              sx={{
-                          ...buttonStyle, 
-                fontSize: 14,
-                fontWeight: 600,
-                          py: 1.25,
-                          borderRadius: '10px',
-                        }}
-                      >
-                        {isUpdating ? <CircularProgress size={20} color="primary" /> : 'Update Now'}
-                      </Button>
-                    )}
-                  </Box>
-                ) : (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    height: 159,
-                  }}>
-                    <Button
-                      variant="outlined"
-                      onClick={checkForUpdate}
-                      sx={{ ...buttonStyle, fontSize: 12 }}
-                    >
-                      Check for updates
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-
-              {/* APP SETTINGS CARD */}
-              <Box sx={cardStyle}>
-                <SectionHeader title="Appearance" icon={null} darkMode={darkMode} />
-                
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    p: 1.5,
-                    borderRadius: '12px',
-                    bgcolor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s',
-                    '&:hover': {
-                      bgcolor: darkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
-                    },
-                  }}
-                  onClick={() => useAppStore.getState().toggleDarkMode()}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    {darkMode ? (
-                      <DarkModeOutlinedIcon sx={{ fontSize: 18, color: textSecondary }} />
-                    ) : (
-                      <LightModeOutlinedIcon sx={{ fontSize: 18, color: textSecondary }} />
-                    )}
-                    <Typography sx={{ fontSize: 13, fontWeight: 500, color: textPrimary }}>
-                      {darkMode ? 'Dark Mode' : 'Light Mode'}
-            </Typography>
-                  </Box>
-                  <Switch
-                    checked={darkMode}
-                    size="small"
-                    color="primary"
-                  />
-                </Box>
-              </Box>
-          </Box>
-          
-            {/* RIGHT COLUMN: WiFi */}
-            <Box sx={{ flex: 1 }}>
-              <Box sx={{ ...cardStyle, height: '100%' }}>
-                <SectionHeader 
-                  title="WiFi Network" 
-                  icon={WifiIcon} 
-                  darkMode={darkMode}
-                  action={
-                    <IconButton
-                      onClick={fetchWifiStatus}
-            size="small"
-                      disabled={isLoadingWifi}
-                      color="primary"
-            sx={{
-                        p: 0.5,
-                        '&:disabled': {
-                          color: darkMode ? '#555' : '#bbb',
-                        },
-                      }}
-                    >
-                      <RefreshIcon sx={{ 
-                        fontSize: 16,
-                        animation: isLoadingWifi ? 'spin 1s linear infinite' : 'none',
-                        '@keyframes spin': {
-                          '0%': { transform: 'rotate(0deg)' },
-                          '100%': { transform: 'rotate(360deg)' },
-                        },
-                      }} />
-                    </IconButton>
-                  }
-                />
-
-                {isLoadingWifi && !wifiStatus ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 2 }}>
-                    <CircularProgress size={16} color="primary" />
-                    <Typography sx={{ fontSize: 12, color: textSecondary }}>
-                      Scanning networks...
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {/* Current Status */}
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 1.5,
-                      p: 1.5,
-                      borderRadius: '10px',
-                      bgcolor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)',
-                    }}>
-                      <wifiConfig.icon sx={{ fontSize: 20, color: textSecondary }} />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: textPrimary }}>
-                          {wifiConfig.text}
-                        </Typography>
-                        {wifiConfig.subtitle && (
-                          <Typography sx={{ fontSize: 10, color: textMuted }}>
-                            {wifiConfig.subtitle}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-
-                    {/* Known Networks */}
-                    {wifiStatus?.known_networks?.length > 0 && (
-                      <Box>
-                        <Typography sx={{ fontSize: 10, color: textMuted, mb: 1, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          Saved Networks
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                          {wifiStatus.known_networks.map((network, i) => {
-                            const isConnected = network === wifiStatus.connected_network;
-                            return (
-                              <Chip
-                                key={i}
-                                label={network}
-                                size="small"
-                                sx={{
-                                  fontSize: 10,
-                                  height: 24,
-                                  bgcolor: isConnected 
-                                    ? (darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)')
-                                    : (darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
-                                  color: isConnected ? textPrimary : textSecondary,
-                                  fontWeight: isConnected ? 600 : 400,
-                                }}
-                              />
-                            );
-                          })}
-                        </Box>
-                      </Box>
-                    )}
-
-                    {/* Add Network Form */}
-                    <Box sx={{ 
-                      pt: 2, 
-                      mt: 1,
-                      borderTop: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
-                    }}>
-                      <Typography sx={{ 
-                        fontSize: 12, 
-                        fontWeight: 600, 
-                        color: textPrimary, 
-                        mb: 1.5 
-                      }}>
-                        Connect to Network
-                      </Typography>
-                      
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        <FormControl size="small" fullWidth sx={inputStyles}>
-                          <InputLabel>Network</InputLabel>
-                          <Select
-                            value={selectedSSID}
-                            onChange={(e) => setSelectedSSID(e.target.value)}
-                            label="Network"
-                            MenuProps={{
-                              sx: { zIndex: 10002 },
-                              PaperProps: {
-                                sx: {
-                                  maxHeight: 200,
-                                  bgcolor: darkMode ? '#1e1e1e' : '#fff',
-                                }
-                              }
-                            }}
-                          >
-                            <MenuItem value="" disabled>
-                              <em>{availableNetworks.length === 0 ? 'Scanning...' : 'Select network'}</em>
-                            </MenuItem>
-                            {availableNetworks.map((network, i) => (
-                              <MenuItem key={i} value={network} sx={{ fontSize: 13 }}>
-                                {network}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-          
-          <TextField
-            label="Password"
-            type="password"
-            value={wifiPassword}
-            onChange={(e) => setWifiPassword(e.target.value)}
-            size="small"
-                          fullWidth
-                          sx={inputStyles}
-                        />
-                        
-                        {wifiError && (
-                          <Typography sx={{ fontSize: 11, color: textSecondary }}>
-                            ⚠️ {wifiError}
-                          </Typography>
-                        )}
-                        
-                        <Button
-                          variant="outlined"
-                          onClick={handleWifiConnectClick}
-                          disabled={!selectedSSID || !wifiPassword || isConnecting}
-            fullWidth
-            sx={{
-                            ...buttonStyle,
-                            fontWeight: 600,
-                            fontSize: 13,
-                            py: 1,
-                            borderRadius: '10px',
-                          }}
-                        >
-                          {isConnecting ? (
-                            <CircularProgress size={18} color="primary" />
-                          ) : (
-                            'Connect'
-                          )}
-                        </Button>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            </Box>
-        </Box>
-        ) : (
-          /* ═══════════════════════════════════════════════════════════════════
-              USB/SIMULATION MODE: Single column with Update
-          ═══════════════════════════════════════════════════════════════════ */
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            
-            {/* UPDATE CARD */}
-            <Box sx={cardStyle}>
-              <SectionHeader 
-                title="Daemon Update" 
-                icon={SystemUpdateAltIcon} 
-                darkMode={darkMode}
-                action={
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={preRelease}
-                        onChange={(e) => setPreRelease(e.target.checked)}
-                        size="small"
-                        color="primary"
-                        sx={{
-                          color: darkMode ? '#555' : '#ccc',
-                          p: 0.5,
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography sx={{ fontSize: 10, color: textMuted }}>
-                        beta
-                      </Typography>
-                    }
-                    sx={{ m: 0 }}
-                  />
-                }
+            title={isWifiMode ? "System Update" : "Daemon Update"}
+                updateInfo={updateInfo}
+                isCheckingUpdate={isCheckingUpdate}
+                isUpdating={isUpdating}
+                preRelease={preRelease}
+                onPreReleaseChange={setPreRelease}
+                onCheckUpdate={checkForUpdate}
+                onUpdateClick={handleUpdateClick}
+                cardStyle={cardStyle}
+                buttonStyle={buttonStyle}
               />
-
-              {/* Update Status */}
-              {isCheckingUpdate ? (
-                <Box sx={{ 
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  gap: 1.5,
-                  height: 159,
-                }}>
-                  <CircularProgress size={24} color="primary" />
-                  <Typography sx={{ fontSize: 12, color: textSecondary }}>
-                    Checking for updates...
-                  </Typography>
-                </Box>
-              ) : updateInfo ? (
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: 2,
-                  minHeight: 159, // Same as spinner state to avoid flicker
-                }}>
-                  {/* Status badge with refresh */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      {updateInfo.is_available ? (
-                        <NewReleasesOutlinedIcon sx={{ fontSize: 20, color: textSecondary }} />
-                      ) : (
-                        <CheckCircleOutlineIcon sx={{ fontSize: 20, color: textSecondary }} />
-                      )}
-                      <Typography sx={{ 
-                        fontSize: 13, 
-                        fontWeight: 600,
-                        color: textPrimary,
-                      }}>
-                        {updateInfo.is_available ? 'Update available' : 'Up to date'}
-                      </Typography>
-                    </Box>
-                    <IconButton
-                      onClick={checkForUpdate}
-                      size="small"
-                      disabled={isCheckingUpdate}
-                      sx={{ 
-                        color: textMuted,
-                        p: 0.5,
-                        '&:hover': { color: textSecondary },
-                      }}
-                    >
-                      <RefreshIcon sx={{ 
-                        fontSize: 16,
-                        animation: isCheckingUpdate ? 'spin 1s linear infinite' : 'none',
-                        '@keyframes spin': {
-                          '0%': { transform: 'rotate(0deg)' },
-                          '100%': { transform: 'rotate(360deg)' },
-                        },
-                      }} />
-                    </IconButton>
-                  </Box>
-                  
-                  {/* Version info */}
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: 2,
-                    p: 1.5,
-                    borderRadius: '10px',
-                    bgcolor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)',
-                  }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 9, color: textMuted, mb: 0.25, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Current
-                      </Typography>
-                      <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: textSecondary }}>
-                        {updateInfo.current_version}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ width: '1px', height: 28, bgcolor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', flexShrink: 0 }} />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: 9, color: textMuted, mb: 0.25, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Available
-                      </Typography>
-                      <Typography sx={{ 
-                        fontSize: 12, 
-                        fontFamily: 'monospace', 
-                        color: textSecondary,
-                        fontWeight: updateInfo.is_available ? 600 : 400,
-                      }}>
-                        {updateInfo.available_version}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  {/* Update button */}
-                  {updateInfo.is_available && (
-                    <Button
-                      variant="outlined"
-                      onClick={handleUpdateClick}
-                      disabled={isUpdating}
-                      fullWidth
-                      sx={{
-                        ...buttonStyle, 
-                        fontSize: 14,
-                        fontWeight: 600,
-                        py: 1.25,
-                        borderRadius: '10px',
-                      }}
-                    >
-                      {isUpdating ? <CircularProgress size={20} color="primary" /> : 'Update Now'}
-                    </Button>
-                  )}
-                </Box>
-              ) : (
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  height: 159,
-                }}>
-                  <Button
-                    variant="outlined"
-                    onClick={checkForUpdate}
-                    sx={{ ...buttonStyle, fontSize: 12 }}
-                  >
-                    Check for updates
-                  </Button>
-                </Box>
-              )}
-            </Box>
-
-            {/* APPEARANCE CARD */}
-          <Box sx={cardStyle}>
-            <SectionHeader title="Appearance" icon={null} darkMode={darkMode} />
-            
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-                p: 1.5,
-            borderRadius: '12px',
-                bgcolor: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-                '&:hover': {
-                  bgcolor: darkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.04)',
-                },
-              }}
-              onClick={() => useAppStore.getState().toggleDarkMode()}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {darkMode ? (
-                  <DarkModeOutlinedIcon sx={{ fontSize: 20, color: textSecondary }} />
-            ) : (
-                  <LightModeOutlinedIcon sx={{ fontSize: 20, color: textSecondary }} />
-            )}
-                <Typography sx={{ fontSize: 14, fontWeight: 500, color: textPrimary }}>
-                  {darkMode ? 'Dark Mode' : 'Light Mode'}
-              </Typography>
-          </Box>
-          <Switch
-            checked={darkMode}
-                color="primary"
-          />
+          
+          {isWifiMode && (
+              <SettingsWifiCard
+                  darkMode={darkMode}
+                wifiStatus={wifiStatus}
+                isLoadingWifi={isLoadingWifi}
+                onRefresh={fetchWifiStatus}
+              onChangeNetwork={() => setShowChangeWifiOverlay(true)}
+                cardStyle={cardStyle}
+            />
+          )}
+          
+          {/* Row 2: Appearance + Cache (WiFi) or just Appearance (Lite) */}
+          <SettingsAppearanceCard darkMode={darkMode} cardStyle={cardStyle} />
+          
+          {isWifiMode && (
+            <SettingsCacheCard 
+              darkMode={darkMode}
+              cardStyle={cardStyle}
+              buttonStyle={buttonStyle}
+            />
+                    )}
         </Box>
-        </Box>
-          </Box>
-        )}
       </Box>
       
       {/* Update Confirmation Overlay */}
@@ -1221,36 +610,24 @@ export default function SettingsOverlay({
                 borderRadius: '12px',
                 bgcolor: darkMode ? 'rgba(255, 152, 0, 0.15)' : 'rgba(255, 152, 0, 0.1)',
                 border: `1px solid ${darkMode ? 'rgba(255, 152, 0, 0.3)' : 'rgba(255, 152, 0, 0.2)'}`,
+                textAlign: 'center',
               }}
             >
-              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-                <Box sx={{ 
-                  fontSize: 20,
-                  flexShrink: 0,
-                  mt: 0.25,
-                }}>
-                  ⚠️
-                </Box>
-                <Box>
-                  <Typography sx={{ 
-                    fontSize: 13, 
-                    fontWeight: 600, 
-                    color: darkMode ? '#FFB74D' : '#F57C00',
-                    mb: 0.5,
-                  }}>
-                    Important
-                  </Typography>
-                  <Typography sx={{ 
-                    fontSize: 12, 
-                    color: darkMode ? '#FFB74D' : '#F57C00',
-                    lineHeight: 1.5,
-                  }}>
-                    Make sure your robot is <strong>plugged into a power outlet</strong> during the update.
-                    <br />
-                    Losing power during update can brick your robot.
-                  </Typography>
-                </Box>
-              </Box>
+              <Typography sx={{ 
+                fontSize: 13, 
+                fontWeight: 600, 
+                color: darkMode ? '#FFB74D' : '#F57C00',
+                mb: 0.5,
+              }}>
+                Important
+              </Typography>
+              <Typography sx={{ 
+                fontSize: 12, 
+                color: darkMode ? '#FFB74D' : '#F57C00',
+                lineHeight: 1.5,
+              }}>
+                Make sure your robot is <strong>plugged into a power outlet</strong> during the update. Losing power during update can brick your robot.
+              </Typography>
             </Box>
           )}
           
@@ -1272,176 +649,38 @@ export default function SettingsOverlay({
             >
               Cancel
             </Button>
-            <Button 
+            <PulseButton
               onClick={confirmUpdate}
-              variant="outlined"
-              color="primary"
-              sx={{ 
-                minWidth: 160,
-                px: 3,
-                py: 1.25,
-                borderRadius: '10px',
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: 14,
-                position: 'relative',
-                overflow: 'visible',
-                // Pulse animation
-                animation: 'updatePulse 3s ease-in-out infinite',
-                '@keyframes updatePulse': {
-                  '0%, 100%': {
-                    boxShadow: (theme) => darkMode
-                      ? `0 0 0 0 ${theme.palette.primary.main}66`
-                      : `0 0 0 0 ${theme.palette.primary.main}4D`,
-                  },
-                  '50%': {
-                    boxShadow: (theme) => darkMode
-                      ? `0 0 0 8px ${theme.palette.primary.main}00`
-                      : `0 0 0 8px ${theme.palette.primary.main}00`,
-                  },
-                },
-                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: (theme) => darkMode
-                    ? `0 6px 16px ${theme.palette.primary.main}33`
-                    : `0 6px 16px ${theme.palette.primary.main}26`,
-                  animation: 'none',
-                },
-                '&:active': {
-                  transform: 'translateY(0)',
-                },
-              }}
+              darkMode={darkMode}
+              sx={{ minWidth: 160 }}
             >
               Update now
-            </Button>
+            </PulseButton>
           </Box>
         </Box>
       </FullscreenOverlay>
       
-      {/* WiFi Confirmation Overlay */}
-      <FullscreenOverlay
-        open={showWifiConfirm}
-        onClose={() => setShowWifiConfirm(false)}
+      {/* Change WiFi Network Overlay */}
+      <ChangeWifiOverlay
+        open={showChangeWifiOverlay}
+        onClose={() => {
+          setShowChangeWifiOverlay(false);
+          setSelectedSSID('');
+          setWifiPassword('');
+          setWifiError(null);
+        }}
         darkMode={darkMode}
-        zIndex={10003}
-        backdropOpacity={0.85}
-        debugName="WifiConfirm"
-        backdropBlur={12}
-      >
-        <Box
-          sx={{
-            width: '100%',
-            maxWidth: 380,
-            mx: 'auto',
-            px: 3,
-            textAlign: 'center',
-          }}
-        >
-          {/* Reachy in box illustration */}
-          <Box sx={{ mb: 3 }}>
-            <img
-              src={reachyUpdateBoxSvg}
-              alt="Reachy"
-              style={{
-                width: 140,
-                height: 140,
-              }}
-            />
-          </Box>
-          
-          {/* Title */}
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 600,
-              color: 'text.primary',
-              mb: 2,
-            }}
-          >
-            Connect to WiFi?
-          </Typography>
-          
-          {/* Description */}
-          <Typography
-            sx={{
-              color: 'text.secondary',
-              fontSize: 14,
-              lineHeight: 1.6,
-              mb: 4,
-            }}
-          >
-            Connect Reachy to "<strong style={{ color: darkMode ? '#fff' : '#333' }}>{selectedSSID}</strong>"
-            <br /><br />
-            If this is a different network than your computer, you may <strong style={{ color: darkMode ? '#fff' : '#333' }}>lose connection</strong> to the robot.
-            <br /><br />
-            You may need to <strong style={{ color: darkMode ? '#fff' : '#333' }}>reboot the robot</strong> after the network change.
-          </Typography>
-          
-          {/* Actions */}
-          <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
-            <Button 
-              onClick={() => setShowWifiConfirm(false)}
-              variant="text"
-              sx={{ 
-                color: 'text.secondary',
-                textTransform: 'none',
-                textDecoration: 'underline',
-                textUnderlineOffset: '3px',
-                '&:hover': {
-                  bgcolor: 'transparent',
-                  textDecoration: 'underline',
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={confirmWifiConnect}
-              variant="outlined"
-              color="primary"
-              sx={{ 
-                minWidth: 160,
-                px: 3,
-                py: 1.25,
-                borderRadius: '10px',
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: 14,
-                position: 'relative',
-                overflow: 'visible',
-                // Pulse animation
-                animation: 'wifiPulse 3s ease-in-out infinite',
-                '@keyframes wifiPulse': {
-                  '0%, 100%': {
-                    boxShadow: (theme) => darkMode
-                      ? `0 0 0 0 ${theme.palette.primary.main}66`
-                      : `0 0 0 0 ${theme.palette.primary.main}4D`,
-                  },
-                  '50%': {
-                    boxShadow: (theme) => darkMode
-                      ? `0 0 0 8px ${theme.palette.primary.main}00`
-                      : `0 0 0 8px ${theme.palette.primary.main}00`,
-                  },
-                },
-                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: (theme) => darkMode
-                    ? `0 6px 16px ${theme.palette.primary.main}33`
-                    : `0 6px 16px ${theme.palette.primary.main}26`,
-                  animation: 'none',
-                },
-                '&:active': {
-                  transform: 'translateY(0)',
-                },
-              }}
-            >
-              Connect
-            </Button>
-          </Box>
-        </Box>
-      </FullscreenOverlay>
+        wifiStatus={wifiStatus}
+        availableNetworks={availableNetworks}
+        selectedSSID={selectedSSID}
+        wifiPassword={wifiPassword}
+        isConnecting={isConnecting}
+        wifiError={wifiError}
+        onSSIDChange={setSelectedSSID}
+        onPasswordChange={setWifiPassword}
+        onConnect={handleWifiConnect}
+        onRefresh={fetchWifiStatus}
+      />
 
       {/* Toast Notifications */}
       <Snackbar
@@ -1458,7 +697,7 @@ export default function SettingsOverlay({
           justifyContent: 'center !important',
           alignItems: 'center !important',
           width: '100%',
-          zIndex: 100001, // Above overlay
+          zIndex: 100001,
           '& > *': {
             margin: '0 auto !important',
           },

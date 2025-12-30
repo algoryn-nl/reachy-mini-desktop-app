@@ -3,17 +3,13 @@ import {
   Box,
   Typography,
   TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Button,
   CircularProgress,
   Alert,
   IconButton,
   InputAdornment,
 } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import NetworkSelect from './NetworkSelect';
 import WifiIcon from '@mui/icons-material/Wifi';
 import SignalWifi4BarIcon from '@mui/icons-material/SignalWifi4Bar';
 import SignalWifiOffIcon from '@mui/icons-material/SignalWifiOff';
@@ -22,14 +18,7 @@ import RouterIcon from '@mui/icons-material/Router';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
-
-// Pattern to detect Reachy hotspot networks
-const REACHY_HOTSPOT_PATTERNS = [
-  'reachy-mini-ap',
-  'reachy-mini-hotspot',
-  'reachy_mini_ap',
-  'reachy_mini_hotspot',
-];
+import { isReachyHotspot } from '../../constants/wifi';
 
 /**
  * WiFiConfiguration - Reusable WiFi configuration component
@@ -72,7 +61,6 @@ export default function WiFiConfiguration({
   const [wifiError, setWifiError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [isDaemonReachable, setIsDaemonReachable] = useState(null); // null = checking, true/false = result
-  const [manualSSID, setManualSSID] = useState(''); // For manual SSID entry
   const [showPassword, setShowPassword] = useState(false); // Toggle password visibility
 
 
@@ -126,12 +114,8 @@ export default function WiFiConfiguration({
         const validNetworks = Array.isArray(networks) 
           ? networks.filter(n => {
               if (!n || n.trim().length === 0) return false;
-              const lowerName = n.toLowerCase();
               // Filter out Reachy hotspots
-              const isReachyHotspot = REACHY_HOTSPOT_PATTERNS.some(pattern => 
-                lowerName.includes(pattern.toLowerCase())
-              );
-              return !isReachyHotspot;
+              return !isReachyHotspot(n);
             })
           : [];
         setAvailableNetworks(validNetworks);
@@ -149,11 +133,11 @@ export default function WiFiConfiguration({
 
   // Connect to WiFi
   const handleConnect = useCallback(async () => {
-    const ssidToUse = selectedSSID || manualSSID;
-    if (!ssidToUse || !wifiPassword) return;
+    if (!selectedSSID || !wifiPassword) return;
+    const ssidToUse = selectedSSID;
     
     if (onConnectStart) {
-      onConnectStart();
+      onConnectStart(ssidToUse);
     }
     
     setIsConnecting(true);
@@ -241,7 +225,6 @@ export default function WiFiConfiguration({
               setSuccessMessage(`Successfully connected to ${ssidToUse}`);
               setWifiPassword('');
               setSelectedSSID('');
-              setManualSSID('');
               
               if (onConnectSuccess) {
                 onConnectSuccess(ssidToUse);
@@ -300,28 +283,14 @@ export default function WiFiConfiguration({
     }
   }, [selectedSSID, wifiPassword, fetchWifiStatus, onConnectSuccess, onConnectStart, customBaseUrl]);
 
-  // Auto-fetch on mount and poll for connection
+  // Fetch on mount only (manual refresh via button)
   useEffect(() => {
     fetchWifiStatus();
-    
-    // If daemon is not reachable, poll every 3 seconds to check
-    const pollInterval = setInterval(() => {
-      if (!isDaemonReachable) {
-        console.log('[WiFi] Polling for daemon connection...');
-        fetchWifiStatus();
-      }
-    }, 3000);
-    
-    return () => clearInterval(pollInterval);
-  }, [fetchWifiStatus, isDaemonReachable]);
+  }, [fetchWifiStatus]);
 
   // Detect Reachy hotspots in available networks
   const detectedReachyHotspots = useMemo(() => {
-    return availableNetworks.filter(network => 
-      REACHY_HOTSPOT_PATTERNS.some(pattern => 
-        network.toLowerCase().includes(pattern.toLowerCase())
-      )
-    );
+    return availableNetworks.filter(network => isReachyHotspot(network));
   }, [availableNetworks]);
 
   // Notify parent when Reachy hotspot is detected
@@ -459,8 +428,8 @@ export default function WiFiConfiguration({
     );
   }
 
-  // Still checking if daemon is reachable (or loading with customBaseUrl)
-  if ((isDaemonReachable === null && isLoadingWifi) || (isDaemonReachable === false && customBaseUrl && isLoadingWifi)) {
+  // Still checking if daemon is reachable (but NOT when customBaseUrl is set - show form immediately)
+  if (isDaemonReachable === null && isLoadingWifi && !customBaseUrl) {
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -475,7 +444,7 @@ export default function WiFiConfiguration({
           fontSize: compact ? 12 : 13, 
           color: textSecondary 
         }}>
-          {customBaseUrl ? 'Scanning available networks...' : 'Checking connection...'}
+          Checking connection...
         </Typography>
       </Box>
     );
@@ -483,56 +452,6 @@ export default function WiFiConfiguration({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: compact ? 1.5 : 2 }}>
-      {/* Current Status */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        gap: 1,
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <StatusIcon sx={{ fontSize: compact ? 18 : 20, color: wifiConfig.color }} />
-          <Box>
-            <Typography sx={{ 
-              fontSize: compact ? 12 : 13, 
-              fontWeight: 600, 
-              color: textPrimary 
-            }}>
-              {wifiConfig.text}
-            </Typography>
-            {wifiConfig.subtitle && (
-              <Typography sx={{ 
-                fontSize: compact ? 10 : 11, 
-                color: textSecondary 
-              }}>
-                {wifiConfig.subtitle}
-              </Typography>
-            )}
-          </Box>
-        </Box>
-        
-        <IconButton
-          onClick={fetchWifiStatus}
-          size="small"
-          disabled={isLoadingWifi}
-          sx={{
-            color: 'primary.main',
-            '&:disabled': {
-              color: darkMode ? '#555' : '#bbb',
-            },
-          }}
-        >
-          <RefreshIcon sx={{ 
-            fontSize: compact ? 16 : 18,
-            animation: isLoadingWifi ? 'spin 1s linear infinite' : 'none',
-            '@keyframes spin': {
-              '0%': { transform: 'rotate(0deg)' },
-              '100%': { transform: 'rotate(360deg)' },
-            },
-          }} />
-        </IconButton>
-      </Box>
-
       {/* Reachy Hotspot Detection Alert */}
       {showHotspotDetection && detectedReachyHotspots.length > 0 && (
         <Alert 
@@ -577,90 +496,22 @@ export default function WiFiConfiguration({
         display: 'flex', 
         flexDirection: 'column', 
         gap: compact ? 1.5 : 2,
-        pt: compact ? 1 : 1.5,
-        borderTop: `1px solid ${darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
       }}>
-        <Typography sx={{ 
-          fontSize: compact ? 11 : 12, 
-          fontWeight: 600, 
-          color: textPrimary 
-        }}>
-          Connect to Network
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-          <FormControl size="small" sx={{ ...inputStyles, flex: 1, minWidth: 0 }}>
-            <InputLabel>Select from list</InputLabel>
-            <Select
-              value={selectedSSID}
-              onChange={(e) => {
-                setSelectedSSID(e.target.value);
-                if (e.target.value) {
-                  setManualSSID(''); // Clear manual when selecting from list
-                }
-              }}
-              label="Select from list"
-              disabled={isLoadingWifi || isConnecting}
-              MenuProps={{
-                sx: {
-                  zIndex: 99999,
-                },
-                PaperProps: {
-                  sx: {
-                    bgcolor: darkMode ? '#1a1a1a' : '#fff',
-                    maxHeight: 300,
-                  },
-                },
-              }}
-            >
-              <MenuItem value="" disabled sx={{ color: textSecondary }}>
-                <em>{availableNetworks.length === 0 ? 'Scanning...' : 'Select network'}</em>
-              </MenuItem>
-              {availableNetworks.map((network, i) => (
-                <MenuItem 
-                  key={`${network}-${i}`} 
-                  value={network} 
-                  sx={{ 
-                    fontSize: compact ? 12 : 13,
-                    color: textPrimary,
-                  }}
-                >
-                  {network}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <Typography sx={{ 
-            fontSize: compact ? 11 : 12, 
-            color: textSecondary,
-            alignSelf: 'center',
-            mt: 0.5,
-          }}>
-            or
-          </Typography>
-          
-          <TextField
-            label="Type network name"
-            value={manualSSID}
-            onChange={(e) => {
-              setManualSSID(e.target.value);
-              if (e.target.value) {
-                setSelectedSSID(''); // Clear select when typing manually
-              }
-            }}
-            size="small"
-            sx={{ ...inputStyles, flex: 1, minWidth: 0 }}
-            disabled={isConnecting}
-            placeholder="Enter SSID"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && (selectedSSID || manualSSID) && wifiPassword) {
-                handleConnect();
-              }
-            }}
-          />
-        </Box>
+        {/* Network dropdown */}
+        <NetworkSelect
+          value={selectedSSID}
+          onChange={setSelectedSSID}
+          networks={availableNetworks}
+              disabled={isConnecting}
+          onOpen={fetchWifiStatus}
+          isLoading={isLoadingWifi}
+          showLabel={true}
+          darkMode={darkMode}
+          zIndex={99999}
+              sx={inputStyles}
+        />
 
+        {/* Password - always visible */}
         <TextField
           label="Password"
           type={showPassword ? 'text' : 'password'}
@@ -671,7 +522,7 @@ export default function WiFiConfiguration({
           disabled={isConnecting}
           sx={inputStyles}
           onKeyPress={(e) => {
-            if (e.key === 'Enter' && (selectedSSID || manualSSID) && wifiPassword) {
+            if (e.key === 'Enter' && selectedSSID && wifiPassword) {
               handleConnect();
             }
           }}
@@ -684,9 +535,7 @@ export default function WiFiConfiguration({
                   size="small"
                   sx={{
                     color: textMuted,
-                    '&:hover': {
-                      color: textPrimary,
-                    },
+                    '&:hover': { color: textPrimary },
                   }}
                 >
                   {showPassword ? (
@@ -700,10 +549,11 @@ export default function WiFiConfiguration({
           }}
         />
 
+        {/* Connect button - always visible */}
         <Button
           variant="outlined"
           onClick={handleConnect}
-          disabled={(!selectedSSID && !manualSSID) || !wifiPassword || isConnecting}
+          disabled={!selectedSSID || !wifiPassword || isConnecting}
           fullWidth
           sx={{
             borderColor: '#FF9500',
@@ -711,7 +561,7 @@ export default function WiFiConfiguration({
             textTransform: 'none',
             fontSize: compact ? 12 : 13,
             fontWeight: 600,
-            minHeight: compact ? 32 : 36,
+            minHeight: compact ? 36 : 40,
             borderRadius: compact ? '8px' : '10px',
             '&:hover': {
               borderColor: '#e68600',
