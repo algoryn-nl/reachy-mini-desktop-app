@@ -1,64 +1,28 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import useAppStore from '../../../store/useAppStore';
-import useWebRTCStream, { StreamState } from '../../../hooks/media/useWebRTCStream';
-import { fetchWithTimeout, buildApiUrl } from '../../../config/daemon';
+import { useWebRTCStreamContext, StreamState } from '../../../contexts/WebRTCStreamContext';
 
 /**
  * CameraFeed Component - Displays camera stream when available
- * Shows WebRTC stream only on wireless WiFi Reachy when awake, placeholder otherwise
+ * Uses shared WebRTC connection from context (avoids duplicate connections)
  */
 export default function CameraFeed({ isLarge = false }) {
   const videoRef = useRef(null);
-  const { connectionMode, remoteHost, robotStatus } = useAppStore();
-  const isWifiMode = connectionMode === 'wifi';
-  const isRobotAwake = robotStatus === 'ready' || robotStatus === 'busy';
   
-  // Check if this is a wireless version (only wireless has WebRTC streaming)
-  const [isWirelessVersion, setIsWirelessVersion] = useState(null); // null = checking
-  const [checkFailed, setCheckFailed] = useState(false);
-  
-  useEffect(() => {
-    if (!isWifiMode) return;
-    
-    const checkWirelessVersion = async () => {
-      try {
-        const response = await fetchWithTimeout(
-          buildApiUrl('/api/daemon/status'),
-          {},
-          5000,
-          { silent: true }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setIsWirelessVersion(data.wireless_version === true);
-        } else {
-          setCheckFailed(true);
-        }
-      } catch (e) {
-        console.warn('[CameraFeed] Failed to check wireless version:', e);
-        setCheckFailed(true);
-      }
-    };
-    
-    checkWirelessVersion();
-  }, [isWifiMode]);
-  
-  // Only attempt WebRTC if:
-  // 1. WiFi mode
-  // 2. Wireless version confirmed
-  // 3. Robot is awake (daemon in running state = WebRTC pipeline active)
-  const shouldConnectWebRTC = isWifiMode && isWirelessVersion === true && isRobotAwake;
-  
+  // Get shared WebRTC stream from context
   const {
     state,
     stream,
-    connect,
     isConnected,
     isConnecting,
-  } = useWebRTCStream(shouldConnectWebRTC ? remoteHost : null, shouldConnectWebRTC);
+    isWifiMode,
+    isWirelessVersion,
+    checkFailed,
+    isRobotAwake,
+    connect,
+  } = useWebRTCStreamContext();
 
   // Attach stream to video element
   useEffect(() => {
@@ -328,48 +292,6 @@ export default function CameraFeed({ isLarge = false }) {
         </Box>
       )}
 
-      {/* Live indicator when connected */}
-      {isConnected && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: isLarge ? 12 : 8,
-            left: isLarge ? 12 : 8,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.75,
-            px: 1,
-            py: 0.5,
-            borderRadius: '6px',
-            bgcolor: 'rgba(0, 0, 0, 0.6)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <Box
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              bgcolor: '#22c55e',
-              animation: 'pulse-live 2s infinite',
-              '@keyframes pulse-live': {
-                '0%, 100%': { opacity: 1 },
-                '50%': { opacity: 0.5 },
-              },
-            }}
-          />
-          <Typography
-            sx={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: '#fff',
-              letterSpacing: '0.5px',
-            }}
-          >
-            LIVE
-          </Typography>
-        </Box>
-      )}
     </Box>
   );
 }

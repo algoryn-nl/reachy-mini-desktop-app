@@ -20,6 +20,7 @@ import { useAudioControls } from './audio/hooks';
 import { useAppLogs } from './application-store/hooks';
 import { useActiveRobotContext } from './context';
 import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
+import { WebRTCStreamProvider } from '../../contexts/WebRTCStreamContext';
 
 
 function ActiveRobotView({ 
@@ -212,6 +213,7 @@ function ActiveRobotView({
   }, [resetTimeouts, update, stopDaemon]);
 
   return (
+    <WebRTCStreamProvider>
     <Box
       sx={{
         width: '100vw',
@@ -753,6 +755,7 @@ function ActiveRobotView({
         </Box>
       </FullscreenOverlay>
     </Box>
+    </WebRTCStreamProvider>
   );
 }
 
