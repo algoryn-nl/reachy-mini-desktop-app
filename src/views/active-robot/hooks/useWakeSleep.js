@@ -14,7 +14,7 @@ import { ROBOT_STATUS } from '../../../constants/robotStatus';
  * @returns {Object} Wake/sleep controls and state
  */
 export function useWakeSleep() {
-  const { robotStatus, transitionTo } = useAppStore();
+  const { robotStatus, transitionTo, isStoppingApp } = useAppStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [error, setError] = useState(null);
   
@@ -24,7 +24,8 @@ export function useWakeSleep() {
   // Derived states
   const isSleeping = robotStatus === ROBOT_STATUS.SLEEPING;
   const isAwake = robotStatus === ROBOT_STATUS.READY || robotStatus === ROBOT_STATUS.BUSY;
-  const canToggle = !isTransitioning && (isSleeping || robotStatus === ROBOT_STATUS.READY);
+  // Disable toggle when: transitioning, app is stopping, or robot not in valid state
+  const canToggle = !isTransitioning && !isStoppingApp && (isSleeping || robotStatus === ROBOT_STATUS.READY);
   
   // For UI display: use optimistic state during wake transition
   const displayAwake = optimisticAwake || isAwake;
