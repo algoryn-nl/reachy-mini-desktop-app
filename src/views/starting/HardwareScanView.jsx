@@ -66,7 +66,7 @@ function HardwareScanView({
   // ✅ Helper to get progressive message based on elapsed time
   const getProgressiveMessage = useCallback(() => {
     if (elapsedSeconds >= MESSAGE_THRESHOLDS.VERY_LONG) {
-      return { text: "That's unusual.", bold: 'Please check the connection', suffix: '' };
+      return { text: 'Taking its time.', bold: 'Worth the wait', suffix: '!' };
     }
     if (elapsedSeconds >= MESSAGE_THRESHOLDS.LONG_WAIT) {
       return { text: 'Patience is a', bold: 'virtue', suffix: ', they say' };
