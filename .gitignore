@@ -14,6 +14,7 @@ Test
 .playwright-mcp
 
 .cursor/
+.dist-web/
 
 .analysis-docs/
 .claude-4.5-sonnet-analysis/
