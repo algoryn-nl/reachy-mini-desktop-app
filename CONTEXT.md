@@ -25,7 +25,7 @@
 - **Connection**: USB-C to computer
 - **Serial**: USB VID:PID `1a86:55d3`
 
-### Simulation (MuJoCo)
+### Simulation
 - No hardware required
 - Daemon runs with `--sim` flag
 - Camera simulated at 720p@60fps

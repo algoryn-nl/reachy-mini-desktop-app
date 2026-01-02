@@ -47,29 +47,15 @@ pub fn fix_mjpython_shebang() -> Result<(), String> {
 }
 
 // Helper to build daemon arguments
-// On macOS with simulation mode, we need to use mjpython (required by MuJoCo)
 // IMPORTANT: Use .venv/bin/python3 directly instead of "uv run python" to ensure
 // we use the venv Python with all installed packages, not the cpython bundle
 pub fn build_daemon_args(sim_mode: bool) -> Result<Vec<String>, String> {
     // Use Python from .venv directly (not via uv run)
     // This ensures we use the venv with all installed packages
-    let python_cmd = if sim_mode && cfg!(target_os = "macos") {
-        // Fix mjpython shebang before using it
-        fix_mjpython_shebang()?;
-        ".venv/bin/mjpython"
-    } else if sim_mode {
-        // Linux/Windows: use python3 for simulation
-        #[cfg(target_os = "windows")]
-        { ".venv\\Scripts\\python.exe" }
-        #[cfg(not(target_os = "windows"))]
-        { ".venv/bin/python3" }
-    } else {
-        // Non-simulation mode: use python3
-        #[cfg(target_os = "windows")]
-        { ".venv\\Scripts\\python.exe" }
-        #[cfg(not(target_os = "windows"))]
-        { ".venv/bin/python3" }
-    };
+    let python_cmd = ".venv/bin/python3";
+    
+    #[cfg(target_os = "windows")]
+    let python_cmd = ".venv\\Scripts\\python.exe";
     
     let mut args = vec![
         python_cmd.to_string(),

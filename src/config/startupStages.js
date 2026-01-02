@@ -25,48 +25,13 @@ export const STARTUP_STAGES = {
   },
   
   // ============================================
-  // SIMULATION MODE STAGES (50-70%)
-  // ============================================
-  INSTALLING_MUJOCO: {
-    id: 'installing_mujoco',
-    label: 'Installing MuJoCo',
-    description: 'Setting up physics simulation',
-    progressMin: 50,
-    progressMax: 60,
-    isSimOnly: true,
-    // Patterns to detect this stage from sidecar logs
-    logPatterns: [
-      'Installing MuJoCo',
-      'mujoco',
-      'pip install',
-      'Downloading',
-      'Collecting',
-    ],
-  },
-  
-  STARTING_SIMULATION: {
-    id: 'starting_simulation',
-    label: 'Starting Simulation',
-    description: 'Launching MuJoCo physics engine',
-    progressMin: 60,
-    progressMax: 70,
-    isSimOnly: true,
-    logPatterns: [
-      'mjpython',
-      'simulation mode',
-      'MuJoCo',
-      '--sim',
-    ],
-  },
-  
-  // ============================================
-  // DAEMON STARTUP (50/70 - 100%)
+  // DAEMON STARTUP (50 - 100%)
   // ============================================
   CONNECTING: {
     id: 'connecting',
     label: 'Connecting to Daemon',
     description: 'Establishing connection',
-    progressMin: 50, // 70 in sim mode
+    progressMin: 50,
     progressMax: 66,
     isSimOnly: false,
     logPatterns: [
@@ -140,13 +105,6 @@ export function getStagesForMode(isSimMode) {
   const stages = [
     STARTUP_STAGES.SCANNING,
   ];
-  
-  if (isSimMode) {
-    stages.push(
-      STARTUP_STAGES.INSTALLING_MUJOCO,
-      STARTUP_STAGES.STARTING_SIMULATION,
-    );
-  }
   
   stages.push(
     STARTUP_STAGES.CONNECTING,
@@ -226,20 +184,6 @@ export function getStageDisplayText(stage, options = {}) {
           ? `Scanning ${options.currentPart}`
           : 'Initializing scan...',
         boldText: options.currentPart || 'scan',
-      };
-      
-    case 'installing_mujoco':
-      return {
-        title: stage.label,
-        subtitle: 'Setting up physics simulation...',
-        boldText: 'MuJoCo',
-      };
-      
-    case 'starting_simulation':
-      return {
-        title: stage.label,
-        subtitle: 'Launching physics engine...',
-        boldText: 'simulation',
       };
       
     case 'connecting':

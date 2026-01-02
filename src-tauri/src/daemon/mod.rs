@@ -195,7 +195,7 @@ macro_rules! spawn_sidecar_monitor {
 /// # Arguments
 /// * `app_handle` - Tauri app handle
 /// * `state` - Daemon state
-/// * `sim_mode` - If true, launch daemon in simulation mode (MuJoCo) with --sim flag
+/// * `sim_mode` - If true, launch daemon in simulation mode with --sim flag
 pub fn spawn_and_monitor_sidecar(
     app_handle: tauri::AppHandle,
     state: &State<DaemonState>,
@@ -219,7 +219,7 @@ pub fn spawn_and_monitor_sidecar(
     // which runs in the correct working directory context
     
     if sim_mode {
-        println!("[tauri] 🎭 Launching daemon in simulation mode (MuJoCo headless)");
+        println!("[tauri] 🎭 Launching daemon in simulation mode (headless)");
     }
     
     // Convert Vec<String> to Vec<&str> for args()

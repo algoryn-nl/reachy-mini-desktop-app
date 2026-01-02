@@ -72,7 +72,7 @@ export function useRobotWebSocket(isActive) {
       try {
         // 🚀 GAME-CHANGING: Single WebSocket with ALL data (includes passive_joints)
         // 🌐 Dynamic URL based on connection mode (USB/WiFi/Simulation)
-        // ⚡ 20 Hz for smoother robot visualization (MuJoCo control loop runs at 50 Hz)
+        // ⚡ 20 Hz for smoother robot visualization
         const wsUrl = `${getWsBaseUrl()}/api/state/ws/full?frequency=20&with_head_pose=true&use_pose_matrix=true&with_head_joints=true&with_antenna_positions=true&with_passive_joints=true`;
         const ws = new WebSocket(wsUrl);
 

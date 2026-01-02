@@ -365,7 +365,8 @@ pub async fn update_daemon(
     println!("[update] Using pip at: {:?}", pip_path);
     
     // 3. Build pip command
-    let mut args = vec!["install", "--upgrade", "reachy-mini[mujoco]"];
+    // Note: No [mujoco] extra for desktop app (USB mode only, no simulation)
+    let mut args = vec!["install", "--upgrade", "reachy-mini"];
     if pre_release {
         args.push("--pre");
     }
