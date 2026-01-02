@@ -89,6 +89,8 @@ export default function SettingsOverlay({
   // ═══════════════════════════════════════════════════════════════════
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showChangeWifiOverlay, setShowChangeWifiOverlay] = useState(false);
+  const [showClearNetworksConfirm, setShowClearNetworksConfirm] = useState(false);
+  const [isClearingNetworks, setIsClearingNetworks] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════════
   // TOAST NOTIFICATIONS
@@ -291,6 +293,39 @@ export default function SettingsOverlay({
       setIsLoadingWifi(false);
     }
   }, [isWifiMode]);
+
+  // Clear all saved WiFi networks
+  const handleClearAllNetworks = useCallback(async () => {
+    setIsClearingNetworks(true);
+    
+    try {
+      const response = await fetchWithTimeout(
+        buildApiUrl('/wifi/forget_all'),
+        { method: 'POST' },
+        DAEMON_CONFIG.TIMEOUTS.COMMAND * 2,
+        { label: 'Clear all networks' }
+      );
+      
+      if (response.ok) {
+        // Close overlays
+        setShowClearNetworksConfirm(false);
+        onClose();
+        
+        // Give a moment for UI to update, then disconnect and return to connection selection
+        setTimeout(() => {
+          useAppStore.getState().resetAll();
+        }, 500);
+      } else {
+        const error = await response.json();
+        showToast(`Failed: ${error.detail || 'Unknown error'}`, 'error');
+        setIsClearingNetworks(false);
+      }
+    } catch (err) {
+      console.error('Failed to clear networks:', err);
+      showToast('Failed to clear networks', 'error');
+      setIsClearingNetworks(false);
+    }
+  }, [onClose, showToast]);
 
   // Connect to WiFi (called from Change Network overlay)
   const handleWifiConnect = useCallback(async () => {
@@ -515,6 +550,7 @@ export default function SettingsOverlay({
                 isLoadingWifi={isLoadingWifi}
                 onRefresh={fetchWifiStatus}
               onChangeNetwork={() => setShowChangeWifiOverlay(true)}
+              onClearAllNetworks={() => setShowClearNetworksConfirm(true)}
                 cardStyle={cardStyle}
             />
           )}
@@ -656,6 +692,146 @@ export default function SettingsOverlay({
             >
               Update now
             </PulseButton>
+          </Box>
+        </Box>
+      </FullscreenOverlay>
+      
+      {/* Clear All Networks Confirmation Overlay */}
+      <FullscreenOverlay
+        open={showClearNetworksConfirm}
+        onClose={() => setShowClearNetworksConfirm(false)}
+        darkMode={darkMode}
+        zIndex={10003}
+        backdropOpacity={0.85}
+        debugName="ClearNetworksConfirm"
+        backdropBlur={12}
+      >
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 380,
+            mx: 'auto',
+            px: 3,
+            textAlign: 'center',
+          }}
+        >
+          {/* Warning icon */}
+          <Box sx={{ 
+            mb: 3,
+            display: 'flex',
+            justifyContent: 'center',
+          }}>
+            <Box sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              bgcolor: darkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+              border: `2px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <ErrorOutlineIcon sx={{ fontSize: 40, color: '#ef4444' }} />
+            </Box>
+          </Box>
+          
+          {/* Title */}
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              color: 'text.primary',
+              mb: 2,
+            }}
+          >
+            Clear All Networks?
+          </Typography>
+          
+          {/* Description */}
+          <Typography
+            sx={{
+              color: 'text.secondary',
+              fontSize: 14,
+              lineHeight: 1.6,
+              mb: 3,
+            }}
+          >
+            This will forget all saved WiFi networks on your robot.
+          </Typography>
+          
+          {/* Warning box */}
+          <Box
+            sx={{
+              mb: 4,
+              p: 2,
+              borderRadius: '12px',
+              bgcolor: darkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+              border: `1px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'}`,
+              textAlign: 'center',
+            }}
+          >
+            <Typography sx={{ 
+              fontSize: 13, 
+              fontWeight: 600, 
+              color: darkMode ? '#fca5a5' : '#dc2626',
+              mb: 0.5,
+            }}>
+              You will be disconnected
+            </Typography>
+            <Typography sx={{ 
+              fontSize: 12, 
+              color: darkMode ? '#fca5a5' : '#dc2626',
+              lineHeight: 1.5,
+            }}>
+              The robot will switch to <strong>Hotspot mode</strong>.<br />
+              Reconnect via <strong>reachy-mini-ap</strong> network.
+            </Typography>
+          </Box>
+          
+          {/* Actions */}
+          <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
+            <Button 
+              onClick={() => setShowClearNetworksConfirm(false)}
+              variant="text"
+              disabled={isClearingNetworks}
+              sx={{ 
+                color: 'text.secondary',
+                textTransform: 'none',
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+                '&:hover': {
+                  bgcolor: 'transparent',
+                  textDecoration: 'underline',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClearAllNetworks}
+              variant="contained"
+              disabled={isClearingNetworks}
+              sx={{ 
+                minWidth: 160,
+                bgcolor: '#ef4444',
+                color: '#fff',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': {
+                  bgcolor: '#dc2626',
+                },
+                '&:disabled': {
+                  bgcolor: darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.5)',
+                  color: darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.8)',
+                },
+              }}
+            >
+              {isClearingNetworks ? (
+                <CircularProgress size={20} sx={{ color: 'inherit' }} />
+              ) : (
+                'Clear all'
+              )}
+            </Button>
           </Box>
         </Box>
       </FullscreenOverlay>

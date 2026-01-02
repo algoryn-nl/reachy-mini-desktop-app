@@ -72,7 +72,7 @@ export function useStartupStages({
     // If scan is complete and we're still in scanning stage, move to next
     if (scanComplete && currentStage.id === 'scanning') {
       const nextStage = isSimMode 
-        ? STARTUP_STAGES.CONNECTING 
+        ? STARTUP_STAGES.STARTING_SIMULATION 
         : STARTUP_STAGES.CONNECTING;
       setCurrentStage(nextStage);
       setStageAttempts(0);

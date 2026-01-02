@@ -21,7 +21,7 @@ A modern desktop application for controlling and monitoring your Reachy Mini rob
 
 This desktop application provides a unified interface to manage your Reachy Mini robot. It handles the robot daemon lifecycle, offers real-time 3D visualization of the robot's state, and includes an integrated app store to discover and install applications from Hugging Face Spaces. The app automatically detects USB-connected robots and provides direct access to audio controls, camera feeds, and robot choreographies.
 
-![Desktop Application Screenshot](src/assets/desktop-app-screenshot.png)
+![Desktop Application Screenshot](src/assets/desktop-app-screenshot.jpg)
 
 ## ✨ Features
 

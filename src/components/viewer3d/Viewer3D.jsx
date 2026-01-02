@@ -185,14 +185,14 @@ export default function RobotViewer3D({
           return { label: 'Starting', color: '#3b82f6', animated: true };
         
         case 'sleeping':
-          return { label: 'Sleeping', color: '#FF9500' };
+          return { label: 'Sleeping', color: '#6b7280' };
         
         case 'ready':
           // If motors on → Ready, if off → Standby
           if (isOn === true) {
             return { label: 'Ready', color: '#22c55e' };
           } else if (isOn === false) {
-            return { label: 'Standby', color: '#FF9500' };
+            return { label: 'Standby', color: '#6b7280' };
           }
           return { label: 'Connected', color: '#3b82f6' };
         
@@ -201,7 +201,7 @@ export default function RobotViewer3D({
           const busyLabels = {
             'moving': { label: 'Moving', color: '#a855f7' },
             'command': { label: 'Executing', color: '#a855f7' },
-            'app-running': { label: 'App Running', color: '#f59e0b' },
+            'app-running': { label: 'App Running', color: '#a855f7' },
             'installing': { label: 'Installing', color: '#3b82f6' },
           };
           const busyInfo = busyLabels[busyReason] || { label: 'Busy', color: '#a855f7' };
@@ -232,7 +232,7 @@ export default function RobotViewer3D({
     }
     
     if (isOn === false) {
-      return { label: 'Standby', color: '#FF9500' };
+      return { label: 'Standby', color: '#6b7280' };
     }
     
     return { label: 'Connected', color: '#3b82f6' };
@@ -441,10 +441,9 @@ export default function RobotViewer3D({
             bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             border: `1.5px solid ${
               status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.3)' : 
-              status.color === '#FF9500' ? 'rgba(255, 149, 0, 0.3)' :
+              status.color === '#6b7280' ? 'rgba(107, 114, 128, 0.3)' :
               status.color === '#3b82f6' ? 'rgba(59, 130, 246, 0.3)' :
               status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.35)' :
-              status.color === '#f59e0b' ? 'rgba(245, 158, 11, 0.35)' :
               status.color === '#ef4444' ? 'rgba(239, 68, 68, 0.4)' :
               status.color === '#999' ? 'rgba(153, 153, 153, 0.25)' : 'rgba(0, 0, 0, 0.12)'
             }`,

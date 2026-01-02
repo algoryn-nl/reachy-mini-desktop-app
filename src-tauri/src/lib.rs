@@ -19,12 +19,25 @@ use signal_hook::{consts::TERM_SIGNALS, iterator::Signals};
 // TAURI COMMANDS
 // ============================================================================
 
+/// Check MuJoCo availability for simulation mode
+/// MuJoCo is now pre-bundled at build-time, so this is a no-op
+/// Kept for backward compatibility with frontend calls
+#[tauri::command]
+fn install_mujoco(_app_handle: tauri::AppHandle) -> Result<String, String> {
+    // MuJoCo is pre-bundled at build-time (via reachy-mini[mujoco])
+    // This ensures all binaries are properly signed before notarization
+    // No runtime installation needed - fixes macOS signature issues (Issue #16)
+    println!("[tauri] 🎭 MuJoCo is pre-bundled, skipping installation");
+    Ok("MuJoCo already installed (pre-bundled)".to_string())
+}
+
 #[tauri::command]
 fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>, sim_mode: Option<bool>) -> Result<String, String> {
     let sim_mode = sim_mode.unwrap_or(false);
     
+    // 🎭 Simulation mode: mockup-sim backend (no MuJoCo needed)
     if sim_mode {
-        add_log(&state, "🎭 Starting simulation mode...".to_string());
+        add_log(&state, "🎭 Starting simulation mode (mockup-sim)...".to_string());
     }
     
     // 1. ⚡ Aggressive cleanup of all existing daemons (including zombies)
@@ -41,7 +54,7 @@ fn start_daemon(app_handle: tauri::AppHandle, state: State<DaemonState>, sim_mod
     
     // 3. Log success
     let success_msg = if sim_mode {
-        "✓ Daemon started in simulation mode via embedded sidecar"
+        "✓ Daemon started in simulation mode (mockup-sim) via embedded sidecar"
     } else {
         "✓ Daemon started via embedded sidecar"
     };
@@ -92,7 +105,8 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_http::init());
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_blec::init());
 
     let builder = if cfg!(target_os = "macos") {
         builder.plugin(tauri_plugin_macos_permissions::init())
@@ -135,6 +149,7 @@ pub fn run() {
             stop_daemon,
             get_logs,
             usb::check_usb_robot,
+            install_mujoco,
             window::apply_transparent_titlebar,
             window::close_window,
             signing::sign_python_binaries,

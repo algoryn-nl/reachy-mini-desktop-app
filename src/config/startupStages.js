@@ -25,13 +25,30 @@ export const STARTUP_STAGES = {
   },
   
   // ============================================
-  // DAEMON STARTUP (50 - 100%)
+  // SIMULATION MODE STAGES (50-70%)
+  // ============================================
+  STARTING_SIMULATION: {
+    id: 'starting_simulation',
+    label: 'Starting Simulation',
+    description: 'Launching mockup-sim backend',
+    progressMin: 50,
+    progressMax: 70,
+    isSimOnly: true,
+    logPatterns: [
+      'simulation mode',
+      'mockup-sim',
+      '--mockup-sim',
+    ],
+  },
+  
+  // ============================================
+  // DAEMON STARTUP (50/70 - 100%)
   // ============================================
   CONNECTING: {
     id: 'connecting',
     label: 'Connecting to Daemon',
     description: 'Establishing connection',
-    progressMin: 50,
+    progressMin: 50, // 70 in sim mode
     progressMax: 66,
     isSimOnly: false,
     logPatterns: [
@@ -105,6 +122,12 @@ export function getStagesForMode(isSimMode) {
   const stages = [
     STARTUP_STAGES.SCANNING,
   ];
+  
+  if (isSimMode) {
+    stages.push(
+      STARTUP_STAGES.STARTING_SIMULATION,
+    );
+  }
   
   stages.push(
     STARTUP_STAGES.CONNECTING,
@@ -184,6 +207,13 @@ export function getStageDisplayText(stage, options = {}) {
           ? `Scanning ${options.currentPart}`
           : 'Initializing scan...',
         boldText: options.currentPart || 'scan',
+      };
+      
+    case 'starting_simulation':
+      return {
+        title: stage.label,
+        subtitle: 'Starting simulation mode...',
+        boldText: 'simulation',
       };
       
     case 'connecting':
