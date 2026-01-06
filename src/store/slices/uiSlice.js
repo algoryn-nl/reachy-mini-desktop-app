@@ -31,6 +31,8 @@ export const uiInitialState = {
   darkMode: getInitialDarkMode(),
   openWindows: [],
   rightPanelView: null, // null | 'controller' | 'expressions'
+  showFirstTimeWifiSetup: false, // true when showing first time WiFi setup view
+  showBluetoothSupportView: false, // true when showing Bluetooth support/reset view
 };
 
 /**
@@ -61,6 +63,12 @@ export const createUISlice = (set, get) => ({
   
   // Right panel view management
   setRightPanelView: (view) => set({ rightPanelView: view }),
+  
+  // First time WiFi setup view management
+  setShowFirstTimeWifiSetup: (value) => set({ showFirstTimeWifiSetup: value }),
+  
+  // Bluetooth support view management
+  setShowBluetoothSupportView: (value) => set({ showBluetoothSupportView: value }),
   
   // Dark mode management
   setDarkMode: (value) => {

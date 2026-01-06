@@ -19,13 +19,16 @@ export function useAppFetching() {
       const listResponse = await fetchExternal(OFFICIAL_APP_LIST_URL, {}, DAEMON_CONFIG.TIMEOUTS.APPS_LIST, { silent: true });
       if (!listResponse.ok) {
         console.warn(`⚠️ Failed to fetch official app list: ${listResponse.status}`);
-        return [];
+        const error = new Error(`HTTP ${listResponse.status}`);
+        error.name = 'NetworkError';
+        throw error;
       }
       const authorizedIds = await listResponse.json();
       return Array.isArray(authorizedIds) ? authorizedIds : [];
     } catch (err) {
       console.warn('⚠️ Failed to fetch official app IDs:', err.message);
-      return [];
+      // Re-throw network errors instead of returning []
+      throw err;
     }
   }, []);
 
@@ -140,13 +143,28 @@ export function useAppFetching() {
       
       return apps;
     } catch (error) {
-      // Handle network errors gracefully
-      if (error.name === 'NetworkError' || error.isOffline || error.message?.includes('No internet connection')) {
-        console.warn('⚠️ No internet connection, skipping official apps fetch');
-        return [];
+      // Detect network errors (timeouts, connection refused, etc.)
+      const isNetworkError = 
+        error.name === 'NetworkError' || 
+        error.name === 'AbortError' ||
+        error.name === 'TimeoutError' ||
+        error.isOffline || 
+        error.message?.toLowerCase().includes('network') ||
+        error.message?.toLowerCase().includes('timeout') ||
+        error.message?.toLowerCase().includes('connection') ||
+        error.message?.toLowerCase().includes('fetch');
+      
+      if (isNetworkError) {
+        console.warn('⚠️ Network error detected in fetchOfficialApps:', error.message);
+        // Create a proper network error object
+        const networkError = new Error('No internet connection');
+        networkError.name = 'NetworkError';
+        networkError.originalError = error;
+        throw networkError;
       }
-      console.error('❌ Failed to fetch official apps:', error);
-      return [];
+      
+      console.error('❌ Failed to fetch official apps (non-network error):', error);
+      throw error;
     }
   }, [fetchOfficialAppIds]);
   

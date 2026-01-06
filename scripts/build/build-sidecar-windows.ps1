@@ -15,9 +15,8 @@ Push-Location uv-wrapper
     
     # Use REACHY_MINI_SOURCE env var if set, default to 'pypi'
     $ReachyMiniSource = if ($env:REACHY_MINI_SOURCE) { $env:REACHY_MINI_SOURCE } else { "pypi" }
-    # Install reachy-mini with mujoco pre-bundled (basic kinematics)
-    # Note: placo_kinematics removed - requires C++ build tools not available on Windows CI
-    target/release/uv-bundle.exe --install-dir ..\$DST_DIR --python-version 3.12 --dependencies "reachy-mini[mujoco]" --reachy-mini-source $ReachyMiniSource
+    # Install reachy-mini (no mujoco - simulation uses lightweight kinematics)
+    target/release/uv-bundle.exe --install-dir ..\$DST_DIR --python-version 3.12 --dependencies "reachy-mini" --reachy-mini-source $ReachyMiniSource
 
     cargo build --release --bin uv-trampoline
     Copy-Item target/release/uv-trampoline.exe ../$DST_DIR/uv-trampoline-$TRIPLET.exe -Force

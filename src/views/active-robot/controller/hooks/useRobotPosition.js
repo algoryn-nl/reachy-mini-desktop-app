@@ -21,9 +21,8 @@ import { useActiveRobotContext } from '../../context';
  * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useRobotPosition(isActive) {
-  const { robotState: contextRobotState, api } = useActiveRobotContext();
+  const { robotState: contextRobotState } = useActiveRobotContext();
   const { robotStateFull } = contextRobotState;
-  const { buildApiUrl, fetchWithTimeout, config: DAEMON_CONFIG } = api;
   const logger = useLogger();
   
   // Safe logging helper
@@ -161,9 +160,6 @@ export function useRobotPosition(isActive) {
     targetSmoothingRef,
     antennasRef,
     sendSingleCommand,
-    fetchWithTimeout,
-    buildApiUrl,
-    DAEMON_CONFIG,
     safeAddFrontendLog,
   });
 

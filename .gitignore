@@ -14,6 +14,7 @@ Test
 .playwright-mcp
 
 .cursor/
+.dist-web/
 
 .analysis-docs/
 .claude-4.5-sonnet-analysis/
@@ -90,3 +91,6 @@ uv-wrapper/target/**/*
 # Tutorial videos - too large, never commit
 src/assets/tutorial/
 docs/latest.json
+
+# Blender source files (too large for git)
+src/assets/robot-3d/blender/

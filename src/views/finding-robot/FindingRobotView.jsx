@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Typography, Button, CircularProgress } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import UsbOutlinedIcon from '@mui/icons-material/UsbOutlined';
+import PulseButton from '@components/PulseButton';
 import WifiOutlinedIcon from '@mui/icons-material/WifiOutlined';
 import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
@@ -8,7 +9,7 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import useAppStore from '../../store/useAppStore';
 import { useRobotDiscovery } from '../../hooks/system';
 import { useConnection, ConnectionMode } from '../../hooks/useConnection';
-import idleReachyGif from '../../assets/videos/idle-reachy.gif';
+import reachyBuste from '../../assets/reachy-buste.png';
 
 // LocalStorage key for persisting last connection mode
 const LAST_CONNECTION_MODE_KEY = 'reachy-mini-last-connection-mode';
@@ -55,8 +56,8 @@ function ConnectionCard({
         opacity: isAvailable ? 1 : 0.5,
         transition: 'all 0.2s ease',
         flex: 1,
-        minWidth: 85,
-        minHeight: 88,
+        minWidth: 110,
+        minHeight: 110,
         '&:hover': isClickable && !selected ? {
           borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
           bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
@@ -211,7 +212,7 @@ function ConnectionCard({
  * Uses useConnection hook for unified connection handling
  */
 export default function FindingRobotView() {
-  const { darkMode } = useAppStore();
+  const { darkMode, setShowFirstTimeWifiSetup } = useAppStore();
   const { isScanning, usbRobot, wifiRobot } = useRobotDiscovery();
   const { connect, isConnecting, isDisconnecting } = useConnection();
   const [selectedMode, setSelectedMode] = useState(null);
@@ -345,19 +346,19 @@ export default function FindingRobotView() {
           px: 4,
         }}
       >
-        {/* Reachy GIF */}
+        {/* Reachy Buste */}
         <Box 
           sx={{ 
-            width: 250,
-            height: 250,
-            mb: 1.5,
+            width: 180,
+            height: 180,
+            mb: 2,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
           <img
-            src={idleReachyGif}
+            src={reachyBuste}
             alt="Reachy Mini"
             style={{
               width: '100%',
@@ -402,15 +403,16 @@ export default function FindingRobotView() {
         <Box
           sx={{
             display: 'flex',
+            justifyContent: 'center',
             gap: 1.5,
             width: '100%',
-            maxWidth: 320,
+            maxWidth: 380,
             mb: 2.5,
           }}
         >
           <ConnectionCard
             icon={UsbOutlinedIcon}
-            label="USB"
+            label="Reachy Lite"
             subtitle={usbRobot.available ? usbRobot.portName?.split('/').pop() : null}
             fullSubtitle={usbRobot.available ? usbRobot.portName : null}
             available={usbRobot.available}
@@ -422,7 +424,7 @@ export default function FindingRobotView() {
           
           <ConnectionCard
             icon={WifiOutlinedIcon}
-            label="WiFi"
+            label="Reachy WiFi"
             subtitle={wifiRobot.available ? wifiRobot.host : null}
             fullSubtitle={wifiRobot.available ? wifiRobot.host : null}
             available={wifiRobot.available}
@@ -446,8 +448,7 @@ export default function FindingRobotView() {
         </Box>
 
         {/* Start Button - Primary Outlined */}
-        <Button
-          variant="outlined"
+        <PulseButton
           onClick={handleStart}
           disabled={!canStart || isBusy}
           endIcon={isBusy ? (
@@ -455,46 +456,46 @@ export default function FindingRobotView() {
           ) : (
             <PlayArrowOutlinedIcon sx={{ fontSize: 22 }} />
           )}
+          darkMode={darkMode}
+          sx={{ minWidth: 140, minHeight: 44 }}
+            >
+          {isBusy ? (isDisconnecting ? 'Stopping...' : 'Connecting...') : 'Start'}
+        </PulseButton>
+
+        {/* First time WiFi setup link */}
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            textAlign: 'center',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 12,
+              color: darkMode ? '#888' : '#666',
+            }}
+          >
+            First time connecting to your WiFi Reachy?{' '}
+            <Box
+              component="span"
+              onClick={() => setShowFirstTimeWifiSetup(true)}
               sx={{
-            minWidth: 140,
-            minHeight: 44,
-            borderRadius: '12px',
-            fontSize: 14,
-            fontWeight: 600,
-            textTransform: 'none',
-            borderWidth: 1,
-            borderColor: canStart ? '#FF9500' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-            color: canStart ? '#FF9500' : (darkMode ? '#666' : '#999'),
-            // Pulse animation when ready
-            animation: (canStart && !isBusy) ? 'startPulse 3s ease-in-out infinite' : 'none',
-            '@keyframes startPulse': {
-              '0%, 100%': {
-                boxShadow: darkMode
-                  ? '0 0 0 0 rgba(255, 149, 0, 0.4)'
-                  : '0 0 0 0 rgba(255, 149, 0, 0.3)',
-              },
-              '50%': {
-                boxShadow: darkMode
-                  ? '0 0 0 8px rgba(255, 149, 0, 0)'
-                  : '0 0 0 8px rgba(255, 149, 0, 0)',
-              },
-            },
+                color: '#FF9500',
+                cursor: 'pointer',
+                fontWeight: 500,
+                textDecoration: 'none',
                 '&:hover': {
-              borderWidth: 1,
-              bgcolor: canStart ? 'rgba(255, 149, 0, 0.1)' : 'transparent',
-              borderColor: canStart ? '#FF9500' : (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-              animation: 'none', // Stop pulse on hover
-            },
-            '&:disabled': {
-              borderWidth: 1,
-              borderColor: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              color: darkMode ? '#555' : '#bbb',
-              animation: 'none',
+                  textDecoration: 'underline',
                 },
               }}
             >
-          {isBusy ? (isDisconnecting ? 'Stopping...' : 'Connecting...') : 'Start'}
-        </Button>
+              Click here
+            </Box>
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );

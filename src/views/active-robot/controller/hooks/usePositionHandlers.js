@@ -9,29 +9,15 @@ import { hasSignificantChange, generateHeadPositionLog, generateBodyYawLog, gene
 // Body yaw range constants
 const BODY_YAW_RANGE = { min: -160 * Math.PI / 180, max: 160 * Math.PI / 180 };
 
-// Enable/disable right antenna mirroring (inversion)
-// When true: right antenna value is negated for symmetric movement
-// When false: right antenna value is sent as-is
-const ENABLE_RIGHT_ANTENNA_MIRRORING = false;
-
-/**
- * Transform antennas for API: optionally invert right antenna for mirror behavior
- * Left antenna: sent as-is
- * Right antenna: inverted (negated) if ENABLE_RIGHT_ANTENNA_MIRRORING is true
- * 
- * @param {Array} antennas - [left, right] antenna values
- * @returns {Array} - [left, right] or [left, -right] depending on config
- */
-function transformAntennasForAPI(antennas) {
-  if (!antennas || antennas.length !== 2) return antennas;
-  return ENABLE_RIGHT_ANTENNA_MIRRORING 
-    ? [antennas[0], -antennas[1]] 
-    : antennas;
-}
-
 /**
  * Hook to manage position change handlers (UI sliders, joysticks)
  * Extracts handler logic from useRobotPosition for better separation of concerns
+ * 
+ * 🚀 OPTIMIZED: Uses unified command system via sendSingleCommand
+ * This ensures all commands go through the adaptive sender with:
+ * - Backpressure management (max 1 request in-flight)
+ * - Adaptive throttling based on measured latency
+ * - Works seamlessly for USB and WiFi
  * 
  * @param {Object} params - Hook parameters
  * @param {boolean} params.isActive - Whether the robot is active
@@ -43,10 +29,7 @@ function transformAntennasForAPI(antennas) {
  * @param {React.MutableRefObject} params.lastDragEndTimeRef - Ref to last drag end time
  * @param {React.MutableRefObject} params.targetSmoothingRef - Ref to target smoothing manager
  * @param {React.MutableRefObject} params.antennasRef - Ref to current antennas values
- * @param {Function} params.sendSingleCommand - Function to send single API command
- * @param {Function} params.fetchWithTimeout - API fetch function
- * @param {Function} params.buildApiUrl - URL builder function
- * @param {Object} params.DAEMON_CONFIG - Daemon configuration
+ * @param {Function} params.sendSingleCommand - Function to send single API command (unified system)
  * @param {Function} params.safeAddFrontendLog - Safe logging function
  */
 export function usePositionHandlers({
@@ -60,9 +43,6 @@ export function usePositionHandlers({
   targetSmoothingRef,
   antennasRef,
   sendSingleCommand,
-  fetchWithTimeout,
-  buildApiUrl,
-  DAEMON_CONFIG,
   safeAddFrontendLog,
 }) {
   const lastLoggedPoseRef = useRef(null);
@@ -153,35 +133,14 @@ export function usePositionHandlers({
         lastLogTimeRef.current = now;
       }
       
-      // Send API call after smoothing
+      // Send API call via unified command system (handles throttling/backpressure)
+      // Small delay to let smoothing start, then send final position
       setTimeout(() => {
         const smoothed = targetSmoothingRef.current.getCurrentValues();
-        const apiClampedHeadPose = {
-          x: clamp(smoothed.headPose.x, ROBOT_POSITION_RANGES.POSITION.min, ROBOT_POSITION_RANGES.POSITION.max),
-          y: clamp(smoothed.headPose.y, ROBOT_POSITION_RANGES.POSITION.min, ROBOT_POSITION_RANGES.POSITION.max),
-          z: clamp(smoothed.headPose.z, ROBOT_POSITION_RANGES.POSITION.min, ROBOT_POSITION_RANGES.POSITION.max),
-          pitch: clamp(smoothed.headPose.pitch, ROBOT_POSITION_RANGES.PITCH.min, ROBOT_POSITION_RANGES.PITCH.max),
-          yaw: clamp(smoothed.headPose.yaw, ROBOT_POSITION_RANGES.YAW.min, ROBOT_POSITION_RANGES.YAW.max),
-          roll: clamp(smoothed.headPose.roll, ROBOT_POSITION_RANGES.ROLL.min, ROBOT_POSITION_RANGES.ROLL.max),
-        };
-        
-        fetchWithTimeout(
-          buildApiUrl('/api/move/set_target'),
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              target_head_pose: apiClampedHeadPose,
-              target_antennas: transformAntennasForAPI(smoothed.antennas),
-              target_body_yaw: smoothed.bodyYaw,
-            }),
-          },
-          DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-          { label: 'Set target', silent: true }
-        ).catch(console.error);
+        sendSingleCommand(smoothed.headPose, smoothed.antennas, smoothed.bodyYaw);
       }, 50);
     }
-  }, [localValues, robotState.antennas, setLocalValues, setIsDragging, isDraggingRef, targetSmoothingRef, fetchWithTimeout, buildApiUrl, DAEMON_CONFIG, safeAddFrontendLog]);
+  }, [localValues, robotState.antennas, setLocalValues, setIsDragging, isDraggingRef, targetSmoothingRef, sendSingleCommand, safeAddFrontendLog]);
 
   // Handle body yaw changes
   const handleBodyYawChange = useCallback((value, continuous = false) => {
@@ -210,26 +169,14 @@ export function usePositionHandlers({
       isDraggingRef.current = false;
       lastDragEndTimeRef.current = Date.now();
       
+      // Send via unified command system
       setTimeout(() => {
         if (!isActive) return;
         const smoothed = targetSmoothingRef.current.getCurrentValues();
-        fetchWithTimeout(
-          buildApiUrl('/api/move/set_target'),
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              target_body_yaw: smoothed.bodyYaw,
-              target_head_pose: robotState.headPose,
-              target_antennas: transformAntennasForAPI(robotState.antennas || [0, 0]),
-            }),
-          },
-          DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-          { label: 'Set target (body_yaw)', silent: true }
-        ).catch(console.error);
+        sendSingleCommand(robotState.headPose, robotState.antennas, smoothed.bodyYaw);
       }, 50);
     }
-  }, [isActive, localValues.headPose, robotState.headPose, robotState.antennas, setLocalValues, setIsDragging, isDraggingRef, lastDragEndTimeRef, targetSmoothingRef, fetchWithTimeout, buildApiUrl, DAEMON_CONFIG, safeAddFrontendLog]);
+  }, [isActive, localValues.headPose, robotState.headPose, robotState.antennas, setLocalValues, setIsDragging, isDraggingRef, lastDragEndTimeRef, targetSmoothingRef, sendSingleCommand, safeAddFrontendLog]);
 
   // Handle antennas changes
   const handleAntennasChange = useCallback((antenna, value, continuous = false) => {
@@ -266,26 +213,14 @@ export function usePositionHandlers({
       isDraggingRef.current = false;
       lastDragEndTimeRef.current = Date.now();
       
+      // Send via unified command system
       setTimeout(() => {
         if (!isActive) return;
         const smoothed = targetSmoothingRef.current.getCurrentValues();
-        fetchWithTimeout(
-          buildApiUrl('/api/move/set_target'),
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              target_head_pose: robotState.headPose,
-              target_antennas: transformAntennasForAPI(smoothed.antennas),
-              target_body_yaw: robotState.bodyYaw || 0,
-            }),
-          },
-          DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-          { label: 'Set target (antennas)', silent: true }
-        ).catch(console.error);
+        sendSingleCommand(robotState.headPose, smoothed.antennas, robotState.bodyYaw);
       }, 50);
     }
-  }, [isActive, localValues.antennas, robotState.headPose, robotState.bodyYaw, antennasRef, setLocalValues, setIsDragging, isDraggingRef, lastDragEndTimeRef, targetSmoothingRef, fetchWithTimeout, buildApiUrl, DAEMON_CONFIG, safeAddFrontendLog]);
+  }, [isActive, localValues.antennas, robotState.headPose, robotState.bodyYaw, antennasRef, setLocalValues, setIsDragging, isDraggingRef, lastDragEndTimeRef, targetSmoothingRef, sendSingleCommand, safeAddFrontendLog]);
 
   return {
     handleChange,

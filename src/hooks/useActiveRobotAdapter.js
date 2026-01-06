@@ -27,6 +27,8 @@ export function useActiveRobotAdapter() {
   const darkMode = useAppStore(state => state.darkMode);
   const robotStatus = useAppStore(state => state.robotStatus);
   const busyReason = useAppStore(state => state.busyReason);
+  const safeToShutdown = useAppStore(state => state.safeToShutdown);
+  const isWakeSleepTransitioning = useAppStore(state => state.isWakeSleepTransitioning);
   const isAppRunning = useAppStore(state => state.isAppRunning);
   const isInstalling = useAppStore(state => state.isInstalling);
   const isCommandRunning = useAppStore(state => state.isCommandRunning);
@@ -66,6 +68,8 @@ export function useActiveRobotAdapter() {
     darkMode,
     robotStatus,
     busyReason,
+    safeToShutdown,
+    isWakeSleepTransitioning,
     isAppRunning,
     isInstalling,
     isCommandRunning,
@@ -97,7 +101,7 @@ export function useActiveRobotAdapter() {
     logs,
     appLogs,
   }), [
-    isActive, darkMode, robotStatus, busyReason, isAppRunning, isInstalling, isCommandRunning,
+    isActive, darkMode, robotStatus, busyReason, safeToShutdown, isWakeSleepTransitioning, isAppRunning, isInstalling, isCommandRunning,
     currentAppName, robotStateFull, activeMoves, isDaemonCrashed, rightPanelView,
     activeEffect, effectTimestamp,
     availableApps, installedApps, currentApp, activeJobs, appsLoading,

@@ -5,15 +5,17 @@ import { clamp } from '@utils/inputHelpers';
 import { mapRobotToAPI } from '@utils/inputMappings';
 
 // ⚡ PERF: Throttle UI updates to 15fps instead of 60fps
-// Robot API still receives 60fps updates, but React re-renders are limited
 const UI_UPDATE_INTERVAL_MS = 1000 / 15; // ~66ms = 15fps for UI
 
 /**
  * Hook for managing robot position smoothing
  * Handles the continuous smoothing loop that applies to ALL input sources
  * 
- * ⚡ PERF OPTIMIZATION: UI state updates are throttled to 15fps
- * while robot API commands are still sent at 60fps
+ * 🚀 ARCHITECTURE:
+ * - Smoothing loop runs at 60fps for smooth interpolation
+ * - Calls sendCommand every frame with latest smoothed values
+ * - sendCommand uses simple 50ms throttle (fire-and-forget HTTP POST)
+ * - UI state updates throttled to 15fps (React re-renders)
  */
 export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLocalValues) {
   const targetSmoothingRef = useRef(new TargetSmoothingManager());
@@ -99,8 +101,8 @@ export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLo
       }
       
       // ⚡ PERF: Throttle UI state updates to 15fps
-      // Robot API commands are still sent at 60fps above
-      // Only React re-renders are limited
+      // Robot commands are throttled by sendCommand (50ms)
+      // Only React re-renders are limited here
       const now = performance.now();
       if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
         lastUIUpdateRef.current = now;

@@ -20,6 +20,8 @@
  * @property {boolean} darkMode - Dark mode enabled
  * @property {string} robotStatus - Current status ('disconnected'|'ready-to-start'|'starting'|'ready'|'busy'|'stopping'|'crashed')
  * @property {string|null} busyReason - Reason if busy ('moving'|'installing'|'app-running'|null)
+ * @property {boolean} safeToShutdown - Safe to shutdown (sleeping AND sleep sequence complete)
+ * @property {boolean} isWakeSleepTransitioning - Wake/Sleep animation in progress
  * @property {boolean} isAppRunning - An app is currently running
  * @property {boolean} isInstalling - Installation in progress
  * @property {string|null} currentAppName - Name of current running app

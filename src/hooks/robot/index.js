@@ -7,4 +7,5 @@
  */
 export { useRobotCommands } from './useRobotCommands';
 export { useRobotState } from './useRobotState';
+export { useActiveMoves } from './useActiveMoves';
 

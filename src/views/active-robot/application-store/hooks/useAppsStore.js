@@ -59,7 +59,7 @@ const createJob = (jobId, jobType, appName, appInfo, setActiveJobs, startJobPoll
  * 
  * All components should use this hook instead of useApps directly.
  */
-export function useAppsStore(isActive, official = true) {
+export function useAppsStore(isActive) {
   const appStore = useAppStore();
   const logger = useLogger();
   const {
@@ -69,9 +69,6 @@ export function useAppsStore(isActive, official = true) {
     activeJobs: activeJobsObj, // Store uses Object, we convert to Map for convenience
     appsLoading,
     appsError,
-    appsLastFetch,
-    appsOfficialMode,
-    appsCacheValid,
     isStoppingApp,
     setAvailableApps,
     setInstalledApps,
@@ -79,9 +76,7 @@ export function useAppsStore(isActive, official = true) {
     setActiveJobs,
     setAppsLoading,
     setAppsError,
-    setAppsOfficialMode,
     invalidateAppsCache,
-    clearApps,
   } = appStore;
   
   // ✅ OPTIMIZED: Convert activeJobs Object to Map with useMemo to avoid re-creation on every render
@@ -96,55 +91,54 @@ export function useAppsStore(isActive, official = true) {
   // Track if we're currently fetching to avoid duplicate fetches
   const isFetchingRef = useRef(false);
   
-  // Cache duration: 30 seconds (apps don't change that often)
-  const CACHE_DURATION = 30000;
+  // Cache duration: 1 day (apps don't change that often, filter client-side)
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
   
   /**
-   * Check if cache is still valid
-   */
-  const isCacheValid = useCallback(() => {
-    if (!appsCacheValid || !appsLastFetch) return false;
-    const age = Date.now() - appsLastFetch;
-    return age < CACHE_DURATION;
-  }, [appsCacheValid, appsLastFetch]);
-  
-  /**
-   * Fetch all available apps
-   * Combines apps from Hugging Face dataset with installed apps from daemon
-   * Uses cache if available and valid
+   * Fetch ALL available apps (official + community) in a single request
+   * Uses cache if available and valid (1 day)
+   * Filtering by official/community is done client-side in useAppFiltering
    * @param {boolean} forceRefresh - Force refresh even if cache is valid
    */
   const fetchAvailableApps = useCallback(async (forceRefresh = false) => {
     // Prevent duplicate fetches
     if (isFetchingRef.current) {
       console.log('⏭️ Fetch already in progress, skipping...');
-      // ✅ Read from store to avoid stale closure
       return useAppStore.getState().availableApps;
     }
     
-    // Check if mode changed (need to refetch)
-    const modeChanged = appsOfficialMode !== official;
-    if (modeChanged) {
-      console.log(`🔄 Mode changed: ${appsOfficialMode} → ${official}, forcing refresh`);
-      invalidateAppsCache();
-      setAppsOfficialMode(official);
-      // Continue to fetch with new mode (don't use cache)
-    }
+    // ✅ Read current state DIRECTLY from store (avoid stale closure issues)
+    const storeState = useAppStore.getState();
+    const currentAvailableApps = storeState.availableApps;
+    const currentInstalledApps = storeState.installedApps;
+    const currentCacheValid = storeState.appsCacheValid;
+    const currentLastFetch = storeState.appsLastFetch;
     
-    // ✅ Read current cache from store (avoid stale closure)
-    const currentAvailableApps = useAppStore.getState().availableApps;
+    // ✅ Check cache validity using fresh store values
+    const isCacheFresh = currentCacheValid && 
+                         currentLastFetch && 
+                         (Date.now() - currentLastFetch) < CACHE_DURATION;
     
-    // ✅ IMPROVED: Don't use cache if it's empty (prevents showing empty list when apps exist)
-    // Use cache if valid and not forcing refresh and mode hasn't changed
-    if (!forceRefresh && !modeChanged && isCacheValid() && currentAvailableApps.length > 0) {
-      console.log('✅ Using cached apps (valid for', Math.round((CACHE_DURATION - (Date.now() - appsLastFetch)) / 1000), 's)');
+    // Use cache if valid and not forcing refresh
+    if (!forceRefresh && isCacheFresh && currentAvailableApps.length > 0) {
+      const remainingTime = Math.round((CACHE_DURATION - (Date.now() - currentLastFetch)) / 1000 / 60 / 60);
+      console.log(`✅ Using cached apps (valid for ~${remainingTime}h, ${currentAvailableApps.length} apps, ${currentInstalledApps.length} installed)`);
+      
+      // Re-check network status
+      if (!navigator.onLine && currentInstalledApps.length > 0) {
+        setAppsError(`No internet connection - showing ${currentInstalledApps.length} installed app${currentInstalledApps.length > 1 ? 's' : ''} only`);
+      } else if (!navigator.onLine) {
+        setAppsError('No internet connection. Please check your network and try again.');
+      } else {
+        setAppsError(null);
+      }
+      
       return currentAvailableApps;
     }
     
-    // ✅ IMPROVED: If cache is empty, force refresh to avoid showing empty list
-    if (!forceRefresh && !modeChanged && isCacheValid() && currentAvailableApps.length === 0) {
-      console.log('⚠️ Cache is empty, forcing refresh to fetch apps');
-      // Continue to fetch below
+    // Force refresh if cache is empty
+    if (!forceRefresh && isCacheFresh && currentAvailableApps.length === 0) {
+      console.log('⚠️ Cache marked valid but empty, forcing refresh to fetch apps');
     }
     
     try {
@@ -153,44 +147,72 @@ export function useAppsStore(isActive, official = true) {
       setAppsError(null);
       
       // ========================================
-      // STEP 1: Fetch available apps (depends on mode)
+      // STEP 1: Fetch ALL apps (official + community) in parallel
       // ========================================
-      let availableAppsFromSource = [];
-      if (official) {
-        console.log(`🔄 Fetching official apps from HF app store`);
-        availableAppsFromSource = await fetchOfficialApps();
-        console.log(`✅ Fetched ${availableAppsFromSource.length} official apps`);
+      console.log(`🔄 Fetching ALL apps (official + community)...`);
+      
+      let officialApps = [];
+      let communityApps = [];
+      let fetchError = null;
+      
+      // Fetch both in parallel for speed
+      const [officialResult, communityResult] = await Promise.allSettled([
+        fetchOfficialApps(),
+        fetchAllAppsFromDaemon(),
+      ]);
+      
+      if (officialResult.status === 'fulfilled') {
+        officialApps = officialResult.value || [];
+        console.log(`✅ Fetched ${officialApps.length} official apps`);
       } else {
-        console.log(`🔄 Fetching community apps from daemon`);
-        availableAppsFromSource = await fetchAllAppsFromDaemon();
-        console.log(`✅ Fetched ${availableAppsFromSource.length} community apps`);
+        fetchError = officialResult.reason;
+        console.error(`❌ Failed to fetch official apps:`, officialResult.reason);
       }
       
+      if (communityResult.status === 'fulfilled') {
+        communityApps = communityResult.value || [];
+        console.log(`✅ Fetched ${communityApps.length} community apps`);
+      } else {
+        console.warn(`⚠️ Failed to fetch community apps:`, communityResult.reason);
+      }
+      
+      // Mark apps with isOfficial flag
+      officialApps = officialApps.map(app => ({ ...app, isOfficial: true }));
+      communityApps = communityApps.map(app => ({ ...app, isOfficial: false }));
+      
+      // Merge all apps (official first, then community)
+      let availableAppsFromSource = [...officialApps, ...communityApps];
+      console.log(`✅ Total: ${availableAppsFromSource.length} apps (${officialApps.length} official + ${communityApps.length} community)`);
+      
       // ========================================
-      // STEP 2: Always fetch installed apps from daemon
+      // STEP 2: Fetch installed apps from daemon
       // ========================================
       const installedResult = await fetchInstalledApps();
       const installedAppsFromDaemon = installedResult.apps || [];
-      const installedAppsError = installedResult.error;
       
-      if (installedAppsError) {
-        console.warn(`⚠️ Error fetching installed apps: ${installedAppsError}`);
+      if (installedResult.error) {
+        console.warn(`⚠️ Error fetching installed apps: ${installedResult.error}`);
       }
       console.log(`✅ Fetched ${installedAppsFromDaemon.length} installed apps from daemon`);
       
-      // ========================================
-      // STEP 2.5: In unofficial mode, also fetch official apps metadata
-      // This ensures installed official apps keep their icons/metadata
-      // ========================================
-      let officialAppsForEnrichment = [];
-      if (!official && installedAppsFromDaemon.length > 0) {
-        try {
-          console.log(`🔄 Fetching official apps metadata for enrichment...`);
-          officialAppsForEnrichment = await fetchOfficialApps();
-          console.log(`✅ Fetched ${officialAppsForEnrichment.length} official apps for enrichment`);
-        } catch (err) {
-          console.warn(`⚠️ Failed to fetch official apps for enrichment:`, err.message);
+      // Check for network issues
+      const hasNetworkIssue = availableAppsFromSource.length === 0 && (fetchError || !navigator.onLine);
+      
+      if (hasNetworkIssue) {
+        if (installedAppsFromDaemon.length === 0) {
+          const errorMessage = 'No internet connection. Please check your network and try again.';
+          console.error(`❌ ${errorMessage}`);
+          setAppsError(errorMessage);
+          setAppsLoading(false);
+          isFetchingRef.current = false;
+          return [];
+        } else {
+          const warningMessage = `No internet connection - showing ${installedAppsFromDaemon.length} installed app${installedAppsFromDaemon.length > 1 ? 's' : ''} only`;
+          console.warn(`⚠️ ${warningMessage}`);
+          setAppsError(warningMessage);
         }
+      } else {
+        setAppsError(null);
       }
       
       // ========================================
@@ -204,59 +226,55 @@ export function useAppsStore(isActive, official = true) {
       );
       
       // ========================================
-      // STEP 4: Merge installed apps that aren't in the available list
-      // (e.g., locally installed apps not in official/community store)
+      // STEP 4: Merge local-only installed apps
       // ========================================
-      let allApps = [...availableAppsFromSource];
-      const availableAppNames = new Set(allApps.map(app => app.name?.toLowerCase()));
+      const availableAppNames = new Set(availableAppsFromSource.map(app => app.name?.toLowerCase()));
       
       const localOnlyApps = installedAppsFromDaemon
         .filter(app => !availableAppNames.has(app.name?.toLowerCase()))
         .map(app => ({
           ...app,
           source_kind: app.source_kind || 'local',
+          isOfficial: false, // Local apps are not official
         }));
       
       if (localOnlyApps.length > 0) {
         console.log(`➕ Adding ${localOnlyApps.length} locally installed apps not in store`);
-        allApps = [...allApps, ...localOnlyApps];
+        availableAppsFromSource = [...availableAppsFromSource, ...localOnlyApps];
       }
       
       // ========================================
-      // STEP 5: Enrich apps with metadata and update store
-      // Pass officialAppsForEnrichment as additional metadata pool
-      // so installed official apps get their icons in unofficial mode
+      // STEP 5: Enrich apps with metadata
       // ========================================
       const { enrichedApps, installed } = await enrichApps(
-        allApps, 
+        availableAppsFromSource, 
         installedAppNames, 
         installedAppsMap,
-        officialAppsForEnrichment  // Additional metadata pool for enriching installed apps
+        officialApps // Use official apps for enrichment
       );
       
-      setAvailableApps(enrichedApps);
+      // Preserve isOfficial flag after enrichment
+      const enrichedAppsWithFlag = enrichedApps.map(app => {
+        const original = availableAppsFromSource.find(a => a.name === app.name);
+        return { ...app, isOfficial: original?.isOfficial ?? false };
+      });
+      
+      setAvailableApps(enrichedAppsWithFlag);
       setInstalledApps(installed);
       setAppsLoading(false);
       
-      console.log(`✅ Apps fetched: ${enrichedApps.length} total, ${installed.length} installed`);
+      console.log(`✅ Apps fetched & cached: ${enrichedAppsWithFlag.length} total, ${installed.length} installed`);
       
-      return enrichedApps;
+      return enrichedAppsWithFlag;
     } catch (err) {
       console.error('❌ Failed to fetch apps:', err);
       setAppsError(err.message);
       setAppsLoading(false);
-      // ✅ Read from store to avoid stale closure
-      return useAppStore.getState().availableApps; // Return cached apps on error
+      return useAppStore.getState().availableApps;
     } finally {
       isFetchingRef.current = false;
     }
   }, [
-    official,
-    appsOfficialMode,
-    // ✅ REMOVED availableApps from deps to prevent infinite loop
-    // Now using useAppStore.getState().availableApps instead
-    appsLastFetch,
-    isCacheValid,
     fetchOfficialApps,
     fetchAllAppsFromDaemon,
     fetchInstalledApps,
@@ -265,7 +283,6 @@ export function useAppsStore(isActive, official = true) {
     setInstalledApps,
     setAppsLoading,
     setAppsError,
-    setAppsOfficialMode,
   ]);
   
   // Store fetch function in ref for useAppJobs
@@ -550,67 +567,29 @@ export function useAppsStore(isActive, official = true) {
   
   /**
    * Initial fetch + polling of current app status
-   * Refetches when official changes or when daemon becomes active
-   * ✅ IMPROVED: Adds delay on startup to avoid race condition with daemon
-   * ✅ Cleans up currentApp when daemon becomes inactive
+   * ✅ SIMPLIFIED: Fetches ALL apps once, filtering is done client-side
+   * Cache is valid for 1 day - no refetch when switching official/community mode
+   * 
+   * NOTE: We do NOT call clearApps() here anymore. The apps are pre-fetched in
+   * HardwareScanView and stored globally. Clearing should only happen on actual
+   * daemon disconnect (handled by transitionTo.disconnected), not when components unmount.
    */
   useEffect(() => {
     if (!isActive) {
-      // ✅ Cleanup: If daemon becomes inactive, clear currentApp state
-      setCurrentApp(null);
-      clearApps(); // Clear apps when daemon is inactive
-      isFirstActiveRef.current = true; // Reset flag when daemon becomes inactive
+      // Don't fetch when inactive, but also don't clear apps (they're globally cached)
+      isFirstActiveRef.current = true;
       return;
     }
     
-    // ✅ IMPROVED: On first activation (startup), daemon is already verified by HardwareScanView
-    // We can fetch apps immediately since healthcheck was done before transition
-    const isFirstActivation = isFirstActiveRef.current;
-    if (isFirstActivation) {
-      isFirstActiveRef.current = false;
-      console.log('🔄 Robot just became active, daemon healthcheck already verified, fetching apps...');
-      
-      // ✅ Daemon healthcheck was already done in HardwareScanView before transition
-      // We can fetch apps immediately (retry logic in fetchInstalledApps will handle any edge cases)
-      const modeChanged = appsOfficialMode !== official;
-      if (modeChanged) {
-        console.log(`🔄 Mode changed: ${appsOfficialMode} → ${official}, invalidating cache and refetching`);
-        invalidateAppsCache();
-        setAppsOfficialMode(official);
-        fetchAvailableApps(true);
-      } else {
+    // Fetch apps (will use cache if valid - up to 1 day)
         fetchAvailableApps(false);
-      }
-      
-      // Start polling immediately
-      fetchCurrentAppStatus();
-      const interval = setInterval(fetchCurrentAppStatus, DAEMON_CONFIG.INTERVALS.APP_STATUS);
-      
-      return () => {
-        clearInterval(interval);
-      };
-    }
     
-    // ✅ If mode changed, invalidate cache and force refresh
-    // (Only reached if not first activation)
-    const modeChanged = appsOfficialMode !== official;
-    if (modeChanged) {
-      console.log(`🔄 Mode changed: ${appsOfficialMode} → ${official}, invalidating cache and refetching`);
-      invalidateAppsCache();
-      setAppsOfficialMode(official);
-      fetchAvailableApps(true); // Force refresh when mode changes
-    } else {
-      // Fetch apps (will use cache if valid)
-      fetchAvailableApps(false); // Don't force refresh on mount if cache is valid
-    }
-    
+    // Start polling current app status
     fetchCurrentAppStatus();
-    
-    // Polling current app status
     const interval = setInterval(fetchCurrentAppStatus, DAEMON_CONFIG.INTERVALS.APP_STATUS);
     
     return () => clearInterval(interval);
-  }, [isActive, official, appsOfficialMode, fetchAvailableApps, fetchCurrentAppStatus, setCurrentApp, clearApps, invalidateAppsCache, setAppsOfficialMode]);
+  }, [isActive, fetchAvailableApps, fetchCurrentAppStatus]);
   
   return {
     // Data from store

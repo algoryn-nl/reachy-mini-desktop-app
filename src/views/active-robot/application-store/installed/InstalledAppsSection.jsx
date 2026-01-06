@@ -10,6 +10,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DiscoverAppsButton from '../discover/Button';
 import ReachiesCarousel from '@components/ReachiesCarousel';
 import { getDaemonHostname } from '../../../../config/daemon';
+import useAppStore from '../../../../store/useAppStore';
 
 // ✅ Timeout for app to transition from "starting" to "running"
 const APP_STARTING_TIMEOUT = 60000; // 60 seconds max for app to fully start
@@ -360,6 +361,9 @@ export default function InstalledAppsSection({
   onOpenDiscover,
   onOpenCreateTutorial,
 }) {
+  const { robotStatus } = useAppStore();
+  const isSleeping = robotStatus === 'sleeping';
+  
   // Check if any app is currently running or starting (based on currentApp state)
   const isAnyAppActive = currentApp && currentApp.state && 
     (currentApp.state === 'running' || currentApp.state === 'starting');
@@ -416,7 +420,7 @@ export default function InstalledAppsSection({
             No apps installed yet...
           </Typography>
 
-          <DiscoverAppsButton onClick={onOpenDiscover} darkMode={darkMode} disabled={isAnyAppActive} />
+          <DiscoverAppsButton onClick={onOpenDiscover} darkMode={darkMode} disabled={isBusy || isAnyAppActive} />
           
           <Typography
             component="button"
@@ -638,13 +642,16 @@ export default function InstalledAppsSection({
                   
                   {/* Right: Action buttons */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    {/* Settings button - toggles accordion */}
-                    <Tooltip title="Settings" arrow placement="top">
+                    {/* Settings button - toggles accordion (disabled when sleeping) */}
+                    <Tooltip title={isSleeping ? "Wake robot first" : "Settings"} arrow placement="top">
                       <IconButton
                         size="small"
+                        disabled={isSleeping}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (!isSleeping) {
                           setExpandedApp(isExpanded ? null : app.name);
+                          }
                         }}
                         sx={{
                           width: 32,
@@ -927,7 +934,7 @@ export default function InstalledAppsSection({
               mt: 1,
             }}
           >
-            <DiscoverAppsButton onClick={onOpenDiscover} darkMode={darkMode} disabled={isAppRunning} />
+            <DiscoverAppsButton onClick={onOpenDiscover} darkMode={darkMode} disabled={isBusy} />
             
             <Typography
               component="button"

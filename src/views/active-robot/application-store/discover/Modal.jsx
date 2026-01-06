@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
-import { Box, CircularProgress, IconButton, Typography } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box, CircularProgress, Typography, Button } from '@mui/material';
+import WifiOffIcon from '@mui/icons-material/WifiOff';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FullscreenOverlay from '@components/FullscreenOverlay';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
@@ -19,6 +21,7 @@ export default function DiscoverModal({
   darkMode,
   isBusy,
   isLoading,
+  error,
   activeJobs,
   isJobRunning,
   handleInstall,
@@ -34,15 +37,7 @@ export default function DiscoverModal({
   installedApps = [],
   onOpenCreateTutorial, // Callback to open Create App Tutorial modal
 }) {
-  // ✅ Debug: Log filteredApps changes
-  useEffect(() => {
-    console.log('📱 DiscoverModal: filteredApps changed', {
-      count: filteredApps.length,
-      selectedCategory,
-      searchQuery,
-      firstAppNames: filteredApps.slice(0, 3).map(a => a.name),
-    });
-  }, [filteredApps, selectedCategory, searchQuery]);
+  // Removed debug logs to reduce console spam
   
   // ✅ Determine if filters are active
   const hasActiveFilter = selectedCategory !== null || (searchQuery && searchQuery.trim());
@@ -57,10 +52,10 @@ export default function DiscoverModal({
       centeredX={true} // Center horizontally
       debugName="DiscoverModalLegacy"
       centeredY={false} // Don't center vertically
+      showCloseButton={true}
     >
       <Box
         sx={{
-          position: 'relative',
           width: '90%',
           maxWidth: '700px',
           display: 'flex',
@@ -69,27 +64,6 @@ export default function DiscoverModal({
           mb: 4,
         }}
       >
-        {/* Close button - top right */}
-        <IconButton
-          onClick={onClose}
-          sx={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            color: '#FF9500',
-            bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
-            border: '1px solid #FF9500',
-            opacity: 0.7,
-            '&:hover': {
-              opacity: 1,
-              bgcolor: darkMode ? 'rgba(255, 255, 255, 0.12)' : '#ffffff',
-            },
-            zIndex: 1,
-          }}
-        >
-          <CloseIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-
         {/* Header */}
         <Header darkMode={darkMode} />
 
@@ -121,7 +95,107 @@ export default function DiscoverModal({
             position: 'relative',
           }}
         >
-          {isLoading ? (
+          {/* Warning banner if there's an error but apps are available */}
+          {error && filteredApps.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 2.5,
+                py: 1.5,
+                mb: 2,
+                borderRadius: '10px',
+                backgroundColor: darkMode ? 'rgba(255, 149, 0, 0.12)' : 'rgba(255, 149, 0, 0.08)',
+                border: `1px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.25)'}`,
+              }}
+            >
+              <WifiOffIcon
+                sx={{
+                  fontSize: 20,
+                  color: darkMode ? '#fbbf24' : '#f59e0b',
+                  flexShrink: 0,
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: 13,
+                  color: darkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)',
+                  fontWeight: 500,
+                  flex: 1,
+                }}
+              >
+                {error}
+              </Typography>
+            </Box>
+          )}
+
+          {/* Full error screen if there's an error and no apps to show */}
+          {error && filteredApps.length === 0 ? (
+            <Box
+              sx={{
+                py: 10,
+                textAlign: 'center',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+              }}
+            >
+              <WifiOffIcon
+                sx={{
+                  fontSize: 56,
+                  color: darkMode ? '#666' : '#999',
+                  opacity: 0.7,
+                  mb: 1,
+                }}
+              />
+              <Typography 
+                sx={{ 
+                  fontSize: 15, 
+                  color: darkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.87)',
+                  fontWeight: 600,
+                  mb: 0.5,
+                }}
+              >
+                No Internet Connection
+              </Typography>
+              <Typography 
+                sx={{ 
+                  fontSize: 13, 
+                  color: darkMode ? '#888' : '#666',
+                  fontWeight: 400,
+                  maxWidth: 320,
+                  lineHeight: 1.6,
+                  mb: 2,
+                }}
+              >
+                {error}
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={() => window.location.reload()}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  px: 3,
+                  py: 1,
+                  borderRadius: '8px',
+                  borderColor: darkMode ? '#444' : '#ddd',
+                  color: darkMode ? '#aaa' : '#666',
+                  '&:hover': {
+                    borderColor: darkMode ? '#555' : '#ccc',
+                    backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                  },
+                }}
+              >
+                Retry
+              </Button>
+            </Box>
+          ) : isLoading ? (
             <Box
               sx={{
                 py: 10,

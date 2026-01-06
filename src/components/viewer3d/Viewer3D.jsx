@@ -4,8 +4,6 @@ import { IconButton, Switch, Tooltip, Box, Typography } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import ThreeSixtyOutlinedIcon from '@mui/icons-material/ThreeSixtyOutlined';
-import MyLocationOutlinedIcon from '@mui/icons-material/MyLocationOutlined';
 import CircleIcon from '@mui/icons-material/Circle';
 // Leva removed - was never displayed
 import * as THREE from 'three';
@@ -23,7 +21,7 @@ import { FPSMeter } from '../FPSMeter';
 // ✅ Camera presets
 const CAMERA_PRESETS = {
   normal: {
-    position: [0, 0.25, 0.52], // Zoomed out: Z = 0.32 + 0.20
+    position: [-0.25, 0.35, 0.55], // 3/4 view from left, slightly further
     fov: 50,
     target: [0, 0.2, 0],
     minDistance: 0.2,
@@ -52,8 +50,6 @@ export default function RobotViewer3D({
   onMeshesReady = null, // Callback when robot meshes are ready
   cameraPreset = 'normal', // Camera preset ('normal' | 'scan') or custom object
   useCinematicCamera = false, // Use animated camera instead of OrbitControls
-  useHeadFollowCamera = false, // Camera that follows robot head
-  showCameraToggle = false, // Show toggle to switch between Follow and Free
   errorFocusMesh = null, // Mesh to focus on in case of error
   backgroundColor = '#e0e0e0', // Canvas background color
   wireframe = false, // ✅ Wireframe mode
@@ -164,6 +160,8 @@ export default function RobotViewer3D({
   
   // ✅ Get darkMode from store
   const darkMode = useAppStore(state => state.darkMode);
+  const safeToShutdown = useAppStore(state => state.safeToShutdown);
+  const isWakeSleepTransitioning = useAppStore(state => state.isWakeSleepTransitioning);
   
   // ✅ Adapt backgroundColor based on darkMode if not explicitly provided
   // If transparent, keep transparent. Otherwise adapt default color to darkMode
@@ -173,19 +171,6 @@ export default function RobotViewer3D({
     ? (darkMode ? '#1a1a1a' : '#e0e0e0')
     : backgroundColor;
   
-  // 🎥 Camera modes: 'free' | 'locked'
-  // - free: Free camera with OrbitControls
-  // - locked: Follows head position AND orientation (FPV)
-  const [cameraMode, setCameraMode] = useState('free');
-  
-  // Toggle between the 2 modes
-  const toggleCameraMode = () => {
-    setCameraMode(prev => prev === 'free' ? 'locked' : 'free');
-  };
-  
-  // Compute props for Scene
-  const useHeadFollow = cameraMode === 'locked';
-  const lockToOrientation = cameraMode === 'locked';
   
   // ✨ Determine robot status for tag (with state machine)
   const getStatusTag = () => {
@@ -201,12 +186,15 @@ export default function RobotViewer3D({
         case 'starting':
           return { label: 'Starting', color: '#3b82f6', animated: true };
         
+        case 'sleeping':
+          return { label: 'Sleeping', color: '#6b7280' };
+        
         case 'ready':
           // If motors on → Ready, if off → Standby
           if (isOn === true) {
             return { label: 'Ready', color: '#22c55e' };
           } else if (isOn === false) {
-            return { label: 'Standby', color: '#FF9500' };
+            return { label: 'Standby', color: '#6b7280' };
           }
           return { label: 'Connected', color: '#3b82f6' };
         
@@ -215,7 +203,7 @@ export default function RobotViewer3D({
           const busyLabels = {
             'moving': { label: 'Moving', color: '#a855f7' },
             'command': { label: 'Executing', color: '#a855f7' },
-            'app-running': { label: 'App Running', color: '#f59e0b' },
+            'app-running': { label: 'App Running', color: '#a855f7' },
             'installing': { label: 'Installing', color: '#3b82f6' },
           };
           const busyInfo = busyLabels[busyReason] || { label: 'Busy', color: '#a855f7' };
@@ -246,7 +234,7 @@ export default function RobotViewer3D({
     }
     
     if (isOn === false) {
-      return { label: 'Standby', color: '#FF9500' };
+      return { label: 'Standby', color: '#6b7280' };
     }
     
     return { label: 'Connected', color: '#3b82f6' };
@@ -322,8 +310,6 @@ export default function RobotViewer3D({
                 onMeshesReady={onMeshesReady}
                 cameraConfig={cameraConfig}
                 useCinematicCamera={useCinematicCamera}
-              useHeadFollowCamera={useHeadFollowCamera && useHeadFollow}
-              lockCameraToHead={lockToOrientation}
               errorFocusMesh={errorFocusMesh}
               hideEffects={hideEffects}
                    darkMode={darkMode}
@@ -349,76 +335,60 @@ export default function RobotViewer3D({
             zIndex: 10,
           }}
         >
-          {/* Settings Button */}
+          {/* Settings Button - Disabled when robot is busy/transitioning or during sleep transition */}
           <Tooltip
-            title="Settings"
+            title={
+              busyReason 
+                ? "Settings (unavailable while busy)" 
+                : isWakeSleepTransitioning
+                  ? "Settings (wait for transition...)"
+                  : (robotStatus === 'sleeping' && !safeToShutdown)
+                    ? "Settings (wait for sleep transition...)"
+                    : "Settings"
+            }
             placement="top"
             arrow
           >
+            <span>
             <IconButton
               onClick={() => setShowSettingsOverlay(true)}
               size="small"
+                disabled={!!busyReason || isWakeSleepTransitioning || (robotStatus === 'sleeping' && !safeToShutdown)}
               sx={{
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 transition: 'all 0.2s ease',
-                opacity: 0.7,
-                color: '#666',
+                color: busyReason ? (darkMode ? '#666' : '#999') : '#FF9500',
+                bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid',
+                borderColor: busyReason 
+                  ? (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)')
+                  : (darkMode ? 'rgba(255, 149, 0, 0.5)' : 'rgba(255, 149, 0, 0.4)'),
+                backdropFilter: 'blur(10px)',
+                boxShadow: darkMode 
+                  ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
+                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                opacity: busyReason ? 0.4 : 1,
                 '&:hover': {
-                  opacity: 1,
-                  color: '#FF9500',
-                  bgcolor: 'rgba(255, 149, 0, 0.08)',
+                  bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                  borderColor: '#FF9500',
+                  transform: busyReason ? 'none' : 'scale(1.05)',
+                },
+                '&:active': {
+                  transform: busyReason ? 'none' : 'scale(0.95)',
+                  },
+                  '&.Mui-disabled': {
+                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)',
+                  color: darkMode ? '#666' : '#999',
+                  borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
                 },
               }}
             >
-              <SettingsOutlinedIcon sx={{ fontSize: 20 }} />
+              <SettingsOutlinedIcon sx={{ fontSize: 18 }} />
             </IconButton>
+            </span>
           </Tooltip>
 
-          {/* Camera Mode Toggle (si showCameraToggle) - COMMENTED */}
-          {/* {showCameraToggle && (
-            <>
-              <Tooltip
-                title={
-                  cameraMode === 'free' 
-                    ? 'Free Camera - Click to lock to head' 
-                    : 'Locked - Click for free camera'
-                }
-                placement="top"
-                arrow
-              >
-                <IconButton
-                  onClick={toggleCameraMode}
-                  size="small"
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    transition: 'all 0.2s ease',
-                    opacity: 0.7,
-                    '&:hover': {
-                      opacity: 1,
-                      bgcolor: 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  {cameraMode === 'free' ? (
-                    <ThreeSixtyOutlinedIcon sx={{ fontSize: 16, color: '#666' }} />
-                  ) : (
-                    <MyLocationOutlinedIcon sx={{ fontSize: 16, color: '#e63946' }} />
-                  )}
-                </IconButton>
-              </Tooltip>
-
-              <Box
-                sx={{
-                  width: '1px',
-                  height: '14px',
-                  bgcolor: 'rgba(0, 0, 0, 0.1)',
-                  mx: 0.5,
-                }}
-              />
-            </>
-          )} */}
 
           {/* View Mode Toggle - COMMENTED */}
           {/* <Tooltip
@@ -481,10 +451,9 @@ export default function RobotViewer3D({
             bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             border: `1.5px solid ${
               status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.3)' : 
-              status.color === '#FF9500' ? 'rgba(255, 149, 0, 0.3)' :
+              status.color === '#6b7280' ? 'rgba(107, 114, 128, 0.3)' :
               status.color === '#3b82f6' ? 'rgba(59, 130, 246, 0.3)' :
               status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.35)' :
-              status.color === '#f59e0b' ? 'rgba(245, 158, 11, 0.35)' :
               status.color === '#ef4444' ? 'rgba(239, 68, 68, 0.4)' :
               status.color === '#999' ? 'rgba(153, 153, 153, 0.25)' : 'rgba(0, 0, 0, 0.12)'
             }`,

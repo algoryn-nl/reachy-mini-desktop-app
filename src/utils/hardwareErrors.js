@@ -95,11 +95,16 @@ export function findMeshesByLink(robotRef, allMeshes, linkName) {
 export const HARDWARE_ERROR_CONFIGS = {
   NO_MOTORS: {
     type: 'no_motors',
-    patterns: ['No motors detected', 'RuntimeError: No motors detected'],
+    patterns: [
+      'No motors detected', 
+      'RuntimeError: No motors detected',
+      'No motor found on port',
+      'RuntimeError: No motor found on port',
+    ],
     message: {
       text: 'Power supply',
       bold: 'not connected',
-      suffix: '— plug in and turn on',
+      suffix: '— press button and plug in power',
     },
     // No specific mesh to highlight - this is a global power issue
     meshPatterns: null,

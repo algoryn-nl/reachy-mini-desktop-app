@@ -4,8 +4,13 @@ import { Box } from '@mui/material';
 /**
  * Robot Vital Signs Audio Visualizer - Frame-rate independent, smooth animation
  * Responsive dimensions based on container size
+ * 
+ * @param {boolean} isActive - Whether the visualizer is active
+ * @param {string} color - Color of the waveform
+ * @param {number} barCount - Number of bars (legacy, not used in waveform mode)
+ * @param {number} externalLevel - External audio level (0-1) from real audio source
  */
-export default function AudioLevelBars({ isActive, color = '#FF9500', barCount = 8 }) {
+export default function AudioLevelBars({ isActive, color = '#FF9500', barCount = 8, externalLevel = null }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -119,28 +124,36 @@ export default function AudioLevelBars({ isActive, color = '#FF9500', barCount =
         const elapsed = currentTime - lastUpdateTimeRef.current;
         
         if (elapsed >= updateInterval) {
-          // ✅ Get variation parameters from ref
-          const { amplitude: variationAmplitude, speed: variationSpeed, baseLevel } = variationParamsRef.current;
-          const fastRandom = fastRandomRef.current; // ✅ Get fastRandom from ref
+          let newValue;
           
-          // ✅ Generate more unpredictable amplitude values with variation
+          // Use external audio level if provided, otherwise simulate
+          if (externalLevel !== null && typeof externalLevel === 'number') {
+            // Real audio level from WebRTC stream
+            // Add slight smoothing and minimum threshold for visibility
+            const smoothedLevel = Math.max(0.05, externalLevel);
+            // Add subtle variation to make it more dynamic
+            const fastRandom = fastRandomRef.current;
+            const microVariation = (fastRandom() - 0.5) * 0.05;
+            newValue = Math.max(0.05, Math.min(0.95, smoothedLevel + microVariation));
+          } else {
+            // Fallback: Generate simulated values when no real audio
+            const { amplitude: variationAmplitude, speed: variationSpeed, baseLevel } = variationParamsRef.current;
+            const fastRandom = fastRandomRef.current;
+            
           const random1 = fastRandom();
           const random2 = fastRandom();
           const random3 = fastRandom();
           
-          // Mix multiple random sources for more unpredictability
           const baseValue = (random1 * 0.4 + random2 * 0.3 + random3 * 0.3);
-          
-          // Add some frequency-like variation (simulate different audio frequencies)
           const timePhase = currentTime * 0.001 * variationSpeed;
           const frequencyVariation = Math.sin(timePhase) * 0.15 + Math.cos(timePhase * 1.7) * 0.1;
           
-          // Combine base level, random variation, and frequency modulation
-          const newValue = Math.max(0.1, Math.min(0.95, 
+            newValue = Math.max(0.1, Math.min(0.95, 
             baseLevel + 
             baseValue * variationAmplitude + 
             frequencyVariation * fastRandom()
           ));
+          }
           
           // Add to history (shift array)
           waveformRef.current.push(newValue);
@@ -252,7 +265,7 @@ export default function AudioLevelBars({ isActive, color = '#FF9500', barCount =
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isActive, color, dimensions]);
+  }, [isActive, color, dimensions, externalLevel]);
 
   return (
     <Box

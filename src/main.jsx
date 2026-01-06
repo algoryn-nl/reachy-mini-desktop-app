@@ -35,13 +35,6 @@ import App from './components/App';
 import DevPlayground from './components/DevPlayground';
 import WebApp from './components/WebApp';
 import robotModelCache from './utils/robotModelCache';
-import { disableSimulationMode } from './utils/simulationMode';
-
-// 🧹 Clean up simulation mode from localStorage on normal startup
-// Only keep simMode if VITE_SIM_MODE is explicitly set (env variable takes priority)
-if (import.meta.env?.VITE_SIM_MODE !== 'true') {
-  disableSimulationMode();
-}
 import useAppStore from './store/useAppStore';
 
 // 🚀 Preload robot 3D model (FORCE complete reload)
@@ -87,6 +80,18 @@ function ThemeWrapper({ children }) {
           root: {
             // ✅ Assure que les transitions fonctionnent correctement
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            textTransform: 'none',
+            fontWeight: 600,
+            borderRadius: '10px',
+          },
+          outlined: {
+            // ✅ Style primary outlined par défaut
+            borderColor: '#FF9500',
+            color: '#FF9500',
+            '&:hover': {
+              borderColor: '#E08500',
+              backgroundColor: 'rgba(255, 149, 0, 0.08)',
+            },
           },
         },
       },

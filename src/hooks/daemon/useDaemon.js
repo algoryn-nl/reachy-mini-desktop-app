@@ -25,7 +25,8 @@ export const useDaemon = () => {
   } = useAppStore();
   
   // Derived from robotStatus (state machine)
-  const isActive = robotStatus === 'ready' || robotStatus === 'busy';
+  // Include 'sleeping' in isActive so window resizes on connection (not just on wake)
+  const isActive = robotStatus === 'sleeping' || robotStatus === 'ready' || robotStatus === 'busy';
   const isStarting = robotStatus === 'starting';
   const isStopping = robotStatus === 'stopping';
   
@@ -39,7 +40,7 @@ export const useDaemon = () => {
       // Daemon started successfully - no action needed here
       // useRobotState will detect when it becomes active
       if (data?.simMode) {
-        logger.info('Daemon started in simulation mode (MuJoCo)');
+        logger.info('Daemon started in simulation mode (mockup-sim)');
       }
     });
     
@@ -302,15 +303,14 @@ export const useDaemon = () => {
         const statusData = await statusResponse.json();
         console.log(`🌐 WiFi daemon state: ${statusData.state}`);
         
-        // ⚠️ ALWAYS wake up the robot in WiFi mode!
-        // - If daemon is not_initialized/starting/stopped: use /api/daemon/start?wake_up=true
-        // - If daemon is already running: use /api/move/play/wake_up (explicit wake up)
-        // This is because stopDaemon sends goto_sleep but daemon keeps running on the Pi
-        if (statusData.state === 'not_initialized' || statusData.state === 'starting' || statusData.state === 'stopped') {
-          console.log(`🌐 Daemon needs restart (state: ${statusData.state}), starting with wake_up...`);
+        // ✅ Start daemon WITHOUT wake_up - robot stays sleeping
+        // The Wake/Sleep toggle in UI will control when robot wakes up
+        // Note: 'stopping' means daemon API is accessible but backend is not running (--no-autostart mode)
+        if (statusData.state === 'not_initialized' || statusData.state === 'starting' || statusData.state === 'stopped' || statusData.state === 'stopping') {
+          console.log(`🌐 Daemon needs restart (state: ${statusData.state}), starting WITHOUT wake_up...`);
           try {
             await fetchWithTimeout(
-              buildApiUrl('/api/daemon/start?wake_up=true'),
+              buildApiUrl('/api/daemon/start?wake_up=false'),
               { method: 'POST' },
               DAEMON_CONFIG.TIMEOUTS.STARTUP_CHECK * 2,
               { label: 'WiFi daemon start' }
@@ -318,23 +318,8 @@ export const useDaemon = () => {
           } catch (e) {
             console.log('🌐 Daemon start request sent (response may be delayed)');
           }
-        } else if (statusData.state === 'running') {
-          // Daemon already running - send explicit wake_up move
-          console.log(`🌐 Daemon already running, sending wake_up move...`);
-          try {
-            await fetchWithTimeout(
-              buildApiUrl('/api/move/play/wake_up'),
-              { method: 'POST' },
-              DAEMON_CONFIG.TIMEOUTS.COMMAND,
-              { label: 'WiFi robot wake up' }
-            );
-            // Wait for wake up animation to complete
-            console.log(`🌐 Waiting for wake_up animation...`);
-            await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
-          } catch (e) {
-            console.log('🌐 Wake up move sent (robot may already be awake)');
-          }
         }
+        // If daemon already running, don't send wake_up - let user control via toggle
         
         // ✅ Don't call transitionTo.ready() here!
         // Let HardwareScanView detect when daemon is ready via its health checks
@@ -398,7 +383,7 @@ export const useDaemon = () => {
       await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
       // Note: isStarting already set by startConnection() in FindingRobotView
       
-      // ✅ Set explicit startup timeout - longer for simulation mode (MuJoCo install takes time)
+      // ✅ Set explicit startup timeout - longer for simulation mode
       const startupTimeout = simMode 
         ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION 
         : DAEMON_CONFIG.STARTUP.TIMEOUT_NORMAL;
@@ -480,23 +465,19 @@ export const useDaemon = () => {
       console.log('');
       console.log('🌐 WIFI MODE: Disconnect sequence');
       
-      // Call daemon stop API (same as dashboard) - this will:
-      // 1. Move robot to sleep position
-      // 2. Disable motors (MotorControlMode.Disabled)
-      // 3. Set daemon state to 'stopped' (but process keeps running on Pi)
+      // ✅ Robot is ALREADY sleeping (power off only allowed when sleeping)
+      // No need to send goto_sleep - just stop the daemon cleanly
       try {
         console.log('');
-        console.log('😴 STEP 2: Stop daemon with goto_sleep');
-        console.log('   → Sending /api/daemon/stop?goto_sleep=true...');
+        console.log('😴 STEP 2: Stop daemon (already sleeping)');
+        console.log('   → Sending /api/daemon/stop?goto_sleep=false...');
         await fetchWithTimeout(
-          buildApiUrl('/api/daemon/stop?goto_sleep=true'),
+          buildApiUrl('/api/daemon/stop?goto_sleep=false'),
           { method: 'POST' },
-          DAEMON_CONFIG.TIMEOUTS.COMMAND * 2, // Longer timeout for full stop sequence
-          { label: 'Daemon stop with sleep' }
+          DAEMON_CONFIG.TIMEOUTS.COMMAND,
+          { label: 'Daemon stop' }
         );
-        console.log(`   → Waiting ${DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION}ms for sleep animation...`);
-        await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
-        console.log('   ✅ Daemon stopped, motors disabled');
+        console.log('   ✅ Daemon stopped');
       } catch (e) {
         console.log(`   ⚠️ Daemon stop command skipped: ${e.message}`);
       }
@@ -520,23 +501,19 @@ export const useDaemon = () => {
     console.log('🔌 USB/SIMULATION MODE: Shutdown sequence');
     
     try {
-      // Call daemon stop API (same as dashboard) - this will:
-      // 1. Move robot to sleep position
-      // 2. Disable motors (MotorControlMode.Disabled)
-      // 3. Stop the backend gracefully
+      // ✅ Robot is ALREADY sleeping (power off only allowed when sleeping)
+      // No need to send goto_sleep - just stop the daemon cleanly
       try {
         console.log('');
-        console.log('😴 STEP 2: Stop daemon with goto_sleep');
-        console.log('   → Sending /api/daemon/stop?goto_sleep=true...');
+        console.log('😴 STEP 2: Stop daemon (already sleeping)');
+        console.log('   → Sending /api/daemon/stop?goto_sleep=false...');
         await fetchWithTimeout(
-          buildApiUrl('/api/daemon/stop?goto_sleep=true'),
+          buildApiUrl('/api/daemon/stop?goto_sleep=false'),
           { method: 'POST' },
-          DAEMON_CONFIG.TIMEOUTS.COMMAND * 2, // Longer timeout for full stop sequence
-          { label: 'Daemon stop with sleep' }
+          DAEMON_CONFIG.TIMEOUTS.COMMAND,
+          { label: 'Daemon stop' }
         );
-        console.log(`   → Waiting ${DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION}ms for sleep animation...`);
-        await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SLEEP_DURATION));
-        console.log('   ✅ Daemon stopped, motors disabled');
+        console.log('   ✅ Daemon stopped');
       } catch (e) {
         console.log(`   ⚠️ Daemon stop command skipped: ${e.message}`);
       }
