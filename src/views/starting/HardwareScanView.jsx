@@ -12,6 +12,7 @@ import { useDaemonStartupLogs } from '../../hooks/daemon/useDaemonStartupLogs';
 import LogConsole from '@components/LogConsole';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '../../config/daemon';
 import { detectMovementChanges } from '../../utils/movementDetection';
+import { useAppFetching, useAppEnrichment } from '../active-robot/application-store/hooks';
 
 /**
  * Generate text shadow for better readability on transparent backgrounds
@@ -36,7 +37,11 @@ function HardwareScanView({
   onScanComplete: onScanCompleteCallback,
   startDaemon,
 }) {
-  const { setHardwareError, darkMode, transitionTo, robotStatus, setRobotStateFull } = useAppStore();
+  const { setHardwareError, darkMode, transitionTo, robotStatus, setRobotStateFull, setAvailableApps, setInstalledApps, setAppsLoading } = useAppStore();
+  
+  // ✅ App fetching hooks for pre-loading apps before transition
+  const { fetchOfficialApps, fetchAllAppsFromDaemon, fetchInstalledApps } = useAppFetching();
+  const { enrichApps } = useAppEnrichment();
   const isStarting = robotStatus === 'starting';
   const theme = useTheme();
   const { logs: startupLogs, hasError: hasStartupError, lastMessage } = useDaemonStartupLogs(isStarting);
@@ -49,7 +54,8 @@ function HardwareScanView({
   const [scanComplete, setScanComplete] = useState(false);
   const [waitingForDaemon, setWaitingForDaemon] = useState(false);
   const [waitingForMovements, setWaitingForMovements] = useState(false);
-  const [daemonStep, setDaemonStep] = useState('connecting'); // 'connecting' | 'initializing' | 'detecting'
+  const [waitingForApps, setWaitingForApps] = useState(false); // ✅ NEW: Pre-fetch apps state
+  const [daemonStep, setDaemonStep] = useState('connecting'); // 'connecting' | 'initializing' | 'detecting' | 'loading_apps'
   const [daemonAttempts, setDaemonAttempts] = useState(0);
   const [movementAttempts, setMovementAttempts] = useState(0);
   const [allMeshes, setAllMeshes] = useState([]);
@@ -349,10 +355,81 @@ function HardwareScanView({
           const result = await checkDaemonHealth();
           
           if (result.hasMovements) {
-            // ✅ Movements detected, proceed to transition
+            // ✅ Movements detected, now pre-fetch apps before transition
             console.log(`✅ Robot movements detected after ${movementAttemptCount} attempts`);
             setWaitingForMovements(false);
             clearAllIntervals();
+            
+            // ✅ NEW: Pre-fetch apps before transitioning to ActiveRobotView
+            setWaitingForApps(true);
+            setDaemonStep('loading_apps');
+            console.log('📱 Pre-fetching apps before transition...');
+            
+            try {
+              setAppsLoading(true);
+              
+              // Fetch all apps in parallel (official + community + installed)
+              const [officialResult, communityResult, installedResult] = await Promise.allSettled([
+                fetchOfficialApps(),
+                fetchAllAppsFromDaemon(),
+                fetchInstalledApps(),
+              ]);
+              
+              // Extract results
+              let officialApps = officialResult.status === 'fulfilled' ? (officialResult.value || []) : [];
+              let communityApps = communityResult.status === 'fulfilled' ? (communityResult.value || []) : [];
+              const installedAppsFromDaemon = installedResult.status === 'fulfilled' ? (installedResult.value?.apps || []) : [];
+              
+              // Mark apps with isOfficial flag
+              officialApps = officialApps.map(app => ({ ...app, isOfficial: true }));
+              communityApps = communityApps.map(app => ({ ...app, isOfficial: false }));
+              
+              // Merge all apps
+              let allApps = [...officialApps, ...communityApps];
+              
+              // Add local-only installed apps
+              const availableAppNames = new Set(allApps.map(app => app.name?.toLowerCase()));
+              const localOnlyApps = installedAppsFromDaemon
+                .filter(app => !availableAppNames.has(app.name?.toLowerCase()))
+                .map(app => ({ ...app, source_kind: app.source_kind || 'local', isOfficial: false }));
+              
+              if (localOnlyApps.length > 0) {
+                allApps = [...allApps, ...localOnlyApps];
+              }
+              
+              // Create lookup structures for installed apps
+              const installedAppNames = new Set(
+                installedAppsFromDaemon.map(app => app.name?.toLowerCase()).filter(Boolean)
+              );
+              const installedAppsMap = new Map(
+                installedAppsFromDaemon.map(app => [app.name?.toLowerCase(), app])
+              );
+              
+              // Enrich apps with metadata
+              const { enrichedApps, installed } = await enrichApps(
+                allApps,
+                installedAppNames,
+                installedAppsMap,
+                officialApps
+              );
+              
+              // Preserve isOfficial flag after enrichment
+              const enrichedAppsWithFlag = enrichedApps.map(app => {
+                const original = allApps.find(a => a.name === app.name);
+                return { ...app, isOfficial: original?.isOfficial ?? false };
+              });
+              
+              // Store in global store (will be used immediately by ActiveRobotView)
+              setAvailableApps(enrichedAppsWithFlag);
+              setInstalledApps(installed);
+              
+              console.log(`✅ Apps pre-fetched: ${enrichedAppsWithFlag.length} total, ${installed.length} installed`);
+            } catch (err) {
+              console.warn('⚠️ Failed to pre-fetch apps (will retry in ActiveRobotView):', err.message);
+            } finally {
+              setAppsLoading(false);
+              setWaitingForApps(false);
+            }
             
             // Now we can safely call the callback
             if (onScanCompleteCallback) {
@@ -412,7 +489,7 @@ function HardwareScanView({
     // Start checking immediately, then every interval
     checkHealth();
     healthCheckIntervalRef.current = setInterval(checkHealth, CHECK_INTERVAL);
-  }, [checkDaemonHealth, onScanCompleteCallback, clearAllIntervals, setHardwareError]);
+  }, [checkDaemonHealth, onScanCompleteCallback, clearAllIntervals, setHardwareError, fetchOfficialApps, fetchAllAppsFromDaemon, fetchInstalledApps, enrichApps, setAvailableApps, setInstalledApps, setAppsLoading]);
   
   const handleScanComplete = useCallback(() => {
     console.log('[HardwareScanView] 🔍 handleScanComplete called');
@@ -743,7 +820,9 @@ function HardwareScanView({
                 textTransform: 'uppercase',
                   }}
             >
-              {waitingForMovements 
+              {waitingForApps
+                ? 'Loading Applications'
+                : waitingForMovements 
                 ? 'Detecting Movements' 
                 : waitingForDaemon 
                 ? (daemonStep === 'connecting' 
@@ -758,34 +837,36 @@ function HardwareScanView({
               <LinearProgress 
                 variant="determinate"
                 value={(() => {
-                  // ✅ Use centralized progress distribution
+                  // ✅ Use centralized progress distribution (adjusted for apps loading step)
                   const { PROGRESS, DAEMON_MAX_ATTEMPTS, MOVEMENT_MAX_ATTEMPTS } = DAEMON_CONFIG.HARDWARE_SCAN;
                   
-                  // Hardware scan: 0-30%
+                  // Hardware scan: 0-25%
                   if (!scanComplete && !waitingForDaemon && scanProgress.total > 0) {
-                    return (scanProgress.current / scanProgress.total) * PROGRESS.SCAN_END;
+                    return (scanProgress.current / scanProgress.total) * 25;
                   }
                   
-                  // Daemon connecting: 30-50%
+                  // Daemon connecting: 25-40%
                   if (waitingForDaemon && daemonStep === 'connecting') {
-                    const range = PROGRESS.DAEMON_CONNECTING_END - PROGRESS.SCAN_END;
-                    return PROGRESS.SCAN_END + Math.min(range, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * range);
+                    return 25 + Math.min(15, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * 15);
                   }
                   
-                  // Daemon initializing: 50-70%
+                  // Daemon initializing: 40-55%
                   if (waitingForDaemon && daemonStep === 'initializing') {
-                    const range = PROGRESS.DAEMON_INITIALIZING_END - PROGRESS.DAEMON_CONNECTING_END;
-                    return PROGRESS.DAEMON_CONNECTING_END + Math.min(range, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * range);
+                    return 40 + Math.min(15, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * 15);
                   }
                   
-                  // Detecting movements: 70-100%
+                  // Detecting movements: 55-80%
                   if (waitingForMovements) {
-                    const range = PROGRESS.MOVEMENT_DETECTING_END - PROGRESS.DAEMON_INITIALIZING_END;
-                    return PROGRESS.DAEMON_INITIALIZING_END + Math.min(range, (movementAttempts / MOVEMENT_MAX_ATTEMPTS) * range);
+                    return 55 + Math.min(25, (movementAttempts / MOVEMENT_MAX_ATTEMPTS) * 25);
+                  }
+                  
+                  // Loading apps: 80-100%
+                  if (waitingForApps) {
+                    return 85; // Static value while loading apps
                   }
                   
                   // Scan complete
-                  if (scanComplete && !waitingForDaemon && !waitingForMovements) {
+                  if (scanComplete && !waitingForDaemon && !waitingForMovements && !waitingForApps) {
                     return 100;
                   }
                   
@@ -815,7 +896,11 @@ function HardwareScanView({
                   lineHeight: 1.5,
                 }}
               >
-                {waitingForDaemon && daemonStep === 'connecting' ? (
+                {waitingForApps ? (
+                  <>
+                    <Box component="span" sx={{ fontWeight: 700 }}>Fetching</Box> available apps...
+                  </>
+                ) : waitingForDaemon && daemonStep === 'connecting' ? (
                   <>
                     <Box component="span" sx={{ fontWeight: 700 }}>Establishing</Box> connection...
                   </>

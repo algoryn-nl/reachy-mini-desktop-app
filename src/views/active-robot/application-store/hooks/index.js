@@ -8,4 +8,6 @@ export { useAppInstallation } from './useAppInstallation';
 export { useAppFiltering } from './useAppFiltering';
 export { useModalStack } from './useModalStack';
 export { useAppLogs } from './useAppLogs';
+export { useAppFetching } from './useAppFetching';
+export { useAppEnrichment } from './useAppEnrichment';
 

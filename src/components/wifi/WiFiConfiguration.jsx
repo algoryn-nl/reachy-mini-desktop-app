@@ -82,7 +82,7 @@ export default function WiFiConfiguration({
     const baseUrl = customBaseUrl || buildApiUrl('').replace(/\/$/, '');
     setIsLoadingWifi(true);
     if (!onError) {
-      setWifiError(null);
+    setWifiError(null);
     }
     
     try {
@@ -140,7 +140,7 @@ export default function WiFiConfiguration({
     
     setIsConnecting(true);
     if (!onError) {
-      setWifiError(null);
+    setWifiError(null);
     }
     setSuccessMessage(null);
     
@@ -208,25 +208,25 @@ export default function WiFiConfiguration({
           
           // Failure - Back to hotspot
           if (status.mode === 'hotspot') {
-            const errorResponse = await fetchWithTimeout(
-              `${baseUrl}/wifi/error`,
-              {},
-              2000,
+          const errorResponse = await fetchWithTimeout(
+            `${baseUrl}/wifi/error`,
+            {},
+            2000,
               { label: 'WiFi error', silent: true }
-            );
+          );
           
             let errorMsg = 'Connection failed. Please check your password and try again.';
-            if (errorResponse.ok) {
-              const errorData = await errorResponse.json();
-              if (errorData.error) {
+          if (errorResponse.ok) {
+            const errorData = await errorResponse.json();
+            if (errorData.error) {
                 errorMsg = `Connection failed: ${errorData.error}`;
                 
-                await fetchWithTimeout(
-                  `${baseUrl}/wifi/reset_error`,
-                  { method: 'POST' },
-                  2000,
+              await fetchWithTimeout(
+                `${baseUrl}/wifi/reset_error`,
+                { method: 'POST' },
+                2000,
                   { label: 'Reset error', silent: true }
-                ).catch(() => {});
+              ).catch(() => {});
               }
             }
             
@@ -245,19 +245,19 @@ export default function WiFiConfiguration({
             // Inform user
             if (onError) {
               onError('Reachy is attempting to connect to your WiFi network. The hotspot will temporarily disconnect...', 'info');
-            }
-            
+          }
+          
             // Wait 12 seconds
             await new Promise(resolve => setTimeout(resolve, 12000));
             
             // Check if robot is back on hotspot
             try {
               const hotspotCheckResponse = await fetchWithTimeout(
-                `${baseUrl}/wifi/status`,
-                {},
+            `${baseUrl}/wifi/status`,
+            {},
                 3000,
                 { label: 'Hotspot re-check', silent: true }
-              );
+          );
           
               if (hotspotCheckResponse.ok) {
                 const hotspotStatus = await hotspotCheckResponse.json();
@@ -288,12 +288,12 @@ export default function WiFiConfiguration({
                   handleError(errorMsg, 'error');
                   setIsConnecting(false);
                   return 'failed';
-                }
-              }
+            }
+          }
             } catch (recheckErr) {
               // Robot still gone
-            }
-            
+        }
+        
             // Robot is still gone after 12s = likely success
             setWifiPassword('');
             setSelectedSSID('');
@@ -303,7 +303,7 @@ export default function WiFiConfiguration({
               onConnectSuccess(ssidToUse);
             }
             return 'verify';
-          }
+        }
         
           return null;
         }

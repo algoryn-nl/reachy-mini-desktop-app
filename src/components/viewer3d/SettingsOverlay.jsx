@@ -54,7 +54,7 @@ export default function SettingsOverlay({
   
   // Update job tracking (WiFi mode)
   const [updateJobId, setUpdateJobId] = useState(null);
-  const [updateJobStatus, setUpdateJobStatus] = useState(null); // 'pending' | 'in_progress' | 'done' | 'failed'
+  const [updateJobStatus, setUpdateJobStatus] = useState(null); // 'pending' | 'in_progress' | 'done' | 'failed' | 'restarting'
   const [updateLogs, setUpdateLogs] = useState([]);
   const updatePollingRef = useRef(null);
   
@@ -109,6 +109,13 @@ export default function SettingsOverlay({
   // ═══════════════════════════════════════════════════════════════════
   
   const checkForUpdate = useCallback(async () => {
+    // Check network status first
+    if (!navigator.onLine) {
+      console.warn('⚠️ No internet connection, cannot check for updates');
+      showToast('No internet connection. Please check your network and try again.', 'warning');
+      return;
+    }
+    
     setIsCheckingUpdate(true);
     setUpdateInfo(null);
     
@@ -127,17 +134,28 @@ export default function SettingsOverlay({
         setUpdateInfo(data.update?.reachy_mini || null);
         }
       } else {
-        // USB/Simulation mode: Use Tauri command
+        // USB/Simulation mode: Use Tauri command (requires internet to check PyPI)
         const data = await invoke('check_daemon_update', { preRelease });
         setUpdateInfo(data);
       }
     } catch (err) {
       console.error('Failed to check for updates:', err);
-      setWifiError('Failed to check for updates');
+      // Check if it's a network error
+      const isNetworkError = 
+        err.message?.toLowerCase().includes('network') ||
+        err.message?.toLowerCase().includes('timeout') ||
+        err.message?.toLowerCase().includes('connection') ||
+        err.message?.toLowerCase().includes('fetch');
+      
+      if (isNetworkError) {
+        showToast('No internet connection. Please check your network and try again.', 'warning');
+      } else {
+        showToast('Failed to check for updates', 'error');
+      }
     } finally {
       setIsCheckingUpdate(false);
     }
-  }, [isWifiMode, preRelease]);
+  }, [isWifiMode, preRelease, showToast]);
 
   // Connect to update job WebSocket (WiFi mode)
   const connectUpdateWebSocket = useCallback((jobId) => {
@@ -169,21 +187,28 @@ export default function SettingsOverlay({
             console.log('[UpdateWS] Job finished:', data.status);
             ws.close();
             
-            // Show result after a short delay
-            setTimeout(() => {
-              setIsUpdating(false);
               if (data.status === 'done') {
-                showToast('Update completed successfully! Reconnect to use the new version.', 'success');
+              // ✅ Update successful - daemon will restart
+              // Keep overlay visible and show "restarting" status
+              console.log('[UpdateWS] Update successful, daemon will restart...');
+              setUpdateJobStatus('restarting');
                 logSuccess('Update completed successfully!');
-              } else {
-                showToast('Update failed. Check logs for details.', 'error');
-              }
               
-              // Disconnect after showing result
+              // Wait for daemon restart (takes ~5-10 seconds typically)
+              // Then reset to force reconnection
               setTimeout(() => {
+                console.log('[UpdateWS] Resetting app to reconnect...');
+                setIsUpdating(false);
+                showToast('Update completed! Please reconnect to the robot.', 'success');
                 useAppStore.getState().resetAll();
-              }, 2000);
+              }, 6000); // 6 seconds to allow daemon to restart
+            } else {
+              // ✅ Update failed - show error immediately
+              setTimeout(() => {
+                setIsUpdating(false);
+                showToast('Update failed. Check logs for details.', 'error');
             }, 500);
+            }
           }
         }
       } catch (err) {
@@ -225,6 +250,14 @@ export default function SettingsOverlay({
 
   // Actually start the update after confirmation
   const confirmUpdate = useCallback(async () => {
+    // Check network status first
+    if (!navigator.onLine) {
+      console.warn('⚠️ No internet connection, cannot start update');
+      showToast('No internet connection. Please check your network and try again.', 'warning');
+      setShowUpdateConfirm(false);
+      return;
+    }
+    
     setShowUpdateConfirm(false);
     setIsUpdating(true);
     
@@ -259,8 +292,8 @@ export default function SettingsOverlay({
           setUpdateJobStatus('pending');
           setUpdateLogs([]);
           
-          // Close settings overlay to show update progress overlay
-        onClose();
+          // NOTE: Do NOT close settings overlay - the update progress overlay
+          // is displayed INSIDE it with higher z-index (10004)
         
           // Connect to WebSocket for real-time logs
           connectUpdateWebSocket(data.job_id);
@@ -291,11 +324,23 @@ export default function SettingsOverlay({
       }
     } catch (err) {
       console.error('Failed to start update:', err);
+      
+      // Check if it's a network error
+      const isNetworkError = 
+        err.message?.toLowerCase().includes('network') ||
+        err.message?.toLowerCase().includes('timeout') ||
+        err.message?.toLowerCase().includes('connection') ||
+        err.message?.toLowerCase().includes('fetch');
+      
+      if (isNetworkError) {
+        showToast('No internet connection. Please check your network and try again.', 'warning');
+      } else {
       showToast(`Update failed: ${err}`, 'error');
-      setWifiError(`Update failed: ${err}`);
+      }
+      
       setIsUpdating(false);
     }
-  }, [isWifiMode, preRelease, onClose, showToast, isSleeping, goToSleep, connectUpdateWebSocket]);
+  }, [isWifiMode, preRelease, showToast, isSleeping, goToSleep, connectUpdateWebSocket]);
 
   // ═══════════════════════════════════════════════════════════════════
   // WIFI FUNCTIONS
@@ -604,6 +649,7 @@ export default function SettingsOverlay({
                 onUpdateClick={handleUpdateClick}
                 cardStyle={cardStyle}
                 buttonStyle={buttonStyle}
+                isOnline={navigator.onLine}
               />
           
           {isWifiMode && (
@@ -970,6 +1016,8 @@ export default function SettingsOverlay({
                   <CheckCircleOutlinedIcon sx={{ fontSize: 40, color: '#10b981' }} />
                 ) : updateJobStatus === 'failed' ? (
                   <ErrorOutlineIcon sx={{ fontSize: 40, color: '#ef4444' }} />
+                ) : updateJobStatus === 'restarting' ? (
+                  <CircularProgress size={32} thickness={3} sx={{ color: '#10b981' }} />
                 ) : (
                   <CircularProgress size={32} thickness={3} sx={{ color: '#FF9500' }} />
                 )}
@@ -988,6 +1036,7 @@ export default function SettingsOverlay({
             >
               {updateJobStatus === 'done' ? 'Update Completed!' : 
                updateJobStatus === 'failed' ? 'Update Failed' :
+               updateJobStatus === 'restarting' ? 'Restarting Robot...' :
                'Updating...'}
             </Typography>
             
@@ -1003,6 +1052,7 @@ export default function SettingsOverlay({
             >
               {updateJobStatus === 'done' ? 'The update has been installed successfully.' :
                updateJobStatus === 'failed' ? 'An error occurred during the update.' :
+               updateJobStatus === 'restarting' ? 'Update installed! The robot is restarting to apply changes...' :
                'Installing the new version. This may take a few minutes...'}
             </Typography>
             
@@ -1050,7 +1100,7 @@ export default function SettingsOverlay({
             </Box>
             
             {/* Warning for ongoing update */}
-            {updateJobStatus !== 'done' && updateJobStatus !== 'failed' && (
+            {updateJobStatus !== 'done' && updateJobStatus !== 'failed' && updateJobStatus !== 'restarting' && (
               <Box
                 sx={{ 
                   p: 2,

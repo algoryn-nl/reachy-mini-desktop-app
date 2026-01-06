@@ -48,6 +48,7 @@ function ActiveRobotView({
     isAppRunning,
     safeToShutdown,
     isWakeSleepTransitioning,
+    robotStateFull, // ✅ For checking if robot position is ready
   } = robotState;
   
   // Extract actions from context
@@ -91,6 +92,17 @@ function ActiveRobotView({
   // Only show "Preparing robot..." overlay on FIRST load, not on refreshes
   const [appsLoading, setAppsLoading] = useState(true);
   const hasLoadedOnceRef = useRef(false);
+  
+  // ✅ Check if robot has received its first position data
+  // robotStateFull is pre-populated in HardwareScanView, so this should be true immediately
+  const robotPositionReady = useMemo(() => {
+    return robotStateFull?.data?.head_joints && 
+           Array.isArray(robotStateFull.data.head_joints) && 
+           robotStateFull.data.head_joints.length === 7;
+  }, [robotStateFull]);
+  
+  // ✅ Combined ready state: apps loaded AND robot position ready
+  const isFullyReady = !appsLoading && robotPositionReady;
   
   // ✅ Callback to receive apps loading state from RightPanel
   // Only set loading=true if we haven't loaded once yet (prevents overlay flash on refresh)
@@ -274,8 +286,8 @@ function ActiveRobotView({
           </Box>
       </FullscreenOverlay>
       
-      {/* Loading overlay - shown while apps are being fetched */}
-      {appsLoading && (
+      {/* Loading overlay - shown while apps are being fetched OR robot position not ready */}
+      {!isFullyReady && (
         <Box
           sx={{
             position: 'absolute',

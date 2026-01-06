@@ -2,14 +2,30 @@ import { useMemo } from 'react';
 
 /**
  * Hook for filtering and categorizing apps
- * Extracts categories from tags and filters apps by category and search query
+ * Extracts categories from tags and filters apps by category, search query, and official status
+ * @param {Array} availableApps - All available apps (with isOfficial flag)
+ * @param {string} searchQuery - Search query string
+ * @param {string|null} selectedCategory - Selected category filter
+ * @param {boolean} officialOnly - If true, show only official apps; if false, show only community apps
  */
-export function useAppFiltering(availableApps, searchQuery, selectedCategory) {
-  // Extract available categories from apps with counts
+export function useAppFiltering(availableApps, searchQuery, selectedCategory, officialOnly = true) {
+  // First filter by official/community mode
+  const appsForMode = useMemo(() => {
+    return availableApps.filter(app => {
+      // If app has isOfficial flag, use it
+      if (app.isOfficial !== undefined) {
+        return officialOnly ? app.isOfficial : !app.isOfficial;
+      }
+      // Fallback: treat hf_space as official
+      return officialOnly ? app.source_kind === 'hf_space' : app.source_kind !== 'hf_space';
+    });
+  }, [availableApps, officialOnly]);
+
+  // Extract available categories from apps with counts (based on filtered mode)
   const categories = useMemo(() => {
     const categoryMap = new Map(); // category -> count
     
-    availableApps.forEach(app => {
+    appsForMode.forEach(app => {
       // Extract tags from both root level and cardData (HF API has tags in both places)
       const rootTags = app.extra?.tags || [];
       const cardDataTags = app.extra?.cardData?.tags || [];
@@ -67,12 +83,12 @@ export function useAppFiltering(availableApps, searchQuery, selectedCategory) {
         return a.name.localeCompare(b.name);
       })
       .slice(0, 6); // Keep only top 6 categories
-  }, [availableApps]);
+  }, [appsForMode]);
 
-  // Filter available apps based on search and category
+  // Filter apps based on search and category (already filtered by mode)
   const filteredApps = useMemo(() => {
-    // Start with all available apps (including installed ones)
-    let apps = [...availableApps];
+    // Start with apps filtered by mode
+    let apps = [...appsForMode];
     
     // Filter by category FIRST
     if (selectedCategory) {
@@ -105,19 +121,22 @@ export function useAppFiltering(availableApps, searchQuery, selectedCategory) {
     
     // Filter by search query AFTER category filter
     if (searchQuery && searchQuery.trim()) {
-      const beforeCount = apps.length;
       const query = searchQuery.toLowerCase().trim();
       apps = apps.filter(app => 
         app.name.toLowerCase().includes(query) ||
         (app.description && app.description.toLowerCase().includes(query))
       );
-      const afterCount = apps.length;
-      console.log(`🔍 Search filter "${searchQuery}": ${beforeCount} → ${afterCount} apps`);
     }
     
-    console.log(`📊 Final filteredApps: ${apps.length} apps (total available: ${availableApps.length})`);
+    // Sort by likes (descending) - most liked apps first
+    apps = apps.sort((a, b) => {
+      const likesA = a.extra?.likes || 0;
+      const likesB = b.extra?.likes || 0;
+      return likesB - likesA;
+    });
+    
     return apps;
-  }, [availableApps, searchQuery, selectedCategory]);
+  }, [appsForMode, searchQuery, selectedCategory]);
 
   return {
     categories,

@@ -77,6 +77,7 @@ export default function ApplicationStore({
     fetchAvailableApps,
     isLoading,
     isStoppingApp,
+    error: appsError,
   } = useApps(effectiveIsActive, officialOnly);
   
   // ✅ Notify parent when loading status changes
@@ -141,7 +142,8 @@ export default function ApplicationStore({
   }, [officialOnly]);
   
   // Hook for filtering and categorizing apps
-  const { categories, filteredApps } = useAppFiltering(availableApps, searchQuery, selectedCategory);
+  // ✅ Filter & sort apps client-side (data is cached for 1 day)
+  const { categories, filteredApps } = useAppFiltering(availableApps, searchQuery, selectedCategory, officialOnly);
 
   // ✅ Get installing app info (with fallback if not in list yet)
   const installingApp = useMemo(() => {
@@ -481,6 +483,7 @@ export default function ApplicationStore({
         darkMode={effectiveDarkMode}
         isBusy={effectiveIsBusy}
         isLoading={isLoading}
+        error={appsError}
         activeJobs={activeJobs}
         isJobRunning={isJobRunning}
         handleInstall={handleInstall}

@@ -7,6 +7,17 @@ import { logInfo } from '../../utils/logging';
 import { applyRobotMaterials } from '../../utils/viewer3d/applyRobotMaterials';
 import { STEWART_JOINT_NAMES, PASSIVE_JOINT_NAMES } from '../../constants/robotBuffer';
 
+// ✅ Passive joint names for initialization
+const ALL_PASSIVE_JOINT_NAMES = [
+  'passive_1_x', 'passive_1_y', 'passive_1_z',
+  'passive_2_x', 'passive_2_y', 'passive_2_z',
+  'passive_3_x', 'passive_3_y', 'passive_3_z',
+  'passive_4_x', 'passive_4_y', 'passive_4_z',
+  'passive_5_x', 'passive_5_y', 'passive_5_z',
+  'passive_6_x', 'passive_6_y', 'passive_6_z',
+  'passive_7_x', 'passive_7_y', 'passive_7_z',
+];
+
 /**
  * Robot component loaded from local URDF
  * Loads assets from /assets/robot-3d/ instead of daemon
@@ -36,6 +47,15 @@ function URDFRobot({
   const { camera, gl } = useThree();
   // ✅ Get darkMode from store
   const darkMode = useAppStore(state => state.darkMode);
+  // ✅ Get initial robot position from store (pre-populated in HardwareScanView)
+  // Use a ref to capture only the INITIAL value, avoid triggering effect on every update
+  const robotStateFullRef = useRef(null);
+  const robotStateFull = useAppStore(state => state.robotStateFull);
+  
+  // ✅ Capture initial value once (when first valid data arrives)
+  if (!robotStateFullRef.current && robotStateFull?.data?.head_joints) {
+    robotStateFullRef.current = robotStateFull;
+  }
   const raycaster = useRef(new THREE.Raycaster());
   const mouse = useRef(new THREE.Vector2());
   const hoveredMesh = useRef(null);
@@ -146,9 +166,43 @@ function URDFRobot({
       }
       
       // ✅ Model loaded, let useLayoutEffect apply materials
-      // ✅ IMPORTANT: Initialize all joints to zero to avoid incorrect initial position
-      // The Stewart platform requires all joints to be initialized correctly
+      // ✅ IMPROVED: Apply initial joints from robotStateFull (pre-populated in HardwareScanView)
+      // This ensures robot displays at correct position immediately, without 500ms delay
       if (robotModel && robotModel.joints) {
+        // ✅ Use ref to get initial position (captured once, not reactive)
+        const initialJoints = robotStateFullRef.current?.data?.head_joints;
+        const hasValidInitialJoints = Array.isArray(initialJoints) && initialJoints.length === 7;
+        
+        if (hasValidInitialJoints) {
+          // ✅ Use ACTUAL robot position from daemon
+          console.log('🎯 Applying initial robot position from store:', initialJoints.map(v => v.toFixed(3)).join(', '));
+          
+          // Apply yaw_body from first joint value
+          if (robotModel.joints['yaw_body']) {
+            robotModel.setJointValue('yaw_body', initialJoints[0]);
+          }
+          
+          // Apply stewart joints (indices 1-6)
+          STEWART_JOINT_NAMES.forEach((jointName, index) => {
+            if (robotModel.joints[jointName]) {
+              robotModel.setJointValue(jointName, initialJoints[index + 1]);
+            }
+          });
+          
+          // Apply antennas if available
+          const initialAntennas = robotStateFullRef.current?.data?.antennas;
+          if (Array.isArray(initialAntennas) && initialAntennas.length === 2) {
+            if (robotModel.joints['left_antenna']) {
+              robotModel.setJointValue('left_antenna', -initialAntennas[1]); // Right data (negated) goes to left visual antenna
+            }
+            if (robotModel.joints['right_antenna']) {
+              robotModel.setJointValue('right_antenna', -initialAntennas[0]); // Left data (negated) goes to right visual antenna
+            }
+          }
+        } else {
+          // ✅ Fallback: Initialize all joints to zero
+          console.log('⚠️ No initial robot position in store, using zeros');
+          
         // Initialize yaw_body to 0
         if (robotModel.joints['yaw_body']) {
           robotModel.setJointValue('yaw_body', 0);
@@ -160,18 +214,10 @@ function URDFRobot({
             robotModel.setJointValue(jointName, 0);
           }
         });
+        }
         
-        // Initialize passive joints to 0 if available
-        const passiveJointNames = [
-          'passive_1_x', 'passive_1_y', 'passive_1_z',
-          'passive_2_x', 'passive_2_y', 'passive_2_z',
-          'passive_3_x', 'passive_3_y', 'passive_3_z',
-          'passive_4_x', 'passive_4_y', 'passive_4_z',
-          'passive_5_x', 'passive_5_y', 'passive_5_z',
-          'passive_6_x', 'passive_6_y', 'passive_6_z',
-          'passive_7_x', 'passive_7_y', 'passive_7_z',
-        ];
-        passiveJointNames.forEach(jointName => {
+        // Initialize passive joints to 0 (will be computed by WASM later)
+        ALL_PASSIVE_JOINT_NAMES.forEach(jointName => {
           if (robotModel.joints[jointName]) {
             robotModel.setJointValue(jointName, 0);
           }
@@ -184,9 +230,16 @@ function URDFRobot({
             child.updateMatrixWorld(true);
           }
         });
+        
+        // ✅ If we have initial position, display immediately without delay
+        if (hasValidInitialJoints) {
+          if (!isMounted) return;
+          setRobot(robotModel);
+          return; // Skip timeout
+        }
       }
       
-      // ✅ Wait 500ms before displaying robot to avoid tilted head glitch
+      // ✅ Fallback: Wait 500ms before displaying robot (only if no initial position)
       displayTimeoutRef.current = setTimeout(() => {
         if (!isMounted) return;
         setRobot(robotModel);
@@ -205,7 +258,7 @@ function URDFRobot({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, forceLoad, onMeshesReady]); // ✅ Load when isActive or forceLoad changes
+  }, [isActive, forceLoad, onMeshesReady]); // ✅ Load when isActive or forceLoad changes (initial position from ref, not reactive)
 
   // ✅ Apply antennas on initial load and when they change (even if isActive=false)
   useEffect(() => {
