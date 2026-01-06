@@ -1,10 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Box, Typography, IconButton, Button, CircularProgress, Snackbar, Alert, LinearProgress, ButtonGroup, Switch, Tooltip } from '@mui/material';
+import { Box, Typography, IconButton, Button, CircularProgress, Alert, LinearProgress, ButtonGroup, Switch, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import FullscreenOverlay from '../../components/FullscreenOverlay';
-import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import Viewer3D from '../../components/viewer3d';
 import CameraFeed from './camera/CameraFeed';
@@ -20,6 +18,9 @@ import { useAppLogs } from './application-store/hooks';
 import { useActiveRobotContext } from './context';
 import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
 import { WebRTCStreamProvider } from '../../contexts/WebRTCStreamContext';
+import { useToast } from '../../hooks/useToast';
+import Toast from '../../components/Toast';
+import ConnectionLostIllustration from '../../assets/connection-lost.svg';
 
 
 function ActiveRobotView({ 
@@ -45,6 +46,8 @@ function ActiveRobotView({
     busyReason,
     currentAppName,
     isAppRunning,
+    safeToShutdown,
+    isWakeSleepTransitioning,
   } = robotState;
   
   // Extract actions from context
@@ -64,8 +67,7 @@ function ActiveRobotView({
   useRobotMovementStatus(isActive);
   
   // Toast notifications
-  const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
-  const [toastProgress, setToastProgress] = useState(100);
+  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
   
   // Logs fullscreen modal
   const [logsFullscreenOpen, setLogsFullscreenOpen] = useState(false);
@@ -124,45 +126,6 @@ function ActiveRobotView({
     }
     // Don't react to robotStatus changes while already active
   }, [isActive, robotStatus]);
-  
-  const showToast = useCallback((message, severity = 'info') => {
-    setToast({ open: true, message, severity });
-    setToastProgress(100);
-  }, []);
-  
-  const handleCloseToast = useCallback(() => {
-    setToast(prev => ({ ...prev, open: false }));
-    setToastProgress(100);
-  }, []);
-  
-  // ✅ OPTIMIZED: Progress bar animation using requestAnimationFrame
-  useEffect(() => {
-    if (!toast.open) {
-      setToastProgress(100);
-      return;
-    }
-    
-    setToastProgress(100);
-    const duration = 3500; // Matches autoHideDuration
-    const startTime = performance.now();
-    
-    const animate = () => {
-      const elapsed = performance.now() - startTime;
-      const progress = Math.max(0, 100 - (elapsed / duration) * 100);
-      
-      setToastProgress(progress);
-      
-      if (progress > 0 && elapsed < duration) {
-        requestAnimationFrame(animate);
-      }
-    };
-    
-    const frameId = requestAnimationFrame(animate);
-    
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [toast.open]);
   
   // Wrapper for Quick Actions with toast and visual effects
   const handleQuickAction = useCallback((action) => {
@@ -238,48 +201,34 @@ function ActiveRobotView({
         position: 'relative',
       }}
     >
-      {/* Error overlay if daemon crashed - Modern design */}
-      {isDaemonCrashed && (
+      {/* Error overlay if daemon crashed - Modern design with FullscreenOverlay */}
+      <FullscreenOverlay
+        open={isDaemonCrashed}
+        onClose={() => {}} // No close on backdrop click for crash
+        darkMode={darkMode}
+        zIndex={9999}
+        backdropBlur={20}
+      >
         <Box
           sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(20px)',
-            // z-index hierarchy: 9999 = fullscreen overlays (Settings, Install, Error)
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            maxWidth: 420,
+            textAlign: 'center',
+            px: 3,
           }}
         >
+          {/* Illustration */}
           <Box
+            component="img"
+            src={ConnectionLostIllustration}
+            alt="Connection Lost"
             sx={{
-              p: 5,
-              maxWidth: 380,
-              textAlign: 'center',
-            }}
-          >
-            {/* Error icon */}
-            <Box
-              sx={{
-                width: 64,
-                height: 64,
-                borderRadius: '50%',
-                bgcolor: darkMode ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.08)',
-                border: `2px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+              width: 180,
+              height: 180,
                 mx: 'auto',
                 mb: 3,
+              opacity: darkMode ? 0.9 : 1,
               }}
-            >
-              <Typography sx={{ fontSize: 32 }}>⚠️</Typography>
-            </Box>
+          />
             
             {/* Title */}
             <Typography 
@@ -323,8 +272,7 @@ function ActiveRobotView({
               Restart Application
             </Button>
           </Box>
-        </Box>
-      )}
+      </FullscreenOverlay>
       
       {/* Loading overlay - shown while apps are being fetched */}
       {appsLoading && (
@@ -455,10 +403,12 @@ function ActiveRobotView({
             />
           ), [isActive, isOn, isMoving, robotStatus, busyReason])}
           
-          {/* Power Button - top left corner (only enabled when sleeping) */}
+          {/* Power Button - top left corner (only enabled when sleeping AND safe to shutdown AND not transitioning) */}
           <PowerButton
             onStopDaemon={stopDaemon}
             isSleeping={robotStatus === 'sleeping'}
+            safeToShutdown={safeToShutdown}
+            isWakeSleepTransitioning={isWakeSleepTransitioning}
             isStopping={isStopping}
             darkMode={darkMode}
           />
@@ -569,145 +519,14 @@ function ActiveRobotView({
         </Box>
       </Box>
 
-      {/* Toast Notifications - Bottom center */}
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={3500}
+      {/* Toast Notifications */}
+      <Toast 
+        toast={toast} 
+        toastProgress={toastProgress} 
         onClose={handleCloseToast}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{
-          bottom: '24px !important',
-          left: '50% !important',
-          right: 'auto !important',
-          transform: 'translateX(-50%) !important',
-          display: 'flex !important',
-          justifyContent: 'center !important',
-          alignItems: 'center !important',
-          width: '100%',
-          zIndex: 100000, // Above everything (toasts must be visible above all overlays)
-          '& > *': {
-            margin: '0 auto !important',
-          },
-        }}
-      >
-        <Box 
-          onClick={handleCloseToast}
-          sx={{ 
-            position: 'relative', 
-            overflow: 'hidden', 
-            borderRadius: '12px',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: darkMode 
-              ? '0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)'
-              : '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
-            zIndex: 100000,
-            cursor: 'pointer',
-          }}
-        >
-          {/* Main content */}
-          <Box
-            sx={{
-              position: 'relative',
-              borderRadius: '12px',
-              fontSize: 13,
-              fontWeight: 500,
-              letterSpacing: '-0.01em',
-              background: darkMode
-                ? (toast.severity === 'success'
-                  ? 'rgba(34, 197, 94, 0.15)'
-                  : toast.severity === 'error'
-                  ? 'rgba(239, 68, 68, 0.15)'
-                  : 'rgba(255, 149, 0, 0.15)')
-                : (toast.severity === 'success'
-                  ? 'rgba(34, 197, 94, 0.1)'
-                  : toast.severity === 'error'
-                  ? 'rgba(239, 68, 68, 0.1)'
-                  : 'rgba(255, 149, 0, 0.1)'),
-              border: `1px solid ${toast.severity === 'success'
-                ? darkMode ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.3)'
-                : toast.severity === 'error'
-                ? darkMode ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)'
-                : darkMode ? 'rgba(255, 149, 0, 0.4)' : 'rgba(255, 149, 0, 0.3)'}`,
-              color: toast.severity === 'success'
-                ? darkMode ? '#86efac' : '#16a34a'
-                : toast.severity === 'error'
-                ? darkMode ? '#fca5a5' : '#dc2626'
-                : darkMode ? '#fbbf24' : '#d97706',
-              minWidth: 240,
-              maxWidth: 400,
-              px: 3,
-              py: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1.5,
-              overflow: 'hidden',
-            }}
-          >
-            {/* Animated time bar - Bottom border style */}
-            <Box
-              sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                height: '2px',
-                width: `${toastProgress}%`,
-                background: toast.severity === 'success' 
-                  ? darkMode ? 'rgba(34, 197, 94, 0.8)' : 'rgba(34, 197, 94, 0.7)'
-                  : toast.severity === 'error'
-                  ? darkMode ? 'rgba(239, 68, 68, 0.8)' : 'rgba(239, 68, 68, 0.7)'
-                  : darkMode ? 'rgba(255, 149, 0, 0.8)' : 'rgba(255, 149, 0, 0.7)',
-                zIndex: 0,
-                transition: 'width 0.02s linear',
-                borderRadius: '0 0 12px 12px',
-              }}
+        darkMode={darkMode}
+        zIndex={100000}
             />
-            
-            {/* Icon - Outlined style */}
-            {toast.severity === 'success' && (
-              <CheckCircleOutlinedIcon 
-                sx={{ 
-                  fontSize: 20, 
-                  flexShrink: 0,
-                  color: 'inherit',
-                }} 
-              />
-            )}
-            {toast.severity === 'error' && (
-              <ErrorOutlineIcon 
-                sx={{ 
-                  fontSize: 20, 
-                  flexShrink: 0,
-                  color: 'inherit',
-                }} 
-              />
-            )}
-            {(toast.severity === 'warning' || toast.severity === 'info') && (
-              <WarningAmberOutlinedIcon 
-                sx={{ 
-                  fontSize: 20, 
-                  flexShrink: 0,
-                  color: 'inherit',
-              }}
-            />
-            )}
-            
-            {/* Text content */}
-            <Box
-              sx={{
-                position: 'relative',
-                zIndex: 1,
-                lineHeight: 1.5,
-                textAlign: 'left',
-                flex: 1,
-            }}
-          >
-            {toast.message}
-            </Box>
-          </Box>
-        </Box>
-      </Snackbar>
       
       {/* Logs Fullscreen Modal */}
       <FullscreenOverlay
