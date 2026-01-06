@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useActiveRobotContext } from '../../context';
-import { useApps, useAppHandlers, useAppInstallation } from '../../application-store/hooks';
+import { useApps, useAppHandlers, useAppInstallation, useAppFiltering, useModalStack } from '../../application-store/hooks';
 import { InstalledAppsSection } from '../../application-store/installed';
 import { Modal as DiscoverModal } from '../../application-store/discover';
 import { CreateAppTutorial as CreateAppTutorialModal } from '../../application-store/modals';
@@ -36,8 +36,20 @@ export default function ApplicationsSection({
   const effectiveIsActive = isActive !== undefined ? isActive : contextIsActive;
   const effectiveIsBusy = isBusy !== undefined ? isBusy : actions.isBusy();
   
+  // State
   const [officialOnly, setOfficialOnly] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
+  // ✅ Modal stack hook - declared BEFORE useAppInstallation to avoid stale closure
+  const {
+    openModal,
+    closeModal,
+    discoverModalOpen,
+    createAppTutorialModalOpen,
+  } = useModalStack();
+  
+  // Apps data hook
   const {
     availableApps,
     installedApps,
@@ -50,20 +62,22 @@ export default function ApplicationsSection({
     fetchAvailableApps,
     isLoading,
     isStoppingApp,
+    error: appsError,
   } = useApps(effectiveIsActive, officialOnly);
   
+  // Notify parent when loading status changes
   useEffect(() => {
     if (onLoadingChange) {
       onLoadingChange(isLoading);
     }
   }, [isLoading, onLoadingChange]);
   
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  
+  // Reset category when switching between official/non-official
   useEffect(() => {
     setSelectedCategory(null);
   }, [officialOnly]);
   
+  // Installation lifecycle hook
   useAppInstallation({
     activeJobs,
     installedApps,
@@ -71,13 +85,13 @@ export default function ApplicationsSection({
     refreshApps: fetchAvailableApps,
     isLoading,
     onInstallSuccess: () => {
-      const discoverIsOpen = modalStack[modalStack.length - 1] === 'discover';
-      if (discoverIsOpen) {
+      if (discoverModalOpen) {
         closeModal();
       }
     },
   });
   
+  // App action handlers
   const {
     expandedApp,
     setExpandedApp,
@@ -96,20 +110,6 @@ export default function ApplicationsSection({
     stopCurrentApp,
     showToast,
   });
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [modalStack, setModalStack] = useState([]);
-  
-  const openModal = (modalType) => {
-    setModalStack(prev => [...prev, modalType]);
-  };
-  
-  const closeModal = () => {
-    setModalStack(prev => prev.slice(0, -1));
-  };
-  
-  const discoverModalOpen = modalStack[modalStack.length - 1] === 'discover';
-  const createAppTutorialModalOpen = modalStack[modalStack.length - 1] === 'createTutorial';
 
   const installingApp = useMemo(() => {
     if (!installingAppName) return null;
@@ -131,85 +131,8 @@ export default function ApplicationsSection({
     ? activeJobsArray.find(job => job.appName === installingAppName)
     : null;
 
-  const categories = useMemo(() => {
-    const categoryMap = new Map();
-    availableApps.forEach(app => {
-      const rootTags = app.extra?.tags || [];
-      const cardDataTags = app.extra?.cardData?.tags || [];
-      const allTags = [...new Set([...rootTags, ...cardDataTags])];
-      const sdk = app.extra?.sdk || app.extra?.cardData?.sdk;
-      
-      allTags.forEach(tag => {
-        if (tag && typeof tag === 'string') {
-          if (!tag.startsWith('region:') && 
-              tag.toLowerCase() !== 'reachy_mini' && 
-              tag.toLowerCase() !== 'reachy-mini' &&
-              tag.toLowerCase() !== 'static') {
-            if (sdk && tag.toLowerCase() === sdk.toLowerCase()) {
-              categoryMap.set(tag, (categoryMap.get(tag) || 0) + 1);
-            } else {
-              categoryMap.set(tag, (categoryMap.get(tag) || 0) + 1);
-            }
-          }
-        }
-      });
-      
-      if (sdk && typeof sdk === 'string') {
-        const sdkLower = sdk.toLowerCase();
-        const hasMatchingTag = allTags.some(tag => 
-          tag && typeof tag === 'string' && tag.toLowerCase() === sdkLower
-        );
-        if (!hasMatchingTag) {
-          const sdkCategory = `sdk:${sdk}`;
-          categoryMap.set(sdkCategory, (categoryMap.get(sdkCategory) || 0) + 1);
-        }
-      }
-    });
-    
-    return Array.from(categoryMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => {
-        if (b.count !== a.count) {
-          return b.count - a.count;
-        }
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 6);
-  }, [availableApps]);
-
-  const filteredApps = useMemo(() => {
-    let apps = [...availableApps];
-    
-    if (selectedCategory) {
-      apps = apps.filter(app => {
-        const rootTags = app.extra?.tags || [];
-        const cardDataTags = app.extra?.cardData?.tags || [];
-        const allTags = [...new Set([...rootTags, ...cardDataTags])];
-        const sdk = app.extra?.sdk || app.extra?.cardData?.sdk;
-        
-        if (selectedCategory.startsWith('sdk:')) {
-          const sdkCategory = selectedCategory.replace('sdk:', '');
-          return sdk === sdkCategory;
-        } else {
-          const tagMatches = allTags.some(tag => 
-            tag && typeof tag === 'string' && tag.toLowerCase() === selectedCategory.toLowerCase()
-          );
-          const sdkMatches = sdk && typeof sdk === 'string' && sdk.toLowerCase() === selectedCategory.toLowerCase();
-          return tagMatches || sdkMatches;
-        }
-      });
-    }
-    
-    if (searchQuery && searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      apps = apps.filter(app => 
-        app.name.toLowerCase().includes(query) ||
-        (app.description && app.description.toLowerCase().includes(query))
-      );
-    }
-    
-    return apps;
-  }, [availableApps, searchQuery, selectedCategory]);
+  // ✅ Filter & sort apps client-side (data is cached for 1 day)
+  const { categories, filteredApps } = useAppFiltering(availableApps, searchQuery, selectedCategory, officialOnly);
 
   return (
     <>
@@ -292,6 +215,7 @@ export default function ApplicationsSection({
         darkMode={effectiveDarkMode}
         isBusy={effectiveIsBusy}
         isLoading={isLoading}
+        error={appsError}
         activeJobs={activeJobs}
         isJobRunning={isJobRunning}
         handleInstall={handleInstall}

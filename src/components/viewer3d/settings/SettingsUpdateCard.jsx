@@ -29,6 +29,7 @@ export default function SettingsUpdateCard({
   onUpdateClick,
   cardStyle,
   buttonStyle,
+  isOnline = true, // Network status
 }) {
   const textPrimary = darkMode ? '#f5f5f5' : '#333';
   const textSecondary = darkMode ? '#888' : '#666';
@@ -156,7 +157,7 @@ export default function SettingsUpdateCard({
             <Button
               variant="outlined"
               onClick={onUpdateClick}
-              disabled={isUpdating}
+              disabled={isUpdating || !isOnline}
               sx={{
                 ...buttonStyle, 
                     fontSize: 13,
@@ -168,6 +169,15 @@ export default function SettingsUpdateCard({
             >
                   {isUpdating ? <CircularProgress size={18} color="primary" /> : 'Update Now'}
             </Button>
+            {!isOnline && (
+              <Typography sx={{ 
+                fontSize: 11, 
+                color: darkMode ? '#f59e0b' : '#d97706',
+                fontStyle: 'italic',
+              }}>
+                Requires internet connection
+              </Typography>
+            )}
               </>
             ) : (
               // Up to date
@@ -210,10 +220,21 @@ export default function SettingsUpdateCard({
             variant="outlined"
             onClick={onCheckUpdate}
               size="small"
+            disabled={!isOnline}
             sx={{ ...buttonStyle, fontSize: 12 }}
           >
               Check now
           </Button>
+            {!isOnline && (
+              <Typography sx={{ 
+                fontSize: 11, 
+                color: darkMode ? '#f59e0b' : '#d97706',
+                fontStyle: 'italic',
+                mt: 0.5,
+              }}>
+                Requires internet connection
+              </Typography>
+            )}
         </Box>
       )}
         

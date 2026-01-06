@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef } from 'react';
 import { ROBOT_POSITION_RANGES } from '../../../../utils/inputConstants';
 import { clamp } from '../../../../utils/inputHelpers';
 import { useActiveRobotContext } from '../../context';
@@ -7,6 +7,9 @@ import { useActiveRobotContext } from '../../context';
 // When true: right antenna value is negated for symmetric movement
 // When false: right antenna value is sent as-is
 const ENABLE_RIGHT_ANTENNA_MIRRORING = false;
+
+// Simple throttle - same as v0.8.10 that worked well
+const SEND_THROTTLE_MS = 50; // ~20fps - proven to work for both USB and WiFi
 
 /**
  * Transform antennas for API: optionally invert right antenna for mirror behavior
@@ -25,133 +28,42 @@ function transformAntennasForAPI(antennas) {
 
 /**
  * Hook for managing robot API calls
- * Handles continuous updates via requestAnimationFrame
  * 
- * Uses ActiveRobotContext for decoupling from global stores
+ * Simple fire-and-forget pattern (same as v0.8.10):
+ * - Throttled to 20fps (50ms)
+ * - Direct fetch, no queue management
+ * - Works reliably for both USB and WiFi
  */
 export function useRobotAPI(isActive, robotState, isDraggingRef) {
   const { api } = useActiveRobotContext();
   const { buildApiUrl, fetchWithTimeout, config: DAEMON_CONFIG } = api;
-  const rafRef = useRef(null);
-  const pendingPoseRef = useRef(null);
-  const lastSentPoseRef = useRef(null);
-  // AbortController to cancel previous requests when sending a new one
-  const abortControllerRef = useRef(null);
-
-  // Stop continuous updates
-  const stopContinuousUpdates = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    pendingPoseRef.current = null;
-    // Cancel any pending request when stopping
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-  }, []);
-
-  // Continuous update loop
-  const startContinuousUpdates = useCallback(() => {
-    if (rafRef.current) return;
-    
-    const updateLoop = () => {
-      if (pendingPoseRef.current && isDraggingRef.current) {
-        const { headPose, antennas, bodyYaw } = pendingPoseRef.current;
-        // Include antennas in poseKey to detect changes properly
-        const poseKey = JSON.stringify({ headPose, antennas, bodyYaw });
-        
-        if (lastSentPoseRef.current !== poseKey) {
-          const validBodyYaw = typeof bodyYaw === 'number' ? bodyYaw : 0;
-          
-          // ✅ If only body_yaw is changing, send body_yaw with current values for others
-          // The API needs the current state to properly calculate body yaw movement
-          if (headPose === null && antennas === null) {
-            // Send current values so API can preserve them and calculate body yaw correctly
-            const requestBody = {
-              target_body_yaw: validBodyYaw,
-              target_head_pose: robotState.headPose, // Send current head pose
-              target_antennas: transformAntennasForAPI(robotState.antennas || [0, 0]), // Send current antennas (right inverted)
-            };
-            fetchWithTimeout(
-              buildApiUrl('/api/move/set_target'),
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-              },
-              DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-              { label: 'Continuous move (body_yaw)', silent: true, fireAndForget: true }
-            ).catch((error) => {
-              console.error('❌ set_target (body_yaw only) error:', error);
-            });
-          } else {
-            // Normal case: send everything
-            const requestBody = {
-              target_head_pose: headPose,
-              target_antennas: transformAntennasForAPI(antennas),
-              target_body_yaw: validBodyYaw,
-            };
-            fetchWithTimeout(
-              buildApiUrl('/api/move/set_target'),
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-              },
-              DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-              { label: 'Continuous move', silent: true, fireAndForget: true }
-            ).catch((error) => {
-              console.error('❌ set_target error:', error);
-            });
-          }
-          
-          lastSentPoseRef.current = poseKey;
-        }
-        // Keep pendingPoseRef.current during drag - it will be updated by sendCommand calls
-        // Only clear it when drag ends (handled by stopContinuousUpdates)
-      }
-      
-      // Continue loop if still dragging
-      if (isDraggingRef.current) {
-        rafRef.current = requestAnimationFrame(updateLoop);
-      } else {
-        rafRef.current = null;
-        stopContinuousUpdates();
-      }
-    };
-    
-    rafRef.current = requestAnimationFrame(updateLoop);
-  }, [robotState, stopContinuousUpdates, isDraggingRef]);
-
-  // Send command using set_target (called by smoothing loop)
-  // This is now called directly by the smoothing loop, so we just send immediately
-  // No need for startContinuousUpdates - the smoothing loop handles continuous updates
-  // Add throttling to avoid sending too frequently
-  // WiFi needs more time between requests than localhost
-  const lastSendTimeRef = useRef(0);
-  const SEND_THROTTLE_MS = 50; // ~20fps - works for both USB and WiFi
   
+  // Simple throttle tracking
+  const lastSendTimeRef = useRef(0);
+
+  /**
+   * Send command via HTTP POST (fire-and-forget)
+   * Simple throttle - same pattern as v0.8.10
+   */
   const sendCommand = useCallback((headPose, antennas, bodyYaw) => {
     if (!isActive) return;
-    const validBodyYaw = typeof bodyYaw === 'number' ? bodyYaw : (robotState.bodyYaw || 0);
-
-    // Throttle sends to avoid overwhelming the API
+    
+    // Simple throttle
     const now = Date.now();
     if (now - lastSendTimeRef.current < SEND_THROTTLE_MS) {
-      return; // Skip this frame, will send on next frame
+      return; // Skip this frame
     }
     lastSendTimeRef.current = now;
-
-    // Fire and forget - don't abort previous requests
-    // The server handles the latest position, throttle prevents accumulation
+    
+    const validBodyYaw = typeof bodyYaw === 'number' ? bodyYaw : (robotState.bodyYaw || 0);
+    
     const requestBody = {
       target_head_pose: headPose,
       target_antennas: transformAntennasForAPI(antennas),
       target_body_yaw: validBodyYaw,
     };
     
+    // Fire and forget - direct fetch
     fetchWithTimeout(
       buildApiUrl('/api/move/set_target'),
       {
@@ -160,15 +72,46 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
         body: JSON.stringify(requestBody),
       },
       DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
-      { label: 'Set target (smoothed)', silent: true, fireAndForget: true }
-    ).catch((error) => {
-      console.error('❌ set_target error:', error);
-    });
-  }, [isActive, robotState.bodyYaw]);
+      { label: 'Set target', silent: true, fireAndForget: true }
+    ).catch(() => {}); // Ignore errors silently
+  }, [isActive, robotState.bodyYaw, buildApiUrl, fetchWithTimeout, DAEMON_CONFIG]);
 
-  // Send single API call (for non-continuous updates like reset)
-  const sendSingleCommand = useCallback((headPose, antennas, bodyYaw) => {
+  /**
+   * Force send command - bypasses throttle
+   * Use for final position on drag end
+   */
+  const forceSendCommand = useCallback((headPose, antennas, bodyYaw) => {
     if (!isActive) return;
+    
+    const validBodyYaw = typeof bodyYaw === 'number' ? bodyYaw : (robotState.bodyYaw || 0);
+
+    const requestBody = {
+      target_head_pose: headPose,
+      target_antennas: transformAntennasForAPI(antennas),
+      target_body_yaw: validBodyYaw,
+    };
+    
+    // Bypass throttle - send immediately
+    lastSendTimeRef.current = Date.now();
+    fetchWithTimeout(
+      buildApiUrl('/api/move/set_target'),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      },
+      DAEMON_CONFIG.MOVEMENT.CONTINUOUS_MOVE_TIMEOUT,
+      { label: 'Set target (force)', silent: true, fireAndForget: true }
+    ).catch(() => {}); // Ignore errors silently
+  }, [isActive, robotState.bodyYaw, buildApiUrl, fetchWithTimeout, DAEMON_CONFIG]);
+
+  /**
+   * Send single command - legacy API, now uses forceSend internally
+   * For non-continuous updates like reset
+   */
+  const sendSingleCommand = useCallback((headPose, antennas, bodyYaw) => {
+    if (!isActive) return Promise.resolve();
+    
     const validBodyYaw = typeof bodyYaw === 'number' ? bodyYaw : (robotState.bodyYaw || 0);
     
     const requestBody = {
@@ -184,6 +127,7 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
       target_body_yaw: validBodyYaw,
     };
 
+    // Use direct fetch for single commands (need the response)
     return fetchWithTimeout(
       buildApiUrl('/api/move/set_target'),
       {
@@ -196,17 +140,27 @@ export function useRobotAPI(isActive, robotState, isDraggingRef) {
     ).catch((error) => {
       console.error('❌ set_target error:', error);
     });
-  }, [isActive, robotState]);
+  }, [isActive, robotState, buildApiUrl, fetchWithTimeout, DAEMON_CONFIG]);
+
+  /**
+   * Stop continuous updates - kept for backward compatibility
+   */
+  const stopContinuousUpdates = useCallback(() => {
+    // No-op with simple throttle pattern
+  }, []);
+
+  /**
+   * Start continuous updates - kept for backward compatibility
+   */
+  const startContinuousUpdates = useCallback(() => {
+    // No-op with simple throttle pattern
+  }, []);
 
   return {
     sendCommand,
+    forceSendCommand,
     sendSingleCommand,
     startContinuousUpdates,
     stopContinuousUpdates,
-    // Expose refs for backward compatibility
-    rafRef,
-    pendingPoseRef,
-    lastSentPoseRef,
   };
 }
-

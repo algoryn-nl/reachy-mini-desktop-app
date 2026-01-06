@@ -8,6 +8,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AudioLevelBars from './AudioLevelBars';
 import DoAIndicator from './DoAIndicator';
 import { useDoA } from '../../../hooks/audio/useDoA';
+import { useWebRTCStreamContext } from '../../../contexts/WebRTCStreamContext';
+import useAudioAnalyser from '../../../hooks/media/useAudioAnalyser';
 
 /**
  * Audio Controls Component - Speaker and Microphone controls
@@ -31,6 +33,10 @@ function AudioControls({
   // Fetch DoA when microphone is active
   const isMicActive = microphoneVolume > 0 && !disabled;
   const { angle, isTalking, isAvailable } = useDoA(isMicActive);
+  
+  // Get real audio level from robot's microphone via WebRTC
+  const { audioTrack } = useWebRTCStreamContext();
+  const { level: microphoneLevel } = useAudioAnalyser(isMicActive ? audioTrack : null);
   // Shared styles
   const cardStyle = {
     height: 64,
@@ -87,7 +93,7 @@ function AudioControls({
     letterSpacing: '0.02em',
   };
 
-  const renderControl = (label, tooltip, device, platform, volume, isActive, onMute, onVolumeChange, extraIndicator = null) => (
+  const renderControl = (label, tooltip, device, platform, volume, isActive, onMute, onVolumeChange, extraIndicator = null, externalAudioLevel = null) => (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, opacity: disabled ? 0.5 : 1, transition: 'opacity 0.2s ease' }}>
       {/* Label row with optional indicator on the right */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
@@ -143,16 +149,17 @@ function AudioControls({
           </Box>
         </Box>
 
-        {/* Visualizer - responsive width */}
-        {/* Temporarily disabled - no example curve for now
-        <Box sx={{ width: '100%', height: '28px', flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box' }}>
-          <AudioLevelBars 
-            isActive={isActive} 
-            color={darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)'} 
-            barCount={8} 
-          />
-        </Box>
-        */}
+        {/* Visualizer - only show if we have real audio data */}
+        {externalAudioLevel !== null && (
+          <Box sx={{ width: '100%', height: '28px', flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box' }}>
+            <AudioLevelBars 
+              isActive={isActive} 
+              color={darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)'} 
+              barCount={8}
+              externalLevel={externalAudioLevel}
+            />
+          </Box>
+        )}
       </Box>
     </Box>
   );
@@ -178,7 +185,8 @@ function AudioControls({
         microphoneVolume > 0,
         onMicrophoneMute,
         onMicrophoneVolumeChange || ((val) => onMicrophoneChange(val > 0)),
-        <DoAIndicator angle={angle} isTalking={isTalking} isAvailable={isAvailable} darkMode={darkMode} />
+        <DoAIndicator angle={angle} isTalking={isTalking} isAvailable={isAvailable} darkMode={darkMode} />,
+        microphoneLevel // Real audio level from robot's microphone
       )}
     </Box>
   );
