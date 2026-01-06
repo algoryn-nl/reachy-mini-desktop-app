@@ -14,10 +14,7 @@ const UI_UPDATE_INTERVAL_MS = 1000 / 15; // ~66ms = 15fps for UI
  * 🚀 ARCHITECTURE:
  * - Smoothing loop runs at 60fps for smooth interpolation
  * - Calls sendCommand every frame with latest smoothed values
- * - useAdaptiveCommandSender handles:
- *   • Backpressure (max 1 request in-flight)
- *   • Adaptive throttling (USB: ~60fps, WiFi: 10-20fps based on latency)
- *   • Latest value wins (skipped frames don't queue up)
+ * - sendCommand uses simple 50ms throttle (fire-and-forget HTTP POST)
  * - UI state updates throttled to 15fps (React re-renders)
  */
 export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLocalValues) {
@@ -104,7 +101,7 @@ export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLo
       }
       
       // ⚡ PERF: Throttle UI state updates to 15fps
-      // Robot commands are adaptively throttled by useAdaptiveCommandSender above
+      // Robot commands are throttled by sendCommand (50ms)
       // Only React re-renders are limited here
       const now = performance.now();
       if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {

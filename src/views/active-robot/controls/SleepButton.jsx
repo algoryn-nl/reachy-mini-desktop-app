@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Tooltip } from '@mui/material';
+import { Box, Tooltip, CircularProgress } from '@mui/material';
 import BedtimeOutlinedIcon from '@mui/icons-material/BedtimeOutlined';
 import { useWakeSleep } from '../hooks/useWakeSleep';
 import { useActiveRobotContext } from '../context';
@@ -70,14 +70,22 @@ export default function SleepButton({ darkMode }) {
           },
         }}
       >
-        <BedtimeOutlinedIcon 
-          sx={{ 
-            fontSize: 18, 
-            color: isDisabled 
-              ? (darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.4)')
-              : '#FF9500',
-          }} 
-        />
+{isTransitioning ? (
+          <CircularProgress 
+            size={16} 
+            thickness={3}
+            sx={{ color: '#FF9500' }} 
+          />
+        ) : (
+          <BedtimeOutlinedIcon 
+            sx={{ 
+              fontSize: 18, 
+              color: isDisabled 
+                ? (darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.4)')
+                : '#FF9500',
+            }} 
+          />
+        )}
       </Box>
     </Tooltip>
   );
