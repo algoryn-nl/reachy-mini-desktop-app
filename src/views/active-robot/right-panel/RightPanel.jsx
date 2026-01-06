@@ -29,7 +29,7 @@ export default function RightPanel({
 }) {
   const { robotState } = useActiveRobotContext();
   const { rightPanelView } = robotState;
-  const { robotStatus } = useAppStore();
+  const { robotStatus, safeToShutdown } = useAppStore();
   const isSleeping = robotStatus === 'sleeping';
   const { isTransitioning, wakeUp } = useWakeSleep();
   
@@ -166,12 +166,12 @@ export default function RightPanel({
           </Typography>
           <PulseButton
             onClick={wakeUp}
-            disabled={isTransitioning}
+            disabled={isTransitioning || !safeToShutdown}
             startIcon={<WbSunnyOutlinedIcon />}
             darkMode={darkMode}
             sx={{ mt: 1 }}
           >
-            {isTransitioning ? 'Waking up...' : 'Wake Up'}
+            {isTransitioning ? 'Waking up...' : !safeToShutdown ? 'Sleeping...' : 'Wake Up'}
           </PulseButton>
         </Box>
       ) : rightPanelView === 'controller' ? (

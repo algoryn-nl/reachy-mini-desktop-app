@@ -5,15 +5,17 @@ import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOu
 /**
  * Power Button Component - Top left corner power control
  * 
- * Only enabled when robot is sleeping (safe to disconnect)
+ * Only enabled when robot is sleeping AND safe to shutdown (sleep sequence complete) AND not transitioning
  */
 export default function PowerButton({ 
   onStopDaemon, 
   isSleeping, 
+  safeToShutdown,
+  isWakeSleepTransitioning,
   isStopping, 
   darkMode 
 }) {
-  const canPowerOff = isSleeping && !isStopping;
+  const canPowerOff = isSleeping && safeToShutdown && !isWakeSleepTransitioning && !isStopping;
   
   return (
     <IconButton
@@ -53,7 +55,7 @@ export default function PowerButton({
           borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
         },
       }}
-      title={isStopping ? 'Stopping...' : !isSleeping ? 'Put robot to sleep first' : 'Power Off'}
+      title={isStopping ? 'Stopping...' : isWakeSleepTransitioning ? 'Wait for transition...' : !safeToShutdown ? 'Wait for robot to finish sleeping...' : !isSleeping ? 'Put robot to sleep first' : 'Power Off'}
     >
       {isStopping ? (
         <CircularProgress size={16} thickness={4} sx={{ color: darkMode ? '#666' : '#999' }} />

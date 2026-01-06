@@ -14,9 +14,15 @@ import { ROBOT_STATUS } from '../../../constants/robotStatus';
  * @returns {Object} Wake/sleep controls and state
  */
 export function useWakeSleep() {
-  const { robotStatus, transitionTo, isStoppingApp } = useAppStore();
+  const { robotStatus, transitionTo, isStoppingApp, safeToShutdown, setWakeSleepTransitioning } = useAppStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Sync local transitioning state with global store
+  const setTransitioningState = useCallback((value) => {
+    setIsTransitioning(value);
+    setWakeSleepTransitioning(value);
+  }, [setWakeSleepTransitioning]);
   
   // Optimistic UI state - toggle appears checked immediately on wake click
   const [optimisticAwake, setOptimisticAwake] = useState(false);
@@ -24,8 +30,8 @@ export function useWakeSleep() {
   // Derived states
   const isSleeping = robotStatus === ROBOT_STATUS.SLEEPING;
   const isAwake = robotStatus === ROBOT_STATUS.READY || robotStatus === ROBOT_STATUS.BUSY;
-  // Disable toggle when: transitioning, app is stopping, or robot not in valid state
-  const canToggle = !isTransitioning && !isStoppingApp && (isSleeping || robotStatus === ROBOT_STATUS.READY);
+  // Disable toggle when: transitioning, app is stopping, not safe to shutdown (sleep transition), or robot not in valid state
+  const canToggle = !isTransitioning && !isStoppingApp && (isSleeping ? safeToShutdown : robotStatus === ROBOT_STATUS.READY);
   
   // For UI display: use optimistic state during wake transition
   const displayAwake = optimisticAwake || isAwake;
@@ -141,7 +147,7 @@ export function useWakeSleep() {
       return false;
     }
     
-    setIsTransitioning(true);
+    setTransitioningState(true);
     setOptimisticAwake(true); // Immediately show toggle as "awake" for better UX
     setError(null);
     
@@ -172,19 +178,20 @@ export function useWakeSleep() {
       // Stay in sleeping state on error
       return false;
     } finally {
-      setIsTransitioning(false);
+      setTransitioningState(false);
       setOptimisticAwake(false); // Clear optimistic state (real state takes over)
     }
-  }, [canToggle, isSleeping, enableMotors, playWakeUpAnimation, waitForAnimation, transitionTo]);
+  }, [canToggle, isSleeping, enableMotors, playWakeUpAnimation, waitForAnimation, transitionTo, setTransitioningState]);
   
   /**
    * Put the robot to sleep
    * 
    * Sequence:
-   * 1. Transition to sleeping state (blocks all actions immediately)
+   * 1. Transition to sleeping state (blocks all actions immediately, but NOT safe to shutdown yet)
    * 2. Play goto_sleep animation
    * 3. Wait for animation to complete
    * 4. Disable motors
+   * 5. Mark as safe to shutdown
    */
   const goToSleep = useCallback(async () => {
     if (!canToggle || isSleeping) {
@@ -192,14 +199,14 @@ export function useWakeSleep() {
       return false;
     }
     
-    setIsTransitioning(true);
+    setTransitioningState(true);
     setError(null);
     
     try {
       console.log('😴 Sending robot to sleep...');
       
-      // 1. Transition immediately to sleeping (blocks all actions)
-      transitionTo.sleeping();
+      // 1. Transition immediately to sleeping (blocks all actions, but NOT safe to shutdown yet)
+      transitionTo.sleeping({ safeToShutdown: false });
       
       // 2. Play goto_sleep animation
       await playGoToSleepAnimation();
@@ -210,7 +217,10 @@ export function useWakeSleep() {
       // 4. Disable motors
       await disableMotors();
       
-      console.log('✅ Robot is now sleeping');
+      // 5. NOW it's safe to shutdown (animation done + motors disabled)
+      transitionTo.sleeping({ safeToShutdown: true });
+      
+      console.log('✅ Robot is now sleeping and safe to shutdown');
       return true;
     } catch (err) {
       console.error('Go to sleep error:', err);
@@ -219,9 +229,9 @@ export function useWakeSleep() {
       transitionTo.ready();
       return false;
     } finally {
-      setIsTransitioning(false);
+      setTransitioningState(false);
     }
-  }, [canToggle, isSleeping, transitionTo, playGoToSleepAnimation, waitForAnimation, disableMotors]);
+  }, [canToggle, isSleeping, transitionTo, playGoToSleepAnimation, waitForAnimation, disableMotors, setTransitioningState]);
   
   /**
    * Toggle between wake and sleep states

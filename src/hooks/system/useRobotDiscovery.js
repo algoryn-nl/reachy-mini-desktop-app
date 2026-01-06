@@ -68,9 +68,10 @@ async function isOnReachyHotspot() {
 
 /**
  * Check multiple WiFi hosts in parallel and return the first one that responds
+ * @param {Function} isRobotBlacklisted - Function to check if a robot host is blacklisted
  * @returns {Promise<{available: boolean, host: string | null}>}
  */
-async function checkWifiRobot() {
+async function checkWifiRobot(isRobotBlacklisted) {
   // First check if we're on the Reachy hotspot - if so, WiFi mode is not available
   const onHotspot = await isOnReachyHotspot();
   if (onHotspot) {
@@ -86,8 +87,8 @@ async function checkWifiRobot() {
     WIFI_HOSTS_TO_CHECK.map(host => checkSingleHost(host))
   );
   
-  // Return the first available host
-  const available = results.find(r => r.available);
+  // Return the first available host (but filter out blacklisted ones)
+  const available = results.find(r => r.available && !isRobotBlacklisted(r.host));
   if (available) {
     // Only log when host changes (found new robot or different host)
     if (lastLoggedWifiHost !== available.host) {
@@ -97,8 +98,15 @@ async function checkWifiRobot() {
     return { available: true, host: available.host };
   }
   
+  // Check if all available hosts are blacklisted
+  const hasBlacklistedRobots = results.some(r => r.available && isRobotBlacklisted(r.host));
+  if (hasBlacklistedRobots && lastLoggedWifiHost !== 'blacklisted') {
+    console.log('🚫 WiFi robot(s) found but temporarily blacklisted');
+    lastLoggedWifiHost = 'blacklisted';
+  }
+  
   // Log when robot is lost (was found before, now gone)
-  if (lastLoggedWifiHost !== null && lastLoggedWifiHost !== 'hotspot-blocked') {
+  if (lastLoggedWifiHost && lastLoggedWifiHost !== 'hotspot-blocked' && lastLoggedWifiHost !== 'blacklisted' && !hasBlacklistedRobots) {
     console.log('🌐 WiFi robot disconnected');
     lastLoggedWifiHost = null;
   }
@@ -127,7 +135,10 @@ async function checkUsbRobot() {
  * Returns the current state of discovered robots.
  */
 export function useRobotDiscovery() {
-  const { isFirstCheck, setIsFirstCheck } = useAppStore();
+  const isFirstCheck = useAppStore(state => state.isFirstCheck);
+  const setIsFirstCheck = useAppStore(state => state.setIsFirstCheck);
+  const cleanupBlacklist = useAppStore(state => state.cleanupBlacklist);
+  const isRobotBlacklisted = useAppStore(state => state.isRobotBlacklisted);
   
   // Discovery state
   const [isScanning, setIsScanning] = useState(true);
@@ -137,6 +148,15 @@ export function useRobotDiscovery() {
   // Refs for interval management
   const scanIntervalRef = useRef(null);
   const isMountedRef = useRef(true);
+  
+  // Cleanup expired blacklist entries periodically
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      cleanupBlacklist();
+    }, 2000); // Every 2 seconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, [cleanupBlacklist]);
 
   /**
    * Perform a single discovery scan (USB + WiFi in parallel)
@@ -147,7 +167,7 @@ export function useRobotDiscovery() {
     // Scan USB and WiFi in parallel
     const [usbResult, wifiResult] = await Promise.all([
       checkUsbRobot(),
-      checkWifiRobot(),
+      checkWifiRobot(isRobotBlacklisted),
     ]);
     
     // Ensure minimum delay on first check for smooth UX
@@ -168,7 +188,7 @@ export function useRobotDiscovery() {
       setWifiRobot(wifiResult);
       setIsScanning(false);
     }
-  }, [isFirstCheck, setIsFirstCheck]);
+  }, [isFirstCheck, setIsFirstCheck, isRobotBlacklisted]);
 
   /**
    * Start continuous scanning

@@ -160,6 +160,8 @@ export default function RobotViewer3D({
   
   // ✅ Get darkMode from store
   const darkMode = useAppStore(state => state.darkMode);
+  const safeToShutdown = useAppStore(state => state.safeToShutdown);
+  const isWakeSleepTransitioning = useAppStore(state => state.isWakeSleepTransitioning);
   
   // ✅ Adapt backgroundColor based on darkMode if not explicitly provided
   // If transparent, keep transparent. Otherwise adapt default color to darkMode
@@ -333,9 +335,17 @@ export default function RobotViewer3D({
             zIndex: 10,
           }}
         >
-          {/* Settings Button - Disabled when robot is busy or app running */}
+          {/* Settings Button - Disabled when robot is busy/transitioning or during sleep transition */}
           <Tooltip
-            title={busyReason ? "Settings (unavailable while busy)" : "Settings"}
+            title={
+              busyReason 
+                ? "Settings (unavailable while busy)" 
+                : isWakeSleepTransitioning
+                  ? "Settings (wait for transition...)"
+                  : (robotStatus === 'sleeping' && !safeToShutdown)
+                    ? "Settings (wait for sleep transition...)"
+                    : "Settings"
+            }
             placement="top"
             arrow
           >
@@ -343,7 +353,7 @@ export default function RobotViewer3D({
             <IconButton
               onClick={() => setShowSettingsOverlay(true)}
               size="small"
-                disabled={!!busyReason}
+                disabled={!!busyReason || isWakeSleepTransitioning || (robotStatus === 'sleeping' && !safeToShutdown)}
               sx={{
                 width: 36,
                 height: 36,
