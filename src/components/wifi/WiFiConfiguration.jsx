@@ -34,8 +34,10 @@ import { isReachyHotspot } from '../../constants/wifi';
  * @param {function} props.onConnectSuccess - Callback when connection succeeds
  * @param {function} props.onConnectStart - Callback when connection starts
  * @param {function} props.onReachyHotspotDetected - Callback when a Reachy hotspot is detected
+ * @param {function} props.onError - Callback for errors (e.g., for toast notifications)
  * @param {boolean} props.showHotspotDetection - Show hotspot detection alert (default: true)
  * @param {string} props.customBaseUrl - Custom base URL for API calls (e.g. for hotspot mode)
+ * @param {boolean} props.skipInitialFetch - Delay automatic fetch on mount by 500ms (default: false)
  */
 export default function WiFiConfiguration({ 
   darkMode, 
@@ -43,8 +45,10 @@ export default function WiFiConfiguration({
   onConnectSuccess,
   onConnectStart,
   onReachyHotspotDetected,
+  onError,
   showHotspotDetection = true,
   customBaseUrl = null,
+  skipInitialFetch = false,
 }) {
   // Text colors
   const textPrimary = darkMode ? '#f5f5f5' : '#333';
@@ -63,73 +67,67 @@ export default function WiFiConfiguration({
   const [isDaemonReachable, setIsDaemonReachable] = useState(null); // null = checking, true/false = result
   const [showPassword, setShowPassword] = useState(false); // Toggle password visibility
 
+  // Helper to handle errors (use callback if provided, otherwise set local state)
+  const handleError = useCallback((message, severity = 'error') => {
+    if (onError) {
+      onError(message, severity);
+    } else {
+      setWifiError(message);
+    }
+  }, [onError]);
+
 
   // Fetch WiFi status and scan networks
   const fetchWifiStatus = useCallback(async () => {
     const baseUrl = customBaseUrl || buildApiUrl('').replace(/\/$/, '');
-    console.log('[WiFi] 🔍 Fetching WiFi status from:', baseUrl);
     setIsLoadingWifi(true);
-    setWifiError(null);
+    if (!onError) {
+      setWifiError(null);
+    }
     
     try {
-      const statusUrl = `${baseUrl}/wifi/status`;
-      console.log('[WiFi] → GET', statusUrl);
-      
       const statusResponse = await fetchWithTimeout(
-        statusUrl,
+        `${baseUrl}/wifi/status`,
         {},
-        5000, // 5s timeout for initial check
+        5000,
         { label: 'WiFi status', silent: true }
       );
       
-      console.log('[WiFi] ← Status response:', statusResponse.status, statusResponse.ok);
-      
       if (statusResponse.ok) {
         const data = await statusResponse.json();
-        console.log('[WiFi] ✅ Status data:', data);
         setWifiStatus(data);
         setIsDaemonReachable(true);
       } else {
-        console.warn('[WiFi] ❌ Status check failed:', statusResponse.status);
         setIsDaemonReachable(false);
-        return; // Don't try to scan if daemon is not reachable
+        return;
       }
       
-      const scanUrl = `${baseUrl}/wifi/scan_and_list`;
-      console.log('[WiFi] → POST', scanUrl);
-      
       const networksResponse = await fetchWithTimeout(
-        scanUrl,
+        `${baseUrl}/wifi/scan_and_list`,
         { method: 'POST' },
         DAEMON_CONFIG.TIMEOUTS.COMMAND * 2,
         { label: 'WiFi scan', silent: true }
       );
       
-      console.log('[WiFi] ← Scan response:', networksResponse.status, networksResponse.ok);
-      
       if (networksResponse.ok) {
         const networks = await networksResponse.json();
-        console.log('[WiFi] ✅ Scanned networks:', networks);
-        // Filter out empty network names and Reachy hotspots (we don't want to connect to ourselves)
         const validNetworks = Array.isArray(networks) 
           ? networks.filter(n => {
               if (!n || n.trim().length === 0) return false;
-              // Filter out Reachy hotspots
               return !isReachyHotspot(n);
             })
           : [];
         setAvailableNetworks(validNetworks);
-      } else {
-        console.warn('[WiFi] ❌ Scan failed:', networksResponse.status);
       }
     } catch (err) {
-      console.error('[WiFi] ❌ Failed to fetch WiFi status:', err);
       setIsDaemonReachable(false);
-      setWifiError(null); // Clear error, we'll show the "not connected" message instead
+      if (!onError) {
+        setWifiError(null);
+      }
     } finally {
       setIsLoadingWifi(false);
     }
-  }, [customBaseUrl]);
+  }, [customBaseUrl, onError]);
 
   // Connect to WiFi
   const handleConnect = useCallback(async () => {
@@ -141,152 +139,212 @@ export default function WiFiConfiguration({
     }
     
     setIsConnecting(true);
-    setWifiError(null);
+    if (!onError) {
+      setWifiError(null);
+    }
     setSuccessMessage(null);
     
     const baseUrl = customBaseUrl || buildApiUrl('').replace(/\/$/, '');
     const connectUrl = `${baseUrl}/wifi/connect?ssid=${encodeURIComponent(ssidToUse)}&password=${encodeURIComponent(wifiPassword)}`;
-    console.log('[WiFi] → POST', connectUrl);
     
     try {
+      // Step 1: Send connection request
       const response = await fetchWithTimeout(
         connectUrl,
         { method: 'POST' },
-        DAEMON_CONFIG.TIMEOUTS.COMMAND * 3,
+        DAEMON_CONFIG.TIMEOUTS.COMMAND,
         { label: 'WiFi connect' }
       );
       
       if (!response.ok) {
         const error = await response.json();
-        setWifiError(error.detail || 'Failed to connect');
+        handleError(error.detail || 'Failed to connect', 'error');
         setIsConnecting(false);
         return;
       }
       
-      // Connection request sent, now poll for actual status (like dashboard does)
-      // Dashboard polls every 1 second and checks for mode changes
-      console.log('[WiFi] Connection request sent, polling for status...');
+      // Step 2: Poll /wifi/status until mode changes from "busy"
+      const MAX_POLL_TIME = 20000;
+      const POLL_INTERVAL = 1000;
+      const startTime = Date.now();
+      let hasSeenBusy = false;
+      let consecutiveErrors = 0;
+      const MAX_ERRORS = 3;
       
-      let previousMode = null;
-      let attempts = 0;
-      const maxAttempts = 60; // 60 seconds max
-      const pollInterval = 1000; // 1 second (same as dashboard)
-      
-      const checkConnectionStatus = async () => {
-        attempts++;
-        
+      const pollStatus = async () => {
         try {
-          // Check for errors first (like dashboard does)
-          const errorResponse = await fetchWithTimeout(
-            `${baseUrl}/wifi/error`,
-            {},
-            2000,
-            { label: 'WiFi error check', silent: true }
-          );
-          
-          if (errorResponse.ok) {
-            const errorData = await errorResponse.json();
-            if (errorData.error) {
-              console.error('[WiFi] Connection error detected:', errorData.error);
-              setWifiError(`Connection failed: ${errorData.error}. Switching back to hotspot mode.`);
-              setIsConnecting(false);
-              // Reset error (like dashboard does)
-              await fetchWithTimeout(
-                `${baseUrl}/wifi/reset_error`,
-                { method: 'POST' },
-                2000,
-                { label: 'Reset WiFi error', silent: true }
-              ).catch(() => {});
-              return false; // Stop polling
-            }
-          }
-          
-          // Check status (like dashboard does)
           const statusResponse = await fetchWithTimeout(
             `${baseUrl}/wifi/status`,
             {},
-            2000,
-            { label: 'WiFi status check', silent: true }
+            3000,
+            { label: 'WiFi status', silent: true }
           );
           
-          if (statusResponse.ok) {
-            const status = await statusResponse.json();
-            const currentMode = status.mode;
-            
-            // Detect mode change from 'busy' or 'hotspot' to 'wlan' (like dashboard does)
-            if (currentMode === 'wlan' && status.connected_network === ssidToUse) {
-              // Check if we transitioned from another mode (like dashboard does)
-              if (previousMode !== null && previousMode !== 'wlan') {
-                console.log('[WiFi] ✅ Successfully connected to', ssidToUse, '(mode changed from', previousMode, 'to wlan)');
-              } else {
-                console.log('[WiFi] ✅ Connected to', ssidToUse);
-              }
-              
-              setSuccessMessage(`Successfully connected to ${ssidToUse}`);
-              setWifiPassword('');
-              setSelectedSSID('');
-              
-              if (onConnectSuccess) {
-                onConnectSuccess(ssidToUse);
-              }
-              
-              setIsConnecting(false);
-              return false; // Stop polling
-            }
-            
-            // Update previous mode for next check
-            previousMode = currentMode;
-            
-            // Handle other modes
-            if (currentMode === 'busy') {
-              console.log('[WiFi] Connection in progress (busy mode)...');
-            } else if (currentMode === 'hotspot' && attempts >= 10) {
-              console.warn('[WiFi] Still in hotspot mode after 10 seconds');
-            }
+          if (!statusResponse.ok) {
+            return null;
           }
+          
+          const status = await statusResponse.json();
+          consecutiveErrors = 0;
+          
+          // Still busy
+          if (status.mode === 'busy') {
+            hasSeenBusy = true;
+            return null;
+          }
+          
+          // Success - Connected to WiFi
+          if (status.mode === 'wlan' && status.connected_network === ssidToUse) {
+            setSuccessMessage(`Successfully connected to ${ssidToUse}`);
+            setWifiPassword('');
+            setSelectedSSID('');
+            setIsConnecting(false);
+            
+            if (onConnectSuccess) {
+              onConnectSuccess(ssidToUse);
+            }
+            return 'success';
+          }
+          
+          // Failure - Back to hotspot
+          if (status.mode === 'hotspot') {
+            const errorResponse = await fetchWithTimeout(
+              `${baseUrl}/wifi/error`,
+              {},
+              2000,
+              { label: 'WiFi error', silent: true }
+            );
+          
+            let errorMsg = 'Connection failed. Please check your password and try again.';
+            if (errorResponse.ok) {
+              const errorData = await errorResponse.json();
+              if (errorData.error) {
+                errorMsg = `Connection failed: ${errorData.error}`;
+                
+                await fetchWithTimeout(
+                  `${baseUrl}/wifi/reset_error`,
+                  { method: 'POST' },
+                  2000,
+                  { label: 'Reset error', silent: true }
+                ).catch(() => {});
+              }
+            }
+            
+            handleError(errorMsg, 'error');
+            setIsConnecting(false);
+            return 'failed';
+          }
+          
+          return null;
+          
         } catch (err) {
-          console.error('[WiFi] Error checking status:', err);
-          // Continue polling
-        }
+          consecutiveErrors++;
+          
+          // Robot has left the hotspot
+          if (consecutiveErrors >= MAX_ERRORS) {
+            // Inform user
+            if (onError) {
+              onError('Reachy is attempting to connect to your WiFi network. The hotspot will temporarily disconnect...', 'info');
+            }
+            
+            // Wait 12 seconds
+            await new Promise(resolve => setTimeout(resolve, 12000));
+            
+            // Check if robot is back on hotspot
+            try {
+              const hotspotCheckResponse = await fetchWithTimeout(
+                `${baseUrl}/wifi/status`,
+                {},
+                3000,
+                { label: 'Hotspot re-check', silent: true }
+              );
+          
+              if (hotspotCheckResponse.ok) {
+                const hotspotStatus = await hotspotCheckResponse.json();
+                
+                if (hotspotStatus.mode === 'hotspot') {
+                  // Robot is BACK on hotspot = FAILED
+                  const errorResponse = await fetchWithTimeout(
+                    `${baseUrl}/wifi/error`,
+                    {},
+                    2000,
+                    { label: 'WiFi error', silent: true }
+                  );
+                  
+                  let errorMsg = 'Connection failed. Please check your password and try again.';
+                  if (errorResponse.ok) {
+                    const errorData = await errorResponse.json();
+                    if (errorData.error) {
+                      errorMsg = `Connection failed: ${errorData.error}`;
+                      await fetchWithTimeout(
+                        `${baseUrl}/wifi/reset_error`,
+                        { method: 'POST' },
+                        2000,
+                        { label: 'Reset error', silent: true }
+                      ).catch(() => {});
+                    }
+                  }
+                  
+                  handleError(errorMsg, 'error');
+                  setIsConnecting(false);
+                  return 'failed';
+                }
+              }
+            } catch (recheckErr) {
+              // Robot still gone
+            }
+            
+            // Robot is still gone after 12s = likely success
+            setWifiPassword('');
+            setSelectedSSID('');
+            setIsConnecting(false);
+            
+            if (onConnectSuccess) {
+              onConnectSuccess(ssidToUse);
+            }
+            return 'verify';
+          }
         
-        // Continue polling if we haven't reached max attempts
-        if (attempts >= maxAttempts) {
-          console.error('[WiFi] Connection timeout after', maxAttempts, 'seconds');
-          setWifiError('Connection timeout. The Reachy may still be in hotspot mode. Please check the network name and password.');
-          setIsConnecting(false);
-          return false; // Stop polling
+          return null;
         }
-        
-        return true; // Continue polling
       };
       
-      // Start polling every 1 second (like dashboard does)
-      const pollIntervalId = setInterval(async () => {
-        const shouldContinue = await checkConnectionStatus();
-        if (!shouldContinue) {
-          clearInterval(pollIntervalId);
+      // Polling loop with timeout
+      while (Date.now() - startTime < MAX_POLL_TIME) {
+        const result = await pollStatus();
+        
+        if (result === 'success' || result === 'failed' || result === 'verify') {
+          return;
         }
-      }, pollInterval);
+        
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      }
       
-      // Also check immediately (after 500ms to let connection start)
-      setTimeout(async () => {
-        const shouldContinue = await checkConnectionStatus();
-        if (!shouldContinue) {
-          clearInterval(pollIntervalId);
-        }
-      }, 500);
+      // Timeout reached
+      handleError('Connection timeout. Please try again.', 'error');
+      setIsConnecting(false);
+      
     } catch (err) {
-      console.error('Failed to connect to WiFi:', err);
-      setWifiError('Connection failed');
-    } finally {
+      handleError('Connection failed', 'error');
       setIsConnecting(false);
     }
-  }, [selectedSSID, wifiPassword, fetchWifiStatus, onConnectSuccess, onConnectStart, customBaseUrl]);
+  }, [selectedSSID, wifiPassword, onConnectSuccess, onConnectStart, customBaseUrl, handleError, onError]);
 
-  // Fetch on mount only (manual refresh via button)
+  // Fetch on mount
   useEffect(() => {
+    if (skipInitialFetch) {
+      const timer = setTimeout(() => {
+        fetchWifiStatus();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+    
     fetchWifiStatus();
-  }, [fetchWifiStatus]);
+    
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps = mount only
 
   // Detect Reachy hotspots in available networks
   const detectedReachyHotspots = useMemo(() => {

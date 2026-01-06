@@ -5,6 +5,8 @@ import {
   FormControl, 
   InputLabel,
   Typography,
+  CircularProgress,
+  Box,
 } from '@mui/material';
 
 /**
@@ -46,7 +48,9 @@ export default function NetworkSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
-      onOpen={onOpen}
+      onOpen={() => {
+        if (onOpen) onOpen('NetworkSelect-onOpen');
+      }}
       size="small"
       fullWidth
       label={showLabel ? "Network" : undefined}
@@ -89,7 +93,10 @@ export default function NetworkSelect({
     >
       {isLoading && networks.length === 0 ? (
         <MenuItem value="" disabled sx={{ color: textSecondary, fontSize: 12 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={14} thickness={3} sx={{ color: textSecondary }} />
           <em>Scanning networks...</em>
+          </Box>
         </MenuItem>
       ) : networks.length === 0 ? (
         <MenuItem value="" disabled sx={{ color: textSecondary, fontSize: 12 }}>
