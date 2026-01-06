@@ -86,6 +86,10 @@ export const robotInitialState = {
   isStopping: false,    // true when robotStatus is 'stopping'
   isDaemonCrashed: false, // true when robotStatus is 'crashed'
   
+  // 🛡️ Safety state for power off
+  safeToShutdown: false, // true only when sleeping AND sleep sequence is complete
+  isWakeSleepTransitioning: false, // true during wake/sleep animations
+  
   // Daemon metadata
   daemonVersion: null,
   startupError: null,
@@ -121,6 +125,9 @@ export const robotInitialState = {
   // Visual Effects (3D particles)
   activeEffect: null,
   effectTimestamp: 0,
+  
+  // 🚫 Blacklist for robots temporarily hidden (e.g., after clearing WiFi networks)
+  robotBlacklist: {}, // { 'reachy-mini.local': expiryTimestamp }
 };
 
 // ============================================================================
@@ -147,6 +154,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'disconnected',
         busyReason: null,
+        safeToShutdown: false,
+        isWakeSleepTransitioning: false,
         // Derived booleans (kept in sync)
         isActive: false,
         isStarting: false,
@@ -163,6 +172,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'ready-to-start',
         busyReason: null,
+        safeToShutdown: false,
+        isWakeSleepTransitioning: false,
         // Derived booleans
         isActive: false,
         isStarting: false,
@@ -176,6 +187,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'starting',
         busyReason: null,
+        safeToShutdown: false,
+        isWakeSleepTransitioning: false,
         // Derived booleans
         isActive: false,
         isStarting: true,
@@ -184,10 +197,11 @@ export const createRobotSlice = (set, get) => ({
       });
     },
     
-    sleeping: () => {
+    sleeping: (options = {}) => {
       const state = get();
+      const { safeToShutdown = false } = options;
       
-      console.log('[Store] 😴 transitionTo.sleeping() called');
+      console.log('[Store] 😴 transitionTo.sleeping() called', { safeToShutdown });
       
       // 🛡️ Guard: Don't transition if stopping (prevents chaos during shutdown)
       if (state.robotStatus === 'stopping') {
@@ -204,6 +218,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'sleeping',
         busyReason: null,
+        safeToShutdown,
+        isWakeSleepTransitioning: false,
         // Derived booleans
         isActive: true, // Still active (connected), but sleeping
         isStarting: false,
@@ -255,6 +271,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'ready',
         busyReason: null,
+        safeToShutdown: false,
+        isWakeSleepTransitioning: false,
         // Derived booleans
         isActive: true,
         isStarting: false,
@@ -287,6 +305,8 @@ export const createRobotSlice = (set, get) => ({
         const updates = {
           robotStatus: 'busy',
           busyReason: reason,
+          safeToShutdown: false,
+          isWakeSleepTransitioning: false,
           // Derived booleans
           isActive: true,
           isStarting: false,
@@ -307,6 +327,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'stopping',
         busyReason: null,
+        safeToShutdown: false,
+        isWakeSleepTransitioning: false,
         // Derived booleans
         isActive: false,
         isStarting: false,
@@ -323,6 +345,8 @@ export const createRobotSlice = (set, get) => ({
       set({
         robotStatus: 'crashed',
         busyReason: null,
+        safeToShutdown: false,
+        isWakeSleepTransitioning: false,
         // Derived booleans
         isActive: false,
         isStarting: false,
@@ -339,6 +363,11 @@ export const createRobotSlice = (set, get) => ({
   isBusy: () => selectIsBusy(get()),
   
   isReady: () => selectIsReady(get()),
+  
+  // Wake/Sleep transition management
+  setWakeSleepTransitioning: (isTransitioning) => {
+    set({ isWakeSleepTransitioning: isTransitioning });
+  },
   
   getRobotStatusLabel: () => {
     const state = get();
@@ -532,4 +561,62 @@ export const createRobotSlice = (set, get) => ({
   
   triggerEffect: (effectType) => set({ activeEffect: effectType, effectTimestamp: Date.now() }),
   stopEffect: () => set({ activeEffect: null }),
+  
+  // ============================================================================
+  // ROBOT BLACKLIST (temporary hiding after network operations)
+  // ============================================================================
+  
+  /**
+   * Add a robot to the blacklist for a specified duration
+   * @param {string} host - Robot host (e.g., 'reachy-mini.local')
+   * @param {number} durationMs - How long to blacklist (default 10 seconds)
+   */
+  blacklistRobot: (host, durationMs = 10000) => {
+    const expiryTime = Date.now() + durationMs;
+    set(state => ({
+      robotBlacklist: {
+        ...state.robotBlacklist,
+        [host]: expiryTime,
+      },
+    }));
+    console.log(`🚫 Blacklisted ${host} until ${new Date(expiryTime).toLocaleTimeString()}`);
+  },
+  
+  /**
+   * Check if a robot is currently blacklisted
+   * @param {string} host - Robot host to check
+   * @returns {boolean} True if blacklisted and not expired
+   */
+  isRobotBlacklisted: (host) => {
+    const state = get();
+    const expiryTime = state.robotBlacklist[host];
+    if (!expiryTime) return false;
+    
+    const now = Date.now();
+    return now < expiryTime; // Still blacklisted if not expired
+  },
+  
+  /**
+   * Remove expired entries from blacklist
+   * Called periodically by useRobotDiscovery
+   */
+  cleanupBlacklist: () => {
+    const now = Date.now();
+    set(state => {
+      const cleaned = Object.entries(state.robotBlacklist)
+        .filter(([_, expiryTime]) => now < expiryTime)
+        .reduce((acc, [host, expiryTime]) => ({ ...acc, [host]: expiryTime }), {});
+      
+      // Only update if something changed
+      if (Object.keys(cleaned).length !== Object.keys(state.robotBlacklist).length) {
+        return { robotBlacklist: cleaned };
+      }
+      return state;
+    });
+  },
+  
+  /**
+   * Clear all blacklisted robots
+   */
+  clearBlacklist: () => set({ robotBlacklist: {} }),
 });
