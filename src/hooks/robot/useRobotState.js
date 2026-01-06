@@ -7,11 +7,11 @@ import { useDaemonEventBus } from '../daemon/useDaemonEventBus';
  * 🎯 Centralized hook for robot state polling
  * 
  * Responsibilities (SINGLE RESPONSIBILITY):
- * 1. Poll /api/state/full every 500ms when isActive=true
- * 2. Poll /api/move/running every 500ms when isActive=true
- * 3. Health check: count consecutive timeouts → trigger crash if 3+ failures
+ * 1. Poll /api/state/full every 500ms when isActive=true (for UI data)
  * 
  * NOT responsible for:
+ * - Active moves tracking (that's useActiveMoves's job via WebSocket)
+ * - Health checking (that's useDaemonHealthCheck's job)
  * - Transitioning to ready (that's HardwareScanView's job)
  * - Clearing startup timeout (that's useDaemon's job)
  * - Clearing hardware errors (that's startConnection's job)
@@ -22,9 +22,6 @@ export function useRobotState(isActive) {
   const { 
     isDaemonCrashed,
     setRobotStateFull,
-    setActiveMoves,
-    incrementTimeouts,
-    resetTimeouts,
   } = useAppStore();
   
   // ✅ Event Bus for centralized event handling
@@ -38,7 +35,6 @@ export function useRobotState(isActive) {
         lastUpdate: null,
         error: null,
       });
-      setActiveMoves([]);
       return;
     }
     
@@ -58,8 +54,7 @@ export function useRobotState(isActive) {
     }
     
     const fetchState = async () => {
-      // ✅ Fetch both state/full and move/running in parallel (independent error handling)
-      const statePromise = (async () => {
+      // ✅ Fetch state/full for UI data
         try {
           const stateResponse = await fetchWithTimeoutSkipInstall(
             buildApiUrl('/api/state/full?with_control_mode=true&with_head_joints=true&with_body_yaw=true&with_antenna_positions=true'),
@@ -78,13 +73,10 @@ export function useRobotState(isActive) {
               error: null,
             });
             
-            // ✅ Success → reset timeout counter for health check
-            resetTimeouts();
-            
-            // ✅ Emit health success event to bus
-            eventBus.emit('daemon:health:success', { data });
+          // ✅ Emit state update event to bus
+          eventBus.emit('robot:state:updated', { data });
           } else {
-            // Response but not OK → not a timeout, don't increment
+          // Response but not OK
             console.warn('⚠️ Daemon responded but not OK:', stateResponse.status);
             setRobotStateFull(prev => ({
               ...prev,
@@ -102,72 +94,15 @@ export function useRobotState(isActive) {
             return;
           }
           
-          // ❌ Network error → increment counter for crash detection
-          // This includes: TimeoutError, "Load failed", "Could not connect", etc.
-          const isNetworkError = 
-            error.name === 'TimeoutError' || 
-            error.message?.includes('timed out') ||
-            error.message?.includes('Load failed') ||
-            error.message?.includes('Could not connect') ||
-            error.message?.includes('NetworkError') ||
-            error.message?.includes('Failed to fetch');
-          
-          if (isNetworkError) {
-            console.warn('⚠️ Robot state fetch failed (network error), incrementing counter');
-            incrementTimeouts();
-            // ✅ Emit health failure event to bus
-            eventBus.emit('daemon:health:failure', { error: error.message || 'Network error', type: 'network' });
+        // ❌ Error fetching state → just update error state
+        // Health check is handled by useDaemonHealthCheck
+        console.warn('⚠️ Robot state fetch failed:', error.message);
+        
             setRobotStateFull(prev => ({
               ...prev,
               error: error.message || 'Network error',
             }));
-          } else {
-            // Other error (not network related)
-            console.warn('⚠️ Robot state fetch error:', error.message);
-            // ✅ Emit health failure event to bus
-            eventBus.emit('daemon:health:failure', { error: error.message, type: 'error' });
-            setRobotStateFull(prev => ({
-              ...prev,
-              error: error.message,
-            }));
-          }
-        }
-      })();
-      
-      const movesPromise = (async () => {
-        try {
-          const movesResponse = await fetchWithTimeoutSkipInstall(
-            buildApiUrl('/api/move/running'),
-            {},
-            DAEMON_CONFIG.TIMEOUTS.COMMAND,
-            { silent: true } // ⚡ Don't log (polling every 500ms)
-          );
-          
-          if (movesResponse.ok) {
-            const movesData = await movesResponse.json();
-            // API returns an array of MoveUUID objects: [{ uuid: "..." }, ...]
-            if (Array.isArray(movesData)) {
-              setActiveMoves(movesData);
-            } else {
-              setActiveMoves([]);
-            }
-          }
-        } catch (error) {
-          // Skip during installation (expected)
-          if (error.name === 'SkippedError') {
-            return;
-          }
-          // Silently ignore AbortError (expected when component unmounts or dependencies change)
-          if (error.name === 'AbortError') {
-            return;
-          }
-          // Silently fail for moves (non-critical for health check)
-          console.warn('⚠️ Failed to fetch active moves:', error.message);
-        }
-      })();
-      
-      // Wait for both to complete (independent error handling)
-      await Promise.allSettled([statePromise, movesPromise]);
+      }
     };
     
     // Fetch initial
