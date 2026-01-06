@@ -12,6 +12,7 @@ export default function Step2ConnectHotspot({
   reachyHotspots,
   isDaemonReachable,
   onOpenWifiSettings,
+  isRetry = false, // New prop to indicate retry after failed connection
 }) {
   const hotspotName = reachyHotspots[0]?.ssid || 'reachy-mini-ap';
   const [copiedField, setCopiedField] = React.useState(null);
@@ -73,6 +74,21 @@ export default function Step2ConnectHotspot({
         </>
       ) : (
         <>
+          {/* Show retry message if coming back from failed connection */}
+          {isRetry && (
+            <Box sx={{ 
+              mb: 2, 
+              p: 1.5, 
+              borderRadius: '8px', 
+              bgcolor: darkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+              border: darkMode ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(239, 68, 68, 0.3)',
+            }}>
+              <Typography sx={{ fontSize: 12, color: darkMode ? '#fca5a5' : '#dc2626', lineHeight: 1.5 }}>
+                Connection failed. Please reconnect to the Reachy hotspot to try again.
+              </Typography>
+            </Box>
+          )}
+          
           {/* QR Code + Credentials - Side by side */}
           <Box sx={{ 
             display: 'flex', 

@@ -15,7 +15,9 @@ import useAppStore from '../../store/useAppStore';
 import { isReachyHotspot } from '../../constants/wifi';
 import { useLocalWifiScan, useRobotDiscovery } from '../../hooks/system';
 import { useConnection, ConnectionMode } from '../../hooks/useConnection';
+import { useToast } from '../../hooks/useToast';
 import FullscreenOverlay from '../../components/FullscreenOverlay';
+import Toast from '../../components/Toast';
 import {
   Step1PowerOn,
   Step2ConnectHotspot,
@@ -56,6 +58,9 @@ export default function FirstTimeWifiSetupView() {
   const [activeStep, setActiveStep] = useState(0);
   const [configuredNetwork, setConfiguredNetwork] = useState(null);
   
+  // Toast notifications
+  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
+  
   // Step 1: Local WiFi scan to detect hotspot
   const { 
     reachyHotspots, 
@@ -90,9 +95,10 @@ export default function FirstTimeWifiSetupView() {
   // ============================================================================
   
   // If Reachy is already accessible on the network, skip directly to success
+  // BUT: Don't interfere if we're already in the WiFi setup flow (Step 2-4)
   useEffect(() => {
     if (wifiRobot.available && activeStep === 0) {
-      console.log('[Setup] Reachy already available on network, skipping to success');
+      console.log('[Setup] 🚀 Reachy already available on network, skipping to success');
       setActiveStep(4); // Jump to Step 5 (Success)
     }
   }, [wifiRobot.available, activeStep]);
@@ -126,6 +132,7 @@ export default function FirstTimeWifiSetupView() {
   // Auto-advance when hotspot is detected (Step 1 → Step 2)
   useEffect(() => {
     if (activeStep === 0 && hasReachyHotspot) {
+      console.log('[Setup] 📡 Hotspot detected, advancing to Step 2');
       // 2 second delay to let user see the success message
       setTimeout(() => setActiveStep(1), 2000);
     }
@@ -193,6 +200,7 @@ export default function FirstTimeWifiSetupView() {
   // Auto-advance when daemon is reachable (Step 2 → Step 3)
   useEffect(() => {
     if (activeStep === 1 && isDaemonReachable) {
+      console.log('[Setup] ✅ Daemon reachable, advancing to Step 3');
       if (daemonCheckInterval.current) {
         clearInterval(daemonCheckInterval.current);
       }
@@ -205,11 +213,12 @@ export default function FirstTimeWifiSetupView() {
   // ============================================================================
 
   const handleWifiConfigured = useCallback((ssid) => {
-    console.log('[Setup] WiFi configured:', ssid);
+    console.log('[Setup] 📶 WiFi configured:', ssid, '→ Advancing to Step 4');
     // Note: onConnectSuccess is only called when WiFiConfiguration verifies
     // that the Reachy is actually connected (mode === 'wlan' && connected_network === ssid)
     // So we can trust that the connection is real
     setConfiguredNetwork(ssid);
+    setIsRetryAfterFail(false); // Reset retry flag
     setActiveStep(3);
   }, []);
 
@@ -219,84 +228,101 @@ export default function FirstTimeWifiSetupView() {
 
   const [reconnectStatus, setReconnectStatus] = useState('waiting'); // 'waiting' | 'searching' | 'found' | 'failed'
   const [foundHost, setFoundHost] = useState(null);
+  const [wifiConfigKey, setWifiConfigKey] = useState(0); // Key to force remount of WiFiConfiguration
+  const [isRetryAfterFail, setIsRetryAfterFail] = useState(false); // Track if we're retrying after a failed connection
 
   // Hosts to check for Reachy on normal network (not hotspot IPs)
   const NORMAL_NETWORK_HOSTS = ['reachy-mini.local', 'reachy-mini.home'];
   const MIN_RECONNECT_DELAY = 3000; // Minimum 3 seconds in reconnecting state for UX
 
+  // ============================================================================
+  // STEP 4: Reconnecting - Verify robot is on normal network
+  // ============================================================================
+
   useEffect(() => {
     if (activeStep !== 3) return;
     
-    setReconnectStatus('waiting');
+    console.log('[Setup] 🔍 Step 4 mounted - Verifying robot on normal network...');
+    setReconnectStatus('searching');
     setFoundHost(null);
     let isCancelled = false;
-    let hasLeftHotspot = false;
-    let stepStartTime = Date.now();
+    let intervalId = null;
+    let timeoutId = null;
     
-    const checkConnection = async () => {
-      try {
-        // Check if we're still on the Reachy hotspot
-        const currentSsid = await invoke('get_current_wifi_ssid');
-        const stillOnHotspot = isReachyHotspot(currentSsid);
-        
-        if (stillOnHotspot) {
-          // Still on hotspot - Reachy is switching networks, keep waiting
-          return;
-        }
-        
-        // We left the hotspot! Now actively search for Reachy
-        if (!hasLeftHotspot) {
-          hasLeftHotspot = true;
-          stepStartTime = Date.now(); // Reset timer when we start searching
-          if (!isCancelled) {
-            setReconnectStatus('searching');
-          }
-        }
-        
-        // Actively ping the daemon on normal network hosts (not using cached wifiRobot state)
+    const checkNormalNetwork = async () => {
+      if (isCancelled) return false;
+      
+      console.log('[Setup] 🔎 Checking if robot is on normal network...');
+      
+      // Only check NORMAL network hosts (not hotspot)
         for (const host of NORMAL_NETWORK_HOSTS) {
+        if (isCancelled) return false;
+        
+        console.log(`[Setup] 🔎 Trying: ${host}`);
           try {
             const response = await tauriFetch(`http://${host}:8000/api/daemon/status`, {
               method: 'GET',
-              connectTimeout: 3000,
+              connectTimeout: 500, // Short timeout to avoid blocking other HTTP requests
             });
+          
             if (response.ok && !isCancelled) {
-              console.log(`[Setup] Reachy found on normal network at: ${host}`);
+            console.log(`[Setup] ✅ Robot found at: ${host}`);
               setFoundHost(host);
               setReconnectStatus('found');
-              
-              // Ensure minimum delay before advancing
-              const elapsed = Date.now() - stepStartTime;
-              const remainingDelay = Math.max(500, MIN_RECONNECT_DELAY - elapsed);
-              setTimeout(() => setActiveStep(4), remainingDelay);
-              return; // Stop checking
-            }
-          } catch (e) {
-            // Host not reachable, try next
+            return true; // Success
           }
+        } catch (e) {
+          console.log(`[Setup] 🔎 ${host} not reachable:`, e.message || 'timeout');
         }
-      } catch (e) {
-        console.warn('Error checking connection:', e);
       }
+      
+      return false; // Not found yet
     };
+    
+    // Start immediately
+    (async () => {
+      const found = await checkNormalNetwork();
+      if (found && !isCancelled) {
+        if (intervalId) clearInterval(intervalId);
+        if (timeoutId) clearTimeout(timeoutId);
+        setTimeout(() => setActiveStep(4), 500);
+        return;
+      }
+    })();
     
     // Poll every 2 seconds
-    checkConnection();
-    const interval = setInterval(checkConnection, 2000);
+    intervalId = setInterval(async () => {
+      if (isCancelled) return;
+      const found = await checkNormalNetwork();
+      if (found) {
+        if (intervalId) clearInterval(intervalId);
+        if (timeoutId) clearTimeout(timeoutId);
+        setTimeout(() => setActiveStep(4), 500);
+      }
+    }, 2000);
       
-    // Timeout after 60 seconds
-    const timeout = setTimeout(() => {
+    // Timeout after 15 seconds (increased from 10)
+    timeoutId = setTimeout(() => {
       if (!isCancelled && reconnectStatus !== 'found') {
+        console.error('[Setup] ❌ Robot not found on normal network after 15s');
         setReconnectStatus('failed');
       }
-    }, 60000);
+    }, 15000);
     
     return () => {
+      console.log('[Setup] 🧹 Step 4 cleanup triggered');
       isCancelled = true;
-      clearInterval(interval);
-      clearTimeout(timeout);
+      
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
     };
-  }, [activeStep]);
+  }, [activeStep]); // Ne pas inclure reconnectStatus !
 
   // ============================================================================
   // STEP 5: Success - Connect
@@ -495,6 +521,7 @@ export default function FirstTimeWifiSetupView() {
               reachyHotspots={reachyHotspots}
               isDaemonReachable={isDaemonReachable}
               onOpenWifiSettings={openWifiSettings}
+              isRetry={isRetryAfterFail}
             />
           )}
 
@@ -503,10 +530,13 @@ export default function FirstTimeWifiSetupView() {
           {/* ================================================================ */}
           {activeStep === 2 && (
             <Step3ConfigureWifi
+              key={wifiConfigKey} // Still keep key here for safety
+              resetKey={wifiConfigKey} // Pass key as prop to child
               darkMode={darkMode}
               textPrimary={textPrimary}
               textSecondary={textSecondary}
-              onConnectStart={handleWifiConfigured}
+              onConnectSuccess={handleWifiConfigured}
+              onError={showToast}
             />
           )}
 
@@ -520,7 +550,20 @@ export default function FirstTimeWifiSetupView() {
               textSecondary={textSecondary}
               configuredNetwork={configuredNetwork}
               status={reconnectStatus}
-              onRetry={() => setActiveStep(2)}
+              onRetry={() => {
+                console.log('[Setup] 🔄 Retry clicked → Going back to Step 2 (hotspot check)');
+                console.log('[Setup] 💡 User must reconnect to Reachy hotspot manually');
+                
+                // Reset ALL state
+                setWifiConfigKey(prev => prev + 1);
+                setReconnectStatus('waiting');
+                setFoundHost(null);
+                setIsRetryAfterFail(true); // Mark as retry after failure
+                setIsDaemonReachable(false); // CRITICAL: Reset daemon check to force re-verification
+                
+                // Go back to Step 2 to force user to reconnect to hotspot
+                setActiveStep(1);
+              }}
             />
           )}
 
@@ -561,6 +604,14 @@ export default function FirstTimeWifiSetupView() {
           Having trouble detecting Reachy? Click here
         </Typography>
       </Box>
+
+      {/* Toast Notifications */}
+      <Toast 
+        toast={toast} 
+        toastProgress={toastProgress} 
+        onClose={handleCloseToast} 
+        darkMode={darkMode} 
+      />
     </FullscreenOverlay>
   );
 }

@@ -10,7 +10,9 @@ export default function Step3ConfigureWifi({
   darkMode,
   textPrimary,
   textSecondary,
-  onConnectStart,
+  onConnectSuccess,
+  onError,
+  resetKey, // Key to force remount of WiFiConfiguration
 }) {
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -21,11 +23,14 @@ export default function Step3ConfigureWifi({
       {/* WiFi Form */}
       <Box sx={{ width: '100%' }}>
         <WiFiConfiguration 
+          key={resetKey} // Force remount when resetKey changes
           darkMode={darkMode}
           compact={true}
-          onConnectStart={onConnectStart}
+          onConnectSuccess={onConnectSuccess}
+          onError={onError}
           showHotspotDetection={false}
           customBaseUrl={HOTSPOT_BASE_URL}
+          skipInitialFetch={resetKey > 0} // Delay fetch on remount to avoid conflicts
         />
       </Box>
     </Box>

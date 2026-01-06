@@ -7,30 +7,20 @@ export default function Step4Reconnecting({
   textPrimary,
   textSecondary,
   configuredNetwork,
-  status, // 'waiting' | 'searching' | 'found' | 'failed'
+  status, // 'searching' | 'found' | 'failed'
   onRetry,
 }) {
   const getStatusContent = () => {
     switch (status) {
-      case 'waiting':
+      case 'searching':
         return (
           <>
             <CircularProgress size={32} sx={{ color: '#FF9500', mb: 2 }} />
             <Typography sx={{ fontSize: 13, color: textSecondary, lineHeight: 1.6 }}>
-              Reachy is connecting to <strong style={{ color: textPrimary }}>{configuredNetwork || 'your network'}</strong>...
+              Verifying connection to <strong style={{ color: textPrimary }}>{configuredNetwork || 'network'}</strong>...
             </Typography>
-            <Typography sx={{ fontSize: 11, color: textSecondary, mt: 1 }}>
-              You'll be disconnected from the hotspot automatically
-            </Typography>
-          </>
-        );
-      
-      case 'searching':
-        return (
-          <>
-            <CircularProgress size={32} sx={{ color: '#22c55e', mb: 2 }} />
-            <Typography sx={{ fontSize: 13, color: textSecondary, lineHeight: 1.6 }}>
-              Searching for Reachy on <strong style={{ color: textPrimary }}>{configuredNetwork || 'your network'}</strong>...
+            <Typography sx={{ fontSize: 11, color: textSecondary, mt: 1, opacity: 0.7 }}>
+              This may take a few seconds
             </Typography>
           </>
         );
@@ -40,7 +30,10 @@ export default function Step4Reconnecting({
           <>
             <CheckCircleIcon sx={{ fontSize: 40, color: '#22c55e', mb: 1 }} />
             <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#22c55e' }}>
-              Reachy found!
+              Connected successfully!
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: textSecondary, mt: 1 }}>
+              Reachy is now on {configuredNetwork}
             </Typography>
           </>
         );
@@ -48,8 +41,11 @@ export default function Step4Reconnecting({
       case 'failed':
         return (
           <>
-            <Typography sx={{ fontSize: 13, color: textSecondary, mb: 2, lineHeight: 1.6 }}>
-              Couldn't find Reachy on the network. The connection may have failed.
+            <Typography sx={{ fontSize: 13, color: textSecondary, mb: 1, lineHeight: 1.6 }}>
+              Connection failed.
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: textSecondary, mb: 2, lineHeight: 1.5, opacity: 0.8 }}>
+              Please check your WiFi password and try again.
             </Typography>
             <Button
               variant="outlined"
