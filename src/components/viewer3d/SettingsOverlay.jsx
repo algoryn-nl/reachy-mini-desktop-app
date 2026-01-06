@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Box, 
   Typography, 
   Button,
   CircularProgress,
-  Snackbar,
 } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import FullscreenOverlay from '../FullscreenOverlay';
 import PulseButton from '../PulseButton';
 import useAppStore from '../../store/useAppStore';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
+import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG, getWsBaseUrl } from '../../config/daemon';
 import reachyUpdateBoxSvg from '../../assets/reachy-update-box.svg';
 import { invoke } from '@tauri-apps/api/core';
 import { logSuccess } from '../../utils/logging';
+import { useToast } from '../../hooks/useToast';
+import Toast from '../Toast';
 
 // Sub-components
 import { 
@@ -34,7 +35,7 @@ export default function SettingsOverlay({
   onClose, 
   darkMode,
 }) {
-  const { connectionMode, remoteHost, robotStatus } = useAppStore();
+  const { connectionMode, remoteHost, robotStatus, blacklistRobot, resetAll } = useAppStore();
   const isWifiMode = connectionMode === 'wifi';
   
   // Wake/Sleep controls - used to put robot to sleep before update
@@ -50,6 +51,12 @@ export default function SettingsOverlay({
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Update job tracking (WiFi mode)
+  const [updateJobId, setUpdateJobId] = useState(null);
+  const [updateJobStatus, setUpdateJobStatus] = useState(null); // 'pending' | 'in_progress' | 'done' | 'failed'
+  const [updateLogs, setUpdateLogs] = useState([]);
+  const updatePollingRef = useRef(null);
   
   // Read initial preRelease preference from localStorage
   const getInitialPreRelease = () => {
@@ -95,47 +102,7 @@ export default function SettingsOverlay({
   // ═══════════════════════════════════════════════════════════════════
   // TOAST NOTIFICATIONS
   // ═══════════════════════════════════════════════════════════════════
-  const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
-  const [toastProgress, setToastProgress] = useState(100);
-  
-  const showToast = useCallback((message, severity = 'info') => {
-    setToast({ open: true, message, severity });
-    setToastProgress(100);
-  }, []);
-  
-  const handleCloseToast = useCallback(() => {
-    setToast(prev => ({ ...prev, open: false }));
-    setToastProgress(100);
-  }, []);
-  
-  // Toast progress bar animation
-  useEffect(() => {
-    if (!toast.open) {
-      setToastProgress(100);
-      return;
-    }
-    
-    setToastProgress(100);
-    const duration = 3500;
-    const startTime = performance.now();
-    
-    const animate = () => {
-      const elapsed = performance.now() - startTime;
-      const progress = Math.max(0, 100 - (elapsed / duration) * 100);
-      
-      setToastProgress(progress);
-      
-      if (progress > 0 && elapsed < duration) {
-        requestAnimationFrame(animate);
-      }
-    };
-    
-    const frameId = requestAnimationFrame(animate);
-    
-    return () => {
-      cancelAnimationFrame(frameId);
-    };
-  }, [toast.open]);
+  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
 
   // ═══════════════════════════════════════════════════════════════════
   // UPDATE FUNCTIONS
@@ -172,6 +139,84 @@ export default function SettingsOverlay({
     }
   }, [isWifiMode, preRelease]);
 
+  // Connect to update job WebSocket (WiFi mode)
+  const connectUpdateWebSocket = useCallback((jobId) => {
+    const wsUrl = `${getWsBaseUrl()}/update/ws/logs?job_id=${jobId}`;
+    console.log('[UpdateWS] Connecting to:', wsUrl);
+    
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      console.log('[UpdateWS] Connected');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        // Try to parse as JSON (final status message)
+        const data = JSON.parse(event.data);
+        
+        if (data.status) {
+          console.log('[UpdateWS] Status update:', data.status);
+          setUpdateJobStatus(data.status);
+          
+          // Add new logs if present
+          if (data.logs && Array.isArray(data.logs)) {
+            setUpdateLogs(prev => [...prev, ...data.logs]);
+          }
+          
+          // Job is done
+          if (data.status === 'done' || data.status === 'failed') {
+            console.log('[UpdateWS] Job finished:', data.status);
+            ws.close();
+            
+            // Show result after a short delay
+            setTimeout(() => {
+              setIsUpdating(false);
+              if (data.status === 'done') {
+                showToast('Update completed successfully! Reconnect to use the new version.', 'success');
+                logSuccess('Update completed successfully!');
+              } else {
+                showToast('Update failed. Check logs for details.', 'error');
+              }
+              
+              // Disconnect after showing result
+              setTimeout(() => {
+                useAppStore.getState().resetAll();
+              }, 2000);
+            }, 500);
+          }
+        }
+      } catch (err) {
+        // Not JSON, probably a log line
+        const logLine = event.data.trim();
+        if (logLine) {
+          console.log('[UpdateWS] Log:', logLine);
+          setUpdateLogs(prev => [...prev, logLine]);
+        }
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('[UpdateWS] Error:', error);
+    };
+    
+    ws.onclose = (event) => {
+      console.log('[UpdateWS] Closed:', event.code, event.reason);
+      updatePollingRef.current = null;
+    };
+    
+    updatePollingRef.current = ws;
+  }, [showToast]);
+  
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (updatePollingRef.current instanceof WebSocket) {
+        updatePollingRef.current.close();
+      }
+    };
+  }, []);
+
   // Open update confirmation dialog
   const handleUpdateClick = useCallback(() => {
     if (!updateInfo?.is_available || isUpdating) return;
@@ -197,7 +242,7 @@ export default function SettingsOverlay({
       }
       
       if (isWifiMode) {
-        // WiFi mode: Use daemon API
+        // WiFi mode: Use daemon API with WebSocket for logs
       const response = await fetchWithTimeout(
         buildApiUrl(`/update/start?pre_release=${preRelease}`),
         { method: 'POST' },
@@ -209,13 +254,16 @@ export default function SettingsOverlay({
         const data = await response.json();
         console.log('Update started:', data.job_id);
         
-        // Close overlay and disconnect cleanly
+          // Start tracking the update job
+          setUpdateJobId(data.job_id);
+          setUpdateJobStatus('pending');
+          setUpdateLogs([]);
+          
+          // Close settings overlay to show update progress overlay
         onClose();
         
-        // Give user time to see the action, then disconnect
-        setTimeout(() => {
-            useAppStore.getState().resetAll();
-        }, 1000);
+          // Connect to WebSocket for real-time logs
+          connectUpdateWebSocket(data.job_id);
       } else {
         const error = await response.json();
         setWifiError(`Update failed: ${error.detail || 'Unknown error'}`);
@@ -247,7 +295,7 @@ export default function SettingsOverlay({
       setWifiError(`Update failed: ${err}`);
       setIsUpdating(false);
     }
-  }, [isWifiMode, preRelease, onClose, showToast, isSleeping, goToSleep]);
+  }, [isWifiMode, preRelease, onClose, showToast, isSleeping, goToSleep, connectUpdateWebSocket]);
 
   // ═══════════════════════════════════════════════════════════════════
   // WIFI FUNCTIONS
@@ -307,13 +355,19 @@ export default function SettingsOverlay({
       );
       
       if (response.ok) {
+        // Blacklist current robot for 10 seconds to prevent immediate rediscovery
+        if (remoteHost) {
+          console.log(`🚫 Blacklisting ${remoteHost} for 10 seconds after clearing networks`);
+          blacklistRobot(remoteHost, 10000);
+        }
+        
         // Close overlays
         setShowClearNetworksConfirm(false);
         onClose();
         
         // Give a moment for UI to update, then disconnect and return to connection selection
         setTimeout(() => {
-          useAppStore.getState().resetAll();
+          resetAll();
         }, 500);
       } else {
         const error = await response.json();
@@ -325,7 +379,7 @@ export default function SettingsOverlay({
       showToast('Failed to clear networks', 'error');
       setIsClearingNetworks(false);
     }
-  }, [onClose, showToast]);
+  }, [onClose, showToast, remoteHost, blacklistRobot, resetAll]);
 
   // Connect to WiFi (called from Change Network overlay)
   const handleWifiConnect = useCallback(async () => {
@@ -451,11 +505,20 @@ export default function SettingsOverlay({
     border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}`,
     backdropFilter: 'blur(10px)',
   };
+  
+  // Handle overlay close - prevent closing if update is in progress (USB mode only, WiFi shows its own overlay)
+  const handleOverlayClose = useCallback(() => {
+    if (isUpdating && !isWifiMode) {
+      // Prevent closing during USB update
+      return;
+    }
+    onClose();
+  }, [isUpdating, isWifiMode, onClose]);
 
   return (
     <FullscreenOverlay
       open={open}
-      onClose={onClose}
+      onClose={handleOverlayClose}
       darkMode={darkMode}
       zIndex={10001}
       centeredX={true}
@@ -662,7 +725,7 @@ export default function SettingsOverlay({
                 color: darkMode ? '#FFB74D' : '#F57C00',
                 lineHeight: 1.5,
               }}>
-                Make sure your robot is <strong>plugged into a power outlet</strong> during the update. Losing power during update can brick your robot.
+                Make sure your robot is <strong>plugged into a power outlet</strong> during the update. <strong>Losing power during update can brick your robot</strong>.
               </Typography>
             </Box>
           )}
@@ -782,9 +845,18 @@ export default function SettingsOverlay({
               fontSize: 12, 
               color: darkMode ? '#fca5a5' : '#dc2626',
               lineHeight: 1.5,
+              mb: 1,
             }}>
               The robot will switch to <strong>Hotspot mode</strong>.<br />
               Reconnect via <strong>reachy-mini-ap</strong> network.
+            </Typography>
+            <Typography sx={{ 
+              fontSize: 11, 
+              color: darkMode ? 'rgba(252, 165, 165, 0.7)' : 'rgba(220, 38, 38, 0.7)',
+              lineHeight: 1.5,
+              fontStyle: 'italic',
+            }}>
+              If the robot doesn't appear, try restarting it.
             </Typography>
           </Box>
           
@@ -858,117 +930,164 @@ export default function SettingsOverlay({
         onRefresh={fetchWifiStatus}
       />
 
-      {/* Toast Notifications */}
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={3500}
-        onClose={handleCloseToast}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{
-          bottom: '24px !important',
-          left: '50% !important',
-          right: 'auto !important',
-          transform: 'translateX(-50%) !important',
-          display: 'flex !important',
-          justifyContent: 'center !important',
-          alignItems: 'center !important',
-          width: '100%',
-          zIndex: 100001,
-          '& > *': {
-            margin: '0 auto !important',
-          },
-        }}
+      {/* Update Progress Overlay (WiFi mode only) */}
+      {isWifiMode && updateJobId && (
+        <FullscreenOverlay
+          open={isUpdating}
+          onClose={() => {}} // Prevent closing during update
+          darkMode={darkMode}
+          zIndex={10004}
+          backdropOpacity={0.95}
+          debugName="UpdateProgress"
+          backdropBlur={16}
       >
         <Box 
-          onClick={handleCloseToast}
           sx={{ 
-            position: 'relative', 
-            overflow: 'hidden', 
-            borderRadius: '12px',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: darkMode 
-              ? '0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)'
-              : '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
-            zIndex: 100001,
-            cursor: 'pointer',
+              width: '100%',
+              maxWidth: 600,
+              mx: 'auto',
+              px: 3,
           }}
         >
-          {/* Main content */}
-          <Box
-            sx={{
-              position: 'relative',
-              borderRadius: '12px',
-              fontSize: 13,
-              fontWeight: 500,
-              letterSpacing: '-0.01em',
-              background: darkMode
-                ? (toast.severity === 'success'
-                  ? 'rgba(34, 197, 94, 0.15)'
-                  : 'rgba(239, 68, 68, 0.15)')
-                : (toast.severity === 'success'
-                  ? 'rgba(34, 197, 94, 0.1)'
-                  : 'rgba(239, 68, 68, 0.1)'),
-              border: `1px solid ${toast.severity === 'success'
-                ? darkMode ? 'rgba(34, 197, 94, 0.4)' : 'rgba(34, 197, 94, 0.3)'
-                : darkMode ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)'}`,
-              color: toast.severity === 'success'
-                ? darkMode ? '#86efac' : '#16a34a'
-                : darkMode ? '#fca5a5' : '#dc2626',
-              minWidth: 240,
-              maxWidth: 400,
-              px: 3,
-              py: 2,
+            {/* Update Icon */}
+            <Box sx={{ 
+              mb: 3,
+              display: 'flex',
+              justifyContent: 'center',
+            }}>
+              <Box sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                border: `2px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 1.5,
-              overflow: 'hidden',
-            }}
-          >
-            {/* Progress bar */}
-            <Box
+                position: 'relative',
+              }}>
+                {updateJobStatus === 'done' ? (
+                  <CheckCircleOutlinedIcon sx={{ fontSize: 40, color: '#10b981' }} />
+                ) : updateJobStatus === 'failed' ? (
+                  <ErrorOutlineIcon sx={{ fontSize: 40, color: '#ef4444' }} />
+                ) : (
+                  <CircularProgress size={32} thickness={3} sx={{ color: '#FF9500' }} />
+                )}
+              </Box>
+            </Box>
+            
+            {/* Title */}
+            <Typography
+              variant="h5"
               sx={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                height: '2px',
-                width: `${toastProgress}%`,
-                background: toast.severity === 'success' 
-                  ? darkMode ? 'rgba(34, 197, 94, 0.8)' : 'rgba(34, 197, 94, 0.7)'
-                  : darkMode ? 'rgba(239, 68, 68, 0.8)' : 'rgba(239, 68, 68, 0.7)',
-                transition: 'width 0.02s linear',
-                borderRadius: '0 0 12px 12px',
+                fontWeight: 600,
+                color: 'text.primary',
+                mb: 1,
+                textAlign: 'center',
               }}
-            />
+            >
+              {updateJobStatus === 'done' ? 'Update Completed!' : 
+               updateJobStatus === 'failed' ? 'Update Failed' :
+               'Updating...'}
+            </Typography>
             
-            {/* Icon */}
-            {toast.severity === 'success' && (
-              <CheckCircleOutlinedIcon 
-                sx={{ 
-                  fontSize: 20, 
-                  flexShrink: 0,
-                  color: 'inherit',
-                }} 
-              />
-            )}
-            {toast.severity === 'error' && (
-              <ErrorOutlineIcon 
-                sx={{ 
-                  fontSize: 20, 
-                  flexShrink: 0,
-                  color: 'inherit',
-                }} 
-              />
-            )}
+            {/* Description */}
+            <Typography
+              sx={{
+                color: 'text.secondary',
+                fontSize: 14,
+                lineHeight: 1.6,
+                mb: 3,
+                textAlign: 'center',
+              }}
+            >
+              {updateJobStatus === 'done' ? 'The update has been installed successfully.' :
+               updateJobStatus === 'failed' ? 'An error occurred during the update.' :
+               'Installing the new version. This may take a few minutes...'}
+            </Typography>
             
-            {/* Text */}
-            <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
-              {toast.message}
+            {/* Logs Container */}
+            <Box
+                sx={{ 
+                mb: 3,
+                p: 2,
+                borderRadius: '12px',
+                bgcolor: darkMode ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)',
+                border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+                maxHeight: 300,
+                overflowY: 'auto',
+                fontFamily: 'monospace',
+                fontSize: 12,
+                lineHeight: 1.6,
+                color: darkMode ? '#aaa' : '#666',
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                  },
+                },
+              }}
+            >
+              {updateLogs.length > 0 ? (
+                updateLogs.map((log, index) => (
+                  <Box key={index} component="div" sx={{ mb: 0.5 }}>
+                    {log}
+                  </Box>
+                ))
+              ) : (
+                <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 2 }}>
+                  Waiting for logs...
+                </Box>
+              )}
+            </Box>
+            
+            {/* Warning for ongoing update */}
+            {updateJobStatus !== 'done' && updateJobStatus !== 'failed' && (
+              <Box
+                sx={{ 
+                  p: 2,
+                  borderRadius: '12px',
+                  bgcolor: darkMode ? 'rgba(251, 191, 36, 0.15)' : 'rgba(251, 191, 36, 0.1)',
+                  border: `1px solid ${darkMode ? 'rgba(251, 191, 36, 0.3)' : 'rgba(251, 191, 36, 0.2)'}`,
+                  textAlign: 'center',
+                }}
+              >
+                <Typography sx={{ 
+                  fontSize: 13, 
+                  fontWeight: 600, 
+                  color: darkMode ? '#fbbf24' : '#d97706',
+                  mb: 0.5,
+                }}>
+                  Please Wait
+                </Typography>
+                <Typography sx={{ 
+                  fontSize: 12, 
+                  color: darkMode ? '#fbbf24' : '#d97706',
+                  lineHeight: 1.5,
+                }}>
+                  Do not close this window or disconnect power during the update.
             </Typography>
           </Box>
+            )}
         </Box>
-      </Snackbar>
+        </FullscreenOverlay>
+      )}
+
+      {/* Toast Notifications */}
+      <Toast 
+        toast={toast} 
+        toastProgress={toastProgress} 
+        onClose={handleCloseToast} 
+        darkMode={darkMode}
+      />
     </FullscreenOverlay>
   );
 }

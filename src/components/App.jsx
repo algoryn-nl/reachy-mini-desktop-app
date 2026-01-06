@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-import { useDaemon } from '../hooks/daemon';
+import { useDaemon, useDaemonHealthCheck } from '../hooks/daemon';
 import { useUsbDetection, useLogs, useWindowResize, useUpdater, useUpdateViewState, usePermissions, useUsbCheckTiming } from '../hooks/system';
 import { useViewRouter, ViewRouterWrapper } from '../hooks/system/useViewRouter';
-import { useRobotCommands, useRobotState } from '../hooks/robot';
+import { useRobotCommands, useRobotState, useActiveMoves } from '../hooks/robot';
 import { DAEMON_CONFIG, setAppStoreInstance } from '../config/daemon';
 import { isDevMode } from '../utils/devMode';
 import useAppStore from '../store/useAppStore';
@@ -135,9 +135,18 @@ function App() {
   // 🕐 USB check timing - manages when to start USB check after update view
   const { shouldShowUsbCheck } = useUsbCheckTiming(shouldShowUpdateView);
   
-  // 🎯 Centralized robot state polling (SINGLE place for /api/state/full calls)
-  // Also handles health check (crash detection via timeout counting)
+  // 🎯 Centralized daemon health check (POST /health-check every 1.33s)
+  // Handles crash detection via timeout counting (3 consecutive timeouts = crash)
+  // This is separate from useRobotState to avoid polling heavy data for health checks
+  useDaemonHealthCheck(isActive);
+  
+  // 🎯 Centralized robot state polling (GET /api/state/full every 500ms for UI data)
+  // Does NOT handle crash detection anymore (that's useDaemonHealthCheck's job)
   useRobotState(isActive);
+  
+  // 🎯 Real-time active moves tracking (WebSocket /api/move/ws/updates)
+  // Replaces the old polling of GET /api/move/running every 500ms
+  useActiveMoves(isActive);
   
   
   // ⚡ Cleanup is handled on Rust side in lib.rs:
