@@ -267,7 +267,7 @@ function ActiveRobotView({
               The daemon is not responding.
             </Typography>
             
-            {/* Restart button */}
+            {/* Reconnect button */}
             <Button
               variant="outlined"
               color="primary"
@@ -281,7 +281,7 @@ function ActiveRobotView({
                 textTransform: 'none',
               }}
             >
-              Restart Application
+              Reconnect
             </Button>
           </Box>
       </FullscreenOverlay>
