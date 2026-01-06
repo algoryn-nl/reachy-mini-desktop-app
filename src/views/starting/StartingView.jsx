@@ -23,7 +23,8 @@ function StartingView({ startupError, startDaemon }) {
     // ✅ Robot starts in SLEEPING state - user must use toggle to wake up
     // This separates daemon connection from robot awake state
     // ⚡ IMMEDIATE transition - window resize will happen now, not after delay
-    transitionTo.sleeping();
+    // ⚡ Safe to shutdown immediately on startup (robot already sleeping, no animation)
+    transitionTo.sleeping({ safeToShutdown: true });
   }, [transitionTo, setHardwareError]);
 
   return (
