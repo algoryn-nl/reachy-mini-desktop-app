@@ -27,6 +27,7 @@ export const DAEMON_CONFIG = {
   // Polling intervals (in milliseconds)
   INTERVALS: {
     // ✅ STATUS_CHECK removed - useRobotState handles status checking via polling (every 500ms)
+    HEALTHCHECK_POLLING: 2500,    // ✅ Health check polling every 2.5s (MUST be > HEALTHCHECK timeout to avoid accumulation)
     LOGS_FETCH: 1000,         // Logs every 1s
     USB_CHECK: 1000,          // USB every 1s
     VERSION_FETCH: 10000,     // Version every 10s
@@ -38,7 +39,7 @@ export const DAEMON_CONFIG = {
   
   // Crash detection
   CRASH_DETECTION: {
-    MAX_TIMEOUTS: 3,           // Crash after 3 timeouts over 4 seconds (~1.33s × 3)
+    MAX_TIMEOUTS: 3,           // Crash after 3 timeouts over ~7.5 seconds (2.5s polling × 3)
     STARTUP_MAX_ATTEMPTS: 15,  // 15 attempts of 1s = 15s max on startup
     STARTUP_RETRY_DELAY: 1000, // Wait 1s between each attempt
     JOB_MAX_FAILS: 20,         // 20 polling failures = job failed
