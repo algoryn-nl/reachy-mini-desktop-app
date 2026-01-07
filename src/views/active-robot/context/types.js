@@ -31,7 +31,7 @@
  * @property {string} rightPanelView - Current right panel view ('quick-actions'|'controller'|'expressions'|'applications')
  * @property {string|null} activeEffect - Current 3D effect ('love'|'sad'|'surprised'|'sleep'|null)
  * @property {number|null} effectTimestamp - Timestamp of current effect
- * 
+ *
  * @property {Array} availableApps - List of available apps
  * @property {Array} installedApps - List of installed apps
  * @property {Object|null} currentApp - Current app info
@@ -60,29 +60,29 @@
  * @property {function(string): void} transitionTo.busy
  * @property {function(): void} transitionTo.stopping
  * @property {function(): void} transitionTo.crashed
- * 
+ *
  * @property {function(): boolean} isBusy - Check if robot is busy
  * @property {function(): boolean} isReady - Check if robot is ready
  * @property {function(): string} getRobotStatusLabel - Get human-readable status
- * 
+ *
  * @property {function(string): void} lockForApp - Lock robot for app
  * @property {function(): void} unlockApp - Unlock robot from app
  * @property {function(string, string=): void} lockForInstall - Lock for installation
  * @property {function(): void} unlockInstall - Unlock after installation
- * 
+ *
  * @property {function(Object): void} setRobotStateFull
  * @property {function(Object): void} setActiveMoves
  * @property {function(boolean): void} setIsCommandRunning
- * 
+ *
  * @property {function(string): void} triggerEffect - Trigger 3D visual effect
  * @property {function(): void} stopEffect - Stop current effect
  * @property {function(): void} resetTimeouts - Reset timeout counter
  * @property {function(): void} incrementTimeouts - Increment timeout counter
- * 
+ *
  * @property {function(string): void} setRightPanelView - Set right panel view
  * @property {function(boolean): void} setDarkMode - Set dark mode
  * @property {function(): void} toggleDarkMode - Toggle dark mode
- * 
+ *
  * @property {function(Array): void} setAvailableApps
  * @property {function(Array): void} setInstalledApps
  * @property {function(Object): void} setCurrentApp
@@ -95,7 +95,7 @@
  * @property {function(string): void} setInstallResult
  * @property {function(): void} markJobAsSeen
  * @property {function(string, string): void} markJobAsProcessed
- * 
+ *
  * @property {function(Array): void} setLogs
  * @property {function(string, string, string=): void} addAppLog
  * @property {function(string): void} clearAppLogs
@@ -139,4 +139,3 @@
  */
 
 export default {};
-

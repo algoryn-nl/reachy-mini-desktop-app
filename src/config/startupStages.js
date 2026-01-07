@@ -1,6 +1,6 @@
 /**
  * 🚀 Startup Stages Configuration
- * 
+ *
  * Centralized definition of all startup stages with:
  * - Labels and descriptions
  * - Progress percentages
@@ -23,7 +23,7 @@ export const STARTUP_STAGES = {
     progressMax: 50,
     isSimOnly: false,
   },
-  
+
   // ============================================
   // SIMULATION MODE STAGES (50-70%)
   // ============================================
@@ -34,13 +34,9 @@ export const STARTUP_STAGES = {
     progressMin: 50,
     progressMax: 70,
     isSimOnly: true,
-    logPatterns: [
-      'simulation mode',
-      'mockup-sim',
-      '--mockup-sim',
-    ],
+    logPatterns: ['simulation mode', 'mockup-sim', '--mockup-sim'],
   },
-  
+
   // ============================================
   // DAEMON STARTUP (50/70 - 100%)
   // ============================================
@@ -51,14 +47,9 @@ export const STARTUP_STAGES = {
     progressMin: 50, // 70 in sim mode
     progressMax: 66,
     isSimOnly: false,
-    logPatterns: [
-      'Starting daemon',
-      'daemon.app.main',
-      'Uvicorn running',
-      'Application startup',
-    ],
+    logPatterns: ['Starting daemon', 'daemon.app.main', 'Uvicorn running', 'Application startup'],
   },
-  
+
   INITIALIZING: {
     id: 'initializing',
     label: 'Initializing Control',
@@ -66,14 +57,9 @@ export const STARTUP_STAGES = {
     progressMin: 66,
     progressMax: 83,
     isSimOnly: false,
-    logPatterns: [
-      'control_mode',
-      'Placo',
-      'kinematics',
-      'Robot initialized',
-    ],
+    logPatterns: ['control_mode', 'Placo', 'kinematics', 'Robot initialized'],
   },
-  
+
   DETECTING_MOVEMENTS: {
     id: 'detecting',
     label: 'Detecting Movements',
@@ -81,13 +67,9 @@ export const STARTUP_STAGES = {
     progressMin: 83,
     progressMax: 100,
     isSimOnly: false,
-    logPatterns: [
-      'head_joints',
-      'antennas',
-      'body_yaw',
-    ],
+    logPatterns: ['head_joints', 'antennas', 'body_yaw'],
   },
-  
+
   // ============================================
   // COMPLETION
   // ============================================
@@ -99,7 +81,7 @@ export const STARTUP_STAGES = {
     progressMax: 100,
     isSimOnly: false,
   },
-  
+
   // ============================================
   // ERROR STATE
   // ============================================
@@ -119,23 +101,19 @@ export const STARTUP_STAGES = {
  * @returns {Array} Ordered array of stage objects
  */
 export function getStagesForMode(isSimMode) {
-  const stages = [
-    STARTUP_STAGES.SCANNING,
-  ];
-  
+  const stages = [STARTUP_STAGES.SCANNING];
+
   if (isSimMode) {
-    stages.push(
-      STARTUP_STAGES.STARTING_SIMULATION,
-    );
+    stages.push(STARTUP_STAGES.STARTING_SIMULATION);
   }
-  
+
   stages.push(
     STARTUP_STAGES.CONNECTING,
     STARTUP_STAGES.INITIALIZING,
     STARTUP_STAGES.DETECTING_MOVEMENTS,
-    STARTUP_STAGES.COMPLETE,
+    STARTUP_STAGES.COMPLETE
   );
-  
+
   return stages;
 }
 
@@ -149,21 +127,21 @@ export function detectStageFromLog(logMessage, isSimMode) {
   if (!logMessage || typeof logMessage !== 'string') {
     return null;
   }
-  
+
   const lowerMessage = logMessage.toLowerCase();
   const stages = getStagesForMode(isSimMode);
-  
+
   // Check each stage's patterns
   for (const stage of stages) {
     if (!stage.logPatterns) continue;
-    
+
     for (const pattern of stage.logPatterns) {
       if (lowerMessage.includes(pattern.toLowerCase())) {
         return stage;
       }
     }
   }
-  
+
   return null;
 }
 
@@ -176,11 +154,11 @@ export function detectStageFromLog(logMessage, isSimMode) {
  */
 export function calculateStageProgress(stage, attemptCount = 0, maxAttempts = 60) {
   if (!stage) return 0;
-  
+
   const range = stage.progressMax - stage.progressMin;
   const progress = Math.min(1, attemptCount / maxAttempts);
-  
-  return stage.progressMin + (range * progress);
+
+  return stage.progressMin + range * progress;
 }
 
 /**
@@ -198,59 +176,57 @@ export function getStageDisplayText(stage, options = {}) {
       boldText: 'Initializing',
     };
   }
-  
+
   switch (stage.id) {
     case 'scanning':
       return {
         title: stage.label,
-        subtitle: options.currentPart 
-          ? `Scanning ${options.currentPart}`
-          : 'Initializing scan...',
+        subtitle: options.currentPart ? `Scanning ${options.currentPart}` : 'Initializing scan...',
         boldText: options.currentPart || 'scan',
       };
-      
+
     case 'starting_simulation':
       return {
         title: stage.label,
         subtitle: 'Starting simulation mode...',
         boldText: 'simulation',
       };
-      
+
     case 'connecting':
       return {
         title: stage.label,
         subtitle: 'Connecting to daemon',
         boldText: 'Connecting',
       };
-      
+
     case 'initializing':
       return {
         title: stage.label,
         subtitle: 'Initializing robot control',
         boldText: 'Initializing',
       };
-      
+
     case 'detecting':
       return {
         title: stage.label,
         subtitle: 'Detecting robot movements',
         boldText: 'Detecting',
       };
-      
+
     case 'complete':
       return {
         title: stage.label,
         subtitle: 'All components verified',
         boldText: 'verified',
       };
-      
+
     case 'error':
       return {
         title: stage.label,
         subtitle: options.errorMessage || 'An error was detected',
         boldText: 'Error',
       };
-      
+
     default:
       return {
         title: stage.label,
@@ -259,4 +235,3 @@ export function getStageDisplayText(stage, options = {}) {
       };
   }
 }
-

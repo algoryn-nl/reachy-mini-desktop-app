@@ -1,13 +1,22 @@
 import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
-import { PermissionsRequiredView, FindingRobotView, FirstTimeWifiSetupView, BluetoothSupportView, StartingView, ClosingView, UpdateView, ActiveRobotModule } from '../../views';
+import {
+  PermissionsRequiredView,
+  FindingRobotView,
+  FirstTimeWifiSetupView,
+  BluetoothSupportView,
+  StartingView,
+  ClosingView,
+  UpdateView,
+  ActiveRobotModule,
+} from '../../views';
 import AppTopBar from '../../components/AppTopBar';
 import { useActiveRobotAdapter } from '../useActiveRobotAdapter';
 import useAppStore from '../../store/useAppStore';
 
 /**
  * Hook to determine which view to display based on app state
- * 
+ *
  * Priority order:
  * 0. Permissions (macOS only) - Blocks app until permissions granted
  * 1. Update view - Always first, before everything else
@@ -16,9 +25,9 @@ import useAppStore from '../../store/useAppStore';
  * 4. Starting daemon (visual scan)
  * 5. Stopping daemon - Show spinner
  * 6. Active robot - Full control view (handles its own loading state)
- * 
+ *
  * 🌐 WiFi mode: Also passes through scan view for consistent UX
- * 
+ *
  * @param {object} props - View routing props
  * @returns {object} { viewComponent, viewProps }
  */
@@ -26,7 +35,7 @@ export function useViewRouter({
   // Permissions
   permissionsGranted,
   isRestarting,
-  
+
   // Update
   shouldShowUpdateView,
   isChecking,
@@ -35,12 +44,12 @@ export function useViewRouter({
   updateAvailable,
   updateError,
   onInstallUpdate,
-  
+
   // USB/Connection
   shouldShowUsbCheck,
   isUsbConnected,
   connectionMode, // 🌐 'usb' | 'wifi' | 'simulation' | null
-  
+
   // Daemon
   isStarting,
   isStopping,
@@ -49,19 +58,24 @@ export function useViewRouter({
   startupError,
   startDaemon,
   stopDaemon,
-  
+
   // Robot commands
   sendCommand,
   playRecordedMove,
   isCommandRunning,
-  
+
   // Other
   logs,
   daemonVersion,
   usbPortName,
 }) {
-  const { showFirstTimeWifiSetup, setShowFirstTimeWifiSetup, showBluetoothSupportView, setShowBluetoothSupportView } = useAppStore();
-  
+  const {
+    showFirstTimeWifiSetup,
+    setShowFirstTimeWifiSetup,
+    showBluetoothSupportView,
+    setShowBluetoothSupportView,
+  } = useAppStore();
+
   return useMemo(() => {
     // PRIORITY 0: Permissions view
     if (!permissionsGranted || isRestarting) {
@@ -202,14 +216,12 @@ export function useViewRouter({
  */
 export function ViewRouterWrapper({ viewConfig }) {
   const { viewComponent: ViewComponent, viewProps, showTopBar, needsContext } = viewConfig;
-  
+
   // Get context config from adapter (only used when needsContext is true)
   // This is always called (React hooks rule) but only used when needed
   const contextConfig = useActiveRobotAdapter();
 
-  const propsWithContext = needsContext 
-    ? { ...viewProps, contextConfig } 
-    : viewProps;
+  const propsWithContext = needsContext ? { ...viewProps, contextConfig } : viewProps;
 
   if (!showTopBar) {
     // View has its own topbar (e.g., ClosingView)
@@ -224,4 +236,3 @@ export function ViewRouterWrapper({ viewConfig }) {
     </Box>
   );
 }
-

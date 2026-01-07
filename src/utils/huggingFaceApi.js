@@ -1,7 +1,8 @@
 import { fetchExternal } from '../config/daemon';
 
 // Hugging Face dataset URL for app list
-export const HUGGINGFACE_APP_LIST_URL = 'https://huggingface.co/datasets/pollen-robotics/reachy-mini-application-store/raw/main/app-list.json';
+export const HUGGINGFACE_APP_LIST_URL =
+  'https://huggingface.co/datasets/pollen-robotics/reachy-mini-application-store/raw/main/app-list.json';
 
 /**
  * Parse JavaScript-like object notation to JSON
@@ -42,16 +43,21 @@ async function fetchSpaceLikes(spaceId) {
   try {
     // Build the full path: if spaceId doesn't include '/', assume it's under pollen-robotics
     const fullPath = spaceId.includes('/') ? spaceId : `pollen-robotics/${spaceId}`;
-    
+
     // Method 1: Try the API endpoint (may require auth, but worth trying)
     try {
       const apiUrl = `https://huggingface.co/api/spaces/${fullPath}`;
-      const response = await fetchExternal(apiUrl, {
-        headers: {
-          'Accept': 'application/json',
+      const response = await fetchExternal(
+        apiUrl,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
         },
-      }, 10000, { silent: true });
-      
+        10000,
+        { silent: true }
+      );
+
       if (response.ok) {
         const data = await response.json();
         if (data.likes !== undefined) {
@@ -61,16 +67,21 @@ async function fetchSpaceLikes(spaceId) {
     } catch (apiError) {
       // API failed, try HTML scraping
     }
-    
+
     // Method 2: Try scraping from the HTML page
     try {
       const pageUrl = `https://huggingface.co/spaces/${fullPath}`;
-      const response = await fetchExternal(pageUrl, {
-        headers: {
-          'Accept': 'text/html',
+      const response = await fetchExternal(
+        pageUrl,
+        {
+          headers: {
+            Accept: 'text/html',
+          },
         },
-      }, 10000, { silent: true });
-      
+        10000,
+        { silent: true }
+      );
+
       if (response.ok) {
         const html = await response.text();
         // Look for likes in the HTML (various possible formats)
@@ -79,9 +90,11 @@ async function fetchSpaceLikes(spaceId) {
         if (jsonMatch) {
           return parseInt(jsonMatch[1], 10);
         }
-        
+
         // Try to find in script tags with JSON data
-        const scriptMatches = html.match(/<script[^>]*>[\s\S]*?"likes"\s*:\s*(\d+)[\s\S]*?<\/script>/);
+        const scriptMatches = html.match(
+          /<script[^>]*>[\s\S]*?"likes"\s*:\s*(\d+)[\s\S]*?<\/script>/
+        );
         if (scriptMatches) {
           return parseInt(scriptMatches[1], 10);
         }
@@ -89,7 +102,7 @@ async function fetchSpaceLikes(spaceId) {
     } catch (htmlError) {
       // HTML scraping failed
     }
-    
+
     // If all methods fail, return 0
     return 0;
   } catch (error) {
@@ -106,20 +119,20 @@ async function fetchSpaceLikes(spaceId) {
  */
 async function fetchSpacesLikes(spaceIds) {
   const likesMap = new Map();
-  
+
   if (spaceIds.length === 0) {
     return likesMap;
   }
-  
+
   try {
     // Fetch all spaces in parallel
-    const likesPromises = spaceIds.map(async (spaceId) => {
+    const likesPromises = spaceIds.map(async spaceId => {
       const likes = await fetchSpaceLikes(spaceId);
       return { spaceId, likes };
     });
-    
+
     const results = await Promise.all(likesPromises);
-    
+
     // Build the map
     results.forEach(({ spaceId, likes }) => {
       likesMap.set(spaceId, likes);
@@ -127,7 +140,7 @@ async function fetchSpacesLikes(spaceIds) {
   } catch (error) {
     console.warn(`⚠️ Error fetching spaces likes:`, error.message);
   }
-  
+
   return likesMap;
 }
 
@@ -137,12 +150,17 @@ async function fetchSpacesLikes(spaceIds) {
  */
 export async function fetchHuggingFaceAppList() {
   try {
-    const response = await fetchExternal(HUGGINGFACE_APP_LIST_URL, {
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
+    const response = await fetchExternal(
+      HUGGINGFACE_APP_LIST_URL,
+      {
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+        },
       },
-    }, 10000, { silent: true });
-    
+      10000,
+      { silent: true }
+    );
+
     if (!response.ok) {
       // Silently return empty array for 401/404 errors (dataset may not exist or be private)
       // The backend already provides all necessary data from Hugging Face Spaces API
@@ -151,10 +169,10 @@ export async function fetchHuggingFaceAppList() {
       }
       throw new Error(`Failed to fetch app list: ${response.status} ${response.statusText}`);
     }
-    
+
     // Get text first to handle JavaScript-like format
     const text = await response.text();
-    
+
     let data;
     try {
       // Try parsing as JSON first
@@ -163,21 +181,26 @@ export async function fetchHuggingFaceAppList() {
       // If JSON parsing fails, try parsing as JavaScript-like format
       data = parseJavaScriptLike(text);
     }
-    
+
     // Handle both array and object formats
     let apps = [];
     if (Array.isArray(data)) {
       apps = data;
     } else if (data && typeof data === 'object') {
       // If it's an object, try to extract an array from common keys
-      apps = data.apps || data.items || data.list || Object.values(data).find(v => Array.isArray(v)) || [];
+      apps =
+        data.apps ||
+        data.items ||
+        data.list ||
+        Object.values(data).find(v => Array.isArray(v)) ||
+        [];
     }
-    
+
     // Try to enrich with real likes from Hugging Face API
     // If API fails, use downloads as fallback
     const spaceIds = apps.filter(app => app.id).map(app => app.id);
     let likesMap = new Map();
-    
+
     if (spaceIds.length > 0) {
       try {
         likesMap = await fetchSpacesLikes(spaceIds);
@@ -185,16 +208,15 @@ export async function fetchHuggingFaceAppList() {
         console.warn('⚠️ Failed to fetch likes from API, using downloads as fallback');
       }
     }
-    
-    const enrichedApps = apps.map((app) => {
+
+    const enrichedApps = apps.map(app => {
       // Get real likes if we have a space ID and API returned data
       if (app.id) {
         const realLikes = likesMap.get(app.id);
         // Use real likes if available and > 0, otherwise use downloads
-        const displayLikes = (realLikes !== undefined && realLikes > 0) 
-          ? realLikes 
-          : (app.downloads || 0);
-        
+        const displayLikes =
+          realLikes !== undefined && realLikes > 0 ? realLikes : app.downloads || 0;
+
         return {
           ...app,
           likes: displayLikes,
@@ -209,22 +231,29 @@ export async function fetchHuggingFaceAppList() {
         downloads: app.downloads || 0,
       };
     });
-    
+
     return enrichedApps || [];
   } catch (error) {
     // Handle network errors gracefully
-    if (error.name === 'NetworkError' || error.isOffline || error.message?.includes('No internet connection')) {
+    if (
+      error.name === 'NetworkError' ||
+      error.isOffline ||
+      error.message?.includes('No internet connection')
+    ) {
       console.warn('⚠️ No internet connection, skipping Hugging Face app list fetch');
       return [];
     }
-    
+
     // Silently return empty array on error - backend already provides all necessary data
     // Only log non-network errors (parsing errors, etc.)
-    if (!error.message?.includes('Failed to fetch') && !error.message?.includes('401') && !error.message?.includes('404')) {
+    if (
+      !error.message?.includes('Failed to fetch') &&
+      !error.message?.includes('401') &&
+      !error.message?.includes('404')
+    ) {
       console.warn('⚠️ Failed to fetch Hugging Face app list:', error.message);
     }
     // Return empty array on error to prevent breaking the app
     return [];
   }
 }
-

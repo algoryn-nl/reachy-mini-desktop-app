@@ -33,25 +33,25 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
   // Check if robot is at initial position (all values at zero)
   const isAtInitialPosition = React.useMemo(() => {
     if (!localValues) return true;
-    
+
     const headPose = localValues.headPose || {};
     const antennas = localValues.antennas || [0, 0];
     const bodyYaw = localValues.bodyYaw || 0;
-    
-    const headAtZero = 
+
+    const headAtZero =
       (headPose.x === 0 || Math.abs(headPose.x) < 0.0001) &&
       (headPose.y === 0 || Math.abs(headPose.y) < 0.0001) &&
       (headPose.z === 0 || Math.abs(headPose.z) < 0.0001) &&
       (headPose.pitch === 0 || Math.abs(headPose.pitch) < 0.0001) &&
       (headPose.yaw === 0 || Math.abs(headPose.yaw) < 0.0001) &&
       (headPose.roll === 0 || Math.abs(headPose.roll) < 0.0001);
-    
-    const antennasAtZero = 
+
+    const antennasAtZero =
       (antennas[0] === 0 || Math.abs(antennas[0]) < 0.0001) &&
       (antennas[1] === 0 || Math.abs(antennas[1]) < 0.0001);
-    
+
     const bodyYawAtZero = bodyYaw === 0 || Math.abs(bodyYaw) < 0.0001;
-    
+
     return headAtZero && antennasAtZero && bodyYawAtZero;
   }, [localValues]);
 
@@ -78,13 +78,15 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
   if (!isActive) return null;
 
   return (
-    <Box sx={{ 
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 1.5,
-      width: '100%',
-      flex: 1,
-    }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+        width: '100%',
+        flex: 1,
+      }}
+    >
       {/* ANTENNAS - Top level title */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: -0.5 }}>
         <Box
@@ -94,7 +96,7 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
           sx={{
             width: 20,
             height: 20,
-            filter: darkMode 
+            filter: darkMode
               ? 'brightness(0) invert(1)' // White in dark mode
               : 'brightness(0) invert(0)', // Black in light mode
             opacity: darkMode ? 0.7 : 0.6,
@@ -116,14 +118,16 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
       {/* ANTENNAS - Left and Right Cards on same line */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
         {/* ANTENNAS - Left Card (controls Left antenna) */}
-        <Box sx={{
-          px: 1,
-          py: 0.5,
-          borderRadius: '8px',
-          boxSizing: 'border-box',
-          bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
-          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-        }}>
+        <Box
+          sx={{
+            px: 1,
+            py: 0.5,
+            borderRadius: '8px',
+            boxSizing: 'border-box',
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          }}
+        >
           <CircularSlider
             label="Left"
             value={localValues.antennas?.[0] || 0}
@@ -140,18 +144,20 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
 
         {/* ANTENNAS - Right Card (controls Right antenna) - MIRRORED behavior */}
         {/* Right antenna: UI shows normal values, but API sends inverted (-value) */}
-        <Box sx={{
-          px: 1,
-          py: 0.5,
-          borderRadius: '8px',
-          boxSizing: 'border-box',
-          bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
-          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-          width: '100%',
-        }}>
+        <Box
+          sx={{
+            px: 1,
+            py: 0.5,
+            borderRadius: '8px',
+            boxSizing: 'border-box',
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            width: '100%',
+          }}
+        >
           <CircularSlider
             label="Right"
             value={localValues.antennas?.[1] || 0}
@@ -177,7 +183,7 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
           sx={{
             width: 20,
             height: 20,
-            filter: darkMode 
+            filter: darkMode
               ? 'brightness(0) invert(1)' // White in dark mode
               : 'brightness(0) invert(0)', // Black in light mode
             opacity: darkMode ? 0.7 : 0.6,
@@ -199,42 +205,56 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
       {/* HEAD - Position X/Y/Z and Pitch/Yaw Cards on same line */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
         {/* HEAD - Card 1: Position X/Y/Z */}
-        <Box sx={{
-          p: 1,
-          borderRadius: '8px',
-          boxSizing: 'border-box',
-          bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
-          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 0, 
-            alignItems: 'stretch',
-          }}>
-            <Box sx={{ 
-              flex: '1 1 auto',
+        <Box
+          sx={{
+            p: 1,
+            borderRadius: '8px',
+            boxSizing: 'border-box',
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          }}
+        >
+          <Box
+            sx={{
               display: 'flex',
-              alignItems: 'center',
-              '& > *': {
-                bgcolor: 'transparent !important',
-                border: 'none !important',
-                p: 0,
-                borderRadius: '0 !important',
-                '&:hover': {
+              gap: 0,
+              alignItems: 'stretch',
+            }}
+          >
+            <Box
+              sx={{
+                flex: '1 1 auto',
+                display: 'flex',
+                alignItems: 'center',
+                '& > *': {
                   bgcolor: 'transparent !important',
                   border: 'none !important',
-                }
-              },
-              '& > * > *': {
-                p: '0 !important', // Remove padding from Joystick2D container
-              }
-            }}>
+                  p: 0,
+                  borderRadius: '0 !important',
+                  '&:hover': {
+                    bgcolor: 'transparent !important',
+                    border: 'none !important',
+                  },
+                },
+                '& > * > *': {
+                  p: '0 !important', // Remove padding from Joystick2D container
+                },
+              }}
+            >
               <Joystick2D
                 label="Position X/Y"
                 valueX={mapRobotToDisplay(localValues.headPose.y, 'positionY')}
                 valueY={mapRobotToDisplay(localValues.headPose.x, 'positionX')}
-                smoothedValueX={smoothedValues?.headPose?.y != null ? mapRobotToDisplay(smoothedValues.headPose.y, 'positionY') : undefined}
-                smoothedValueY={smoothedValues?.headPose?.x != null ? mapRobotToDisplay(smoothedValues.headPose.x, 'positionX') : undefined}
+                smoothedValueX={
+                  smoothedValues?.headPose?.y != null
+                    ? mapRobotToDisplay(smoothedValues.headPose.y, 'positionY')
+                    : undefined
+                }
+                smoothedValueY={
+                  smoothedValues?.headPose?.x != null
+                    ? mapRobotToDisplay(smoothedValues.headPose.x, 'positionX')
+                    : undefined
+                }
                 onChange={(x, y, continuous) => {
                   // Reverse the display mapping to get back to robot coordinates
                   // Note: x and y are swapped in onChange (x is actually robot Y, y is actually robot X)
@@ -252,22 +272,24 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
                 darkMode={darkMode}
               />
             </Box>
-            <Box sx={{ 
-              flex: '0 0 auto',
-              display: 'flex',
-              alignItems: 'center',
-              px: 2.5,
-              '& > *': {
-                bgcolor: 'transparent !important',
-                border: 'none !important',
-                p: 0,
-                borderRadius: '0 !important',
-                '&:hover': {
+            <Box
+              sx={{
+                flex: '0 0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                px: 2.5,
+                '& > *': {
                   bgcolor: 'transparent !important',
                   border: 'none !important',
-                }
-              }
-            }}>
+                  p: 0,
+                  borderRadius: '0 !important',
+                  '&:hover': {
+                    bgcolor: 'transparent !important',
+                    border: 'none !important',
+                  },
+                },
+              }}
+            >
               <VerticalSlider
                 label="Position Z"
                 value={localValues.headPose.z}
@@ -285,40 +307,54 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
         </Box>
 
         {/* HEAD - Card 2: Pitch/Yaw */}
-        <Box sx={{
-          p: 1,
-          borderRadius: '8px',
-          boxSizing: 'border-box',
-          bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
-          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 0, 
-            alignItems: 'stretch',
-            justifyContent: 'center',
-          }}>
-            <Box sx={{ 
+        <Box
+          sx={{
+            p: 1,
+            borderRadius: '8px',
+            boxSizing: 'border-box',
+            bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+          }}
+        >
+          <Box
+            sx={{
               display: 'flex',
-              alignItems: 'center',
+              gap: 0,
+              alignItems: 'stretch',
               justifyContent: 'center',
-              '& > *': {
-                bgcolor: 'transparent !important',
-                border: 'none !important',
-                p: 0,
-                borderRadius: '0 !important',
-                '&:hover': {
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                '& > *': {
                   bgcolor: 'transparent !important',
                   border: 'none !important',
-                }
-              }
-            }}>
+                  p: 0,
+                  borderRadius: '0 !important',
+                  '&:hover': {
+                    bgcolor: 'transparent !important',
+                    border: 'none !important',
+                  },
+                },
+              }}
+            >
               <Joystick2D
                 label="Pitch / Yaw"
                 valueX={mapRobotToDisplay(localValues.headPose.yaw, 'yaw')}
                 valueY={mapRobotToDisplay(localValues.headPose.pitch, 'pitch')}
-                smoothedValueX={smoothedValues?.headPose?.yaw != null ? mapRobotToDisplay(smoothedValues.headPose.yaw, 'yaw') : undefined}
-                smoothedValueY={smoothedValues?.headPose?.pitch != null ? mapRobotToDisplay(smoothedValues.headPose.pitch, 'pitch') : undefined}
+                smoothedValueX={
+                  smoothedValues?.headPose?.yaw != null
+                    ? mapRobotToDisplay(smoothedValues.headPose.yaw, 'yaw')
+                    : undefined
+                }
+                smoothedValueY={
+                  smoothedValues?.headPose?.pitch != null
+                    ? mapRobotToDisplay(smoothedValues.headPose.pitch, 'pitch')
+                    : undefined
+                }
                 onChange={(yaw, pitch, continuous) => {
                   // Reverse the display mapping to get back to robot coordinates
                   const robotYaw = mapDisplayToRobot(yaw, 'yaw');
@@ -340,14 +376,16 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
       </Box>
 
       {/* HEAD - Card 2: Roll */}
-      <Box sx={{
-        px: 1,
-        py: 0.5,
-        borderRadius: '8px',
-        boxSizing: 'border-box',
-        bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
-        border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-      }}>
+      <Box
+        sx={{
+          px: 1,
+          py: 0.5,
+          borderRadius: '8px',
+          boxSizing: 'border-box',
+          bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
+          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+        }}
+      >
         <SimpleSlider
           label="Roll"
           value={localValues.headPose.roll}
@@ -370,7 +408,7 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
           sx={{
             width: 20,
             height: 20,
-            filter: darkMode 
+            filter: darkMode
               ? 'brightness(0) invert(1)' // White in dark mode
               : 'brightness(0) invert(0)', // Black in light mode
             opacity: darkMode ? 0.7 : 0.6,
@@ -390,14 +428,16 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
       </Box>
 
       {/* BODY - Yaw Card */}
-      <Box sx={{
-        px: 1,
-        py: 0.5,
-        borderRadius: '8px',
-        boxSizing: 'border-box',
-        bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
-        border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-      }}>
+      <Box
+        sx={{
+          px: 1,
+          py: 0.5,
+          borderRadius: '8px',
+          boxSizing: 'border-box',
+          bgcolor: darkMode ? 'rgba(26, 26, 26, 0.8)' : '#ffffff',
+          border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+        }}
+      >
         <CircularSlider
           label="Yaw"
           value={localValues.bodyYaw}
@@ -405,8 +445,8 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
           onChange={(valueRad, continuous) => {
             handleBodyYawChange(valueRad, continuous);
           }}
-          min={-160 * Math.PI / 180}
-          max={160 * Math.PI / 180}
+          min={(-160 * Math.PI) / 180}
+          max={(160 * Math.PI) / 180}
           unit="rad"
           darkMode={darkMode}
           inverted={true} // Circle cut at top
@@ -416,4 +456,3 @@ export default function Controller({ isActive, darkMode, onResetReady, onIsAtIni
     </Box>
   );
 }
-

@@ -1,12 +1,12 @@
 /**
  * Unified target smoothing system
- * 
+ *
  * This module provides a centralized smoothing system that applies to ALL input sources
  * (mouse, gamepad, keyboard). The pattern is:
  * 1. Input sources set "target" values (where we want to go)
  * 2. Smoothing system interpolates current values towards targets
  * 3. Smoothed values are sent to the robot
- * 
+ *
  * This ensures consistent, fluid movement regardless of input source.
  */
 
@@ -18,10 +18,10 @@ import { smoothValue, getDeltaTime } from './inputSmoothing';
  * Higher values = faster response (ghost is caught up quickly)
  */
 const SMOOTHING_FACTORS = {
-  POSITION: 0.02,     // Position (X, Y, Z) - very slow, ghost takes much longer to catch up (divided by 2)
-  ROTATION: 0.02,     // Rotation (pitch, yaw, roll) - very slow, ghost takes much longer to catch up (divided by 2)
-  BODY_YAW: 0.0375,   // Body yaw - very slow for precision (divided by 2)
-  ANTENNA: 0.03,      // Antennas - very slow, ghost takes much longer to catch up (divided by 2)
+  POSITION: 0.02, // Position (X, Y, Z) - very slow, ghost takes much longer to catch up (divided by 2)
+  ROTATION: 0.02, // Rotation (pitch, yaw, roll) - very slow, ghost takes much longer to catch up (divided by 2)
+  BODY_YAW: 0.0375, // Body yaw - very slow for precision (divided by 2)
+  ANTENNA: 0.03, // Antennas - very slow, ghost takes much longer to catch up (divided by 2)
 };
 
 /**
@@ -36,14 +36,14 @@ export class TargetSmoothingManager {
       bodyYaw: 0,
       antennas: [0, 0],
     };
-    
+
     // Target values (where we want to go)
     this.targetValues = {
       headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
       bodyYaw: 0,
       antennas: [0, 0],
     };
-    
+
     this.lastFrameTime = performance.now();
   }
 
@@ -74,12 +74,36 @@ export class TargetSmoothingManager {
 
     // Smooth head pose
     this.currentValues.headPose = {
-      x: smoothValue(this.currentValues.headPose.x, this.targetValues.headPose.x, SMOOTHING_FACTORS.POSITION),
-      y: smoothValue(this.currentValues.headPose.y, this.targetValues.headPose.y, SMOOTHING_FACTORS.POSITION),
-      z: smoothValue(this.currentValues.headPose.z, this.targetValues.headPose.z, SMOOTHING_FACTORS.POSITION),
-      pitch: smoothValue(this.currentValues.headPose.pitch, this.targetValues.headPose.pitch, SMOOTHING_FACTORS.ROTATION),
-      yaw: smoothValue(this.currentValues.headPose.yaw, this.targetValues.headPose.yaw, SMOOTHING_FACTORS.ROTATION),
-      roll: smoothValue(this.currentValues.headPose.roll, this.targetValues.headPose.roll, SMOOTHING_FACTORS.ROTATION),
+      x: smoothValue(
+        this.currentValues.headPose.x,
+        this.targetValues.headPose.x,
+        SMOOTHING_FACTORS.POSITION
+      ),
+      y: smoothValue(
+        this.currentValues.headPose.y,
+        this.targetValues.headPose.y,
+        SMOOTHING_FACTORS.POSITION
+      ),
+      z: smoothValue(
+        this.currentValues.headPose.z,
+        this.targetValues.headPose.z,
+        SMOOTHING_FACTORS.POSITION
+      ),
+      pitch: smoothValue(
+        this.currentValues.headPose.pitch,
+        this.targetValues.headPose.pitch,
+        SMOOTHING_FACTORS.ROTATION
+      ),
+      yaw: smoothValue(
+        this.currentValues.headPose.yaw,
+        this.targetValues.headPose.yaw,
+        SMOOTHING_FACTORS.ROTATION
+      ),
+      roll: smoothValue(
+        this.currentValues.headPose.roll,
+        this.targetValues.headPose.roll,
+        SMOOTHING_FACTORS.ROTATION
+      ),
     };
 
     // Smooth body yaw
@@ -91,8 +115,16 @@ export class TargetSmoothingManager {
 
     // Smooth antennas
     this.currentValues.antennas = [
-      smoothValue(this.currentValues.antennas[0], this.targetValues.antennas[0], SMOOTHING_FACTORS.ANTENNA),
-      smoothValue(this.currentValues.antennas[1], this.targetValues.antennas[1], SMOOTHING_FACTORS.ANTENNA),
+      smoothValue(
+        this.currentValues.antennas[0],
+        this.targetValues.antennas[0],
+        SMOOTHING_FACTORS.ANTENNA
+      ),
+      smoothValue(
+        this.currentValues.antennas[1],
+        this.targetValues.antennas[1],
+        SMOOTHING_FACTORS.ANTENNA
+      ),
     ];
 
     return { ...this.currentValues };
@@ -153,4 +185,3 @@ export class TargetSmoothingManager {
     }
   }
 }
-

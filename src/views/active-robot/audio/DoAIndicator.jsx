@@ -4,7 +4,7 @@ import { doaToCssRotation } from '../../../hooks/audio/useDoA';
 
 /**
  * Direction of Arrival (DoA) Indicator - Minimal tag with arrow
- * 
+ *
  * Shows a compact tag with direction arrow inside.
  * Ghost state when inactive, green when talking.
  */
@@ -26,8 +26,12 @@ function DoAIndicator({ angle, isTalking, isAvailable, darkMode }) {
         py: 0.25,
         borderRadius: '4px',
         bgcolor: isActive
-          ? (darkMode ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.12)')
-          : (darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)'),
+          ? darkMode
+            ? 'rgba(76, 175, 80, 0.2)'
+            : 'rgba(76, 175, 80, 0.12)'
+          : darkMode
+            ? 'rgba(255, 255, 255, 0.06)'
+            : 'rgba(0, 0, 0, 0.04)',
         transition: 'all 0.2s ease',
         opacity: isActive ? 1 : 0.6,
       }}
@@ -53,14 +57,16 @@ function DoAIndicator({ angle, isTalking, isAvailable, darkMode }) {
           ↑
         </Box>
       )}
-      
+
       <Typography
         sx={{
           fontSize: 8,
           fontWeight: 600,
-          color: isActive 
-            ? '#4CAF50' 
-            : (darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)'),
+          color: isActive
+            ? '#4CAF50'
+            : darkMode
+              ? 'rgba(255, 255, 255, 0.35)'
+              : 'rgba(0, 0, 0, 0.3)',
           textTransform: 'uppercase',
           letterSpacing: '0.3px',
           lineHeight: 1,
@@ -74,4 +80,3 @@ function DoAIndicator({ angle, isTalking, isAvailable, darkMode }) {
 }
 
 export default React.memo(DoAIndicator);
-

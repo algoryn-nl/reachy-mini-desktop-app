@@ -6,10 +6,10 @@ import { useActiveRobotContext } from '../context';
 
 /**
  * Sleep Button Component
- * 
+ *
  * Simple button to put the robot to sleep.
  * Only visible when robot is awake.
- * 
+ *
  * Disabled when:
  * - Robot is transitioning
  * - Robot is busy
@@ -19,11 +19,12 @@ export default function SleepButton({ darkMode }) {
   const { isTransitioning, canToggle, goToSleep } = useWakeSleep();
   const { robotState } = useActiveRobotContext();
   const { rightPanelView } = robotState;
-  
+
   // Disable when controller or expressions views are active
-  const isControllerOrExpressionsActive = rightPanelView === 'controller' || rightPanelView === 'expressions';
+  const isControllerOrExpressionsActive =
+    rightPanelView === 'controller' || rightPanelView === 'expressions';
   const isDisabled = !canToggle || isControllerOrExpressionsActive || isTransitioning;
-  
+
   // Dynamic tooltip
   const getTooltipTitle = () => {
     if (isControllerOrExpressionsActive) {
@@ -34,7 +35,7 @@ export default function SleepButton({ darkMode }) {
     }
     return 'Put robot to sleep';
   };
-  
+
   return (
     <Tooltip title={getTooltipTitle()} arrow placement="bottom">
       <Box
@@ -57,37 +58,36 @@ export default function SleepButton({ darkMode }) {
           cursor: isDisabled ? 'not-allowed' : 'pointer',
           opacity: isDisabled ? 0.4 : 1,
           transition: 'all 0.2s ease',
-          boxShadow: darkMode 
-            ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
-            : '0 2px 8px rgba(0, 0, 0, 0.08)',
-          '&:hover': isDisabled ? {} : {
-            bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
-            borderColor: '#FF9500',
-            transform: 'scale(1.05)',
-          },
-          '&:active': isDisabled ? {} : {
-            transform: 'scale(0.95)',
-          },
+          boxShadow: darkMode ? '0 2px 8px rgba(0, 0, 0, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.08)',
+          '&:hover': isDisabled
+            ? {}
+            : {
+                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                borderColor: '#FF9500',
+                transform: 'scale(1.05)',
+              },
+          '&:active': isDisabled
+            ? {}
+            : {
+                transform: 'scale(0.95)',
+              },
         }}
       >
-{isTransitioning ? (
-          <CircularProgress 
-            size={16} 
-            thickness={3}
-            sx={{ color: '#FF9500' }} 
-          />
+        {isTransitioning ? (
+          <CircularProgress size={16} thickness={3} sx={{ color: '#FF9500' }} />
         ) : (
-          <BedtimeOutlinedIcon 
-            sx={{ 
-              fontSize: 18, 
-              color: isDisabled 
-                ? (darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.4)')
+          <BedtimeOutlinedIcon
+            sx={{
+              fontSize: 18,
+              color: isDisabled
+                ? darkMode
+                  ? 'rgba(255, 149, 0, 0.3)'
+                  : 'rgba(255, 149, 0, 0.4)'
                 : '#FF9500',
-            }} 
+            }}
           />
         )}
       </Box>
     </Tooltip>
   );
 }
-

@@ -16,7 +16,7 @@ export default function SettingsAppearanceCard({ darkMode, cardStyle }) {
   return (
     <Box sx={cardStyle}>
       <SectionHeader title="Appearance" icon={null} darkMode={darkMode} />
-      
+
       <Box
         sx={{
           display: 'flex',
@@ -43,13 +43,8 @@ export default function SettingsAppearanceCard({ darkMode, cardStyle }) {
             {darkMode ? 'Dark Mode' : 'Light Mode'}
           </Typography>
         </Box>
-        <Switch
-          checked={darkMode}
-          size="small"
-          color="primary"
-        />
+        <Switch checked={darkMode} size="small" color="primary" />
       </Box>
     </Box>
   );
 }
-

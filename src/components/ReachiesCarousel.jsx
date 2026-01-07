@@ -7,13 +7,13 @@ const imageModules = import.meta.glob('../assets/reachies/small-top-sided/*.png'
 /**
  * Component that loads all PNG images from reachies/small-top-sided folder,
  * stores them in memory and displays them in sequence with overlapping fade transition.
- * 
+ *
  * Images are loaded dynamically and displayed one after another
  * in a fixed frame, with a fade in/out transition between each image.
  */
-export default function ReachiesCarousel({ 
-  width = 100, 
-  height = 100, 
+export default function ReachiesCarousel({
+  width = 100,
+  height = 100,
   interval = 1000, // Display duration of each image in ms (faster)
   transitionDuration = 150, // Fade transition duration in ms (very sharp) - DEPRECATED, use fadeInDuration and fadeOutDuration
   fadeInDuration = 350, // Fade-in duration for incoming image (slower, Apple/Google style)
@@ -21,20 +21,20 @@ export default function ReachiesCarousel({
   zoom = 1.8, // Zoom factor to enlarge the sticker
   verticalAlign = 'center', // Vertical alignment: 'top', 'center', 'bottom', or percentage (e.g.: '60%')
   darkMode = false,
-  sx = {} 
+  sx = {},
 }) {
   // Extract URLs of loaded images and sort them for consistent order
   const imagePaths = useMemo(() => {
     const paths = Object.values(imageModules)
       .map(module => {
         // With eager: true, module is already loaded, access .default
-        return typeof module === 'object' && module !== null && 'default' in module 
-          ? module.default 
+        return typeof module === 'object' && module !== null && 'default' in module
+          ? module.default
           : module;
       })
       .filter(Boolean) // Filter null/undefined values
       .sort(); // Sort for consistent order
-    
+
     return paths;
   }, []);
 
@@ -70,24 +70,27 @@ export default function ReachiesCarousel({
         setPreviousIndex(prevIdx);
         setIsTransitioning(true);
         setFadeOutComplete(false); // Reset at start of transition
-        
+
         // Select a random image different from current
         const newIndex = getRandomIndex(currentIndex, imagePaths.length);
         setCurrentIndex(newIndex);
-        
+
         // Outgoing image starts disappearing after a delay to create more overlap
         // Both images remain visible together longer
         const overlapDelay = Math.min(fadeInDuration * 0.4, fadeOutDuration * 2); // 40% of fade-in or 2x fade-out
         setTimeout(() => {
           setFadeOutComplete(true);
         }, overlapDelay);
-        
+
         // Reset transition state after longest duration (fade-in)
-        setTimeout(() => {
-          setIsTransitioning(false);
-          setPreviousIndex(null);
-          setFadeOutComplete(false);
-        }, Math.max(fadeInDuration, fadeOutDuration));
+        setTimeout(
+          () => {
+            setIsTransitioning(false);
+            setPreviousIndex(null);
+            setFadeOutComplete(false);
+          },
+          Math.max(fadeInDuration, fadeOutDuration)
+        );
       }, interval);
 
       return () => clearInterval(timer);
@@ -125,7 +128,7 @@ export default function ReachiesCarousel({
       {imagePaths.map((imageSrc, index) => {
         const isActive = index === currentIndex;
         const isPrevious = index === previousIndex && isTransitioning;
-        
+
         // Calculate vertical position according to alignment
         let topValue, transformY;
         if (verticalAlign === 'top') {
@@ -143,12 +146,12 @@ export default function ReachiesCarousel({
           topValue = '50%';
           transformY = '-50%';
         }
-        
+
         // Crossfade style Apple/Google: outgoing disappears faster than incoming appears
         const baseOpacity = darkMode ? 0.8 : 0.9;
         let opacity = 0;
         let transitionStyle = 'none';
-        
+
         // Crossfade logic: both images must be visible simultaneously
         if (isActive) {
           // Incoming image: slow and progressive fade-in (premium style)
@@ -161,7 +164,7 @@ export default function ReachiesCarousel({
           transitionStyle = `opacity ${fadeOutDuration}ms cubic-bezier(0.4, 0, 1, 1)`; // More aggressive ease-out
         }
         // Otherwise opacity stays at 0 (invisible)
-        
+
         return (
           <Box
             key={`${imageSrc}-${index}`} // Unique key to force re-render
@@ -181,7 +184,7 @@ export default function ReachiesCarousel({
               // Position zoomed image with custom vertical alignment
               left: '50%',
               top: topValue,
-              zIndex: isActive ? 2 : (isPrevious ? 1 : 0), // Active image on top
+              zIndex: isActive ? 2 : isPrevious ? 1 : 0, // Active image on top
               willChange: 'opacity', // GPU optimization
               backfaceVisibility: 'hidden', // Avoid rendering artifacts
               WebkitBackfaceVisibility: 'hidden',
@@ -192,4 +195,3 @@ export default function ReachiesCarousel({
     </Box>
   );
 }
-

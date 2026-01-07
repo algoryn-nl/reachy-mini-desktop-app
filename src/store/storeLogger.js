@@ -1,11 +1,11 @@
 /**
  * 🎯 Store Logger - Production-grade logging for state management
- * 
+ *
  * Provides concise, structured logs for key store events:
  * - Connection lifecycle (connect, disconnect)
  * - State transitions
  * - App installation
- * 
+ *
  * Format: [Store] emoji action → details
  */
 
@@ -13,9 +13,9 @@ const isDev = process.env.NODE_ENV === 'development';
 
 // Log levels
 const LOG_LEVELS = {
-  LIFECYCLE: true,  // Connection/disconnection - always log
-  TRANSITION: true, // State transitions - always log  
-  DEBUG: isDev,     // Debug info - dev only
+  LIFECYCLE: true, // Connection/disconnection - always log
+  TRANSITION: true, // State transitions - always log
+  DEBUG: isDev, // Debug info - dev only
 };
 
 /**
@@ -32,7 +32,6 @@ const formatMode = (mode, host) => {
  */
 const log = (emoji, action, details = '') => {
   const detailStr = details ? ` → ${details}` : '';
-  console.log(`[Store] ${emoji} ${action}${detailStr}`);
 };
 
 /**
@@ -41,7 +40,7 @@ const log = (emoji, action, details = '') => {
 export const logConnect = (mode, options = {}) => {
   if (!LOG_LEVELS.LIFECYCLE) return;
   const { remoteHost, portName } = options;
-  const target = mode === 'wifi' ? remoteHost : (portName || 'local');
+  const target = mode === 'wifi' ? remoteHost : portName || 'local';
   log('🔌', 'CONNECT', `mode=${mode} target=${target}`);
 };
 
@@ -64,12 +63,12 @@ export const logReady = () => {
   log('✅', 'READY', 'robot active');
 };
 
-export const logBusy = (reason) => {
+export const logBusy = reason => {
   if (!LOG_LEVELS.TRANSITION) return;
   log('⏳', 'BUSY', reason);
 };
 
-export const logCrash = (error) => {
+export const logCrash = error => {
   if (!LOG_LEVELS.LIFECYCLE) return;
   log('💥', 'CRASH', error || 'daemon crashed');
 };
@@ -77,12 +76,12 @@ export const logCrash = (error) => {
 /**
  * App lifecycle logs
  */
-export const logAppStart = (appName) => {
+export const logAppStart = appName => {
   if (!LOG_LEVELS.LIFECYCLE) return;
   log('▶️', 'APP START', appName);
 };
 
-export const logAppStop = (appName) => {
+export const logAppStop = appName => {
   if (!LOG_LEVELS.LIFECYCLE) return;
   log('⏹️', 'APP STOP', appName || 'none');
 };
@@ -110,4 +109,3 @@ export default {
   logInstallStart,
   logInstallEnd,
 };
-

@@ -28,17 +28,20 @@ Utils:
 ## 🎯 Main Components
 
 ### `RobotViewer3D`
+
 - Entry point of 3D viewer
 - Manages UI (Settings button, Status tag, FPS meter)
 - Props: `isActive`, `initialMode`, `hideControls`, `showScanEffect`, etc.
 
 ### `Scene`
+
 - 3D scene configuration
 - 3-point lighting (key, fill, rim)
 - Fog for fade-out effect
 - Grid floor (adapts to dark mode)
 
 ### `URDFRobot`
+
 - URDF model loading from cache
 - X-ray material system
 - Real-time animation via joints (head, antennas, body)
@@ -46,9 +49,11 @@ Utils:
 ## 🔧 Custom Hooks
 
 ### `useRobotWebSocket(isActive)`
+
 Hook to manage WebSocket connection to Reachy daemon.
 
 **Returns:**
+
 ```javascript
 {
   headPose: Array(16),       // 4x4 head pose matrix
@@ -62,6 +67,7 @@ Hook to manage WebSocket connection to Reachy daemon.
 ## 🎨 Material System
 
 The `src/utils/viewer3d/materials.js` module provides:
+
 - `xrayShader` - Fresnel-based X-ray shader with rim lighting
 - `createXrayMaterial(color, options)` - Creates X-ray material with options:
   - `opacity` - Material transparency (default: 0.3)
@@ -74,6 +80,7 @@ The `src/utils/viewer3d/materials.js` module provides:
 Connection: `ws://localhost:8000/api/state/ws/full`
 
 **Parameters:**
+
 - `frequency=10` - 10 Hz update rate
 - `with_head_pose=true` - 4x4 matrix
 - `with_head_joints=true` - Stewart joints + yaw_body
@@ -85,14 +92,14 @@ Connection: `ws://localhost:8000/api/state/ws/full`
 ```jsx
 import Viewer3D from './viewer3d';
 
-<Viewer3D 
+<Viewer3D
   isActive={daemonActive}
   initialMode="normal"
   hideControls={false}
   showScanEffect={false}
   usePremiumScan={false}
   backgroundColor="#e0e0e0"
-/>
+/>;
 ```
 
 ## ⚡ Performance

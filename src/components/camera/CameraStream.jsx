@@ -22,26 +22,16 @@ import FullscreenOverlay from '../FullscreenOverlay';
  * @param {boolean} props.autoConnect - Auto-connect on mount
  * @param {Function} props.onClose - Callback when camera is closed
  */
-export default function CameraStream({ 
-  robotHost, 
-  darkMode = true, 
-  autoConnect = false,
-  onClose,
-}) {
+export default function CameraStream({ robotHost, darkMode = true, autoConnect = false, onClose }) {
   const videoRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const controlsTimeoutRef = useRef(null);
-  
-  const {
-    state,
-    stream,
-    error,
-    connect,
-    disconnect,
-    isConnected,
-    isConnecting,
-  } = useWebRTCStream(robotHost, autoConnect);
+
+  const { state, stream, error, connect, disconnect, isConnected, isConnecting } = useWebRTCStream(
+    robotHost,
+    autoConnect
+  );
 
   // Attach stream to video element
   useEffect(() => {
@@ -117,32 +107,32 @@ export default function CameraStream({
 
       {/* Loading state */}
       {isConnecting && (
-        <Box sx={{ 
-          position: 'absolute',
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          gap: 2,
-        }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
           <CircularProgress size={40} sx={{ color: '#FF9500' }} />
-          <Typography sx={{ color: '#fff', fontSize: 14 }}>
-            Connecting to camera...
-          </Typography>
+          <Typography sx={{ color: '#fff', fontSize: 14 }}>Connecting to camera...</Typography>
         </Box>
       )}
 
       {/* Disconnected state */}
       {state === StreamState.DISCONNECTED && !isConnecting && (
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          gap: 2,
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
           <VideocamOffIcon sx={{ fontSize: 48, color: mutedColor }} />
-          <Typography sx={{ color: mutedColor, fontSize: 14 }}>
-            Camera disconnected
-          </Typography>
+          <Typography sx={{ color: mutedColor, fontSize: 14 }}>Camera disconnected</Typography>
           <IconButton
             onClick={connect}
             sx={{
@@ -158,13 +148,15 @@ export default function CameraStream({
 
       {/* Error state */}
       {state === StreamState.ERROR && (
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          gap: 2,
-          p: 3,
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            p: 3,
+          }}
+        >
           <VideocamOffIcon sx={{ fontSize: 48, color: '#ef4444' }} />
           <Typography sx={{ color: '#ef4444', fontSize: 14, textAlign: 'center' }}>
             {error || 'Connection failed'}
@@ -263,9 +255,7 @@ export default function CameraStream({
         centeredX={true}
         centeredY={true}
       >
-        <Box sx={{ width: '100vw', height: '100vh' }}>
-          {videoContent}
-        </Box>
+        <Box sx={{ width: '100vw', height: '100vh' }}>{videoContent}</Box>
       </FullscreenOverlay>
     );
   }
@@ -276,12 +266,7 @@ export default function CameraStream({
 /**
  * Camera button to toggle stream visibility
  */
-export function CameraButton({ 
-  onClick, 
-  isActive = false, 
-  darkMode = true,
-  disabled = false,
-}) {
+export function CameraButton({ onClick, isActive = false, darkMode = true, disabled = false }) {
   return (
     <IconButton
       onClick={onClick}
@@ -313,4 +298,3 @@ export function CameraButton({
     </IconButton>
   );
 }
-

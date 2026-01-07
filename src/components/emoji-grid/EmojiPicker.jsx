@@ -38,11 +38,11 @@ export function EmojiPicker({
   // Sort to show wheel emotions first
   const emotionItems = useMemo(() => {
     const wheelSet = new Set(WHEEL_EMOTIONS);
-    
+
     // Separate wheel emotions from others
     const wheelEmotions = [];
     const otherEmotions = [];
-    
+
     emotions.forEach(item => {
       const name = typeof item === 'string' ? item : item.name;
       const emotionItem = {
@@ -55,27 +55,27 @@ export function EmojiPicker({
           label: name.replace(/[0-9]+$/, '').replace(/_/g, ' '),
         },
       };
-      
+
       if (wheelSet.has(name)) {
         wheelEmotions.push(emotionItem);
       } else {
         otherEmotions.push(emotionItem);
       }
     });
-    
+
     // Sort wheel emotions to match wheel order
     wheelEmotions.sort((a, b) => {
       return WHEEL_EMOTIONS.indexOf(a.name) - WHEEL_EMOTIONS.indexOf(b.name);
     });
-    
+
     return [...wheelEmotions, ...otherEmotions];
   }, [emotions]);
-  
+
   // Prepare dance items with emojis from constants
   const danceItems = useMemo(() => {
     return dances.map(item => {
       const name = typeof item === 'string' ? item : item.name;
-      
+
       return {
         name,
         emoji: DANCE_EMOJIS[name] || '🎵',
@@ -88,14 +88,16 @@ export function EmojiPicker({
       };
     });
   }, [dances]);
-  
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 28,
-      width: '100%',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 28,
+        width: '100%',
+      }}
+    >
       {/* Emotions grid */}
       {emotionItems.length > 0 && (
         <EmojiGrid
@@ -109,7 +111,7 @@ export function EmojiPicker({
           isExecuting={isExecuting}
         />
       )}
-      
+
       {/* Dances grid */}
       {danceItems.length > 0 && (
         <EmojiGrid

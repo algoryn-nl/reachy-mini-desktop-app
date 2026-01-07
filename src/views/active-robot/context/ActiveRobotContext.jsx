@@ -1,11 +1,11 @@
 /**
  * @fileoverview ActiveRobot Context for dependency injection
- * 
+ *
  * This context allows the ActiveRobot module to be completely decoupled from:
  * - Global Zustand stores (useAppStore)
  * - Tauri-specific APIs
  * - Direct config imports
- * 
+ *
  * All dependencies are injected via the adapter hook (useActiveRobotAdapter)
  */
 
@@ -24,11 +24,7 @@ const ActiveRobotContext = createContext(null);
  * @param {React.ReactNode} props.children - Child components
  */
 export function ActiveRobotProvider({ config, children }) {
-  return (
-    <ActiveRobotContext.Provider value={config}>
-      {children}
-    </ActiveRobotContext.Provider>
-  );
+  return <ActiveRobotContext.Provider value={config}>{children}</ActiveRobotContext.Provider>;
 }
 
 /**
@@ -38,14 +34,14 @@ export function ActiveRobotProvider({ config, children }) {
  */
 export function useActiveRobotContext() {
   const context = useContext(ActiveRobotContext);
-  
+
   if (context === null) {
     throw new Error(
       'useActiveRobotContext must be used within an ActiveRobotProvider. ' +
-      'Make sure ActiveRobotModule is properly wrapped with a provider.'
+        'Make sure ActiveRobotModule is properly wrapped with a provider.'
     );
   }
-  
+
   return context;
 }
 

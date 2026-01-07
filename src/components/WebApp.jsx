@@ -1,10 +1,10 @@
 /**
  * WebApp - Simplified entry point for web-only mode
- * 
+ *
  * This component is used when the app is built for web (dashboard-v2)
  * and served by the daemon. It skips all Tauri-specific features
  * and goes directly to ActiveRobotView.
- * 
+ *
  * Assumes the daemon is already running and active.
  */
 
@@ -26,25 +26,25 @@ export default function WebApp() {
   const isActive = useAppStore(state => state.isActive);
   const isCommandRunning = useAppStore(state => state.isCommandRunning);
   const logs = useAppStore(state => state.logs);
-  
+
   // Get adapter config for ActiveRobotModule
   const contextConfig = useWebActiveRobotAdapter();
-  
+
   // No-op functions for web mode
   const stopDaemon = useCallback(() => {
     console.log('[WebMode] stopDaemon - not available');
   }, []);
-  
-  const sendCommand = useCallback(async (command) => {
+
+  const sendCommand = useCallback(async command => {
     console.log('[WebMode] sendCommand:', command);
     // Could implement via REST API if needed
   }, []);
-  
-  const playRecordedMove = useCallback(async (moveName) => {
+
+  const playRecordedMove = useCallback(async moveName => {
     console.log('[WebMode] playRecordedMove:', moveName);
     // Could implement via REST API if needed
   }, []);
-  
+
   // Check daemon connection on mount
   useEffect(() => {
     const checkDaemon = async () => {
@@ -71,14 +71,14 @@ export default function WebApp() {
         setError(`Cannot connect to daemon: ${err.message}`);
       }
     };
-    
+
     checkDaemon();
-    
+
     // Poll daemon status
     const interval = setInterval(checkDaemon, 5000);
     return () => clearInterval(interval);
   }, []);
-  
+
   // Loading state
   if (!isConnected && !error) {
     return (
@@ -95,13 +95,11 @@ export default function WebApp() {
         }}
       >
         <CircularProgress sx={{ color: '#FF9500' }} />
-        <Typography sx={{ color: darkMode ? '#888' : '#666' }}>
-          Connecting to daemon...
-        </Typography>
+        <Typography sx={{ color: darkMode ? '#888' : '#666' }}>Connecting to daemon...</Typography>
       </Box>
     );
   }
-  
+
   // Error state
   if (error) {
     return (
@@ -129,7 +127,7 @@ export default function WebApp() {
       </Box>
     );
   }
-  
+
   // Connected - render ActiveRobotModule in a centered container
   // Size matches Tauri app expanded mode: 900x670
   return (
@@ -149,8 +147,8 @@ export default function WebApp() {
           height: 670,
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: darkMode 
-            ? '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)' 
+          boxShadow: darkMode
+            ? '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)'
             : '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0,0,0,0.05)',
         }}
       >
@@ -171,4 +169,3 @@ export default function WebApp() {
     </Box>
   );
 }
-

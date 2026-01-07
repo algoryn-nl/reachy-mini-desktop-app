@@ -21,17 +21,16 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
   const [isChecking, setIsChecking] = useState(isMac); // Only check on macOS
   const [hasChecked, setHasChecked] = useState(!isMac); // Already "checked" on non-macOS
 
-  // 🔒 Race condition protection: track the current check version
-  // If a newer check is launched, older responses will be ignored
+  // Race condition protection: track the current check version
   const checkVersionRef = useRef(0);
-  
+  const mountedRef = useRef(true);
+
   // Track previous state to only log changes
   const previousStateRef = useRef({ camera: null, microphone: null });
 
   const checkPermissions = useCallback(async () => {
     // Skip permission checks on non-macOS platforms
-    // Windows and Linux handle camera/microphone permissions at the webview level
-    if (!isMac) {
+    if (!isMac || !mountedRef.current) {
       return;
     }
 
@@ -60,15 +59,12 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
       const micResult = micStatus === true;
 
       // Only log if state changed or first check
-      const stateChanged = 
-        previousStateRef.current.camera !== cameraResult || 
+      const stateChanged =
+        previousStateRef.current.camera !== cameraResult ||
         previousStateRef.current.microphone !== micResult ||
         previousStateRef.current.camera === null;
 
       if (stateChanged) {
-        console.log(
-          `[usePermissions] 📊 Permissions - Camera: ${cameraResult ? '✅ Granted' : '❌ Not granted'}, Microphone: ${micResult ? '✅ Granted' : '❌ Not granted'}`
-        );
         previousStateRef.current = { camera: cameraResult, microphone: micResult };
       }
 
@@ -94,13 +90,18 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
   }, [isMac]);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     // Check immediately
     checkPermissions();
 
     // Check periodically
     const interval = setInterval(checkPermissions, checkInterval);
 
-    return () => clearInterval(interval);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
   }, [checkInterval, checkPermissions]);
 
   const allGranted = cameraGranted && microphoneGranted;
@@ -114,4 +115,3 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
     refresh: checkPermissions, // Expose manual refresh function
   };
 }
-

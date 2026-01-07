@@ -11,7 +11,7 @@ const BLUETOOTH_DASHBOARD_URL = 'https://pollen-robotics.github.io/reachy_mini/'
 
 /**
  * BluetoothSupportView - Redirect to external Bluetooth dashboard
- * 
+ *
  * The native BLE plugin has compatibility issues on macOS.
  * We redirect users to Pollen's web-based Bluetooth dashboard instead.
  */
@@ -81,8 +81,8 @@ export default function BluetoothSupportView() {
           </Typography>
 
           <Typography sx={{ fontSize: 13, color: textSecondary, mb: 3, lineHeight: 1.6 }}>
-            Reset your Reachy via Bluetooth if it's stuck or unresponsive.
-            Use the web-based Bluetooth dashboard in Chrome or Edge.
+            Reset your Reachy via Bluetooth if it's stuck or unresponsive. Use the web-based
+            Bluetooth dashboard in Chrome or Edge.
           </Typography>
 
           <Button
@@ -114,7 +114,6 @@ export default function BluetoothSupportView() {
             Make sure Bluetooth is enabled on your computer.
           </Typography>
         </Box>
-
       </Box>
     </FullscreenOverlay>
   );

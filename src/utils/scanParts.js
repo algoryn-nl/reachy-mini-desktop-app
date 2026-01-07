@@ -7,21 +7,11 @@
 export const SCAN_PARTS = [
   {
     family: 'Base Unit',
-    parts: [
-      'Body Base',
-      'Body Foot',
-      'Body Turning Mechanism',
-      'Yaw Body Joint',
-    ],
+    parts: ['Body Base', 'Body Foot', 'Body Turning Mechanism', 'Yaw Body Joint'],
   },
   {
     family: 'Head Assembly',
-    parts: [
-      'Head Front Panel',
-      'Head Back Panel',
-      'Head Structure',
-      'Neck Reference',
-    ],
+    parts: ['Head Front Panel', 'Head Back Panel', 'Head Structure', 'Neck Reference'],
   },
   {
     family: 'Stewart Platform',
@@ -35,13 +25,7 @@ export const SCAN_PARTS = [
   },
   {
     family: 'Camera Module',
-    parts: [
-      'Arducam Housing',
-      'Main Optical Lens',
-      'Camera Lens',
-      'Lens Cap',
-      'Camera Mount',
-    ],
+    parts: ['Arducam Housing', 'Main Optical Lens', 'Camera Lens', 'Lens Cap', 'Camera Mount'],
   },
   {
     family: 'Antenna System',
@@ -55,11 +39,7 @@ export const SCAN_PARTS = [
   },
   {
     family: 'Audio System',
-    parts: [
-      'Speaker Module',
-      'Microphone Array',
-      'Audio Interface',
-    ],
+    parts: ['Speaker Module', 'Microphone Array', 'Audio Interface'],
   },
   {
     family: 'Electronics',
@@ -73,12 +53,7 @@ export const SCAN_PARTS = [
   },
   {
     family: 'Mechanical Components',
-    parts: [
-      'Bearings',
-      'Connectors',
-      'Fasteners',
-      'Support Structures',
-    ],
+    parts: ['Bearings', 'Connectors', 'Fasteners', 'Support Structures'],
   },
 ];
 
@@ -116,7 +91,7 @@ export function getCurrentScanPart(currentIndex, total) {
   if (total === 0) return null;
   const part = getPartByIndex(currentIndex);
   if (!part) return null;
-  
+
   return {
     family: part.family,
     part: part.part,
@@ -130,10 +105,10 @@ export function getCurrentScanPart(currentIndex, total) {
  */
 export function mapMeshToScanPart(mesh) {
   if (!mesh) return null;
-  
+
   const meshName = (mesh.name || '').toLowerCase();
   const materialName = (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase();
-  
+
   // Check userData first
   if (mesh.userData?.isAntenna) {
     // Map to Antenna System parts
@@ -151,7 +126,7 @@ export function mapMeshToScanPart(mesh) {
     }
     return { family: 'Antenna System', part: 'Antenna Interface' };
   }
-  
+
   // Check lenses
   if (materialName.includes('big_lens') || materialName.includes('lens_d40')) {
     return { family: 'Camera Module', part: 'Main Optical Lens' };
@@ -162,21 +137,28 @@ export function mapMeshToScanPart(mesh) {
   if (materialName.includes('lens_cap')) {
     return { family: 'Camera Module', part: 'Lens Cap' };
   }
-  
+
   // Traverse hierarchy to find parent group
   let currentParent = mesh.parent;
   let depth = 0;
   while (currentParent && depth < 5) {
     const pName = (currentParent.name || '').toLowerCase();
-    
+
     // Camera Module
-    if (pName.includes('xl_330') || pName.includes('camera') || pName.includes('arducam') || meshName.includes('xl_330') || meshName.includes('camera') || meshName.includes('arducam')) {
+    if (
+      pName.includes('xl_330') ||
+      pName.includes('camera') ||
+      pName.includes('arducam') ||
+      meshName.includes('xl_330') ||
+      meshName.includes('camera') ||
+      meshName.includes('arducam')
+    ) {
       if (meshName.includes('mount') || pName.includes('mount')) {
         return { family: 'Camera Module', part: 'Camera Mount' };
       }
       return { family: 'Camera Module', part: 'Arducam Housing' };
     }
-    
+
     // Head Assembly / Stewart Platform
     if (pName.includes('stewart') || meshName.includes('stewart')) {
       if (meshName.includes('plate') || meshName.includes('main')) {
@@ -208,7 +190,7 @@ export function mapMeshToScanPart(mesh) {
         return { family: 'Head Assembly', part: 'Head Structure' };
       }
     }
-    
+
     // Head Assembly
     if (pName.includes('head') || meshName.includes('head')) {
       if (meshName.includes('front')) {
@@ -225,9 +207,16 @@ export function mapMeshToScanPart(mesh) {
       }
       return { family: 'Head Assembly', part: 'Head Structure' };
     }
-    
+
     // Base Unit / Body
-    if (pName.includes('base') || pName.includes('body') || pName.includes('yaw_body') || meshName.includes('base') || meshName.includes('body') || meshName.includes('yaw')) {
+    if (
+      pName.includes('base') ||
+      pName.includes('body') ||
+      pName.includes('yaw_body') ||
+      meshName.includes('base') ||
+      meshName.includes('body') ||
+      meshName.includes('yaw')
+    ) {
       if (meshName.includes('foot')) {
         return { family: 'Base Unit', part: 'Body Foot' };
       }
@@ -245,7 +234,7 @@ export function mapMeshToScanPart(mesh) {
       }
       return { family: 'Base Unit', part: 'Body Base' };
     }
-    
+
     // Audio
     if (pName.includes('speaker') || meshName.includes('speaker') || meshName.includes('mic')) {
       if (meshName.includes('mic')) {
@@ -253,11 +242,11 @@ export function mapMeshToScanPart(mesh) {
       }
       return { family: 'Audio System', part: 'Speaker Module' };
     }
-    
+
     currentParent = currentParent.parent;
     depth++;
   }
-  
+
   // Fallback: try to match by STL filename if available
   const stlFileName = mesh.userData?.stlFileName || '';
   if (stlFileName) {
@@ -281,8 +270,7 @@ export function mapMeshToScanPart(mesh) {
       return { family: 'Audio System', part: 'Speaker Module' };
     }
   }
-  
+
   // Default fallback
   return { family: 'Mechanical Components', part: 'Support Structures' };
 }
-

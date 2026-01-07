@@ -13,13 +13,13 @@ import { JOB_STATUS, LOG_SUCCESS_PATTERNS, LOG_ERROR_PATTERNS } from './constant
  */
 export function findJobByAppName(activeJobs, appName) {
   if (!activeJobs || !appName) return null;
-  
+
   for (const [, job] of activeJobs.entries()) {
     if (job.appName === appName) {
       return job;
     }
   }
-  
+
   return null;
 }
 
@@ -65,26 +65,22 @@ export function analyzeLogs(logs) {
   if (!logs || logs.length === 0) {
     return { isSuccess: false, isError: false };
   }
-  
+
   const logsText = logs.join(' ').toLowerCase();
-  
+
   // Check for success patterns
-  const hasSuccess = LOG_SUCCESS_PATTERNS.some(pattern => 
-    logsText.includes(pattern.toLowerCase())
-  );
-  
+  const hasSuccess = LOG_SUCCESS_PATTERNS.some(pattern => logsText.includes(pattern.toLowerCase()));
+
   // Check for error patterns
-  const hasError = LOG_ERROR_PATTERNS.some(pattern => 
-    logsText.includes(pattern.toLowerCase())
-  );
-  
+  const hasError = LOG_ERROR_PATTERNS.some(pattern => logsText.includes(pattern.toLowerCase()));
+
   return { isSuccess: hasSuccess, isError: hasError };
 }
 
 /**
  * Determine installation result from job status and logs
  * Priority: explicit status > logs analysis > default assumption
- * 
+ *
  * @param {object|null} job - Job object
  * @returns {{wasCompleted: boolean, wasFailed: boolean, confidence: 'high'|'medium'|'low'}}
  */
@@ -93,24 +89,24 @@ export function determineInstallationResult(job) {
   if (isJobCompleted(job)) {
     return { wasCompleted: true, wasFailed: false, confidence: 'high' };
   }
-  
+
   if (isJobFailed(job)) {
     return { wasCompleted: false, wasFailed: true, confidence: 'high' };
   }
-  
+
   // Priority 2: Analyze logs (medium confidence)
   if (job?.logs && job.logs.length > 0) {
     const { isSuccess, isError } = analyzeLogs(job.logs);
-    
+
     if (isSuccess) {
       return { wasCompleted: true, wasFailed: false, confidence: 'medium' };
     }
-    
+
     if (isError) {
       return { wasCompleted: false, wasFailed: true, confidence: 'medium' };
     }
   }
-  
+
   // Priority 3: Default assumption (low confidence)
   // If job disappeared cleanly without errors, assume success
   // This is a fallback and should be logged as a warning
@@ -127,12 +123,11 @@ export function isAppInInstalledList(appName, installedApps) {
   if (!appName || !installedApps || installedApps.length === 0) {
     return false;
   }
-  
+
   const appNameLower = appName.toLowerCase();
-  
-  return installedApps.some(app => 
-    app.name?.toLowerCase() === appNameLower ||
-    app.id?.toLowerCase() === appNameLower
+
+  return installedApps.some(
+    app => app.name?.toLowerCase() === appNameLower || app.id?.toLowerCase() === appNameLower
   );
 }
 
@@ -144,14 +139,13 @@ export function isAppInInstalledList(appName, installedApps) {
  * @returns {number} - Remaining time in milliseconds
  */
 export function calculateRemainingDisplayTime(jobType, installStartTime, timings) {
-  const minDisplayTime = jobType === 'remove' 
-    ? timings.MIN_DISPLAY_TIME.REMOVE 
-    : timings.MIN_DISPLAY_TIME.INSTALL;
-  
+  const minDisplayTime =
+    jobType === 'remove' ? timings.MIN_DISPLAY_TIME.REMOVE : timings.MIN_DISPLAY_TIME.INSTALL;
+
   if (!installStartTime) {
     return minDisplayTime;
   }
-  
+
   const elapsedTime = Date.now() - installStartTime;
   return Math.max(0, minDisplayTime - elapsedTime);
 }
@@ -165,4 +159,3 @@ export function calculateRemainingDisplayTime(jobType, installStartTime, timings
 export function generateJobKey(appName, jobType) {
   return `${appName}_${jobType}`;
 }
-

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 /**
  * Custom useResizeObserver hook - Best practices 2025
- * 
+ *
  * Uses ResizeObserver with entries to get dimensions directly
  * Avoids timing issues with flexbox and asynchronous layouts
  * Specifically handles Tauri window resizes which can be asynchronous
- * 
+ *
  * @param {React.RefObject} ref - Reference to the element to observe
  * @param {Object} options - Options for ResizeObserver
  * @param {string} options.box - Type of box to observe ('border-box', 'content-box', 'device-pixel-content-box')
@@ -20,7 +20,7 @@ export function useResizeObserver(ref, options = {}) {
   const isWindowResizingRef = useRef(false);
 
   // Callback to update size in an optimized way
-  const updateSize = useCallback((entries) => {
+  const updateSize = useCallback(entries => {
     // Use requestAnimationFrame to synchronize with rendering
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
@@ -30,7 +30,7 @@ export function useResizeObserver(ref, options = {}) {
       if (!entries || entries.length === 0) return;
 
       const entry = entries[0];
-      
+
       // Use entry dimensions directly (more reliable than getBoundingClientRect)
       // borderBoxSize is preferred as it includes padding and border
       let width = 0;
@@ -95,7 +95,7 @@ export function useResizeObserver(ref, options = {}) {
 
     // Create observer with options
     observerRef.current = new ResizeObserver(updateSize);
-    
+
     // Observe element with specified box
     observerRef.current.observe(element, { box });
 
@@ -126,7 +126,7 @@ export function useResizeObserver(ref, options = {}) {
     const handleWindowResize = () => {
       // Mark that we're resizing
       isWindowResizingRef.current = true;
-      
+
       // Reset flag after a short delay
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
@@ -162,7 +162,7 @@ export function useResizeObserver(ref, options = {}) {
 /**
  * Hook to get dimensions with device pixel ratio
  * Useful for canvases that need precise dimensions
- * 
+ *
  * @param {React.RefObject} ref - Reference to the element to observe
  * @returns {Object} - { width, height, dpr, scaledWidth, scaledHeight }
  */
@@ -178,7 +178,7 @@ export function useResizeObserverWithDPR(ref) {
     };
 
     updateDPR();
-    
+
     // Listen to DPR changes (rare but possible)
     const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
     mediaQuery.addEventListener('change', updateDPR);
@@ -196,4 +196,3 @@ export function useResizeObserverWithDPR(ref) {
     scaledHeight: size.height * dpr,
   };
 }
-

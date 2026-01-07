@@ -24,7 +24,7 @@ const CLOSING_MESSAGES = [
 export default function ClosingView() {
   const appWindow = getAppWindow();
   const { darkMode } = useAppStore();
-  
+
   // Choose a random message (memoized to not change during display)
   const randomMessage = useMemo(() => {
     return CLOSING_MESSAGES[Math.floor(Math.random() * CLOSING_MESSAGES.length)];
@@ -43,7 +43,7 @@ export default function ClosingView() {
     >
       {/* Titlebar */}
       <Box
-        onMouseDown={async (e) => {
+        onMouseDown={async e => {
           e.preventDefault();
           try {
             await appWindow.startDragging();
@@ -77,11 +77,7 @@ export default function ClosingView() {
           gap: 2,
         }}
       >
-        <CircularProgress 
-          size={32} 
-          thickness={4} 
-          sx={{ color: darkMode ? '#666' : '#999' }} 
-        />
+        <CircularProgress size={32} thickness={4} sx={{ color: darkMode ? '#666' : '#999' }} />
         <Typography
           sx={{
             fontSize: 13,
@@ -95,4 +91,3 @@ export default function ClosingView() {
     </Box>
   );
 }
-

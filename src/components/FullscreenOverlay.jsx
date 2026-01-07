@@ -5,7 +5,7 @@ import CloseIcon from '@mui/icons-material/Close';
 /**
  * Generic Fullscreen Overlay Component
  * Uses MUI Modal for proper stacking management
- * 
+ *
  * Features:
  * - MUI Modal for native stacking management
  * - Backdrop blur with customizable opacity
@@ -14,7 +14,7 @@ import CloseIcon from '@mui/icons-material/Close';
  * - Click outside to close
  * - Configurable z-index
  * - Dark mode support
- * 
+ *
  * @param {boolean} open - Whether overlay is visible
  * @param {function} onClose - Callback when overlay should close
  * @param {boolean} darkMode - Dark mode theme
@@ -48,35 +48,34 @@ export default function FullscreenOverlay({
 }) {
   // Track if we've already animated this modal (don't re-animate when coming back from hidden)
   const hasAnimatedRef = useRef(false);
-  
+
   // Mark as animated on first visible render
   useEffect(() => {
     if (open && !hidden && !hasAnimatedRef.current) {
       hasAnimatedRef.current = true;
     }
   }, [open, hidden]);
-  
+
   // Only animate on first open, not when coming back from hidden state
   const shouldAnimate = open && !hidden && !hasAnimatedRef.current;
   // Default backdrop opacity based on darkMode if not provided
-  const defaultBackdropOpacity = backdropOpacity !== undefined 
-    ? backdropOpacity 
-    : (darkMode ? 0.92 : 0.95);
+  const defaultBackdropOpacity =
+    backdropOpacity !== undefined ? backdropOpacity : darkMode ? 0.92 : 0.95;
 
   // Determine centering: use explicit props if provided, otherwise use centered
   const isCenteredX = centeredX !== undefined ? centeredX : centered;
   const isCenteredY = centeredY !== undefined ? centeredY : centered;
 
-  const handleBackdropClick = (e) => {
-      if (onBackdropClick) {
-        onBackdropClick(e);
-      } else {
-        onClose();
+  const handleBackdropClick = e => {
+    if (onBackdropClick) {
+      onBackdropClick(e);
+    } else {
+      onClose();
     }
   };
 
   // Use MUI default background colors to match the app background
-  const overlayBgColor = darkMode 
+  const overlayBgColor = darkMode
     ? `rgba(18, 18, 18, ${defaultBackdropOpacity})`
     : `rgba(255, 255, 255, ${defaultBackdropOpacity})`;
 
@@ -163,7 +162,7 @@ export default function FullscreenOverlay({
 
         {/* Content wrapper */}
         <Box
-          onClick={(e) => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
           sx={{
             width: '100%',
             height: isCenteredY ? 'auto' : '100%',
@@ -179,4 +178,3 @@ export default function FullscreenOverlay({
     </Modal>
   );
 }
-

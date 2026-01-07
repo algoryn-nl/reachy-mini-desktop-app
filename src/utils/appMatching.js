@@ -1,6 +1,6 @@
 /**
  * App Matching Utilities
- * 
+ *
  * Handles normalization and matching of app IDs and names
  * for finding corresponding metadata in Hugging Face datasets
  */
@@ -22,33 +22,33 @@ export function normalizeAppId(id) {
  */
 export function createAppIdVariants(id) {
   if (!id || typeof id !== 'string') return [];
-  
+
   const variants = new Set();
-  
+
   // Original
   variants.add(id);
   variants.add(id.toLowerCase());
-  
+
   // Normalized (no underscores/dashes)
   const normalized = normalizeAppId(id);
   if (normalized && normalized !== id.toLowerCase()) {
     variants.add(normalized);
   }
-  
+
   // With dashes
   const withDashes = id.replace(/_/g, '-');
   if (withDashes !== id) {
     variants.add(withDashes);
     variants.add(withDashes.toLowerCase());
   }
-  
+
   // With underscores
   const withUnderscores = id.replace(/-/g, '_');
   if (withUnderscores !== id) {
     variants.add(withUnderscores);
     variants.add(withUnderscores.toLowerCase());
   }
-  
+
   return Array.from(variants);
 }
 
@@ -60,7 +60,7 @@ export function createAppIdVariants(id) {
  */
 export function buildMetadataMap(hfApps) {
   const metadataMap = new Map();
-  
+
   hfApps.forEach(hfApp => {
     // Index by ID (primary identifier)
     if (hfApp.id) {
@@ -69,7 +69,7 @@ export function buildMetadataMap(hfApps) {
         metadataMap.set(variant, hfApp);
       });
     }
-    
+
     // Index by name (secondary identifier)
     if (hfApp.name) {
       const nameVariants = createAppIdVariants(hfApp.name);
@@ -81,7 +81,7 @@ export function buildMetadataMap(hfApps) {
       });
     }
   });
-  
+
   return metadataMap;
 }
 
@@ -95,7 +95,7 @@ export function buildMetadataMap(hfApps) {
  */
 export function findAppInMetadataMap(daemonApp, metadataMap, hfApps = []) {
   if (!daemonApp) return null;
-  
+
   // Try all variants of daemon app ID
   if (daemonApp.id) {
     const idVariants = createAppIdVariants(daemonApp.id);
@@ -104,7 +104,7 @@ export function findAppInMetadataMap(daemonApp, metadataMap, hfApps = []) {
       if (match) return match;
     }
   }
-  
+
   // Try all variants of daemon app name
   if (daemonApp.name) {
     const nameVariants = createAppIdVariants(daemonApp.name);
@@ -113,29 +113,24 @@ export function findAppInMetadataMap(daemonApp, metadataMap, hfApps = []) {
       if (match) return match;
     }
   }
-  
+
   // Fallback: partial match (contains)
   if (daemonApp.name && hfApps.length > 0) {
     const daemonNameLower = daemonApp.name.toLowerCase();
-    return hfApps.find(hfApp => {
-      const hfIdLower = hfApp.id?.toLowerCase() || '';
-      const hfNameLower = hfApp.name?.toLowerCase() || '';
-      
-      return (
-        (hfIdLower && (hfIdLower.includes(daemonNameLower) || daemonNameLower.includes(hfIdLower))) ||
-        (hfNameLower && (hfNameLower.includes(daemonNameLower) || daemonNameLower.includes(hfNameLower)))
-      );
-    }) || null;
+    return (
+      hfApps.find(hfApp => {
+        const hfIdLower = hfApp.id?.toLowerCase() || '';
+        const hfNameLower = hfApp.name?.toLowerCase() || '';
+
+        return (
+          (hfIdLower &&
+            (hfIdLower.includes(daemonNameLower) || daemonNameLower.includes(hfIdLower))) ||
+          (hfNameLower &&
+            (hfNameLower.includes(daemonNameLower) || daemonNameLower.includes(hfNameLower)))
+        );
+      }) || null
+    );
   }
-  
+
   return null;
 }
-
-
-
-
-
-
-
-
-

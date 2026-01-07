@@ -17,14 +17,14 @@ const LAST_CONNECTION_MODE_KEY = 'reachy-mini-last-connection-mode';
 /**
  * Connection card with icon, label, and status indicator
  */
-function ConnectionCard({ 
-  icon: Icon, 
+function ConnectionCard({
+  icon: Icon,
   label,
   subtitle,
   fullSubtitle = null,
-  available, 
+  available,
   selected,
-  onClick, 
+  onClick,
   disabled,
   darkMode,
   alwaysAvailable = false,
@@ -32,7 +32,7 @@ function ConnectionCard({
 }) {
   const isClickable = (available || alwaysAvailable) && !disabled;
   const isAvailable = available || alwaysAvailable;
-  
+
   return (
     <Box
       onClick={isClickable ? onClick : undefined}
@@ -46,11 +46,15 @@ function ConnectionCard({
         p: 2,
         borderRadius: '12px',
         border: '1px solid',
-        borderColor: selected 
+        borderColor: selected
           ? 'primary.main'
-          : (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)'),
+          : darkMode
+            ? 'rgba(255, 255, 255, 0.1)'
+            : 'rgba(0, 0, 0, 0.08)',
         bgcolor: selected
-          ? (darkMode ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.05)')
+          ? darkMode
+            ? 'rgba(99, 102, 241, 0.1)'
+            : 'rgba(99, 102, 241, 0.05)'
           : 'transparent',
         cursor: isClickable ? 'pointer' : 'default',
         opacity: isAvailable ? 1 : 0.5,
@@ -58,10 +62,13 @@ function ConnectionCard({
         flex: 1,
         minWidth: 110,
         minHeight: 110,
-        '&:hover': isClickable && !selected ? {
-          borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
-          bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
-        } : {},
+        '&:hover':
+          isClickable && !selected
+            ? {
+                borderColor: darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)',
+                bgcolor: darkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+              }
+            : {},
       }}
     >
       {/* Status indicator - top left (subtle circle) */}
@@ -90,7 +97,7 @@ function ConnectionCard({
           />
         </Box>
       )}
-      
+
       {/* Beta tag - top left for alwaysAvailable cards */}
       {betaTag && (
         <Box
@@ -119,7 +126,7 @@ function ConnectionCard({
           </Typography>
         </Box>
       )}
-      
+
       {/* Selection checkmark - top right (outlined) */}
       {selected && (
         <Box
@@ -143,27 +150,31 @@ function ConnectionCard({
             },
           }}
         >
-          <CheckRoundedIcon 
-            sx={{ 
-              fontSize: 10, 
+          <CheckRoundedIcon
+            sx={{
+              fontSize: 10,
               color: 'primary.main',
-            }} 
+            }}
           />
         </Box>
       )}
-      
+
       {/* Icon */}
-      <Icon 
-        sx={{ 
-          fontSize: 28, 
+      <Icon
+        sx={{
+          fontSize: 28,
           color: selected
             ? 'primary.main'
             : isAvailable
-              ? (darkMode ? '#e0e0e0' : '#444')
-              : (darkMode ? '#666' : '#999'),
-        }} 
+              ? darkMode
+                ? '#e0e0e0'
+                : '#444'
+              : darkMode
+                ? '#666'
+                : '#999',
+        }}
       />
-      
+
       {/* Label */}
       <Typography
         sx={{
@@ -172,15 +183,19 @@ function ConnectionCard({
           color: selected
             ? 'primary.main'
             : isAvailable
-              ? (darkMode ? '#e0e0e0' : '#444')
-              : (darkMode ? '#666' : '#999'),
+              ? darkMode
+                ? '#e0e0e0'
+                : '#444'
+              : darkMode
+                ? '#666'
+                : '#999',
           textAlign: 'center',
           lineHeight: 1.2,
         }}
       >
         {label}
       </Typography>
-      
+
       {/* Subtitle (port name, host, etc.) */}
       {subtitle && (
         <Typography
@@ -208,7 +223,7 @@ function ConnectionCard({
 /**
  * FindingRobotView - Main connection selection view
  * User selects connection type and clicks Start
- * 
+ *
  * Uses useConnection hook for unified connection handling
  */
 export default function FindingRobotView() {
@@ -218,14 +233,14 @@ export default function FindingRobotView() {
   const [selectedMode, setSelectedMode] = useState(null);
   const [dots, setDots] = useState('');
   const hasRestoredFromStorage = useRef(false);
-  
+
   // Block interactions during connection state changes
   const isBusy = isConnecting || isDisconnecting;
 
   // Animated ellipsis dots
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots(prev => prev === '...' ? '' : prev + '.');
+      setDots(prev => (prev === '...' ? '' : prev + '.'));
     }, 500);
     return () => clearInterval(interval);
   }, []);
@@ -234,18 +249,17 @@ export default function FindingRobotView() {
   // Only run once, and only pre-select if that mode is currently available
   useEffect(() => {
     if (hasRestoredFromStorage.current || selectedMode || isBusy) return;
-    
+
     try {
       const savedMode = localStorage.getItem(LAST_CONNECTION_MODE_KEY);
       if (savedMode) {
         // Only pre-select if the saved mode is available
-        const isAvailable = 
+        const isAvailable =
           (savedMode === ConnectionMode.USB && usbRobot.available) ||
           (savedMode === ConnectionMode.WIFI && wifiRobot.available) ||
           savedMode === ConnectionMode.SIMULATION;
-        
+
         if (isAvailable) {
-          console.log(`🔌 Restored last connection mode: ${savedMode}`);
           setSelectedMode(savedMode);
           hasRestoredFromStorage.current = true;
         }
@@ -264,7 +278,13 @@ export default function FindingRobotView() {
 
   // Auto-select WiFi if it becomes available and nothing selected (and no USB, fallback)
   useEffect(() => {
-    if (wifiRobot.available && !selectedMode && !usbRobot.available && !isBusy && !hasRestoredFromStorage.current) {
+    if (
+      wifiRobot.available &&
+      !selectedMode &&
+      !usbRobot.available &&
+      !isBusy &&
+      !hasRestoredFromStorage.current
+    ) {
       setSelectedMode(ConnectionMode.WIFI);
     }
   }, [wifiRobot.available, selectedMode, usbRobot.available, isBusy]);
@@ -273,20 +293,18 @@ export default function FindingRobotView() {
   // USB/WiFi can become unavailable if cable is unplugged or network changes
   useEffect(() => {
     if (isBusy) return; // Don't deselect during connection
-    
+
     if (selectedMode === ConnectionMode.USB && !usbRobot.available) {
-      console.log('🔌 USB became unavailable, deselecting');
       setSelectedMode(null);
     }
     if (selectedMode === ConnectionMode.WIFI && !wifiRobot.available) {
-      console.log('🔌 WiFi became unavailable, deselecting');
       setSelectedMode(null);
     }
     // Simulation is always available, no need to check
   }, [selectedMode, usbRobot.available, wifiRobot.available, isBusy]);
 
   // Save selected mode to localStorage when user makes a selection
-  const handleSelectMode = useCallback((mode) => {
+  const handleSelectMode = useCallback(mode => {
     setSelectedMode(mode);
     try {
       localStorage.setItem(LAST_CONNECTION_MODE_KEY, mode);
@@ -301,7 +319,7 @@ export default function FindingRobotView() {
    */
   const handleStart = useCallback(async () => {
     if (!selectedMode || isBusy) return;
-    
+
     // 🔌 Unified connection API - same for USB, WiFi, and Simulation
     switch (selectedMode) {
       case ConnectionMode.USB:
@@ -316,11 +334,11 @@ export default function FindingRobotView() {
     }
   }, [selectedMode, isBusy, usbRobot, wifiRobot, connect]);
 
-  const canStart = selectedMode && (
-    (selectedMode === ConnectionMode.USB && usbRobot.available) ||
-    (selectedMode === ConnectionMode.WIFI && wifiRobot.available) ||
-    selectedMode === ConnectionMode.SIMULATION
-  );
+  const canStart =
+    selectedMode &&
+    ((selectedMode === ConnectionMode.USB && usbRobot.available) ||
+      (selectedMode === ConnectionMode.WIFI && wifiRobot.available) ||
+      selectedMode === ConnectionMode.SIMULATION);
 
   return (
     <Box
@@ -347,8 +365,8 @@ export default function FindingRobotView() {
         }}
       >
         {/* Reachy Buste */}
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             width: 180,
             height: 180,
             mb: 2,
@@ -364,10 +382,10 @@ export default function FindingRobotView() {
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-            }} 
+            }}
           />
         </Box>
-        
+
         {/* Title */}
         <Typography
           sx={{
@@ -380,7 +398,7 @@ export default function FindingRobotView() {
         >
           Connect to Reachy
         </Typography>
-          
+
         {/* Subtitle - scanning status */}
         <Typography
           sx={{
@@ -391,12 +409,11 @@ export default function FindingRobotView() {
             minHeight: 18,
           }}
         >
-          {isScanning 
+          {isScanning
             ? `Looking for robots${dots}`
             : usbRobot.available || wifiRobot.available
               ? 'Choose how to connect'
-              : 'No robot detected'
-          }
+              : 'No robot detected'}
         </Typography>
 
         {/* Connection options - 3 cards */}
@@ -421,7 +438,7 @@ export default function FindingRobotView() {
             disabled={isBusy}
             darkMode={darkMode}
           />
-          
+
           <ConnectionCard
             icon={WifiOutlinedIcon}
             label="Reachy WiFi"
@@ -433,7 +450,7 @@ export default function FindingRobotView() {
             disabled={isBusy}
             darkMode={darkMode}
           />
-          
+
           <ConnectionCard
             icon={ViewInArOutlinedIcon}
             label="Simulation"
@@ -451,14 +468,16 @@ export default function FindingRobotView() {
         <PulseButton
           onClick={handleStart}
           disabled={!canStart || isBusy}
-          endIcon={isBusy ? (
-            <CircularProgress size={18} sx={{ color: 'inherit' }} />
-          ) : (
-            <PlayArrowOutlinedIcon sx={{ fontSize: 22 }} />
-          )}
+          endIcon={
+            isBusy ? (
+              <CircularProgress size={18} sx={{ color: 'inherit' }} />
+            ) : (
+              <PlayArrowOutlinedIcon sx={{ fontSize: 22 }} />
+            )
+          }
           darkMode={darkMode}
           sx={{ minWidth: 140, minHeight: 44 }}
-            >
+        >
           {isBusy ? (isDisconnecting ? 'Stopping...' : 'Connecting...') : 'Start'}
         </PulseButton>
 

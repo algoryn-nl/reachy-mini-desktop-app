@@ -5,11 +5,7 @@ import ReachyDetective from '@assets/reachy-detective.svg';
 /**
  * Empty state component for Discover Modal
  */
-export default function EmptyState({
-  darkMode,
-  searchQuery,
-  setSearchQuery,
-}) {
+export default function EmptyState({ darkMode, searchQuery, setSearchQuery }) {
   return (
     <Box
       sx={{
@@ -34,22 +30,22 @@ export default function EmptyState({
           mb: 1,
         }}
       />
-      
+
       {searchQuery ? (
         <>
-          <Typography 
-            sx={{ 
-              fontSize: 18, 
+          <Typography
+            sx={{
+              fontSize: 18,
               fontWeight: 700,
-              color: darkMode ? '#aaa' : '#666', 
+              color: darkMode ? '#aaa' : '#666',
               mb: 0.5,
             }}
           >
             Can't find what you're looking for?
           </Typography>
-          <Typography 
-            sx={{ 
-              fontSize: 14, 
+          <Typography
+            sx={{
+              fontSize: 14,
               color: darkMode ? '#888' : '#999',
               mb: 2,
             }}
@@ -78,11 +74,11 @@ export default function EmptyState({
           </Button>
         </>
       ) : (
-        <Typography 
-          sx={{ 
-            fontSize: 18, 
+        <Typography
+          sx={{
+            fontSize: 18,
             fontWeight: 700,
-            color: darkMode ? '#aaa' : '#666', 
+            color: darkMode ? '#aaa' : '#666',
           }}
         >
           No apps available

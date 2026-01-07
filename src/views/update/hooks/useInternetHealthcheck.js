@@ -5,7 +5,7 @@ import { fetchExternal } from '../../../config/daemon';
  * Hook to check internet connectivity with a robust hybrid approach
  * Combines navigator.onLine (fast) with real healthcheck (reliable)
  * Uses Cloudflare DNS endpoint which is designed for connectivity checks
- * 
+ *
  * @param {object} options - Configuration options
  * @param {number} options.interval - Check interval in ms (default: 5000 = 5s)
  * @param {number} options.timeout - Request timeout in ms (default: 3000 = 3s)
@@ -63,7 +63,7 @@ export function useInternetHealthcheck({
 
     abortControllerRef.current = new AbortController();
     setIsChecking(true);
-    
+
     // Mark that we've attempted at least one check
     if (!hasPerformedFirstCheckRef.current) {
       hasPerformedFirstCheckRef.current = true;
@@ -71,7 +71,7 @@ export function useInternetHealthcheck({
 
     try {
       const controller = abortControllerRef.current;
-      
+
       // Use fetchExternal (Tauri's standardized fetch with timeout)
       // Cloudflare DNS endpoint is designed for connectivity checks and doesn't require CORS
       // Use no-cors mode to avoid CORS issues - we can't check status but can detect network errors
@@ -134,4 +134,3 @@ export function useInternetHealthcheck({
 
   return { isOnline, isChecking, hasChecked };
 }
-

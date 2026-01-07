@@ -44,6 +44,5 @@ export const LOG_EMOJIS = {
 export const LOG_PREFIXES = {
   DAEMON: '[Daemon]',
   API: '[API]',
-  APP: (appName) => `[App: ${appName}]`,
+  APP: appName => `[App: ${appName}]`,
 };
-

@@ -1,9 +1,9 @@
 /**
  * 🌐 Robot Discovery Hook
- * 
+ *
  * Scans for available robots via USB and WiFi in parallel.
  * Used by FindingRobotView to detect and list connection options.
- * 
+ *
  * Uses Tauri HTTP plugin for WiFi discovery to bypass WebView restrictions.
  */
 
@@ -16,9 +16,9 @@ import { DAEMON_CONFIG } from '../../config/daemon';
 // WiFi hosts to check (try multiple in parallel)
 // mDNS (.home) doesn't work in WebView, so we also try common IPs
 const WIFI_HOSTS_TO_CHECK = [
-  'reachy-mini.home',      // mDNS (works in some cases)
-  'reachy-mini.local',     // mDNS alternative
-  '192.168.1.18',          // Common static IP for Reachy
+  'reachy-mini.home', // mDNS (works in some cases)
+  'reachy-mini.local', // mDNS alternative
+  '192.168.1.18', // Common static IP for Reachy
   // Add more IPs here if needed
 ];
 const WIFI_CHECK_TIMEOUT = 2000; // 2s timeout per host
@@ -39,7 +39,7 @@ async function checkSingleHost(host) {
       method: 'GET',
       connectTimeout: WIFI_CHECK_TIMEOUT,
     });
-    
+
     if (response.ok) {
       return { available: true, host };
     }
@@ -76,41 +76,40 @@ async function checkWifiRobot(isRobotBlacklisted) {
   const onHotspot = await isOnReachyHotspot();
   if (onHotspot) {
     if (lastLoggedWifiHost !== 'hotspot-blocked') {
-      console.log('🌐 Connected to Reachy hotspot - WiFi mode disabled (use setup flow)');
       lastLoggedWifiHost = 'hotspot-blocked';
     }
     return { available: false, host: null, onHotspot: true };
   }
-  
+
   // Check all hosts in parallel
-  const results = await Promise.all(
-    WIFI_HOSTS_TO_CHECK.map(host => checkSingleHost(host))
-  );
-  
+  const results = await Promise.all(WIFI_HOSTS_TO_CHECK.map(host => checkSingleHost(host)));
+
   // Return the first available host (but filter out blacklisted ones)
   const available = results.find(r => r.available && !isRobotBlacklisted(r.host));
   if (available) {
     // Only log when host changes (found new robot or different host)
     if (lastLoggedWifiHost !== available.host) {
-      console.log(`🌐 WiFi robot found at ${available.host}`);
       lastLoggedWifiHost = available.host;
     }
     return { available: true, host: available.host };
   }
-  
+
   // Check if all available hosts are blacklisted
   const hasBlacklistedRobots = results.some(r => r.available && isRobotBlacklisted(r.host));
   if (hasBlacklistedRobots && lastLoggedWifiHost !== 'blacklisted') {
-    console.log('🚫 WiFi robot(s) found but temporarily blacklisted');
     lastLoggedWifiHost = 'blacklisted';
   }
-  
+
   // Log when robot is lost (was found before, now gone)
-  if (lastLoggedWifiHost && lastLoggedWifiHost !== 'hotspot-blocked' && lastLoggedWifiHost !== 'blacklisted' && !hasBlacklistedRobots) {
-    console.log('🌐 WiFi robot disconnected');
+  if (
+    lastLoggedWifiHost &&
+    lastLoggedWifiHost !== 'hotspot-blocked' &&
+    lastLoggedWifiHost !== 'blacklisted' &&
+    !hasBlacklistedRobots
+  ) {
     lastLoggedWifiHost = null;
   }
-  
+
   return { available: false, host: null };
 }
 
@@ -130,7 +129,7 @@ async function checkUsbRobot() {
 
 /**
  * Robot Discovery Hook
- * 
+ *
  * Scans for USB and WiFi robots in parallel.
  * Returns the current state of discovered robots.
  */
@@ -139,22 +138,22 @@ export function useRobotDiscovery() {
   const setIsFirstCheck = useAppStore(state => state.setIsFirstCheck);
   const cleanupBlacklist = useAppStore(state => state.cleanupBlacklist);
   const isRobotBlacklisted = useAppStore(state => state.isRobotBlacklisted);
-  
+
   // Discovery state
   const [isScanning, setIsScanning] = useState(true);
   const [usbRobot, setUsbRobot] = useState({ available: false, portName: null });
   const [wifiRobot, setWifiRobot] = useState({ available: false, host: null });
-  
+
   // Refs for interval management
   const scanIntervalRef = useRef(null);
   const isMountedRef = useRef(true);
-  
+
   // Cleanup expired blacklist entries periodically
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       cleanupBlacklist();
     }, 2000); // Every 2 seconds
-    
+
     return () => clearInterval(cleanupInterval);
   }, [cleanupBlacklist]);
 
@@ -163,25 +162,25 @@ export function useRobotDiscovery() {
    */
   const performScan = useCallback(async () => {
     const startTime = Date.now();
-    
+
     // Scan USB and WiFi in parallel
     const [usbResult, wifiResult] = await Promise.all([
       checkUsbRobot(),
       checkWifiRobot(isRobotBlacklisted),
     ]);
-    
+
     // Ensure minimum delay on first check for smooth UX
     if (isFirstCheck) {
       const elapsed = Date.now() - startTime;
       const minDelay = DAEMON_CONFIG.MIN_DISPLAY_TIMES.USB_CHECK_FIRST;
-      
+
       if (elapsed < minDelay) {
         await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
       }
-      
+
       setIsFirstCheck(false);
     }
-    
+
     // Only update state if still mounted
     if (isMountedRef.current) {
       setUsbRobot(usbResult);
@@ -198,12 +197,12 @@ export function useRobotDiscovery() {
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
     }
-    
+
     setIsScanning(true);
-    
+
     // Perform initial scan immediately
     performScan();
-    
+
     // Then scan periodically
     scanIntervalRef.current = setInterval(() => {
       if (isMountedRef.current) {
@@ -235,7 +234,7 @@ export function useRobotDiscovery() {
   useEffect(() => {
     isMountedRef.current = true;
     startScanning();
-    
+
     return () => {
       isMountedRef.current = false;
       stopScanning();
@@ -245,12 +244,12 @@ export function useRobotDiscovery() {
   return {
     // State
     isScanning,
-    usbRobot,      // { available: boolean, portName: string | null }
-    wifiRobot,     // { available: boolean, host: string | null }
-    
+    usbRobot, // { available: boolean, portName: string | null }
+    wifiRobot, // { available: boolean, host: string | null }
+
     // Helpers
     hasAnyRobot: usbRobot.available || wifiRobot.available,
-    
+
     // Actions
     startScanning,
     stopScanning,
@@ -259,4 +258,3 @@ export function useRobotDiscovery() {
 }
 
 export default useRobotDiscovery;
-

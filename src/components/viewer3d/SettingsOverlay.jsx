@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Button,
-  CircularProgress,
-} from '@mui/material';
+import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import FullscreenOverlay from '../FullscreenOverlay';
@@ -18,9 +13,9 @@ import { useToast } from '../../hooks/useToast';
 import Toast from '../Toast';
 
 // Sub-components
-import { 
-  SettingsUpdateCard, 
-  SettingsWifiCard, 
+import {
+  SettingsUpdateCard,
+  SettingsWifiCard,
   SettingsAppearanceCard,
   SettingsCacheCard,
   ChangeWifiOverlay,
@@ -30,34 +25,30 @@ import { useWakeSleep } from '../../views/active-robot/hooks';
 /**
  * Settings Overlay for 3D Viewer Configuration
  */
-export default function SettingsOverlay({ 
-  open, 
-  onClose, 
-  darkMode,
-}) {
+export default function SettingsOverlay({ open, onClose, darkMode }) {
   const { connectionMode, remoteHost, robotStatus, blacklistRobot, resetAll } = useAppStore();
   const isWifiMode = connectionMode === 'wifi';
-  
+
   // Wake/Sleep controls - used to put robot to sleep before update
   const { goToSleep, isSleeping } = useWakeSleep();
-  
+
   // Text colors
   const textPrimary = darkMode ? '#f5f5f5' : '#333';
   const textMuted = darkMode ? '#666' : '#999';
-  
+
   // ═══════════════════════════════════════════════════════════════════
   // UPDATE STATE
   // ═══════════════════════════════════════════════════════════════════
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   // Update job tracking (WiFi mode)
   const [updateJobId, setUpdateJobId] = useState(null);
   const [updateJobStatus, setUpdateJobStatus] = useState(null); // 'pending' | 'in_progress' | 'done' | 'failed' | 'restarting'
   const [updateLogs, setUpdateLogs] = useState([]);
   const updatePollingRef = useRef(null);
-  
+
   // Read initial preRelease preference from localStorage
   const getInitialPreRelease = () => {
     try {
@@ -67,11 +58,11 @@ export default function SettingsOverlay({
       return false;
     }
   };
-  
+
   const [preRelease, setPreReleaseState] = useState(getInitialPreRelease);
-  
+
   // Wrapper to persist preRelease changes
-  const setPreRelease = (value) => {
+  const setPreRelease = value => {
     try {
       localStorage.setItem('preReleaseUpdates', JSON.stringify(value));
     } catch (e) {
@@ -79,7 +70,7 @@ export default function SettingsOverlay({
     }
     setPreReleaseState(value);
   };
-  
+
   // ═══════════════════════════════════════════════════════════════════
   // WIFI STATE
   // ═══════════════════════════════════════════════════════════════════
@@ -90,7 +81,7 @@ export default function SettingsOverlay({
   const [wifiPassword, setWifiPassword] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [wifiError, setWifiError] = useState(null);
-  
+
   // ═══════════════════════════════════════════════════════════════════
   // CONFIRMATION DIALOGS
   // ═══════════════════════════════════════════════════════════════════
@@ -107,7 +98,7 @@ export default function SettingsOverlay({
   // ═══════════════════════════════════════════════════════════════════
   // UPDATE FUNCTIONS
   // ═══════════════════════════════════════════════════════════════════
-  
+
   const checkForUpdate = useCallback(async () => {
     // Check network status first
     if (!navigator.onLine) {
@@ -115,23 +106,23 @@ export default function SettingsOverlay({
       showToast('No internet connection. Please check your network and try again.', 'warning');
       return;
     }
-    
+
     setIsCheckingUpdate(true);
     setUpdateInfo(null);
-    
+
     try {
       if (isWifiMode) {
         // WiFi mode: Use daemon API
-      const response = await fetchWithTimeout(
-        buildApiUrl(`/update/available?pre_release=${preRelease}`),
-        {},
-        DAEMON_CONFIG.TIMEOUTS.COMMAND,
-        { label: 'Check update', silent: true }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUpdateInfo(data.update?.reachy_mini || null);
+        const response = await fetchWithTimeout(
+          buildApiUrl(`/update/available?pre_release=${preRelease}`),
+          {},
+          DAEMON_CONFIG.TIMEOUTS.COMMAND,
+          { label: 'Check update', silent: true }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setUpdateInfo(data.update?.reachy_mini || null);
         }
       } else {
         // USB/Simulation mode: Use Tauri command (requires internet to check PyPI)
@@ -141,12 +132,12 @@ export default function SettingsOverlay({
     } catch (err) {
       console.error('Failed to check for updates:', err);
       // Check if it's a network error
-      const isNetworkError = 
+      const isNetworkError =
         err.message?.toLowerCase().includes('network') ||
         err.message?.toLowerCase().includes('timeout') ||
         err.message?.toLowerCase().includes('connection') ||
         err.message?.toLowerCase().includes('fetch');
-      
+
       if (isNetworkError) {
         showToast('No internet connection. Please check your network and try again.', 'warning');
       } else {
@@ -158,81 +149,76 @@ export default function SettingsOverlay({
   }, [isWifiMode, preRelease, showToast]);
 
   // Connect to update job WebSocket (WiFi mode)
-  const connectUpdateWebSocket = useCallback((jobId) => {
-    const wsUrl = `${getWsBaseUrl()}/update/ws/logs?job_id=${jobId}`;
-    console.log('[UpdateWS] Connecting to:', wsUrl);
-    
-    const ws = new WebSocket(wsUrl);
-    
-    ws.onopen = () => {
-      console.log('[UpdateWS] Connected');
-    };
-    
-    ws.onmessage = (event) => {
-      try {
-        // Try to parse as JSON (final status message)
-        const data = JSON.parse(event.data);
-        
-        if (data.status) {
-          console.log('[UpdateWS] Status update:', data.status);
-          setUpdateJobStatus(data.status);
-          
-          // Add new logs if present
-          if (data.logs && Array.isArray(data.logs)) {
-            setUpdateLogs(prev => [...prev, ...data.logs]);
-          }
-          
-          // Job is done
-          if (data.status === 'done' || data.status === 'failed') {
-            console.log('[UpdateWS] Job finished:', data.status);
-            ws.close();
-            
+  const connectUpdateWebSocket = useCallback(
+    jobId => {
+      const wsUrl = `${getWsBaseUrl()}/update/ws/logs?job_id=${jobId}`;
+
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {};
+
+      ws.onmessage = event => {
+        try {
+          // Try to parse as JSON (final status message)
+          const data = JSON.parse(event.data);
+
+          if (data.status) {
+            setUpdateJobStatus(data.status);
+
+            // Add new logs if present
+            if (data.logs && Array.isArray(data.logs)) {
+              setUpdateLogs(prev => [...prev, ...data.logs]);
+            }
+
+            // Job is done
+            if (data.status === 'done' || data.status === 'failed') {
+              ws.close();
+
               if (data.status === 'done') {
-              // ✅ Update successful - daemon will restart
-              // Keep overlay visible and show "restarting" status
-              console.log('[UpdateWS] Update successful, daemon will restart...');
-              setUpdateJobStatus('restarting');
+                // ✅ Update successful - daemon will restart
+                // Keep overlay visible and show "restarting" status
+
+                setUpdateJobStatus('restarting');
                 logSuccess('Update completed successfully!');
-              
-              // Wait for daemon restart (takes ~5-10 seconds typically)
-              // Then reset to force reconnection
-              setTimeout(() => {
-                console.log('[UpdateWS] Resetting app to reconnect...');
-                setIsUpdating(false);
-                showToast('Update completed! Please reconnect to the robot.', 'success');
-                useAppStore.getState().resetAll();
-              }, 6000); // 6 seconds to allow daemon to restart
-            } else {
-              // ✅ Update failed - show error immediately
-              setTimeout(() => {
-                setIsUpdating(false);
-                showToast('Update failed. Check logs for details.', 'error');
-            }, 500);
+
+                // Wait for daemon restart (takes ~5-10 seconds typically)
+                // Then reset to force reconnection
+                setTimeout(() => {
+                  setIsUpdating(false);
+                  showToast('Update completed! Please reconnect to the robot.', 'success');
+                  useAppStore.getState().resetAll();
+                }, 6000); // 6 seconds to allow daemon to restart
+              } else {
+                // ✅ Update failed - show error immediately
+                setTimeout(() => {
+                  setIsUpdating(false);
+                  showToast('Update failed. Check logs for details.', 'error');
+                }, 500);
+              }
             }
           }
+        } catch (err) {
+          // Not JSON, probably a log line
+          const logLine = event.data.trim();
+          if (logLine) {
+            setUpdateLogs(prev => [...prev, logLine]);
+          }
         }
-      } catch (err) {
-        // Not JSON, probably a log line
-        const logLine = event.data.trim();
-        if (logLine) {
-          console.log('[UpdateWS] Log:', logLine);
-          setUpdateLogs(prev => [...prev, logLine]);
-        }
-      }
-    };
-    
-    ws.onerror = (error) => {
-      console.error('[UpdateWS] Error:', error);
-    };
-    
-    ws.onclose = (event) => {
-      console.log('[UpdateWS] Closed:', event.code, event.reason);
-      updatePollingRef.current = null;
-    };
-    
-    updatePollingRef.current = ws;
-  }, [showToast]);
-  
+      };
+
+      ws.onerror = error => {
+        console.error('[UpdateWS] Error:', error);
+      };
+
+      ws.onclose = event => {
+        updatePollingRef.current = null;
+      };
+
+      updatePollingRef.current = ws;
+    },
+    [showToast]
+  );
+
   // Cleanup WebSocket on unmount
   useEffect(() => {
     return () => {
@@ -257,87 +243,84 @@ export default function SettingsOverlay({
       setShowUpdateConfirm(false);
       return;
     }
-    
+
     setShowUpdateConfirm(false);
     setIsUpdating(true);
-    
+
     try {
       // 🛡️ Put robot to sleep before update if not already sleeping
       // This ensures motors are disabled and robot is in safe position
       if (!isSleeping) {
-        console.log('🔄 Putting robot to sleep before update...');
         const sleepSuccess = await goToSleep();
         if (!sleepSuccess) {
           console.warn('⚠️ Failed to put robot to sleep, continuing with update anyway');
         } else {
-          console.log('✅ Robot is now sleeping, proceeding with update');
         }
       }
-      
+
       if (isWifiMode) {
         // WiFi mode: Use daemon API with WebSocket for logs
-      const response = await fetchWithTimeout(
-        buildApiUrl(`/update/start?pre_release=${preRelease}`),
-        { method: 'POST' },
-        DAEMON_CONFIG.TIMEOUTS.COMMAND,
-        { label: 'Start update' }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Update started:', data.job_id);
-        
+        const response = await fetchWithTimeout(
+          buildApiUrl(`/update/start?pre_release=${preRelease}`),
+          { method: 'POST' },
+          DAEMON_CONFIG.TIMEOUTS.COMMAND,
+          { label: 'Start update' }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+
           // Start tracking the update job
           setUpdateJobId(data.job_id);
           setUpdateJobStatus('pending');
           setUpdateLogs([]);
-          
+
           // NOTE: Do NOT close settings overlay - the update progress overlay
           // is displayed INSIDE it with higher z-index (10004)
-        
+
           // Connect to WebSocket for real-time logs
           connectUpdateWebSocket(data.job_id);
-      } else {
-        const error = await response.json();
-        setWifiError(`Update failed: ${error.detail || 'Unknown error'}`);
-        setIsUpdating(false);
+        } else {
+          const error = await response.json();
+          setWifiError(`Update failed: ${error.detail || 'Unknown error'}`);
+          setIsUpdating(false);
         }
       } else {
         // USB/Simulation mode: Use Tauri command
         await invoke('update_daemon', { preRelease });
-        
+
         // Show success toast
         showToast('Daemon updated successfully! Reconnect to use the new version.', 'success');
-        
+
         // Also log for developers
         logSuccess('Daemon updated successfully! Reconnect to use the new version.');
-        
+
         // Give user time to see the toast (2 seconds)
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         // Close overlay
         onClose();
-        
+
         // Disconnect and return to selection view
-        console.log('Daemon update completed, disconnecting...');
+
         useAppStore.getState().resetAll();
       }
     } catch (err) {
       console.error('Failed to start update:', err);
-      
+
       // Check if it's a network error
-      const isNetworkError = 
+      const isNetworkError =
         err.message?.toLowerCase().includes('network') ||
         err.message?.toLowerCase().includes('timeout') ||
         err.message?.toLowerCase().includes('connection') ||
         err.message?.toLowerCase().includes('fetch');
-      
+
       if (isNetworkError) {
         showToast('No internet connection. Please check your network and try again.', 'warning');
       } else {
-      showToast(`Update failed: ${err}`, 'error');
+        showToast(`Update failed: ${err}`, 'error');
       }
-      
+
       setIsUpdating(false);
     }
   }, [isWifiMode, preRelease, showToast, isSleeping, goToSleep, connectUpdateWebSocket]);
@@ -348,10 +331,10 @@ export default function SettingsOverlay({
 
   const fetchWifiStatus = useCallback(async () => {
     if (!isWifiMode) return;
-    console.log('[WiFi] Fetching WiFi status...');
+
     setIsLoadingWifi(true);
     setWifiError(null);
-    
+
     try {
       const statusResponse = await fetchWithTimeout(
         buildApiUrl('/wifi/status'),
@@ -359,22 +342,22 @@ export default function SettingsOverlay({
         DAEMON_CONFIG.TIMEOUTS.COMMAND,
         { label: 'WiFi status', silent: true }
       );
-      
+
       if (statusResponse.ok) {
         const data = await statusResponse.json();
         setWifiStatus(data);
       }
-      
+
       const networksResponse = await fetchWithTimeout(
         buildApiUrl('/wifi/scan_and_list'),
         { method: 'POST' },
         DAEMON_CONFIG.TIMEOUTS.COMMAND * 2,
         { label: 'WiFi scan', silent: true }
       );
-      
+
       if (networksResponse.ok) {
         const networks = await networksResponse.json();
-        console.log('[WiFi] Scanned networks:', networks);
+
         setAvailableNetworks(Array.isArray(networks) ? networks : []);
       } else {
         console.warn('[WiFi] Scan failed:', networksResponse.status);
@@ -390,7 +373,7 @@ export default function SettingsOverlay({
   // Clear all saved WiFi networks
   const handleClearAllNetworks = useCallback(async () => {
     setIsClearingNetworks(true);
-    
+
     try {
       const response = await fetchWithTimeout(
         buildApiUrl('/wifi/forget_all'),
@@ -398,18 +381,17 @@ export default function SettingsOverlay({
         DAEMON_CONFIG.TIMEOUTS.COMMAND * 2,
         { label: 'Clear all networks' }
       );
-      
+
       if (response.ok) {
         // Blacklist current robot for 10 seconds to prevent immediate rediscovery
         if (remoteHost) {
-          console.log(`🚫 Blacklisting ${remoteHost} for 10 seconds after clearing networks`);
           blacklistRobot(remoteHost, 10000);
         }
-        
+
         // Close overlays
         setShowClearNetworksConfirm(false);
         onClose();
-        
+
         // Give a moment for UI to update, then disconnect and return to connection selection
         setTimeout(() => {
           resetAll();
@@ -431,15 +413,17 @@ export default function SettingsOverlay({
     if (!selectedSSID || !wifiPassword) return;
     setIsConnecting(true);
     setWifiError(null);
-    
+
     try {
       const response = await fetchWithTimeout(
-        buildApiUrl(`/wifi/connect?ssid=${encodeURIComponent(selectedSSID)}&password=${encodeURIComponent(wifiPassword)}`),
+        buildApiUrl(
+          `/wifi/connect?ssid=${encodeURIComponent(selectedSSID)}&password=${encodeURIComponent(wifiPassword)}`
+        ),
         { method: 'POST' },
         DAEMON_CONFIG.TIMEOUTS.COMMAND * 3,
         { label: 'WiFi connect' }
       );
-      
+
       if (response.ok) {
         // Close overlay and reset form
         setShowChangeWifiOverlay(false);
@@ -468,7 +452,7 @@ export default function SettingsOverlay({
     if (open) {
       checkForUpdate();
       if (isWifiMode) {
-      fetchWifiStatus();
+        fetchWifiStatus();
       }
     }
   }, [open, isWifiMode, checkForUpdate, fetchWifiStatus]);
@@ -476,11 +460,11 @@ export default function SettingsOverlay({
   // Auto-refresh WiFi networks every 3 seconds (WiFi mode only)
   useEffect(() => {
     if (!open || !isWifiMode) return;
-    
+
     const interval = setInterval(() => {
       fetchWifiStatus();
     }, 3000);
-    
+
     return () => clearInterval(interval);
   }, [open, isWifiMode, fetchWifiStatus]);
 
@@ -532,7 +516,7 @@ export default function SettingsOverlay({
     color: 'primary.main',
     borderColor: 'primary.main',
     textTransform: 'none',
-    '&:hover': { 
+    '&:hover': {
       borderColor: 'primary.dark',
       bgcolor: 'rgba(99, 102, 241, 0.08)',
     },
@@ -550,7 +534,7 @@ export default function SettingsOverlay({
     border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}`,
     backdropFilter: 'blur(10px)',
   };
-  
+
   // Handle overlay close - prevent closing if update is in progress (USB mode only, WiFi shows its own overlay)
   const handleOverlayClose = useCallback(() => {
     if (isUpdating && !isWifiMode) {
@@ -590,23 +574,28 @@ export default function SettingsOverlay({
         }}
       >
         {/* HEADER */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 1.5,
-          pb: 1,
-        }}>
-            <Typography sx={{ 
-              fontSize: 20, 
-              fontWeight: 700, 
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            pb: 1,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 20,
+              fontWeight: 700,
               color: textPrimary,
               letterSpacing: '-0.3px',
-            }}>
-              Settings
-            </Typography>
-            {connectionMode && (
-              <Typography sx={{ 
-                fontSize: 11, 
+            }}
+          >
+            Settings
+          </Typography>
+          {connectionMode && (
+            <Typography
+              sx={{
+                fontSize: 11,
                 fontWeight: 600,
                 color: textMuted,
                 bgcolor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
@@ -615,68 +604,77 @@ export default function SettingsOverlay({
                 borderRadius: '4px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-              }}>
-                {connectionMode === 'wifi' ? 'Reachy WiFi' : connectionMode === 'simulation' ? 'Simulation' : 'USB'}
-              </Typography>
-            )}
-            {isWifiMode && remoteHost && (
-              <Typography sx={{ 
-                fontSize: 11, 
+              }}
+            >
+              {connectionMode === 'wifi'
+                ? 'Reachy WiFi'
+                : connectionMode === 'simulation'
+                  ? 'Simulation'
+                  : 'USB'}
+            </Typography>
+          )}
+          {isWifiMode && remoteHost && (
+            <Typography
+              sx={{
+                fontSize: 11,
                 color: textMuted,
                 fontFamily: 'monospace',
-              }}>
-                {remoteHost}
-              </Typography>
-            )}
+              }}
+            >
+              {remoteHost}
+            </Typography>
+          )}
         </Box>
 
         {/* CONTENT - Grid Layout */}
-        <Box sx={{ 
-          display: 'grid',
-          gridTemplateColumns: isWifiMode ? 'repeat(2, 1fr)' : '1fr',
-          gap: 2,
-        }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: isWifiMode ? 'repeat(2, 1fr)' : '1fr',
+            gap: 2,
+          }}
+        >
           {/* Row 1: Update + WiFi (or Update alone) */}
-              <SettingsUpdateCard
-                  darkMode={darkMode}
-            title={isWifiMode ? "System Update" : "Daemon Update"}
-                updateInfo={updateInfo}
-                isCheckingUpdate={isCheckingUpdate}
-                isUpdating={isUpdating}
-                preRelease={preRelease}
-                onPreReleaseChange={setPreRelease}
-                onCheckUpdate={checkForUpdate}
-                onUpdateClick={handleUpdateClick}
-                cardStyle={cardStyle}
-                buttonStyle={buttonStyle}
-                isOnline={navigator.onLine}
-              />
-          
+          <SettingsUpdateCard
+            darkMode={darkMode}
+            title={isWifiMode ? 'System Update' : 'Daemon Update'}
+            updateInfo={updateInfo}
+            isCheckingUpdate={isCheckingUpdate}
+            isUpdating={isUpdating}
+            preRelease={preRelease}
+            onPreReleaseChange={setPreRelease}
+            onCheckUpdate={checkForUpdate}
+            onUpdateClick={handleUpdateClick}
+            cardStyle={cardStyle}
+            buttonStyle={buttonStyle}
+            isOnline={navigator.onLine}
+          />
+
           {isWifiMode && (
-              <SettingsWifiCard
-                  darkMode={darkMode}
-                wifiStatus={wifiStatus}
-                isLoadingWifi={isLoadingWifi}
-                onRefresh={fetchWifiStatus}
+            <SettingsWifiCard
+              darkMode={darkMode}
+              wifiStatus={wifiStatus}
+              isLoadingWifi={isLoadingWifi}
+              onRefresh={fetchWifiStatus}
               onChangeNetwork={() => setShowChangeWifiOverlay(true)}
               onClearAllNetworks={() => setShowClearNetworksConfirm(true)}
-                cardStyle={cardStyle}
+              cardStyle={cardStyle}
             />
           )}
-          
+
           {/* Row 2: Appearance + Cache (WiFi) or just Appearance (Lite) */}
           <SettingsAppearanceCard darkMode={darkMode} cardStyle={cardStyle} />
-          
+
           {isWifiMode && (
-            <SettingsCacheCard 
+            <SettingsCacheCard
               darkMode={darkMode}
               cardStyle={cardStyle}
               buttonStyle={buttonStyle}
             />
-                    )}
+          )}
         </Box>
       </Box>
-      
+
       {/* Update Confirmation Overlay */}
       <FullscreenOverlay
         open={showUpdateConfirm}
@@ -707,7 +705,7 @@ export default function SettingsOverlay({
               }}
             />
           </Box>
-          
+
           {/* Title */}
           <Typography
             variant="h5"
@@ -719,7 +717,7 @@ export default function SettingsOverlay({
           >
             Start Update?
           </Typography>
-          
+
           {/* Description */}
           <Typography
             sx={{
@@ -729,23 +727,32 @@ export default function SettingsOverlay({
               mb: 4,
             }}
           >
-            Update to <strong style={{ color: darkMode ? '#fff' : '#333' }}>{updateInfo?.available_version}</strong>
-            <br /><br />
+            Update to{' '}
+            <strong style={{ color: darkMode ? '#fff' : '#333' }}>
+              {updateInfo?.available_version}
+            </strong>
+            <br />
+            <br />
             {isWifiMode ? (
               <>
-            The robot will restart and you will be <strong style={{ color: darkMode ? '#fff' : '#333' }}>disconnected</strong>.
-            <br />
-            Reconnect after ~2 minutes when complete.
+                The robot will restart and you will be{' '}
+                <strong style={{ color: darkMode ? '#fff' : '#333' }}>disconnected</strong>.
+                <br />
+                Reconnect after ~2 minutes when complete.
               </>
             ) : (
               <>
                 The daemon will restart automatically.
                 <br />
-                This will take <strong style={{ color: darkMode ? '#fff' : '#333' }}>between 30 seconds and 5 minutes</strong>.
+                This will take{' '}
+                <strong style={{ color: darkMode ? '#fff' : '#333' }}>
+                  between 30 seconds and 5 minutes
+                </strong>
+                .
               </>
             )}
           </Typography>
-          
+
           {/* WiFi Mode Warning */}
           {isWifiMode && (
             <Box
@@ -758,30 +765,35 @@ export default function SettingsOverlay({
                 textAlign: 'center',
               }}
             >
-              <Typography sx={{ 
-                fontSize: 13, 
-                fontWeight: 600, 
-                color: darkMode ? '#FFB74D' : '#F57C00',
-                mb: 0.5,
-              }}>
+              <Typography
+                sx={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: darkMode ? '#FFB74D' : '#F57C00',
+                  mb: 0.5,
+                }}
+              >
                 Important
               </Typography>
-              <Typography sx={{ 
-                fontSize: 12, 
-                color: darkMode ? '#FFB74D' : '#F57C00',
-                lineHeight: 1.5,
-              }}>
-                Make sure your robot is <strong>plugged into a power outlet</strong> during the update. <strong>Losing power during update can brick your robot</strong>.
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  color: darkMode ? '#FFB74D' : '#F57C00',
+                  lineHeight: 1.5,
+                }}
+              >
+                Make sure your robot is <strong>plugged into a power outlet</strong> during the
+                update. <strong>Losing power during update can brick your robot</strong>.
               </Typography>
             </Box>
           )}
-          
+
           {/* Actions */}
           <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
-            <Button 
+            <Button
               onClick={() => setShowUpdateConfirm(false)}
               variant="text"
-              sx={{ 
+              sx={{
                 color: 'text.secondary',
                 textTransform: 'none',
                 textDecoration: 'underline',
@@ -794,17 +806,13 @@ export default function SettingsOverlay({
             >
               Cancel
             </Button>
-            <PulseButton
-              onClick={confirmUpdate}
-              darkMode={darkMode}
-              sx={{ minWidth: 160 }}
-            >
+            <PulseButton onClick={confirmUpdate} darkMode={darkMode} sx={{ minWidth: 160 }}>
               Update now
             </PulseButton>
           </Box>
         </Box>
       </FullscreenOverlay>
-      
+
       {/* Clear All Networks Confirmation Overlay */}
       <FullscreenOverlay
         open={showClearNetworksConfirm}
@@ -825,25 +833,29 @@ export default function SettingsOverlay({
           }}
         >
           {/* Warning icon */}
-          <Box sx={{ 
-            mb: 3,
-            display: 'flex',
-            justifyContent: 'center',
-          }}>
-            <Box sx={{
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              bgcolor: darkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
-              border: `2px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'}`,
+          <Box
+            sx={{
+              mb: 3,
               display: 'flex',
-              alignItems: 'center',
               justifyContent: 'center',
-            }}>
+            }}
+          >
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                bgcolor: darkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                border: `2px solid ${darkMode ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.2)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <ErrorOutlineIcon sx={{ fontSize: 40, color: '#ef4444' }} />
             </Box>
           </Box>
-          
+
           {/* Title */}
           <Typography
             variant="h5"
@@ -855,7 +867,7 @@ export default function SettingsOverlay({
           >
             Clear All Networks?
           </Typography>
-          
+
           {/* Description */}
           <Typography
             sx={{
@@ -867,7 +879,7 @@ export default function SettingsOverlay({
           >
             This will forget all saved WiFi networks on your robot.
           </Typography>
-          
+
           {/* Warning box */}
           <Box
             sx={{
@@ -879,40 +891,46 @@ export default function SettingsOverlay({
               textAlign: 'center',
             }}
           >
-            <Typography sx={{ 
-              fontSize: 13, 
-              fontWeight: 600, 
-              color: darkMode ? '#fca5a5' : '#dc2626',
-              mb: 0.5,
-            }}>
+            <Typography
+              sx={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: darkMode ? '#fca5a5' : '#dc2626',
+                mb: 0.5,
+              }}
+            >
               You will be disconnected
             </Typography>
-            <Typography sx={{ 
-              fontSize: 12, 
-              color: darkMode ? '#fca5a5' : '#dc2626',
-              lineHeight: 1.5,
-              mb: 1,
-            }}>
+            <Typography
+              sx={{
+                fontSize: 12,
+                color: darkMode ? '#fca5a5' : '#dc2626',
+                lineHeight: 1.5,
+                mb: 1,
+              }}
+            >
               The robot will switch to <strong>Hotspot mode</strong>.<br />
               Reconnect via <strong>reachy-mini-ap</strong> network.
             </Typography>
-            <Typography sx={{ 
-              fontSize: 11, 
-              color: darkMode ? 'rgba(252, 165, 165, 0.7)' : 'rgba(220, 38, 38, 0.7)',
-              lineHeight: 1.5,
-              fontStyle: 'italic',
-            }}>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: darkMode ? 'rgba(252, 165, 165, 0.7)' : 'rgba(220, 38, 38, 0.7)',
+                lineHeight: 1.5,
+                fontStyle: 'italic',
+              }}
+            >
               If the robot doesn't appear, try restarting it.
             </Typography>
           </Box>
-          
+
           {/* Actions */}
           <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', alignItems: 'center' }}>
-            <Button 
+            <Button
               onClick={() => setShowClearNetworksConfirm(false)}
               variant="text"
               disabled={isClearingNetworks}
-              sx={{ 
+              sx={{
                 color: 'text.secondary',
                 textTransform: 'none',
                 textDecoration: 'underline',
@@ -929,7 +947,7 @@ export default function SettingsOverlay({
               onClick={handleClearAllNetworks}
               variant="contained"
               disabled={isClearingNetworks}
-              sx={{ 
+              sx={{
                 minWidth: 160,
                 bgcolor: '#ef4444',
                 color: '#fff',
@@ -953,7 +971,7 @@ export default function SettingsOverlay({
           </Box>
         </Box>
       </FullscreenOverlay>
-      
+
       {/* Change WiFi Network Overlay */}
       <ChangeWifiOverlay
         open={showChangeWifiOverlay}
@@ -986,32 +1004,36 @@ export default function SettingsOverlay({
           backdropOpacity={0.95}
           debugName="UpdateProgress"
           backdropBlur={16}
-      >
-        <Box 
-          sx={{ 
+        >
+          <Box
+            sx={{
               width: '100%',
               maxWidth: 600,
               mx: 'auto',
               px: 3,
-          }}
-        >
+            }}
+          >
             {/* Update Icon */}
-            <Box sx={{ 
-              mb: 3,
-              display: 'flex',
-              justifyContent: 'center',
-            }}>
-              <Box sx={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
-                border: `2px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-                position: 'relative',
-              }}>
+            <Box
+              sx={{
+                mb: 3,
+                display: 'flex',
+                justifyContent: 'center',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '50%',
+                  bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                  border: `2px solid ${darkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.2)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                }}
+              >
                 {updateJobStatus === 'done' ? (
                   <CheckCircleOutlinedIcon sx={{ fontSize: 40, color: '#10b981' }} />
                 ) : updateJobStatus === 'failed' ? (
@@ -1023,7 +1045,7 @@ export default function SettingsOverlay({
                 )}
               </Box>
             </Box>
-            
+
             {/* Title */}
             <Typography
               variant="h5"
@@ -1034,12 +1056,15 @@ export default function SettingsOverlay({
                 textAlign: 'center',
               }}
             >
-              {updateJobStatus === 'done' ? 'Update Completed!' : 
-               updateJobStatus === 'failed' ? 'Update Failed' :
-               updateJobStatus === 'restarting' ? 'Restarting Robot...' :
-               'Updating...'}
+              {updateJobStatus === 'done'
+                ? 'Update Completed!'
+                : updateJobStatus === 'failed'
+                  ? 'Update Failed'
+                  : updateJobStatus === 'restarting'
+                    ? 'Restarting Robot...'
+                    : 'Updating...'}
             </Typography>
-            
+
             {/* Description */}
             <Typography
               sx={{
@@ -1050,15 +1075,18 @@ export default function SettingsOverlay({
                 textAlign: 'center',
               }}
             >
-              {updateJobStatus === 'done' ? 'The update has been installed successfully.' :
-               updateJobStatus === 'failed' ? 'An error occurred during the update.' :
-               updateJobStatus === 'restarting' ? 'Update installed! The robot is restarting to apply changes...' :
-               'Installing the new version. This may take a few minutes...'}
+              {updateJobStatus === 'done'
+                ? 'The update has been installed successfully.'
+                : updateJobStatus === 'failed'
+                  ? 'An error occurred during the update.'
+                  : updateJobStatus === 'restarting'
+                    ? 'Update installed! The robot is restarting to apply changes...'
+                    : 'Installing the new version. This may take a few minutes...'}
             </Typography>
-            
+
             {/* Logs Container */}
             <Box
-                sx={{ 
+              sx={{
                 mb: 3,
                 p: 2,
                 borderRadius: '12px',
@@ -1098,44 +1126,50 @@ export default function SettingsOverlay({
                 </Box>
               )}
             </Box>
-            
+
             {/* Warning for ongoing update */}
-            {updateJobStatus !== 'done' && updateJobStatus !== 'failed' && updateJobStatus !== 'restarting' && (
-              <Box
-                sx={{ 
-                  p: 2,
-                  borderRadius: '12px',
-                  bgcolor: darkMode ? 'rgba(251, 191, 36, 0.15)' : 'rgba(251, 191, 36, 0.1)',
-                  border: `1px solid ${darkMode ? 'rgba(251, 191, 36, 0.3)' : 'rgba(251, 191, 36, 0.2)'}`,
-                  textAlign: 'center',
-                }}
-              >
-                <Typography sx={{ 
-                  fontSize: 13, 
-                  fontWeight: 600, 
-                  color: darkMode ? '#fbbf24' : '#d97706',
-                  mb: 0.5,
-                }}>
-                  Please Wait
-                </Typography>
-                <Typography sx={{ 
-                  fontSize: 12, 
-                  color: darkMode ? '#fbbf24' : '#d97706',
-                  lineHeight: 1.5,
-                }}>
-                  Do not close this window or disconnect power during the update.
-            </Typography>
+            {updateJobStatus !== 'done' &&
+              updateJobStatus !== 'failed' &&
+              updateJobStatus !== 'restarting' && (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: '12px',
+                    bgcolor: darkMode ? 'rgba(251, 191, 36, 0.15)' : 'rgba(251, 191, 36, 0.1)',
+                    border: `1px solid ${darkMode ? 'rgba(251, 191, 36, 0.3)' : 'rgba(251, 191, 36, 0.2)'}`,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: darkMode ? '#fbbf24' : '#d97706',
+                      mb: 0.5,
+                    }}
+                  >
+                    Please Wait
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      color: darkMode ? '#fbbf24' : '#d97706',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Do not close this window or disconnect power during the update.
+                  </Typography>
+                </Box>
+              )}
           </Box>
-            )}
-        </Box>
         </FullscreenOverlay>
       )}
 
       {/* Toast Notifications */}
-      <Toast 
-        toast={toast} 
-        toastProgress={toastProgress} 
-        onClose={handleCloseToast} 
+      <Toast
+        toast={toast}
+        toastProgress={toastProgress}
+        onClose={handleCloseToast}
         darkMode={darkMode}
       />
     </FullscreenOverlay>

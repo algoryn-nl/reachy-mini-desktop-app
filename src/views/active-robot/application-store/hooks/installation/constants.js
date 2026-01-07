@@ -41,17 +41,17 @@ export const TIMINGS = {
     INSTALL: 0, // No minimum for install
     REMOVE: DAEMON_CONFIG.MIN_DISPLAY_TIMES.APP_UNINSTALL, // 4s for uninstall
   },
-  
+
   // Delay after showing result before closing overlay
   RESULT_DISPLAY_DELAY: DAEMON_CONFIG.APP_INSTALLATION.RESULT_DISPLAY_DELAY, // 3s
-  
+
   // Polling configuration for waiting for app to appear in list
   POLLING: {
     INTERVAL: 500, // Check every 500ms
     MAX_ATTEMPTS: 10, // 10 attempts = 5s max (reduced from 15s)
     REFRESH_INTERVAL: 2, // Refresh apps list every 2 attempts (1s)
   },
-  
+
   // Stale job detection (no new logs for X seconds = likely network issue)
   STALE_JOB: {
     TIMEOUT: 90000, // 90 seconds without new logs = stale (download can take time)
@@ -62,7 +62,8 @@ export const TIMINGS = {
 /**
  * Network error message for stale jobs
  */
-export const NETWORK_ERROR_MESSAGE = 'Network issue detected. The download seems stuck. Please check your internet connection and try again later.';
+export const NETWORK_ERROR_MESSAGE =
+  'Network issue detected. The download seems stuck. Please check your internet connection and try again later.';
 
 /**
  * Success indicators in logs (case-insensitive patterns)
@@ -78,11 +79,4 @@ export const LOG_SUCCESS_PATTERNS = [
 /**
  * Error indicators in logs (case-insensitive patterns)
  */
-export const LOG_ERROR_PATTERNS = [
-  'failed',
-  'error:',
-  'error ',
-  'exception',
-  'traceback',
-];
-
+export const LOG_ERROR_PATTERNS = ['failed', 'error:', 'error ', 'exception', 'traceback'];

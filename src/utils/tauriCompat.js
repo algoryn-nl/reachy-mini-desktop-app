@@ -1,9 +1,9 @@
 /**
  * Tauri Compatibility Layer
- * 
+ *
  * Provides fallbacks for Tauri APIs when running in web-only mode.
  * In web mode, we use fetch() to call the daemon's REST API directly.
- * 
+ *
  * Usage:
  *   import { invoke, listen, isWebMode } from '@utils/tauriCompat';
  */
@@ -26,35 +26,33 @@ export const invoke = async (command, args = {}) => {
   }
 
   // Web mode: map Tauri commands to REST API calls
-  console.log(`[WebMode] invoke: ${command}`, args);
-  
+
   // Map common Tauri commands to REST endpoints
   const commandMap = {
     // Daemon commands
-    'start_daemon': { method: 'POST', url: '/api/daemon/start' },
-    'stop_daemon': { method: 'POST', url: '/api/daemon/stop' },
-    'get_daemon_status': { method: 'GET', url: '/api/daemon/status' },
-    
+    start_daemon: { method: 'POST', url: '/api/daemon/start' },
+    stop_daemon: { method: 'POST', url: '/api/daemon/stop' },
+    get_daemon_status: { method: 'GET', url: '/api/daemon/status' },
+
     // App commands
-    'install_app': { method: 'POST', url: '/api/apps/install' },
-    'uninstall_app': { method: 'POST', url: '/api/apps/uninstall' },
-    'start_app': { method: 'POST', url: '/api/apps/start' },
-    'stop_app': { method: 'POST', url: '/api/apps/stop' },
-    'list_apps': { method: 'GET', url: '/api/apps/list' },
-    
+    install_app: { method: 'POST', url: '/api/apps/install' },
+    uninstall_app: { method: 'POST', url: '/api/apps/uninstall' },
+    start_app: { method: 'POST', url: '/api/apps/start' },
+    stop_app: { method: 'POST', url: '/api/apps/stop' },
+    list_apps: { method: 'GET', url: '/api/apps/list' },
+
     // Sign binaries (macOS specific - no-op in web mode)
-    'sign_python_binaries': { method: 'GET', url: null, noop: true },
+    sign_python_binaries: { method: 'GET', url: null, noop: true },
   };
 
   const mapping = commandMap[command];
-  
+
   if (!mapping) {
     console.warn(`[WebMode] Unknown command: ${command}, returning null`);
     return null;
   }
-  
+
   if (mapping.noop) {
-    console.log(`[WebMode] No-op command: ${command}`);
     return { success: true };
   }
 
@@ -63,17 +61,17 @@ export const invoke = async (command, args = {}) => {
       method: mapping.method,
       headers: { 'Content-Type': 'application/json' },
     };
-    
+
     if (mapping.method !== 'GET' && Object.keys(args).length > 0) {
       options.body = JSON.stringify(args);
     }
-    
+
     const response = await fetch(`${API_BASE_URL}${mapping.url}`, options);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`[WebMode] invoke error for ${command}:`, error);
@@ -92,12 +90,10 @@ export const listen = async (event, callback) => {
     return tauriListen(event, callback);
   }
 
-  console.log(`[WebMode] listen: ${event} - using polling fallback`);
-  
   // Web mode: use polling for sidecar events
   // For sidecar-stdout/stderr, we don't have real-time events in web mode
   // The app logs are fetched via REST API instead
-  
+
   if (event === 'sidecar-stdout' || event === 'sidecar-stderr') {
     // Return a no-op unlisten function
     // App logs are handled differently in web mode (polling via REST)
@@ -117,8 +113,7 @@ export const emit = async (event, payload) => {
     const { emit: tauriEmit } = await import('@tauri-apps/api/event');
     return tauriEmit(event, payload);
   }
-  
-  console.log(`[WebMode] emit: ${event}`, payload);
+
   // No-op in web mode
 };
 
@@ -130,7 +125,7 @@ export const getCurrentWindow = () => {
     // Dynamic import for Tauri
     return import('@tauri-apps/api/window').then(m => m.getCurrentWindow());
   }
-  
+
   // Mock window object for web mode
   return {
     label: 'main',
@@ -152,12 +147,12 @@ export const getCurrentWindow = () => {
 /**
  * Open URL in browser
  */
-export const openUrl = async (url) => {
+export const openUrl = async url => {
   if (!isWebMode) {
     const { open } = await import('@tauri-apps/plugin-shell');
     return open(url);
   }
-  
+
   // Web mode: use window.open
   window.open(url, '_blank', 'noopener,noreferrer');
 };
@@ -170,7 +165,7 @@ export const getVersion = async () => {
     const { getVersion: tauriGetVersion } = await import('@tauri-apps/api/app');
     return tauriGetVersion();
   }
-  
+
   // Web mode: fetch from daemon status
   try {
     const response = await fetch('/api/daemon/status');
@@ -190,4 +185,3 @@ export default {
   openUrl,
   getVersion,
 };
-

@@ -20,7 +20,7 @@ export function isZero(value, tolerance = 0.001) {
  */
 export function isHeadPoseZero(headPose, tolerance = 0.001) {
   if (!headPose) return true;
-  
+
   return (
     isZero(headPose.x, tolerance) &&
     isZero(headPose.y, tolerance) &&
@@ -39,11 +39,8 @@ export function isHeadPoseZero(headPose, tolerance = 0.001) {
  */
 export function areAntennasZero(antennas, tolerance = 0.001) {
   if (!antennas || antennas.length !== 2) return true;
-  
-  return (
-    isZero(antennas[0], tolerance) &&
-    isZero(antennas[1], tolerance)
-  );
+
+  return isZero(antennas[0], tolerance) && isZero(antennas[1], tolerance);
 }
 
 /**
@@ -99,4 +96,3 @@ export function createZeroHeadPose() {
 export function createZeroAntennas() {
   return [0, 0];
 }
-

@@ -1,8 +1,8 @@
 export { formatPoseForLog, hasSignificantChange } from './formatPose';
-export { 
-  generateHeadPositionLog, 
-  generateBodyYawLog, 
-  generateAntennasLog, 
+export {
+  generateHeadPositionLog,
+  generateBodyYawLog,
+  generateAntennasLog,
   generateCombinedLog,
-  generateGamepadInputLog
+  generateGamepadInputLog,
 } from './intelligentLogging';

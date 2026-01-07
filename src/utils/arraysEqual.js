@@ -1,7 +1,7 @@
 /**
  * Compare two arrays with tolerance (optimized for Three.js/WebSocket data)
  * Avoids unnecessary re-renders when values change by tiny amounts
- * 
+ *
  * @param {Array} a - First array
  * @param {Array} b - Second array
  * @param {number} tolerance - Tolerance threshold (default: 0.005 rad ≈ 0.3°)
@@ -17,4 +17,3 @@ export function arraysEqual(a, b, tolerance = 0.005) {
 }
 
 export default arraysEqual;
-

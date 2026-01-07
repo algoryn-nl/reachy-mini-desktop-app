@@ -11,27 +11,26 @@ import { useActiveRobotContext } from '../context';
  * Control Cards Component
  * Displays Expressions and Controller as cards with open/close buttons
  * Similar design to Applications cards
- * 
+ *
  * Uses ActiveRobotContext for decoupling from global stores
  */
-export default function ControlButtons({ 
-  darkMode = false,
-  isBusy = false,
-}) {
+export default function ControlButtons({ darkMode = false, isBusy = false }) {
   const { robotState, actions } = useActiveRobotContext();
   const { rightPanelView, currentApp, robotStatus } = robotState;
   const { setRightPanelView } = actions;
   const isExpressionsOpen = rightPanelView === 'expressions';
   const isControllerOpen = rightPanelView === 'controller';
-  
+
   // Check if any app is currently running or starting (based on currentApp state)
-  const isAnyAppActive = currentApp && currentApp.state && 
+  const isAnyAppActive =
+    currentApp &&
+    currentApp.state &&
     (currentApp.state === 'running' || currentApp.state === 'starting');
-  
+
   // Disable buttons when robot is sleeping, when an app is running, or when busy
   // Only enabled when robotStatus === 'ready' and not busy
   const isDisabled = robotStatus !== 'ready' || isAnyAppActive || isBusy;
-  
+
   const handleExpressionsClick = () => {
     if (isExpressionsOpen) {
       setRightPanelView(null); // Close: return to applications
@@ -39,7 +38,7 @@ export default function ControlButtons({
       setRightPanelView('expressions'); // Open expressions in right panel
     }
   };
-  
+
   const handleControllerClick = () => {
     if (isControllerOpen) {
       setRightPanelView(null); // Close: return to applications
@@ -162,7 +161,13 @@ export default function ControlButtons({
             pulse={!isExpressionsOpen}
             darkMode={darkMode}
             size="small"
-            startIcon={isExpressionsOpen ? <CloseIcon sx={{ fontSize: 14 }} /> : <OpenInNewIcon sx={{ fontSize: 14 }} />}
+            startIcon={
+              isExpressionsOpen ? (
+                <CloseIcon sx={{ fontSize: 14 }} />
+              ) : (
+                <OpenInNewIcon sx={{ fontSize: 14 }} />
+              )
+            }
             sx={isExpressionsOpen ? closeButtonOverrides : {}}
           >
             {isExpressionsOpen ? 'Close' : 'Open'}
@@ -218,7 +223,13 @@ export default function ControlButtons({
             pulse={!isControllerOpen}
             darkMode={darkMode}
             size="small"
-            startIcon={isControllerOpen ? <CloseIcon sx={{ fontSize: 14 }} /> : <OpenInNewIcon sx={{ fontSize: 14 }} />}
+            startIcon={
+              isControllerOpen ? (
+                <CloseIcon sx={{ fontSize: 14 }} />
+              ) : (
+                <OpenInNewIcon sx={{ fontSize: 14 }} />
+              )
+            }
             sx={isControllerOpen ? closeButtonOverrides : {}}
           >
             {isControllerOpen ? 'Close' : 'Open'}
@@ -228,4 +239,3 @@ export default function ControlButtons({
     </Box>
   );
 }
-

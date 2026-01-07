@@ -86,12 +86,12 @@ fn get_local_venv_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
         
         // In development, the executable is in target/debug/
         // The source venv is in src-tauri/binaries/.venv
-        // We need to go up to the tauri-app root, then into src-tauri/binaries/
+        // We need to go up to the reachy_mini_desktop_app root, then into src-tauri/binaries/
         if exe_dir.ends_with("target/debug") || exe_dir.ends_with("target\\debug") {
             // Dev mode - go to src-tauri/binaries/
             let src_tauri_dir = exe_dir
                 .parent() // target/
-                .and_then(|p| p.parent()) // tauri-app/src-tauri/ OR tauri-app/ depending on structure
+                .and_then(|p| p.parent()) // reachy_mini_desktop_app/src-tauri/ OR reachy_mini_desktop_app/ depending on structure
                 .ok_or_else(|| "Failed to navigate to src-tauri directory".to_string())?;
             
             // Check if we're already in src-tauri or need to go into it

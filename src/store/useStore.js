@@ -11,13 +11,13 @@ import { logReset, logInstallStart, logInstallEnd } from './storeLogger';
 
 /**
  * ✨ Unified Store with Slices Architecture
- * 
+ *
  * This store combines all domain slices into a single Zustand store:
  * - Robot: Connection, status, state machine
  * - Logs: Daemon, frontend, app logs
  * - UI: Theme, windows, panel views
  * - Apps: Application data, installation
- * 
+ *
  * Benefits:
  * - Single store = no subscription sync overhead
  * - Atomic cross-slice actions (resetAll)
@@ -33,11 +33,11 @@ export const useStore = create(
     ...createLogsSlice(set, get),
     ...createUISlice(set, get),
     ...createAppsSlice(set, get),
-    
+
     // ============================================
     // CROSS-SLICE ACTIONS
     // ============================================
-    
+
     /**
      * ✅ CRITICAL: Reset all state on disconnect
      * This is an atomic action that resets robot AND apps state together
@@ -45,7 +45,7 @@ export const useStore = create(
      */
     resetAll: () => {
       logReset('all');
-      
+
       set({
         // Robot state reset (robotStatus is the source of truth)
         robotStatus: 'disconnected',
@@ -72,7 +72,7 @@ export const useStore = create(
         isInstalling: false,
         currentAppName: null,
         activeEffect: null,
-        
+
         // Apps state reset
         availableApps: [],
         installedApps: [],
@@ -89,18 +89,18 @@ export const useStore = create(
         processedJobs: [],
         jobSeenOnce: false,
         isStoppingApp: false,
-        
+
         // Logs reset (optional - can be preserved)
         appLogs: [],
         // frontendLogs: [], // Keep frontend logs for debugging
         // logs: [], // Keep daemon logs for debugging
       });
     },
-    
+
     // ============================================
     // INSTALLATION WITH ROBOT STATE
     // ============================================
-    
+
     /**
      * Lock for install with robot state transition
      * Combines appsSlice.lockForInstall with robotSlice.transitionTo.busy
@@ -110,7 +110,7 @@ export const useStore = create(
       state.transitionTo.busy('installing');
       state.lockForInstall(appName, jobType);
     },
-    
+
     /**
      * Unlock install with robot state transition
      * Combines appsSlice.unlockInstall with robotSlice.transitionTo.ready
@@ -120,26 +120,22 @@ export const useStore = create(
       state.transitionTo.ready();
       state.unlockInstall();
     },
-    
+
     // ============================================
     // GENERIC UPDATE ACTION (backwards compat)
     // ============================================
-    
+
     /**
      * Generic update for backwards compatibility
      * Accepts any state updates
      */
-    update: (updates) => set(updates),
+    update: updates => set(updates),
   }))
 );
 
 // Setup system preference listener for dark mode
 if (typeof window !== 'undefined') {
-  setupSystemPreferenceListener(
-    useStore.getState,
-    useStore.setState
-  );
+  setupSystemPreferenceListener(useStore.getState, useStore.setState);
 }
 
 export default useStore;
-

@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, CircularProgress, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+} from '@mui/material';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
@@ -14,23 +21,30 @@ import { useActiveRobotContext } from '../../context';
  * Displays app details, progress and logs
  * Uses ActiveRobotContext for decoupling from global stores
  */
-export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = 'install', resultState = null, installStartTime = null }) {
+export default function InstallOverlay({
+  appInfo,
+  jobInfo,
+  darkMode,
+  jobType = 'install',
+  resultState = null,
+  installStartTime = null,
+}) {
   const { actions } = useActiveRobotContext();
   const { unlockInstall } = actions;
   const [elapsedTime, setElapsedTime] = useState(0);
   const [logsExpanded, setLogsExpanded] = useState(false);
   const intervalRef = useRef(null);
-  
+
   // ✅ Persist logs and progress across jobInfo changes
   // This ensures logs and steps don't disappear when job is temporarily removed from activeJobs
   const persistedLogsRef = useRef([]);
   const maxProgressRef = useRef(0);
   const currentAppNameRef = useRef(null);
-  
+
   // resultState can be: null (in progress), 'success', 'failed'
   // jobType: 'install' or 'remove'
   // installStartTime: timestamp from store representing when installation actually started
-  
+
   // ✅ Detect network error for specific UI treatment
   const isNetworkError = jobInfo?.isNetworkError === true;
 
@@ -60,7 +74,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
           persistedLogsRef.current = [...persistedLogsRef.current, ...newLogs];
         }
       }
-      
+
       // Update max progress (never decrease)
       const currentProgress = persistedLogsRef.current.length;
       if (currentProgress > maxProgressRef.current) {
@@ -72,31 +86,31 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
   // Timer to display elapsed time - Continue until result is shown
   // Use installStartTime from store if available, otherwise use overlay mount time as fallback
   const overlayStartTimeRef = useRef(null);
-  
+
   useEffect(() => {
     if (!appInfo) {
       setElapsedTime(0);
       overlayStartTimeRef.current = null;
       return;
     }
-    
+
     // Initialize overlay start time on mount (fallback if installStartTime not available yet)
     if (!overlayStartTimeRef.current) {
       overlayStartTimeRef.current = Date.now();
     }
-    
+
     // Use installStartTime from store if available (more accurate), otherwise use overlay mount time
     const startTime = installStartTime || overlayStartTimeRef.current;
-    
+
     // Calculate elapsed time from start time
     const updateElapsedTime = () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       setElapsedTime(elapsed);
     };
-    
+
     // Update immediately
     updateElapsedTime();
-    
+
     // Update every second, but only if still in progress
     if (resultState === null) {
       intervalRef.current = setInterval(updateElapsedTime, 1000);
@@ -115,51 +129,62 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
 
   if (!appInfo) return null;
 
-  const formatTime = (seconds) => {
+  const formatTime = seconds => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const isInstalling = jobType === 'install';
-  
+
   // ✅ Use persisted data: never lose logs or decrease progress
-  const currentLogs = jobInfo?.logs && jobInfo.logs.length > 0 
-    ? jobInfo.logs 
-    : persistedLogsRef.current;
-  
+  const currentLogs =
+    jobInfo?.logs && jobInfo.logs.length > 0 ? jobInfo.logs : persistedLogsRef.current;
+
   // ✅ Detect installation phase instead of counting all logs
   // This gives a clearer indication of progress than raw log count
-  const detectPhase = (logs) => {
+  const detectPhase = logs => {
     if (!logs || logs.length === 0) {
       return { phase: 'Preparing', step: 0 };
     }
-    
+
     const logsText = logs.join(' ').toLowerCase();
     const logCount = logs.length;
-    
+
     // Detect phases based on log content
     if (logsText.includes('completed') || logsText.includes('success')) {
       return { phase: 'Finalizing', step: 4 };
     }
-    if (logsText.includes('configuring') || logsText.includes('setting up') || logsText.includes('installing dependencies')) {
+    if (
+      logsText.includes('configuring') ||
+      logsText.includes('setting up') ||
+      logsText.includes('installing dependencies')
+    ) {
       return { phase: 'Configuring', step: 3 };
     }
-    if (logsText.includes('installing') || logsText.includes('copying') || logsText.includes('extracting')) {
+    if (
+      logsText.includes('installing') ||
+      logsText.includes('copying') ||
+      logsText.includes('extracting')
+    ) {
       return { phase: 'Installing', step: 2 };
     }
-    if (logsText.includes('downloading') || logsText.includes('fetching') || logsText.includes('retrieving')) {
+    if (
+      logsText.includes('downloading') ||
+      logsText.includes('fetching') ||
+      logsText.includes('retrieving')
+    ) {
       return { phase: 'Downloading', step: 1 };
     }
-    
+
     // Default: show progress based on log count (but cap it)
     return { phase: 'Processing', step: Math.min(5, Math.floor(logCount / 10) + 1) };
   };
-  
+
   const phaseInfo = detectPhase(currentLogs);
   const latestLogs = currentLogs.length > 0 ? currentLogs.slice(-5) : []; // Display last 5 logs when collapsed
   const allLogs = currentLogs; // All logs when expanded
-  
+
   // Determine if showing final result or progress
   const isShowingResult = resultState !== null;
 
@@ -171,7 +196,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
         unlockInstall();
       }}
       debugName="InstallProgress"
-      onBackdropClick={(e) => {
+      onBackdropClick={e => {
         // Prevent closing by clicking backdrop during installation
         // Only allow closing if installation failed (user can see error and close manually)
         if (isShowingResult && resultState === 'failed') {
@@ -210,18 +235,18 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
             }}
           >
             {isNetworkError ? (
-              <WifiOffIcon 
-                sx={{ 
-                  fontSize: 64, 
+              <WifiOffIcon
+                sx={{
+                  fontSize: 64,
                   color: '#f59e0b', // Orange/amber for network issues
-                }} 
+                }}
               />
             ) : (
-              <ErrorOutlineIcon 
-                sx={{ 
-                  fontSize: 64, 
+              <ErrorOutlineIcon
+                sx={{
+                  fontSize: 64,
                   color: '#ef4444',
-                }} 
+                }}
               />
             )}
           </Box>
@@ -266,10 +291,11 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                 },
               }}
             >
-              {isNetworkError 
-                ? 'Network Issue' 
-                : (isInstalling ? 'Installation Failed' : 'Uninstallation Failed')
-              }
+              {isNetworkError
+                ? 'Network Issue'
+                : isInstalling
+                  ? 'Installation Failed'
+                  : 'Uninstallation Failed'}
             </Typography>
             <Typography
               sx={{
@@ -296,7 +322,15 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
           </Box>
         ) : (
           // 🔄 Normal title (progress)
-          <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 0.25, mb: -0.5 }}>
+          <Box
+            sx={{
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.25,
+              mb: -0.5,
+            }}
+          >
             <Typography
               sx={{
                 fontSize: 10,
@@ -336,9 +370,17 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
               >
                 {appInfo.description || 'No description'}
               </Typography>
-              
+
               {/* Author + Downloads (sans stars) */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  justifyContent: 'center',
+                  flexWrap: 'wrap',
+                }}
+              >
                 {appInfo.author && (
                   <Typography
                     sx={{
@@ -350,7 +392,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                     by {appInfo.author}
                   </Typography>
                 )}
-                
+
                 {appInfo.downloads !== undefined && (
                   <Box
                     sx={{
@@ -413,7 +455,7 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                   {formatTime(elapsedTime)}
                 </Typography>
               </Box>
-              
+
               {/* Phase indicator */}
               <Box
                 sx={{
@@ -446,9 +488,9 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
           <Accordion
             expanded={logsExpanded}
             onChange={(e, expanded) => setLogsExpanded(expanded)}
-              sx={{
-                width: '100%',
-                maxWidth: '460px',
+            sx={{
+              width: '100%',
+              maxWidth: '460px',
               bgcolor: 'transparent !important',
               boxShadow: 'none !important',
               '&:before': { display: 'none' },
@@ -457,11 +499,11 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
           >
             <AccordionSummary
               expandIcon={
-                <ExpandMoreIcon 
-                  sx={{ 
+                <ExpandMoreIcon
+                  sx={{
                     color: darkMode ? '#888' : '#999',
                     fontSize: 18,
-                  }} 
+                  }}
                 />
               }
               sx={{
@@ -532,27 +574,26 @@ export default function InstallOverlay({ appInfo, jobInfo, darkMode, jobType = '
                   bgcolor: 'transparent',
                   border: 'none',
                   borderRadius: 0,
-                      }}
-                    />
+                }}
+              />
             </AccordionDetails>
           </Accordion>
 
           {/* Instruction - Show only during progress */}
           {!isShowingResult && isInstalling && (
-              <Typography
-                sx={{
-                  fontSize: 11,
-                  color: darkMode ? '#666' : '#999',
-                  fontStyle: 'italic',
-                  mt: 1,
-                }}
-              >
-                This may take up to 1 minute...
-              </Typography>
-            )}
-          </>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: darkMode ? '#666' : '#999',
+                fontStyle: 'italic',
+                mt: 1,
+              }}
+            >
+              This may take up to 1 minute...
+            </Typography>
+          )}
+        </>
       </Box>
     </FullscreenOverlay>
   );
 }
-

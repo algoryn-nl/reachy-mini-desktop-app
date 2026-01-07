@@ -7,4 +7,3 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 export function getAppWindow() {
   return window.mockGetCurrentWindow ? window.mockGetCurrentWindow() : getCurrentWindow();
 }
-

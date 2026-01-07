@@ -75,7 +75,7 @@ const updateViewReducer = (state, action) => {
 /**
  * Hook to manage update view display state with useReducer
  * Handles all cases: dev mode, production mode, minimum display time, errors
- * 
+ *
  * @param {boolean} isDev - Whether in dev mode
  * @param {boolean} isChecking - Whether update check is in progress
  * @param {object|null} updateAvailable - Update object if available
@@ -167,7 +167,7 @@ export const useUpdateViewState = ({
   // This ensures minimum display time even if check completes very quickly
   useEffect(() => {
     if (isDev) return;
-    
+
     // Initialize checkStartTime if we should show the view but it's not set yet
     // This handles cases where:
     // 1. isChecking becomes true (normal case)
@@ -178,7 +178,7 @@ export const useUpdateViewState = ({
       dispatch({ type: 'START_CHECK' });
     }
   }, [isDev, isChecking, updateAvailable, isDownloading, updateError, state.checkStartTime]);
-  
+
   // ✅ ADDITIONAL SAFETY: If check completed very quickly (isChecking went false before we initialized),
   // initialize checkStartTime now to ensure minimum display time
   useEffect(() => {
@@ -187,7 +187,7 @@ export const useUpdateViewState = ({
     // ✅ CRITICAL: Don't re-show update view if we already completed the check once
     // This prevents the bug where disconnecting from robot would show update view again
     if (state.hasCompletedOnce) return;
-    
+
     // If we're not checking anymore but we should show the view (no update, no error, no download),
     // it means check completed very quickly. Initialize now to ensure minimum time.
     if (!isChecking && !updateAvailable && !isDownloading && !updateError) {
@@ -198,12 +198,23 @@ export const useUpdateViewState = ({
         dispatch({ type: 'START_CHECK' });
       }
     }
-  }, [isDev, isChecking, updateAvailable, isDownloading, updateError, isActive, isStarting, isStopping, state.checkStartTime, state.hasCompletedOnce]);
+  }, [
+    isDev,
+    isChecking,
+    updateAvailable,
+    isDownloading,
+    updateError,
+    isActive,
+    isStarting,
+    isStopping,
+    state.checkStartTime,
+    state.hasCompletedOnce,
+  ]);
 
   // PRODUCTION MODE: Check completed - ensure minimum display time
   useEffect(() => {
     if (isDev) return;
-    
+
     // If update available, downloading, or error, cancel any pending timer
     // (we'll keep showing anyway, no need to wait for min time)
     if (updateAvailable || isDownloading || updateError) {
@@ -213,7 +224,7 @@ export const useUpdateViewState = ({
       }
       return;
     }
-    
+
     // Check completed with no update/error/download
     // Need to ensure minimum display time
     if (!isChecking && state.checkStartTime !== null && !state.minTimeElapsed) {
@@ -239,7 +250,15 @@ export const useUpdateViewState = ({
         timerRef.current = null;
       }
     };
-  }, [isDev, isChecking, updateAvailable, isDownloading, updateError, state.checkStartTime, state.minTimeElapsed]);
+  }, [
+    isDev,
+    isChecking,
+    updateAvailable,
+    isDownloading,
+    updateError,
+    state.checkStartTime,
+    state.minTimeElapsed,
+  ]);
 
   // PRODUCTION MODE: Handle error case - allow continuation after minimum time + grace period
   useEffect(() => {
@@ -277,7 +296,7 @@ export const useUpdateViewState = ({
     // ✅ CRITICAL: Never show again if we already completed the update check once
     // This prevents the bug where disconnecting from robot would show update view again
     if (state.hasCompletedOnce) return false;
-    
+
     // Don't show if daemon is active/starting/stopping
     if (isActive || isStarting || isStopping) return false;
 
@@ -303,4 +322,3 @@ export const useUpdateViewState = ({
 
   return shouldShowUpdateView;
 };
-

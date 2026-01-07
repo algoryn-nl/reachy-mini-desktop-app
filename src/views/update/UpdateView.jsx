@@ -22,7 +22,10 @@ export default function UpdateView({
   const { darkMode } = useAppStore();
   const [minDisplayTimeElapsed, setMinDisplayTimeElapsed] = useState(false);
   const checkStartTimeRef = useRef(Date.now());
-  const { isOnline: isInternetOnline, hasChecked: hasInternetChecked } = useInternetHealthcheck({ interval: 5000, timeout: 5000 });
+  const { isOnline: isInternetOnline, hasChecked: hasInternetChecked } = useInternetHealthcheck({
+    interval: 5000,
+    timeout: 5000,
+  });
 
   // ✅ Timer to guarantee minimum display time (uses centralized config)
   // Reset timer when component mounts to ensure "Looking for updates..." is visible for at least 2 seconds
@@ -30,7 +33,7 @@ export default function UpdateView({
   useEffect(() => {
     checkStartTimeRef.current = Date.now();
     setMinDisplayTimeElapsed(false);
-    
+
     const timer = setTimeout(() => {
       setMinDisplayTimeElapsed(true);
     }, DAEMON_CONFIG.MIN_DISPLAY_TIMES.UPDATE_CHECK);
@@ -40,7 +43,13 @@ export default function UpdateView({
 
   // Automatic installation if update available and minimum time elapsed
   useEffect(() => {
-    if (updateAvailable && !isDownloading && !updateError && minDisplayTimeElapsed && onInstallUpdate) {
+    if (
+      updateAvailable &&
+      !isDownloading &&
+      !updateError &&
+      minDisplayTimeElapsed &&
+      onInstallUpdate
+    ) {
       // Small delay to let UI update
       const installTimer = setTimeout(() => {
         onInstallUpdate();
@@ -49,7 +58,7 @@ export default function UpdateView({
     }
   }, [updateAvailable, isDownloading, updateError, minDisplayTimeElapsed, onInstallUpdate]);
 
-  const formatDate = (dateString) => {
+  const formatDate = dateString => {
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('en-US', {
@@ -63,9 +72,9 @@ export default function UpdateView({
   };
 
   // Check if error is network-related
-  const isNetworkError = (error) => {
+  const isNetworkError = error => {
     if (!error) return false;
-    
+
     const errorLower = error.toLowerCase();
     const networkKeywords = [
       'network',
@@ -80,7 +89,7 @@ export default function UpdateView({
       'no internet',
       'offline',
     ];
-    
+
     return networkKeywords.some(keyword => errorLower.includes(keyword));
   };
 
@@ -291,14 +300,15 @@ export default function UpdateView({
                 {updateError.includes('timed out') || updateError.includes('timeout')
                   ? 'Update Check Timed Out'
                   : updateError.includes('Network error') || updateError.includes('DNS error')
-                  ? 'Connection Problem'
-                  : updateError.includes('Server error')
-                  ? 'Server Error'
-                  : updateError.includes('Security error') || updateError.includes('certificate')
-                  ? 'Security Error'
-                  : isNetworkError(updateError)
-                  ? 'No Internet Connection'
-                  : 'Update Check Failed'}
+                    ? 'Connection Problem'
+                    : updateError.includes('Server error')
+                      ? 'Server Error'
+                      : updateError.includes('Security error') ||
+                          updateError.includes('certificate')
+                        ? 'Security Error'
+                        : isNetworkError(updateError)
+                          ? 'No Internet Connection'
+                          : 'Update Check Failed'}
               </Typography>
 
               {/* Error message - use the detailed error message directly */}
@@ -313,7 +323,6 @@ export default function UpdateView({
               >
                 {updateError}
               </Typography>
-
             </Box>
           </>
         ) : null}
@@ -335,32 +344,40 @@ export default function UpdateView({
             zIndex: 10,
           }}
         >
-        <Box
-          sx={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            bgcolor: isInternetOnline 
-              ? (darkMode ? 'rgba(34, 197, 94, 0.6)' : 'rgba(34, 197, 94, 0.5)')
-              : (darkMode ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.5)'),
-            boxShadow: isInternetOnline
-              ? (darkMode ? '0 0 4px rgba(34, 197, 94, 0.3)' : '0 0 3px rgba(34, 197, 94, 0.2)')
-              : (darkMode ? '0 0 4px rgba(239, 68, 68, 0.3)' : '0 0 3px rgba(239, 68, 68, 0.2)'),
-            transition: 'all 0.3s ease',
-            flexShrink: 0,
-          }}
-        />
-        <Typography
-          sx={{
-            fontSize: 12,
-            fontWeight: 400,
-            color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
-            whiteSpace: 'nowrap',
-            transition: 'color 0.3s ease',
-          }}
-        >
-          {isInternetOnline ? 'Online' : 'Offline'}
-        </Typography>
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: isInternetOnline
+                ? darkMode
+                  ? 'rgba(34, 197, 94, 0.6)'
+                  : 'rgba(34, 197, 94, 0.5)'
+                : darkMode
+                  ? 'rgba(239, 68, 68, 0.6)'
+                  : 'rgba(239, 68, 68, 0.5)',
+              boxShadow: isInternetOnline
+                ? darkMode
+                  ? '0 0 4px rgba(34, 197, 94, 0.3)'
+                  : '0 0 3px rgba(34, 197, 94, 0.2)'
+                : darkMode
+                  ? '0 0 4px rgba(239, 68, 68, 0.3)'
+                  : '0 0 3px rgba(239, 68, 68, 0.2)',
+              transition: 'all 0.3s ease',
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            sx={{
+              fontSize: 12,
+              fontWeight: 400,
+              color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+              whiteSpace: 'nowrap',
+              transition: 'color 0.3s ease',
+            }}
+          >
+            {isInternetOnline ? 'Online' : 'Offline'}
+          </Typography>
         </Box>
       )}
 
@@ -400,4 +417,3 @@ export default function UpdateView({
     </Box>
   );
 }
-

@@ -6,8 +6,8 @@
 /**
  * Convert radians to degrees for human-readable display
  */
-const radToDeg = (rad) => {
-  return Math.round(rad * 180 / Math.PI);
+const radToDeg = rad => {
+  return Math.round((rad * 180) / Math.PI);
 };
 
 /**
@@ -26,12 +26,12 @@ const formatValue = (value, unit = 'rad', convertToDeg = true) => {
 const getMovementDescription = (value, previousValue, threshold = 0.01) => {
   const diff = value - (previousValue || 0);
   const absDiff = Math.abs(diff);
-  
+
   if (absDiff < threshold) return null;
-  
+
   const direction = diff > 0 ? 'up' : 'down';
   const magnitude = absDiff > 0.1 ? 'large' : absDiff > 0.05 ? 'medium' : 'small';
-  
+
   return { direction, magnitude, diff: absDiff };
 };
 
@@ -42,15 +42,15 @@ export const generateHeadPositionLog = (headPose, previousHeadPose = null) => {
   if (!previousHeadPose) {
     return `Moving head to position`;
   }
-  
+
   const changes = [];
   const significantThreshold = 0.01;
-  
+
   // Position changes
   const posX = getMovementDescription(headPose.x, previousHeadPose.x, significantThreshold);
   const posY = getMovementDescription(headPose.y, previousHeadPose.y, significantThreshold);
   const posZ = getMovementDescription(headPose.z, previousHeadPose.z, significantThreshold);
-  
+
   if (posX || posY || posZ) {
     const directions = [];
     if (posX) directions.push(`X ${posX.direction}`);
@@ -58,12 +58,12 @@ export const generateHeadPositionLog = (headPose, previousHeadPose = null) => {
     if (posZ) directions.push(`Z ${posZ.direction}`);
     changes.push(`Position: ${directions.join(', ')}`);
   }
-  
+
   // Rotation changes
   const pitch = getMovementDescription(headPose.pitch, previousHeadPose.pitch, 0.05);
   const yaw = getMovementDescription(headPose.yaw, previousHeadPose.yaw, 0.05);
   const roll = getMovementDescription(headPose.roll, previousHeadPose.roll, 0.05);
-  
+
   if (pitch || yaw || roll) {
     const rotations = [];
     if (pitch) rotations.push(`pitch ${pitch.direction} ${formatValue(pitch.diff, 'rad')}`);
@@ -71,24 +71,24 @@ export const generateHeadPositionLog = (headPose, previousHeadPose = null) => {
     if (roll) rotations.push(`roll ${roll.direction} ${formatValue(roll.diff, 'rad')}`);
     changes.push(`Rotation: ${rotations.join(', ')}`);
   }
-  
+
   // Check if it's a reset (all values near zero)
-  const isReset = 
+  const isReset =
     Math.abs(headPose.x) < 0.001 &&
     Math.abs(headPose.y) < 0.001 &&
     Math.abs(headPose.z) < 0.001 &&
     Math.abs(headPose.pitch) < 0.01 &&
     Math.abs(headPose.yaw) < 0.01 &&
     Math.abs(headPose.roll) < 0.01;
-  
+
   if (isReset) {
     return `Head reset to center`;
   }
-  
+
   if (changes.length === 0) {
     return null; // No significant change
   }
-  
+
   return `Head: ${changes.join(' | ')}`;
 };
 
@@ -99,22 +99,22 @@ export const generateBodyYawLog = (bodyYaw, previousBodyYaw = null) => {
   if (previousBodyYaw === null) {
     return `Rotating body`;
   }
-  
+
   const diff = bodyYaw - previousBodyYaw;
   const absDiff = Math.abs(diff);
-  
+
   if (absDiff < 0.01) {
     return null; // No significant change
   }
-  
+
   // Check if it's a reset
   if (Math.abs(bodyYaw) < 0.01) {
     return `Body reset to center`;
   }
-  
+
   const direction = diff > 0 ? 'left' : 'right';
   const angle = formatValue(absDiff);
-  
+
   return `Body rotation: ${direction} ${angle}`;
 };
 
@@ -125,36 +125,36 @@ export const generateAntennasLog = (antennas, previousAntennas = null) => {
   if (!previousAntennas) {
     return `Moving antennas`;
   }
-  
+
   const leftDiff = Math.abs(antennas[0] - previousAntennas[0]);
   const rightDiff = Math.abs(antennas[1] - previousAntennas[1]);
   const threshold = 0.01;
-  
+
   if (leftDiff < threshold && rightDiff < threshold) {
     return null; // No significant change
   }
-  
+
   // Check if it's a reset
   if (Math.abs(antennas[0]) < 0.01 && Math.abs(antennas[1]) < 0.01) {
     return `Antennas reset to center`;
   }
-  
+
   const changes = [];
-  
+
   if (leftDiff >= threshold) {
     const leftDir = antennas[0] > previousAntennas[0] ? 'up' : 'down';
     changes.push(`Left ${leftDir} ${formatValue(leftDiff, 'rad')}`);
   }
-  
+
   if (rightDiff >= threshold) {
     const rightDir = antennas[1] > previousAntennas[1] ? 'up' : 'down';
     changes.push(`Right ${rightDir} ${formatValue(rightDiff, 'rad')}`);
   }
-  
+
   if (changes.length === 0) {
     return null;
   }
-  
+
   return `Antennas: ${changes.join(', ')}`;
 };
 
@@ -165,32 +165,32 @@ export const generateCombinedLog = (headPose, bodyYaw, antennas, previous = null
   if (!previous) {
     return `Moving robot`;
   }
-  
+
   const headLog = generateHeadPositionLog(headPose, previous.headPose);
   const bodyLog = generateBodyYawLog(bodyYaw, previous.bodyYaw);
   const antennasLog = generateAntennasLog(antennas, previous.antennas);
-  
+
   const logs = [headLog, bodyLog, antennasLog].filter(Boolean);
-  
+
   if (logs.length === 0) {
     return null;
   }
-  
+
   // If all parts are resetting, show a single reset message
-  const isFullReset = 
+  const isFullReset =
     (!headLog || headLog.includes('reset')) &&
     (!bodyLog || bodyLog.includes('reset')) &&
     (!antennasLog || antennasLog.includes('reset'));
-  
+
   if (isFullReset) {
     return `Robot reset to center position`;
   }
-  
+
   // If multiple parts are moving, combine them
   if (logs.length > 1) {
     return logs.join(' | ');
   }
-  
+
   return logs[0];
 };
 
@@ -201,16 +201,16 @@ export const generateGamepadInputLog = (inputs, previousInputs = null) => {
   if (!previousInputs) {
     return `Gamepad input detected`;
   }
-  
+
   const changes = [];
   const threshold = 0.1; // Threshold for significant input
-  
+
   // Position changes (left stick)
-  const hasPositionInput = 
-    Math.abs(inputs.moveForward) > threshold || 
+  const hasPositionInput =
+    Math.abs(inputs.moveForward) > threshold ||
     Math.abs(inputs.moveRight) > threshold ||
     Math.abs(inputs.moveUp) > threshold;
-  
+
   if (hasPositionInput) {
     const posChanges = [];
     if (Math.abs(inputs.moveForward) > threshold) {
@@ -229,13 +229,13 @@ export const generateGamepadInputLog = (inputs, previousInputs = null) => {
       changes.push(`Position: ${posChanges.join(', ')}`);
     }
   }
-  
+
   // Rotation changes (right stick)
-  const hasRotationInput = 
-    Math.abs(inputs.lookHorizontal) > threshold || 
+  const hasRotationInput =
+    Math.abs(inputs.lookHorizontal) > threshold ||
     Math.abs(inputs.lookVertical) > threshold ||
     Math.abs(inputs.roll) > threshold;
-  
+
   if (hasRotationInput) {
     const rotChanges = [];
     if (Math.abs(inputs.lookVertical) > threshold) {
@@ -254,18 +254,17 @@ export const generateGamepadInputLog = (inputs, previousInputs = null) => {
       changes.push(`Rotation: ${rotChanges.join(', ')}`);
     }
   }
-  
+
   // Body yaw changes
   if (Math.abs(inputs.bodyYaw) > threshold) {
     const dir = inputs.bodyYaw > 0 ? 'left' : 'right';
     changes.push(`Body rotation: ${dir}`);
   }
-  
+
   // Antennas changes
-  const hasAntennaInput = 
-    Math.abs(inputs.antennaLeft) > threshold || 
-    Math.abs(inputs.antennaRight) > threshold;
-  
+  const hasAntennaInput =
+    Math.abs(inputs.antennaLeft) > threshold || Math.abs(inputs.antennaRight) > threshold;
+
   if (hasAntennaInput) {
     const antennaChanges = [];
     if (Math.abs(inputs.antennaLeft) > threshold) {
@@ -278,9 +277,9 @@ export const generateGamepadInputLog = (inputs, previousInputs = null) => {
       changes.push(`Antennas: ${antennaChanges.join(', ')}`);
     }
   }
-  
+
   // Check if all inputs are zero (reset)
-  const isReset = 
+  const isReset =
     Math.abs(inputs.moveForward) < threshold &&
     Math.abs(inputs.moveRight) < threshold &&
     Math.abs(inputs.moveUp) < threshold &&
@@ -290,15 +289,14 @@ export const generateGamepadInputLog = (inputs, previousInputs = null) => {
     Math.abs(inputs.bodyYaw) < threshold &&
     Math.abs(inputs.antennaLeft) < threshold &&
     Math.abs(inputs.antennaRight) < threshold;
-  
+
   if (isReset && !previousInputs) {
     return null; // Don't log initial state
   }
-  
+
   if (changes.length === 0) {
     return null; // No significant change
   }
-  
+
   return `Gamepad: ${changes.join(' | ')}`;
 };
-

@@ -18,14 +18,14 @@ import SleepingReachy from '../../assets/sleeping-reachy.svg';
  * Permission Card Component
  * Reusable card for displaying permission status and actions
  */
-const PermissionCard = ({ 
-  icon: Icon, 
-  title, 
-  granted, 
-  requested, 
-  onRequest, 
-  onOpenSettings, 
-  darkMode 
+const PermissionCard = ({
+  icon: Icon,
+  title,
+  granted,
+  requested,
+  onRequest,
+  onOpenSettings,
+  darkMode,
 }) => {
   return (
     <Box
@@ -38,7 +38,9 @@ const PermissionCard = ({
         padding: 3,
         borderRadius: 2,
         backgroundColor: granted
-          ? (darkMode ? 'rgba(34, 197, 94, 0.06)' : 'rgba(34, 197, 94, 0.04)')
+          ? darkMode
+            ? 'rgba(34, 197, 94, 0.06)'
+            : 'rgba(34, 197, 94, 0.04)'
           : 'transparent',
         border: granted
           ? `1px solid ${darkMode ? 'rgba(34, 197, 94, 0.5)' : 'rgba(34, 197, 94, 0.4)'}`
@@ -49,9 +51,7 @@ const PermissionCard = ({
       <Icon
         sx={{
           fontSize: 20,
-          color: granted
-            ? (darkMode ? '#22c55e' : '#16a34a')
-            : (darkMode ? '#666' : '#999'),
+          color: granted ? (darkMode ? '#22c55e' : '#16a34a') : darkMode ? '#666' : '#999',
           mb: 1.5,
           transition: 'color 0.3s ease',
         }}
@@ -61,8 +61,12 @@ const PermissionCard = ({
         sx={{
           fontWeight: 600,
           color: granted
-            ? (darkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.85)')
-            : (darkMode ? '#fff' : '#1a1a1a'),
+            ? darkMode
+              ? 'rgba(255, 255, 255, 0.9)'
+              : 'rgba(0, 0, 0, 0.85)'
+            : darkMode
+              ? '#fff'
+              : '#1a1a1a',
           mb: 2,
           textAlign: 'center',
         }}
@@ -123,10 +127,10 @@ const permissionsViewReducer = (state, action) => {
   switch (action.type) {
     case 'SET_CAMERA_REQUESTED':
       return { ...state, cameraRequested: true };
-    
+
     case 'SET_MICROPHONE_REQUESTED':
       return { ...state, microphoneRequested: true };
-    
+
     default:
       return state;
   }
@@ -140,8 +144,12 @@ const permissionsViewReducer = (state, action) => {
 export default function PermissionsRequiredView({ isRestarting: externalIsRestarting }) {
   const { darkMode } = useAppStore();
   // Use the hook for real-time permission detection
-  const { cameraGranted, microphoneGranted, refresh: refreshPermissions } = usePermissions({ checkInterval: 2000 });
-  
+  const {
+    cameraGranted,
+    microphoneGranted,
+    refresh: refreshPermissions,
+  } = usePermissions({ checkInterval: 2000 });
+
   const [state, dispatch] = useReducer(permissionsViewReducer, {
     cameraRequested: false,
     microphoneRequested: false,
@@ -152,16 +160,15 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
   // Listen to Rust logs from backend (only show errors)
   React.useEffect(() => {
     let unlistenRustLog;
-    
+
     const setupRustLogListener = async () => {
       try {
-        unlistenRustLog = await listen('rust-log', (event) => {
-          const message = typeof event.payload === 'string' 
-            ? event.payload 
-            : event.payload?.toString() || '';
-          
+        unlistenRustLog = await listen('rust-log', event => {
+          const message =
+            typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
+
           // Only show errors from Rust backend
-          if (message.includes("❌") || message.includes("error") || message.includes("Error")) {
+          if (message.includes('❌') || message.includes('error') || message.includes('Error')) {
             logError(message);
           }
         });
@@ -169,9 +176,9 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
         console.error('Failed to setup rust-log listener:', error);
       }
     };
-    
+
     setupRustLogListener();
-    
+
     return () => {
       if (unlistenRustLog) {
         unlistenRustLog();
@@ -197,7 +204,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
   }, []);
 
   // Generic permission request handler
-  const requestPermission = async (type) => {
+  const requestPermission = async type => {
     // Skip on non-macOS platforms - permissions are handled by the webview
     if (!isMacOS()) {
       logInfo(`[Permissions] ℹ️ Non-macOS platform - permissions handled automatically`);
@@ -210,24 +217,14 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       const settingsCommand = `open_${type}_settings`;
 
       // Check current status
-      let currentStatus;
-      try {
-        currentStatus = await invoke(checkCommand);
-      } catch (checkError) {
-        throw checkError;
-      }
+      const currentStatus = await invoke(checkCommand);
 
       if (currentStatus === true) {
         return;
       }
 
       // Request permission
-      let result;
-      try {
-        result = await invoke(requestCommand);
-      } catch (requestError) {
-        throw requestError;
-      }
+      const result = await invoke(requestCommand);
 
       if (type === 'camera') {
         dispatch({ type: 'SET_CAMERA_REQUESTED' });
@@ -239,9 +236,10 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
         // Popup shown, start polling silently
         let checkCount = 0;
         const maxChecks = 20;
-        const permCheckCommand = type === 'camera'
-          ? 'plugin:macos-permissions|check_camera_permission'
-          : 'plugin:macos-permissions|check_microphone_permission';
+        const permCheckCommand =
+          type === 'camera'
+            ? 'plugin:macos-permissions|check_camera_permission'
+            : 'plugin:macos-permissions|check_microphone_permission';
 
         const aggressiveInterval = setInterval(async () => {
           checkCount++;
@@ -267,11 +265,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
 
       if (result === false) {
         // Permission denied, open settings
-        try {
-          await invoke(settingsCommand);
-        } catch (settingsError) {
-          throw settingsError;
-        }
+        await invoke(settingsCommand);
       }
     } catch (error) {
       const errorMsg = error?.message || error?.toString() || 'Unknown error';
@@ -280,13 +274,14 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       try {
         await invoke(`open_${type}_settings`);
       } catch (settingsError) {
-        const settingsErrorMsg = settingsError?.message || settingsError?.toString() || 'Unknown error';
+        const settingsErrorMsg =
+          settingsError?.message || settingsError?.toString() || 'Unknown error';
         logError(`[Permissions] ❌ Failed to open settings: ${settingsErrorMsg}`);
       }
     }
   };
 
-  const openSettings = async (type) => {
+  const openSettings = async type => {
     // Skip on non-macOS platforms
     if (!isMacOS()) {
       logInfo(`[Permissions] ℹ️ Non-macOS platform - no settings to open`);
@@ -376,7 +371,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       </Box>
 
       <Box sx={{ maxWidth: 600, textAlign: 'center' }}>
-        {(state.isRestarting || externalIsRestarting) ? (
+        {state.isRestarting || externalIsRestarting ? (
           <>
             {/* Restarting view */}
             <Box

@@ -12,7 +12,9 @@ export default function RobotHeader({ daemonVersion, darkMode = false }) {
   const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+    getVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(null));
   }, []);
 
   // Get connection type label
@@ -63,7 +65,7 @@ export default function RobotHeader({ daemonVersion, darkMode = false }) {
           </Typography>
         )}
       </Box>
-      
+
       {/* Version Subtitle - App + Daemon */}
       <Typography
         sx={{
@@ -92,4 +94,3 @@ export default function RobotHeader({ daemonVersion, darkMode = false }) {
     </Box>
   );
 }
-

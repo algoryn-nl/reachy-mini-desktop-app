@@ -10,7 +10,7 @@ import { isSimulationMode } from '../utils/simulationMode';
 /**
  * Common TopBar component for all views
  * Displays app version and handles window dragging
- * 
+ *
  * Uses a React Portal to render directly in the body, ensuring it stays
  * above MUI Modals (which also use portals) regardless of parent stacking context.
  */
@@ -20,15 +20,17 @@ export default function AppTopBar() {
   const [isMainWindow, setIsMainWindow] = useState(true);
   const appWindow = getAppWindow();
   const simMode = isSimulationMode();
-  
+
   // Hide version in topbar when connected (shown in RobotHeader instead)
   const isConnected = connectionMode !== null;
 
   useEffect(() => {
-    getVersion().then(setCurrentVersion).catch(() => {
-      setCurrentVersion(null);
-    });
-    
+    getVersion()
+      .then(setCurrentVersion)
+      .catch(() => {
+        setCurrentVersion(null);
+      });
+
     // Check if we're in the main window
     const checkWindow = async () => {
       try {
@@ -39,7 +41,7 @@ export default function AppTopBar() {
         setIsMainWindow(true);
       }
     };
-    
+
     checkWindow();
   }, []);
 
@@ -47,7 +49,7 @@ export default function AppTopBar() {
   // z-index 10000000 ensures it's above MUI Modals (which use 9999 by default)
   return createPortal(
     <Box
-      onMouseDown={async (e) => {
+      onMouseDown={async e => {
         e.preventDefault();
         try {
           await appWindow.startDragging();
@@ -91,4 +93,3 @@ export default function AppTopBar() {
     document.body
   );
 }
-

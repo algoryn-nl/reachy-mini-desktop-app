@@ -14,7 +14,7 @@ import { isAppInInstalledList } from './helpers';
 export function useInstallationPolling() {
   const pollingIntervalRef = useRef(null);
   const attemptsRef = useRef(0);
-  
+
   /**
    * Start polling for app to appear in installed list
    * @param {object} params - Polling parameters
@@ -24,47 +24,44 @@ export function useInstallationPolling() {
    * @param {Function} params.onTimeout - Callback when polling times out
    * @param {Function} params.refreshApps - Function to refresh apps list
    */
-  const startPolling = useCallback(({
-    appName,
-    installedApps,
-    onAppFound,
-    onTimeout,
-    refreshApps,
-  }) => {
-    // Clear any existing polling
-    stopPolling();
-    
-    attemptsRef.current = 0;
-    
-    // Initial refresh
-    if (refreshApps) {
-      refreshApps();
-    }
-    
-    pollingIntervalRef.current = setInterval(() => {
-      attemptsRef.current++;
-      
-      // Check if app is now in the list
-      if (isAppInInstalledList(appName, installedApps)) {
-        stopPolling();
-        onAppFound();
-        return;
-      }
-      
-      // Check timeout
-      if (attemptsRef.current >= TIMINGS.POLLING.MAX_ATTEMPTS) {
-        stopPolling();
-        onTimeout();
-        return;
-      }
-      
-      // Periodic refresh of apps list
-      if (refreshApps && attemptsRef.current % TIMINGS.POLLING.REFRESH_INTERVAL === 0) {
+  const startPolling = useCallback(
+    ({ appName, installedApps, onAppFound, onTimeout, refreshApps }) => {
+      // Clear any existing polling
+      stopPolling();
+
+      attemptsRef.current = 0;
+
+      // Initial refresh
+      if (refreshApps) {
         refreshApps();
       }
-    }, TIMINGS.POLLING.INTERVAL);
-  }, []);
-  
+
+      pollingIntervalRef.current = setInterval(() => {
+        attemptsRef.current++;
+
+        // Check if app is now in the list
+        if (isAppInInstalledList(appName, installedApps)) {
+          stopPolling();
+          onAppFound();
+          return;
+        }
+
+        // Check timeout
+        if (attemptsRef.current >= TIMINGS.POLLING.MAX_ATTEMPTS) {
+          stopPolling();
+          onTimeout();
+          return;
+        }
+
+        // Periodic refresh of apps list
+        if (refreshApps && attemptsRef.current % TIMINGS.POLLING.REFRESH_INTERVAL === 0) {
+          refreshApps();
+        }
+      }, TIMINGS.POLLING.INTERVAL);
+    },
+    []
+  );
+
   /**
    * Stop polling
    */
@@ -75,7 +72,7 @@ export function useInstallationPolling() {
     }
     attemptsRef.current = 0;
   }, []);
-  
+
   /**
    * Get current polling status
    * @returns {{isPolling: boolean, attempts: number}}
@@ -87,11 +84,10 @@ export function useInstallationPolling() {
       maxAttempts: TIMINGS.POLLING.MAX_ATTEMPTS,
     };
   }, []);
-  
+
   return {
     startPolling,
     stopPolling,
     getPollingStatus,
   };
 }
-
