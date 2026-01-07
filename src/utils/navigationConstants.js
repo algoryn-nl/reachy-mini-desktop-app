@@ -3,4 +3,3 @@ export const INPUT_DEVICE_TYPES = {
   KEYBOARD: 'keyboard',
   GAMEPAD: 'gamepad',
 };
-

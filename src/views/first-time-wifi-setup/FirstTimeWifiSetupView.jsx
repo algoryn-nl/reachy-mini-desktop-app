@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Stepper, 
-  Step, 
-  StepLabel,
-  CircularProgress,
-} from '@mui/material';
+import { Box, Typography, Stepper, Step, StepLabel, CircularProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { invoke } from '@tauri-apps/api/core';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
@@ -29,23 +22,17 @@ import {
 // Hotspot daemon hosts to try (when connected to reachy-mini-ap)
 // mDNS (.local) is the standard, but we also try common IPs as fallback
 const HOTSPOT_HOSTS = [
-  'reachy-mini.local',  // mDNS (standard)
-  '10.42.0.1',          // Common NetworkManager hotspot IP
-  '192.168.4.1',        // Common ESP/embedded hotspot IP
+  'reachy-mini.local', // mDNS (standard)
+  '10.42.0.1', // Common NetworkManager hotspot IP
+  '192.168.4.1', // Common ESP/embedded hotspot IP
 ];
 const HOTSPOT_CHECK_INTERVAL = 2000; // 2s
 
-const steps = [
-  'Power On',
-  'Connect to Hotspot',
-  'Configure WiFi',
-  'Reconnecting',
-  'Ready!',
-];
+const steps = ['Power On', 'Connect to Hotspot', 'Configure WiFi', 'Reconnecting', 'Ready!'];
 
 /**
  * FirstTimeWifiSetupView - Premium guided setup for first WiFi connection
- * 
+ *
  * Flow:
  * 1. Power On & detect hotspot via local WiFi scan
  * 2. Connect to hotspot (QR code + manual instructions)
@@ -57,14 +44,14 @@ export default function FirstTimeWifiSetupView() {
   const { darkMode, setShowFirstTimeWifiSetup, setShowBluetoothSupportView } = useAppStore();
   const [activeStep, setActiveStep] = useState(0);
   const [configuredNetwork, setConfiguredNetwork] = useState(null);
-  
+
   // Toast notifications
   const { toast, toastProgress, showToast, handleCloseToast } = useToast();
-  
+
   // Step 1: Local WiFi scan to detect hotspot
-  const { 
-    reachyHotspots, 
-    hasReachyHotspot, 
+  const {
+    reachyHotspots,
+    hasReachyHotspot,
     isScanning: isLocalScanning,
     scan: scanLocalWifi,
   } = useLocalWifiScan({ autoScan: true, scanInterval: 5000 });
@@ -75,8 +62,12 @@ export default function FirstTimeWifiSetupView() {
   const daemonCheckInterval = useRef(null);
 
   // Step 4: Robot discovery on local network
-  const { wifiRobot, isScanning: isDiscoveryScanning, refresh: refreshDiscovery } = useRobotDiscovery();
-  
+  const {
+    wifiRobot,
+    isScanning: isDiscoveryScanning,
+    refresh: refreshDiscovery,
+  } = useRobotDiscovery();
+
   // Connection
   const { connect, isConnecting } = useConnection();
 
@@ -93,12 +84,11 @@ export default function FirstTimeWifiSetupView() {
   // ============================================================================
   // SKIP TO SUCCESS: If Reachy already available on network
   // ============================================================================
-  
+
   // If Reachy is already accessible on the network, skip directly to success
   // BUT: Don't interfere if we're already in the WiFi setup flow (Step 2-4)
   useEffect(() => {
     if (wifiRobot.available && activeStep === 0) {
-      
       setActiveStep(4); // Jump to Step 5 (Success)
     }
   }, [wifiRobot.available, activeStep]);
@@ -106,7 +96,7 @@ export default function FirstTimeWifiSetupView() {
   // ============================================================================
   // STEP 1: Power On - Countdown + Hotspot Detection
   // ============================================================================
-  
+
   // Start countdown on mount for Step 1
   useEffect(() => {
     if (activeStep === 0) {
@@ -120,7 +110,7 @@ export default function FirstTimeWifiSetupView() {
           return prev - 1;
         });
       }, 1000);
-      
+
       return () => {
         if (countdownInterval.current) {
           clearInterval(countdownInterval.current);
@@ -132,7 +122,6 @@ export default function FirstTimeWifiSetupView() {
   // Auto-advance when hotspot is detected (Step 1 → Step 2)
   useEffect(() => {
     if (activeStep === 0 && hasReachyHotspot) {
-      
       // 2 second delay to let user see the success message
       setTimeout(() => setActiveStep(1), 2000);
     }
@@ -144,9 +133,9 @@ export default function FirstTimeWifiSetupView() {
 
   const checkDaemonReachable = useCallback(async () => {
     setIsCheckingDaemon(true);
-    
+
     // Try all hosts in parallel
-    const checkHost = async (host) => {
+    const checkHost = async host => {
       try {
         const response = await tauriFetch(`http://${host}:8000/api/daemon/status`, {
           method: 'GET',
@@ -160,20 +149,17 @@ export default function FirstTimeWifiSetupView() {
       }
       return null;
     };
-    
+
     try {
       const results = await Promise.all(HOTSPOT_HOSTS.map(checkHost));
       const reachableHost = results.find(h => h !== null);
-      
+
       if (reachableHost) {
-        
         setIsDaemonReachable(true);
         return true;
       } else {
-        
       }
     } catch (e) {
-      
     } finally {
       setIsCheckingDaemon(false);
     }
@@ -185,10 +171,10 @@ export default function FirstTimeWifiSetupView() {
     if (activeStep === 1) {
       // Check immediately
       checkDaemonReachable();
-      
+
       // Then poll every 2 seconds
       daemonCheckInterval.current = setInterval(checkDaemonReachable, HOTSPOT_CHECK_INTERVAL);
-      
+
       return () => {
         if (daemonCheckInterval.current) {
           clearInterval(daemonCheckInterval.current);
@@ -200,7 +186,6 @@ export default function FirstTimeWifiSetupView() {
   // Auto-advance when daemon is reachable (Step 2 → Step 3)
   useEffect(() => {
     if (activeStep === 1 && isDaemonReachable) {
-      
       if (daemonCheckInterval.current) {
         clearInterval(daemonCheckInterval.current);
       }
@@ -212,8 +197,7 @@ export default function FirstTimeWifiSetupView() {
   // STEP 3: Configure WiFi
   // ============================================================================
 
-  const handleWifiConfigured = useCallback((ssid) => {
-    
+  const handleWifiConfigured = useCallback(ssid => {
     // Note: onConnectSuccess is only called when WiFiConfiguration verifies
     // that the Reachy is actually connected (mode === 'wlan' && connected_network === ssid)
     // So we can trust that the connection is real
@@ -241,44 +225,37 @@ export default function FirstTimeWifiSetupView() {
 
   useEffect(() => {
     if (activeStep !== 3) return;
-    
-    
+
     setReconnectStatus('searching');
     setFoundHost(null);
     let isCancelled = false;
     let intervalId = null;
     let timeoutId = null;
-    
+
     const checkNormalNetwork = async () => {
       if (isCancelled) return false;
-      
-      
-      
+
       // Only check NORMAL network hosts (not hotspot)
-        for (const host of NORMAL_NETWORK_HOSTS) {
+      for (const host of NORMAL_NETWORK_HOSTS) {
         if (isCancelled) return false;
-        
-        
-          try {
-            const response = await tauriFetch(`http://${host}:8000/api/daemon/status`, {
-              method: 'GET',
-              connectTimeout: 500, // Short timeout to avoid blocking other HTTP requests
-            });
-          
-            if (response.ok && !isCancelled) {
-            
-              setFoundHost(host);
-              setReconnectStatus('found');
+
+        try {
+          const response = await tauriFetch(`http://${host}:8000/api/daemon/status`, {
+            method: 'GET',
+            connectTimeout: 500, // Short timeout to avoid blocking other HTTP requests
+          });
+
+          if (response.ok && !isCancelled) {
+            setFoundHost(host);
+            setReconnectStatus('found');
             return true; // Success
           }
-        } catch (e) {
-          
-        }
+        } catch (e) {}
       }
-      
+
       return false; // Not found yet
     };
-    
+
     // Start immediately
     (async () => {
       const found = await checkNormalNetwork();
@@ -289,7 +266,7 @@ export default function FirstTimeWifiSetupView() {
         return;
       }
     })();
-    
+
     // Poll every 2 seconds
     intervalId = setInterval(async () => {
       if (isCancelled) return;
@@ -300,7 +277,7 @@ export default function FirstTimeWifiSetupView() {
         setTimeout(() => setActiveStep(4), 500);
       }
     }, 2000);
-      
+
     // Timeout after 15 seconds (increased from 10)
     timeoutId = setTimeout(() => {
       if (!isCancelled && reconnectStatus !== 'found') {
@@ -308,11 +285,10 @@ export default function FirstTimeWifiSetupView() {
         setReconnectStatus('failed');
       }
     }, 15000);
-    
+
     return () => {
-      
       isCancelled = true;
-      
+
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
@@ -400,7 +376,17 @@ export default function FirstTimeWifiSetupView() {
         </Typography>
 
         {/* Stepper */}
-        <Box sx={{ width: '100%', maxWidth: 500, mb: 2, mt: 1, mx: 'auto', display: 'flex', justifyContent: 'center' }}>
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 500,
+            mb: 2,
+            mt: 1,
+            mx: 'auto',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
           <Stepper activeStep={activeStep} alternativeLabel sx={{ width: '100%' }}>
             {steps.map((label, index) => (
               <Step key={label} completed={activeStep > index}>
@@ -457,39 +443,35 @@ export default function FirstTimeWifiSetupView() {
           }}
         >
           {/* Discrete auto-detection indicator (top right) */}
-          <Box sx={{ 
-            position: 'absolute', 
-            top: 12, 
-            right: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-          }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
             {/* Step 2: Daemon detected */}
             {activeStep === 1 && isDaemonReachable && (
               <>
                 <CheckCircleIcon sx={{ fontSize: 12, color: '#22c55e' }} />
-                <Typography sx={{ fontSize: 9, color: '#22c55e' }}>
-                  connected
-                </Typography>
+                <Typography sx={{ fontSize: 9, color: '#22c55e' }}>connected</Typography>
               </>
             )}
             {/* Step 4: Robot found */}
             {activeStep === 3 && wifiRobot.available && (
               <>
                 <CheckCircleIcon sx={{ fontSize: 12, color: '#22c55e' }} />
-                <Typography sx={{ fontSize: 9, color: '#22c55e' }}>
-                  found
-                </Typography>
+                <Typography sx={{ fontSize: 9, color: '#22c55e' }}>found</Typography>
               </>
             )}
             {/* Step 4: Scanning */}
             {activeStep === 3 && isDiscoveryScanning && !wifiRobot.available && (
               <>
                 <CircularProgress size={10} sx={{ color: textSecondary }} />
-                <Typography sx={{ fontSize: 9, color: textSecondary }}>
-                  scanning...
-                </Typography>
+                <Typography sx={{ fontSize: 9, color: textSecondary }}>scanning...</Typography>
               </>
             )}
           </Box>
@@ -551,16 +533,13 @@ export default function FirstTimeWifiSetupView() {
               configuredNetwork={configuredNetwork}
               status={reconnectStatus}
               onRetry={() => {
-                
-                
-                
                 // Reset ALL state
                 setWifiConfigKey(prev => prev + 1);
                 setReconnectStatus('waiting');
                 setFoundHost(null);
                 setIsRetryAfterFail(true); // Mark as retry after failure
                 setIsDaemonReachable(false); // CRITICAL: Reset daemon check to force re-verification
-                
+
                 // Go back to Step 2 to force user to reconnect to hotspot
                 setActiveStep(1);
               }}
@@ -582,7 +561,7 @@ export default function FirstTimeWifiSetupView() {
             />
           )}
         </Box>
-        
+
         {/* Help link */}
         <Typography
           onClick={() => {
@@ -606,13 +585,12 @@ export default function FirstTimeWifiSetupView() {
       </Box>
 
       {/* Toast Notifications */}
-      <Toast 
-        toast={toast} 
-        toastProgress={toastProgress} 
-        onClose={handleCloseToast} 
-        darkMode={darkMode} 
+      <Toast
+        toast={toast}
+        toastProgress={toastProgress}
+        onClose={handleCloseToast}
+        darkMode={darkMode}
       />
     </FullscreenOverlay>
   );
 }
-

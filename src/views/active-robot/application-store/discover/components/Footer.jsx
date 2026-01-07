@@ -5,10 +5,7 @@ import ReachyDetective from '@assets/reachy-detective.svg';
 /**
  * Footer component for Discover Modal
  */
-export default function Footer({
-  darkMode,
-  onOpenCreateTutorial,
-}) {
+export default function Footer({ darkMode, onOpenCreateTutorial }) {
   return (
     <Box
       sx={{
@@ -33,7 +30,7 @@ export default function Footer({
           opacity: darkMode ? 0.7 : 0.8,
         }}
       />
-      
+
       <Typography
         sx={{
           fontSize: 18,

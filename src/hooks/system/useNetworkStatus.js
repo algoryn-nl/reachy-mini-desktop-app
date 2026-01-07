@@ -3,10 +3,10 @@ import { useState, useEffect } from 'react';
 /**
  * Hook to detect network connectivity status
  * Uses navigator.onLine and listens to online/offline events
- * 
+ *
  * Note: navigator.onLine can be unreliable (may report online even without actual Internet),
  * but it's still useful as a first check. Actual network requests will handle real errors.
- * 
+ *
  * @returns {object} Network status
  * @returns {boolean} isOnline - Current online status
  */
@@ -40,4 +40,3 @@ export function useNetworkStatus() {
 
   return { isOnline };
 }
-

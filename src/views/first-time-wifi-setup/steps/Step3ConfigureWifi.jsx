@@ -16,13 +16,15 @@ export default function Step3ConfigureWifi({
 }) {
   return (
     <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <Typography sx={{ fontSize: 12, color: textSecondary, mb: 2, textAlign: 'center', lineHeight: 1.5 }}>
+      <Typography
+        sx={{ fontSize: 12, color: textSecondary, mb: 2, textAlign: 'center', lineHeight: 1.5 }}
+      >
         Select the network you want your Reachy to use.
       </Typography>
 
       {/* WiFi Form */}
       <Box sx={{ width: '100%' }}>
-        <WiFiConfiguration 
+        <WiFiConfiguration
           key={resetKey} // Force remount when resetKey changes
           darkMode={darkMode}
           compact={true}
@@ -36,4 +38,3 @@ export default function Step3ConfigureWifi({
     </Box>
   );
 }
-

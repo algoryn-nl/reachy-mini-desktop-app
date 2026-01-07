@@ -14,11 +14,11 @@ import SleepingReachyIcon from '@assets/sleeping-reachy.svg';
 /**
  * Right Panel - Assembles Control Buttons and Applications sections
  * Can display Applications (default), Controller, or Expressions based on rightPanelView state
- * 
+ *
  * Uses ActiveRobotContext for decoupling from global stores
  */
-export default function RightPanel({ 
-  showToast, 
+export default function RightPanel({
+  showToast,
   onLoadingChange,
   quickActions = [],
   handleQuickAction = null,
@@ -32,27 +32,27 @@ export default function RightPanel({
   const { robotStatus, safeToShutdown } = useAppStore();
   const isSleeping = robotStatus === 'sleeping';
   const { isTransitioning, wakeUp } = useWakeSleep();
-  
+
   const scrollRef = useRef(null);
   const [showTopGradient, setShowTopGradient] = useState(false);
   const [showBottomGradient, setShowBottomGradient] = useState(false);
-  
+
   // Check scroll position to show/hide gradients
   const updateGradients = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    
+
     const { scrollTop, scrollHeight, clientHeight } = el;
     const scrollThreshold = 10; // Pixels threshold before showing gradient
-    
+
     // Show top gradient only if scrolled down
     setShowTopGradient(scrollTop > scrollThreshold);
-    
+
     // Show bottom gradient only if there's more content below
     const isAtBottom = scrollTop + clientHeight >= scrollHeight - scrollThreshold;
     setShowBottomGradient(!isAtBottom && scrollHeight > clientHeight);
   }, []);
-  
+
   // Update gradients on mount and when view changes
   useEffect(() => {
     updateGradients();
@@ -118,7 +118,7 @@ export default function RightPanel({
           transition: 'opacity 0.2s ease-out',
         }}
       />
-      
+
       {/* Conditional rendering based on rightPanelView and sleeping state */}
       {isSleeping ? (
         /* Sleeping state - Show centered wake toggle */
@@ -175,16 +175,9 @@ export default function RightPanel({
           </PulseButton>
         </Box>
       ) : rightPanelView === 'controller' ? (
-        <ControllerSection
-          showToast={showToast}
-          isBusy={isBusy}
-          darkMode={darkMode}
-        />
+        <ControllerSection showToast={showToast} isBusy={isBusy} darkMode={darkMode} />
       ) : rightPanelView === 'expressions' ? (
-        <ExpressionsSection
-          isBusy={isBusy}
-          darkMode={darkMode}
-        />
+        <ExpressionsSection isBusy={isBusy} darkMode={darkMode} />
       ) : (
         <>
           {/* Applications - Default view */}
@@ -198,13 +191,10 @@ export default function RightPanel({
           />
 
           {/* Control Buttons - Opens Controller and Expressions in right panel */}
-          <ControlButtons
-            isBusy={isBusy}
-            darkMode={darkMode}
-          />
+          <ControlButtons isBusy={isBusy} darkMode={darkMode} />
         </>
       )}
-      
+
       {/* Bottom gradient for depth effect on scroll - only visible when more content below */}
       <Box
         sx={{
@@ -227,4 +217,3 @@ export default function RightPanel({
     </Box>
   );
 }
-

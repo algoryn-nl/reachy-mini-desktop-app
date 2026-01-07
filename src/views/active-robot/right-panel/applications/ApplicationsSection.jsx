@@ -2,7 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useActiveRobotContext } from '../../context';
-import { useApps, useAppHandlers, useAppInstallation, useAppFiltering, useModalStack } from '../../application-store/hooks';
+import {
+  useApps,
+  useAppHandlers,
+  useAppInstallation,
+  useAppFiltering,
+  useModalStack,
+} from '../../application-store/hooks';
 import { InstalledAppsSection } from '../../application-store/installed';
 import { Modal as DiscoverModal } from '../../application-store/discover';
 import { CreateAppTutorial as CreateAppTutorialModal } from '../../application-store/modals';
@@ -12,8 +18,8 @@ import { Overlay as InstallOverlay } from '../../application-store/installation'
  * Applications Section - Displays installed and available apps from Hugging Face
  * Uses ActiveRobotContext for decoupling from global stores
  */
-export default function ApplicationsSection({ 
-  showToast, 
+export default function ApplicationsSection({
+  showToast,
   onLoadingChange,
   hasQuickActions = false, // To adjust padding-top of AccordionSummary
   isActive = false,
@@ -21,9 +27,9 @@ export default function ApplicationsSection({
   darkMode = false,
 }) {
   const { robotState, actions } = useActiveRobotContext();
-  
+
   // Get values from context with prop fallbacks
-  const { 
+  const {
     darkMode: contextDarkMode,
     isActive: contextIsActive,
     installingAppName,
@@ -31,24 +37,19 @@ export default function ApplicationsSection({
     installResult,
     installStartTime,
   } = robotState;
-  
+
   const effectiveDarkMode = darkMode !== undefined ? darkMode : contextDarkMode;
   const effectiveIsActive = isActive !== undefined ? isActive : contextIsActive;
   const effectiveIsBusy = isBusy !== undefined ? isBusy : actions.isBusy();
-  
+
   // State
   const [officialOnly, setOfficialOnly] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // ✅ Modal stack hook - declared BEFORE useAppInstallation to avoid stale closure
-  const {
-    openModal,
-    closeModal,
-    discoverModalOpen,
-    createAppTutorialModalOpen,
-  } = useModalStack();
-  
+  const { openModal, closeModal, discoverModalOpen, createAppTutorialModalOpen } = useModalStack();
+
   // Apps data hook
   const {
     availableApps,
@@ -64,19 +65,19 @@ export default function ApplicationsSection({
     isStoppingApp,
     error: appsError,
   } = useApps(effectiveIsActive, officialOnly);
-  
+
   // Notify parent when loading status changes
   useEffect(() => {
     if (onLoadingChange) {
       onLoadingChange(isLoading);
     }
   }, [isLoading, onLoadingChange]);
-  
+
   // Reset category when switching between official/non-official
   useEffect(() => {
     setSelectedCategory(null);
   }, [officialOnly]);
-  
+
   // Installation lifecycle hook
   useAppInstallation({
     activeJobs,
@@ -90,7 +91,7 @@ export default function ApplicationsSection({
       }
     },
   });
-  
+
   // App action handlers
   const {
     expandedApp,
@@ -125,14 +126,19 @@ export default function ApplicationsSection({
       extra: {},
     };
   }, [installingAppName, availableApps]);
-  
+
   const activeJobsArray = Array.from(activeJobs.values());
   const installingJob = installingAppName
     ? activeJobsArray.find(job => job.appName === installingAppName)
     : null;
 
   // ✅ Filter & sort apps client-side (data is cached for 1 day)
-  const { categories, filteredApps } = useAppFiltering(availableApps, searchQuery, selectedCategory, officialOnly);
+  const { categories, filteredApps } = useAppFiltering(
+    availableApps,
+    searchQuery,
+    selectedCategory,
+    officialOnly
+  );
 
   return (
     <>
@@ -168,12 +174,19 @@ export default function ApplicationsSection({
                   {installedApps.length}
                 </Typography>
               )}
-              <Tooltip 
-                title="Apps that are currently installed on your robot. You can start, stop, configure, or uninstall them from here." 
-                arrow 
+              <Tooltip
+                title="Apps that are currently installed on your robot. You can start, stop, configure, or uninstall them from here."
+                arrow
                 placement="top"
               >
-                <InfoOutlinedIcon sx={{ fontSize: 14, color: effectiveDarkMode ? '#666' : '#999', opacity: 0.6, cursor: 'help' }} />
+                <InfoOutlinedIcon
+                  sx={{
+                    fontSize: 14,
+                    color: effectiveDarkMode ? '#666' : '#999',
+                    opacity: 0.6,
+                    cursor: 'help',
+                  }}
+                />
               </Tooltip>
             </Box>
             <Typography
@@ -241,7 +254,9 @@ export default function ApplicationsSection({
       {installingAppName && installingApp && (
         <InstallOverlay
           appInfo={installingApp}
-          jobInfo={installingJob || { type: installJobType || 'install', status: 'starting', logs: [] }}
+          jobInfo={
+            installingJob || { type: installJobType || 'install', status: 'starting', logs: [] }
+          }
           darkMode={effectiveDarkMode}
           jobType={installJobType || 'install'}
           resultState={installResult}
@@ -251,4 +266,3 @@ export default function ApplicationsSection({
     </>
   );
 }
-

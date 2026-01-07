@@ -10,11 +10,7 @@ import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../../config/da
  * Cache Card Component
  * Allows clearing HuggingFace cache on the robot
  */
-export default function SettingsCacheCard({
-  darkMode,
-  cardStyle,
-  buttonStyle,
-}) {
+export default function SettingsCacheCard({ darkMode, cardStyle, buttonStyle }) {
   const [isClearing, setIsClearing] = useState(false);
   const [result, setResult] = useState(null); // { success: boolean, message: string } | null
 
@@ -51,11 +47,7 @@ export default function SettingsCacheCard({
 
   return (
     <Box sx={cardStyle}>
-      <SectionHeader 
-        title="Cache Management" 
-        icon={DeleteOutlineIcon} 
-        darkMode={darkMode}
-      />
+      <SectionHeader title="Cache Management" icon={DeleteOutlineIcon} darkMode={darkMode} />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Typography sx={{ fontSize: 12, color: textSecondary, lineHeight: 1.5 }}>
@@ -67,7 +59,9 @@ export default function SettingsCacheCard({
             variant="outlined"
             onClick={handleClearCache}
             disabled={isClearing}
-            startIcon={isClearing ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />}
+            startIcon={
+              isClearing ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />
+            }
             sx={{
               ...buttonStyle,
               fontSize: 12,
@@ -98,10 +92,12 @@ export default function SettingsCacheCard({
               ) : (
                 <ErrorOutlineIcon sx={{ fontSize: 16, color: '#ef4444' }} />
               )}
-              <Typography sx={{ 
-                fontSize: 11, 
-                color: result.success ? '#22c55e' : '#ef4444',
-              }}>
+              <Typography
+                sx={{
+                  fontSize: 11,
+                  color: result.success ? '#22c55e' : '#ef4444',
+                }}
+              >
                 {result.message}
               </Typography>
             </Box>
@@ -111,4 +107,3 @@ export default function SettingsCacheCard({
     </Box>
   );
 }
-

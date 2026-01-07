@@ -24,7 +24,7 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
   // Race condition protection: track the current check version
   const checkVersionRef = useRef(0);
   const mountedRef = useRef(true);
-  
+
   // Track previous state to only log changes
   const previousStateRef = useRef({ camera: null, microphone: null });
 
@@ -59,8 +59,8 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
       const micResult = micStatus === true;
 
       // Only log if state changed or first check
-      const stateChanged = 
-        previousStateRef.current.camera !== cameraResult || 
+      const stateChanged =
+        previousStateRef.current.camera !== cameraResult ||
         previousStateRef.current.microphone !== micResult ||
         previousStateRef.current.camera === null;
 
@@ -91,7 +91,7 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
 
   useEffect(() => {
     mountedRef.current = true;
-    
+
     // Check immediately
     checkPermissions();
 
@@ -115,4 +115,3 @@ export function usePermissions({ checkInterval = 2000 } = {}) {
     refresh: checkPermissions, // Expose manual refresh function
   };
 }
-

@@ -3,14 +3,14 @@ import { Button } from '@mui/material';
 
 /**
  * PulseButton - Reusable button with orange halo pulse animation
- * 
+ *
  * Used across the app for primary CTAs:
  * - "Start" button (FindingRobotView)
  * - "Discover Apps" button
  * - "Controller" / "Expressions" buttons
  * - "Wake Up" button
  * - Permissions request button
- * 
+ *
  * @param {ReactNode} children - Button text/content
  * @param {function} onClick - Click handler
  * @param {boolean} disabled - Disable button and animation
@@ -60,7 +60,7 @@ export default function PulseButton({
         textTransform: 'none',
         transition: 'all 0.2s ease',
         // Pulse animation
-        animation: (disabled || !pulse) ? 'none' : 'pulseHalo 3s ease-in-out infinite',
+        animation: disabled || !pulse ? 'none' : 'pulseHalo 3s ease-in-out infinite',
         '@keyframes pulseHalo': {
           '0%, 100%': {
             boxShadow: darkMode
@@ -95,4 +95,3 @@ export default function PulseButton({
     </Button>
   );
 }
-

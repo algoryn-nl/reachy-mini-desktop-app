@@ -1,6 +1,6 @@
 /**
  * Logs Slice - Manages all types of logs (daemon, frontend, app)
- * 
+ *
  * Note: We don't import DAEMON_CONFIG here to avoid circular dependencies
  * (daemon.js imports useRobotStore which imports useStore which imports slices)
  */
@@ -13,9 +13,9 @@ const MAX_APP_LOGS = 500;
  * Initial state for logs slice
  */
 export const logsInitialState = {
-  logs: [],           // Daemon logs (from Tauri IPC)
-  frontendLogs: [],   // Frontend action logs (API calls, user actions)
-  appLogs: [],        // App logs (from running apps)
+  logs: [], // Daemon logs (from Tauri IPC)
+  frontendLogs: [], // Frontend action logs (API calls, user actions)
+  appLogs: [], // App logs (from running apps)
 };
 
 /**
@@ -26,18 +26,23 @@ export const logsInitialState = {
  */
 export const createLogsSlice = (set, get) => ({
   ...logsInitialState,
-  
+
   // Set daemon logs - merge intelligently to avoid unnecessary re-renders
-  setLogs: (newLogs) => set((state) => {
-    if (state.logs === newLogs || (Array.isArray(state.logs) && Array.isArray(newLogs) && 
-        state.logs.length === newLogs.length && 
-        state.logs.length > 0 && 
-        state.logs[state.logs.length - 1] === newLogs[newLogs.length - 1])) {
-      return state;
-    }
-    return { logs: newLogs };
-  }),
-  
+  setLogs: newLogs =>
+    set(state => {
+      if (
+        state.logs === newLogs ||
+        (Array.isArray(state.logs) &&
+          Array.isArray(newLogs) &&
+          state.logs.length === newLogs.length &&
+          state.logs.length > 0 &&
+          state.logs[state.logs.length - 1] === newLogs[newLogs.length - 1])
+      ) {
+        return state;
+      }
+      return { logs: newLogs };
+    }),
+
   // Add frontend log
   addFrontendLog: (message, level = 'info') => {
     if (message == null) {
@@ -46,26 +51,26 @@ export const createLogsSlice = (set, get) => ({
       }
       return;
     }
-    
+
     const validLevels = ['info', 'success', 'warning', 'error'];
     const normalizedLevel = validLevels.includes(level) ? level : 'info';
     const sanitizedMessage = String(message).slice(0, 10000);
-    
+
     try {
       const now = Date.now();
       let formattedTimestamp;
       try {
-        formattedTimestamp = new Date(now).toLocaleTimeString('en-GB', { 
-          hour: '2-digit', 
-          minute: '2-digit', 
+        formattedTimestamp = new Date(now).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
           second: '2-digit',
-          hour12: false
+          hour12: false,
         });
       } catch (e) {
         formattedTimestamp = new Date(now).toISOString().substring(11, 19);
       }
-      
-      set((state) => {
+
+      set(state => {
         const newLog = {
           timestamp: formattedTimestamp,
           timestampNumeric: now,
@@ -73,12 +78,9 @@ export const createLogsSlice = (set, get) => ({
           source: 'frontend',
           level: normalizedLevel,
         };
-        
-        const newFrontendLogs = [
-          ...state.frontendLogs.slice(-MAX_FRONTEND_LOGS),
-          newLog
-        ];
-        
+
+        const newFrontendLogs = [...state.frontendLogs.slice(-MAX_FRONTEND_LOGS), newLog];
+
         return { frontendLogs: newFrontendLogs };
       });
     } catch (error) {
@@ -87,7 +89,7 @@ export const createLogsSlice = (set, get) => ({
       }
     }
   },
-  
+
   // Add app log
   addAppLog: (message, appName, level = 'info') => {
     if (message == null) {
@@ -96,25 +98,25 @@ export const createLogsSlice = (set, get) => ({
       }
       return;
     }
-    
+
     const sanitizedMessage = String(message).slice(0, 10000);
     const sanitizedAppName = appName ? String(appName).slice(0, 100) : undefined;
     const sanitizedLevel = ['info', 'warning', 'error'].includes(level) ? level : 'info';
-    
+
     try {
       const now = Date.now();
       let formattedTimestamp;
       try {
-        formattedTimestamp = new Date(now).toLocaleTimeString('en-GB', { 
-          hour: '2-digit', 
-          minute: '2-digit', 
+        formattedTimestamp = new Date(now).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
           second: '2-digit',
-          hour12: false
+          hour12: false,
         });
       } catch (e) {
         formattedTimestamp = new Date(now).toISOString().substring(11, 19);
       }
-      
+
       const newLog = {
         timestamp: formattedTimestamp,
         timestampNumeric: now,
@@ -123,25 +125,23 @@ export const createLogsSlice = (set, get) => ({
         appName: sanitizedAppName,
         level: sanitizedLevel,
       };
-      
-      set((state) => {
+
+      set(state => {
         // Deduplication
         const lastLog = state.appLogs[state.appLogs.length - 1];
-        const isDuplicate = lastLog && 
-            lastLog.message === sanitizedMessage && 
-            lastLog.appName === sanitizedAppName &&
-            lastLog.timestampNumeric && 
-            (now - lastLog.timestampNumeric) < 100;
-        
+        const isDuplicate =
+          lastLog &&
+          lastLog.message === sanitizedMessage &&
+          lastLog.appName === sanitizedAppName &&
+          lastLog.timestampNumeric &&
+          now - lastLog.timestampNumeric < 100;
+
         if (isDuplicate) {
           return state;
         }
-        
+
         return {
-          appLogs: [
-            ...state.appLogs.slice(-MAX_APP_LOGS),
-            newLog
-          ]
+          appLogs: [...state.appLogs.slice(-MAX_APP_LOGS), newLog],
         };
       });
     } catch (error) {
@@ -150,18 +150,18 @@ export const createLogsSlice = (set, get) => ({
       }
     }
   },
-  
+
   // Clear app logs
-  clearAppLogs: (appName) => set((state) => ({
-    appLogs: appName 
-      ? state.appLogs.filter(log => log.appName !== appName)
-      : []
-  })),
-  
+  clearAppLogs: appName =>
+    set(state => ({
+      appLogs: appName ? state.appLogs.filter(log => log.appName !== appName) : [],
+    })),
+
   // Clear all logs (for reset)
-  clearAllLogs: () => set({
-    logs: [],
-    frontendLogs: [],
-    appLogs: [],
-  }),
+  clearAllLogs: () =>
+    set({
+      logs: [],
+      frontendLogs: [],
+      appLogs: [],
+    }),
 });

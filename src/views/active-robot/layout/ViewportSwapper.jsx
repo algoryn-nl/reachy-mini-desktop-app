@@ -1,4 +1,11 @@
-import React, { useState, useCallback, useRef, useMemo, cloneElement, useLayoutEffect } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  cloneElement,
+  useLayoutEffect,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Box, IconButton } from '@mui/material';
 
@@ -6,7 +13,7 @@ import { Box, IconButton } from '@mui/material';
  * ViewportSwapper Component
  * Manages the display of two views (3D and Camera) with swap capability
  * Uses React Portals to avoid component duplication
- * 
+ *
  * Architecture:
  * - Two DOM containers: mainViewport and smallViewport
  * - Components are rendered only once
@@ -15,65 +22,77 @@ import { Box, IconButton } from '@mui/material';
  * - ✅ OPTIMIZED: Small 3D view uses frameloop="demand" to stop rendering loop
  */
 export default function ViewportSwapper({
-  view3D,           // ReactNode: the 3D component (Viewer3D)
-  viewCamera,       // ReactNode: the camera component (CameraFeed)
-  onSwap,           // Optional callback when swap occurs
+  view3D, // ReactNode: the 3D component (Viewer3D)
+  viewCamera, // ReactNode: the camera component (CameraFeed)
+  onSwap, // Optional callback when swap occurs
   initialSwapped = false, // Initial swap state
 }) {
   const [isSwapped, setIsSwapped] = useState(initialSwapped);
   const [isMounted, setIsMounted] = useState(false);
   const mainViewportRef = useRef(null);
   const smallViewportRef = useRef(null);
-  
+
   // ✅ Force re-render after mount to ensure refs are available for portals
   useLayoutEffect(() => {
     setIsMounted(true);
   }, []);
-  
+
   // Camera aspect ratio (640x480 = 4:3)
   const cameraAspectRatio = 640 / 480; // 1.333...
-  
+
   // Handle swap
   const handleSwap = useCallback(() => {
     setIsSwapped(prev => {
       const newSwapped = !prev;
-    if (onSwap) {
+      if (onSwap) {
         onSwap(newSwapped);
-    }
+      }
       return newSwapped;
     });
   }, [onSwap]);
-  
+
   // ✅ OPTIMIZED: Memoize cloned views to avoid re-creation on every render
-  const view3DSmallProps = useMemo(() => ({
-    hideControls: true,
-    showStatusTag: false,
-    hideEffects: true, // ✅ This enables frameloop="demand" in Viewer3D
-  }), []);
-  
-  const viewCameraSmallProps = useMemo(() => ({
-    isLarge: false,
-    width: 140,
-    height: 105,
-  }), []);
-  
+  const view3DSmallProps = useMemo(
+    () => ({
+      hideControls: true,
+      showStatusTag: false,
+      hideEffects: true, // ✅ This enables frameloop="demand" in Viewer3D
+    }),
+    []
+  );
+
+  const viewCameraSmallProps = useMemo(
+    () => ({
+      isLarge: false,
+      width: 140,
+      height: 105,
+    }),
+    []
+  );
+
   // ✅ OPTIMIZED: Memoize cloned components to prevent unnecessary remounts
   const view3DMain = useMemo(() => view3D, [view3D]);
-  const view3DSmall = useMemo(() => cloneElement(view3D, view3DSmallProps), [view3D, view3DSmallProps]);
+  const view3DSmall = useMemo(
+    () => cloneElement(view3D, view3DSmallProps),
+    [view3D, view3DSmallProps]
+  );
   const viewCameraMain = useMemo(() => viewCamera, [viewCamera]);
-  const viewCameraSmall = useMemo(() => cloneElement(viewCamera, viewCameraSmallProps), [viewCamera, viewCameraSmallProps]);
-  
+  const viewCameraSmall = useMemo(
+    () => cloneElement(viewCamera, viewCameraSmallProps),
+    [viewCamera, viewCameraSmallProps]
+  );
+
   // The two views to display (decided based on swapped state)
   const mainView = isSwapped ? viewCameraMain : view3DMain;
   const smallView = isSwapped ? view3DSmall : viewCameraSmall;
-  
+
   return (
     <Box
       sx={{
         position: 'relative',
         width: '100%',
         // Fixed height based on camera aspect ratio to keep consistent height
-          aspectRatio: `${cameraAspectRatio}`,
+        aspectRatio: `${cameraAspectRatio}`,
         minHeight: 250, // Minimum height fallback
       }}
     >
@@ -88,7 +107,7 @@ export default function ViewportSwapper({
           position: 'relative',
         }}
       />
-      
+
       {/* Small viewport (bottom right, overlapping the viewer) */}
       <Box
         sx={{
@@ -115,7 +134,7 @@ export default function ViewportSwapper({
             position: 'relative',
           }}
         />
-        
+
         {/* Swap button on small viewport */}
         <IconButton
           onClick={handleSwap}
@@ -145,38 +164,41 @@ export default function ViewportSwapper({
           ⇄
         </IconButton>
       </Box>
-      
+
       {/* Portals: teleport views to containers */}
       {/* ✅ OPTIMIZED: Both views are rendered but small 3D view uses frameloop="demand" */}
       {/* ✅ FIX: Only render portals after mount to ensure refs are available */}
-      {isMounted && mainViewportRef.current && createPortal(
-        <Box 
-          sx={{ 
-            width: '100%', 
-            height: '100%',
-            display: 'block',
-          }}
-        >
-          {mainView}
-        </Box>,
-        mainViewportRef.current
-      )}
-      
-      {isMounted && smallViewportRef.current && createPortal(
-        <Box 
-          sx={{ 
-            width: '100%', 
-            height: '100%',
-            display: 'block',
-            // ✅ Small view is always rendered but 3D view uses frameloop="demand" when hideEffects=true
-            // This stops the rendering loop while keeping the Canvas mounted (avoids remount cost)
-          }}
-        >
-          {smallView}
-        </Box>,
-        smallViewportRef.current
-      )}
+      {isMounted &&
+        mainViewportRef.current &&
+        createPortal(
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+            }}
+          >
+            {mainView}
+          </Box>,
+          mainViewportRef.current
+        )}
+
+      {isMounted &&
+        smallViewportRef.current &&
+        createPortal(
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              // ✅ Small view is always rendered but 3D view uses frameloop="demand" when hideEffects=true
+              // This stops the rendering loop while keeping the Canvas mounted (avoids remount cost)
+            }}
+          >
+            {smallView}
+          </Box>,
+          smallViewportRef.current
+        )}
     </Box>
   );
 }
-

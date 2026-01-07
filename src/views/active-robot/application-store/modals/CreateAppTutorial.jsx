@@ -43,7 +43,7 @@ export default function CreateAppTutorialModal({
     },
   ];
 
-  const handleTutorialClick = async (url) => {
+  const handleTutorialClick = async url => {
     try {
       await open(url);
     } catch (err) {
@@ -109,7 +109,7 @@ export default function CreateAppTutorialModal({
             width: '100%',
           }}
         >
-          {tutorials.map((tutorial) => (
+          {tutorials.map(tutorial => (
             <Box
               key={tutorial.id}
               onClick={() => handleTutorialClick(tutorial.url)}
@@ -167,9 +167,7 @@ export default function CreateAppTutorialModal({
             </Box>
           ))}
         </Box>
-
       </Box>
     </FullscreenOverlay>
   );
 }
-

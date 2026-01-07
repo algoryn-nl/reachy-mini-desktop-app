@@ -5,37 +5,44 @@ import { useRobotSmoothing } from './useRobotSmoothing';
 import { useRobotSync } from './useRobotSync';
 import { useInputProcessing } from './useInputProcessing';
 import { usePositionHandlers } from './usePositionHandlers';
-import { initGlobalResetSmoothing, updateGlobalResetSmoothing, startSmoothReset } from '@utils/globalResetSmoothing';
+import {
+  initGlobalResetSmoothing,
+  updateGlobalResetSmoothing,
+  startSmoothReset,
+} from '@utils/globalResetSmoothing';
 import { useActiveRobotContext } from '../../context';
 
 /**
  * Hook to manage robot position control logic
- * 
+ *
  * Orchestrates multiple sub-hooks:
  * - useRobotAPI: API communication
  * - useRobotSmoothing: Smooth value interpolation
  * - useRobotSync: State synchronization with robot
  * - useInputProcessing: Gamepad/keyboard input handling
  * - usePositionHandlers: UI interaction handlers
- * 
+ *
  * Uses ActiveRobotContext for decoupling from global stores
  */
 export function useRobotPosition(isActive) {
   const { robotState: contextRobotState } = useActiveRobotContext();
   const { robotStateFull } = contextRobotState;
   const logger = useLogger();
-  
+
   // Safe logging helper
-  const safeAddFrontendLog = useCallback((message) => {
-    if (logger && typeof logger.info === 'function') {
-      logger.info(message);
-    }
-  }, [logger]);
-  
+  const safeAddFrontendLog = useCallback(
+    message => {
+      if (logger && typeof logger.info === 'function') {
+        logger.info(message);
+      }
+    },
+    [logger]
+  );
+
   // ============================================
   // STATE
   // ============================================
-  
+
   const [robotState, setRobotState] = useState({
     headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
     bodyYaw: 0,
@@ -47,25 +54,25 @@ export function useRobotPosition(isActive) {
     bodyYaw: 0,
     antennas: [0, 0],
   });
-  
+
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // ============================================
   // REFS
   // ============================================
-  
+
   const isDraggingRef = useRef(false);
   const lastDragEndTimeRef = useRef(0);
   const antennasRef = useRef([0, 0]);
   const isUsingGamepadKeyboardRef = useRef(false);
   const lastGamepadKeyboardReleaseRef = useRef(0);
   const localValuesRef = useRef(localValues);
-  
+
   // Keep localValuesRef in sync
   useEffect(() => {
     localValuesRef.current = localValues;
   }, [localValues]);
-  
+
   // Initialize antennasRef
   useEffect(() => {
     if (localValues.antennas && localValues.antennas.length === 2) {
@@ -76,19 +83,19 @@ export function useRobotPosition(isActive) {
   // ============================================
   // SUB-HOOKS
   // ============================================
-  
+
   // API management
-  const {
-    sendCommand,
-    sendSingleCommand,
-    stopContinuousUpdates,
-  } = useRobotAPI(isActive, robotState, isDraggingRef);
+  const { sendCommand, sendSingleCommand, stopContinuousUpdates } = useRobotAPI(
+    isActive,
+    robotState,
+    isDraggingRef
+  );
 
   const sendCommandRef = useRef(sendCommand);
   useEffect(() => {
     sendCommandRef.current = sendCommand;
   }, [sendCommand]);
-      
+
   // Smoothing
   const { targetSmoothingRef, smoothedValues: smoothedValuesFromHook } = useRobotSmoothing(
     isActive,
@@ -144,29 +151,25 @@ export function useRobotPosition(isActive) {
   });
 
   // UI handlers
-  const {
-    handleChange,
-    handleBodyYawChange,
-    handleAntennasChange,
-    handleDragEnd,
-  } = usePositionHandlers({
-    isActive,
-    localValues,
-    robotState,
-    setLocalValues,
-    setIsDragging,
-    isDraggingRef,
-    lastDragEndTimeRef,
-    targetSmoothingRef,
-    antennasRef,
-    sendSingleCommand,
-    safeAddFrontendLog,
-  });
+  const { handleChange, handleBodyYawChange, handleAntennasChange, handleDragEnd } =
+    usePositionHandlers({
+      isActive,
+      localValues,
+      robotState,
+      setLocalValues,
+      setIsDragging,
+      isDraggingRef,
+      lastDragEndTimeRef,
+      targetSmoothingRef,
+      antennasRef,
+      sendSingleCommand,
+      safeAddFrontendLog,
+    });
 
   // ============================================
   // EFFECTS
   // ============================================
-  
+
   // Stop continuous updates when not dragging
   useEffect(() => {
     if (!isDragging) {
@@ -178,14 +181,14 @@ export function useRobotPosition(isActive) {
   // ============================================
   // RESET FUNCTIONS
   // ============================================
-  
+
   const resetAllValues = useCallback(() => {
     const resetValues = {
       headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
       bodyYaw: 0,
       antennas: [0, 0],
     };
-    
+
     setLocalValues(resetValues);
     targetSmoothingRef.current.reset();
     antennasRef.current = [0, 0];
@@ -194,7 +197,7 @@ export function useRobotPosition(isActive) {
 
   const resetAllValuesSmooth = useCallback(() => {
     const currentSmoothed = targetSmoothingRef.current.getCurrentValues();
-    
+
     const zeroTargets = {
       headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
       bodyYaw: 0,
@@ -204,14 +207,14 @@ export function useRobotPosition(isActive) {
     antennasRef.current = [0, 0];
     targetSmoothingRef.current.setTargets(zeroTargets);
     startSmoothReset(currentSmoothed);
-    
+
     safeAddFrontendLog(`↺ Smooth reset: animating to center position`);
   }, [targetSmoothingRef, safeAddFrontendLog]);
 
   // ============================================
   // RETURN
   // ============================================
-  
+
   const smoothedValues = smoothedValuesFromHook || {
     headPose: { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 },
     bodyYaw: 0,

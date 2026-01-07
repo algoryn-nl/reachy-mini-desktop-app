@@ -15,22 +15,28 @@ export const useLogs = () => {
       console.error('Error fetching logs:', e);
     }
   }, [setLogs]);
-  
+
   // Function to add a frontend log
-  const logCommand = useCallback((message, type = 'info') => {
-    // Timestamp is now automatically added by logger
-    logger.info(message);
-  }, [logger]);
-  
+  const logCommand = useCallback(
+    (message, type = 'info') => {
+      // Timestamp is now automatically added by logger
+      logger.info(message);
+    },
+    [logger]
+  );
+
   // Log an API action (request to daemon)
-  const logApiAction = useCallback((action, details = '', success = true) => {
-    // Timestamp is now automatically added by logger
-    if (success) {
-      logger.success(details ? `${action}: ${details}` : action);
-    } else {
-      logger.error(details ? `${action}: ${details}` : action);
-    }
-  }, [logger]);
+  const logApiAction = useCallback(
+    (action, details = '', success = true) => {
+      // Timestamp is now automatically added by logger
+      if (success) {
+        logger.success(details ? `${action}: ${details}` : action);
+      } else {
+        logger.error(details ? `${action}: ${details}` : action);
+      }
+    },
+    [logger]
+  );
 
   return {
     logs,
@@ -39,4 +45,3 @@ export const useLogs = () => {
     logApiAction,
   };
 };
-

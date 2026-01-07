@@ -57,7 +57,7 @@ This desktop application provides a unified interface to manage your Reachy Mini
 ```bash
 # Clone the repository
 git clone https://github.com/pollen-robotics/reachy-mini-desktop-app.git
-cd reachy-mini-desktop-app/tauri-app
+cd reachy-mini-desktop-app/reachy_mini_desktop_app
 
 # Install dependencies
 yarn install
@@ -222,7 +222,7 @@ This is useful for:
 ### Project Structure
 
 ```
-tauri-app/
+reachy_mini_desktop_app/
 ├── src/                              # Frontend React code
 │   ├── components/                   # Reusable React components
 │   │   ├── viewer3d/                # 3D robot visualization (README.md)

@@ -11,12 +11,12 @@ import * as THREE from 'three';
  */
 export const xrayShader = {
   uniforms: {
-    baseColor: { value: new THREE.Color(0x5A6570) },
-    rimColor: { value: new THREE.Color(0x8A9AAC) },
+    baseColor: { value: new THREE.Color(0x5a6570) },
+    rimColor: { value: new THREE.Color(0x8a9aac) },
     opacity: { value: 0.3 },
     rimIntensity: { value: 0.6 },
   },
-  
+
   vertexShader: `
     varying vec3 vNormal;
     varying vec3 vViewPosition;
@@ -28,7 +28,7 @@ export const xrayShader = {
       gl_Position = projectionMatrix * mvPosition;
     }
   `,
-  
+
   fragmentShader: `
     uniform vec3 baseColor;
     uniform vec3 rimColor;
@@ -51,7 +51,7 @@ export const xrayShader = {
       
       gl_FragColor = vec4(finalColor, opacity);
     }
-  `
+  `,
 };
 
 /**
@@ -61,20 +61,20 @@ export const xrayShader = {
  * @param {boolean} options.scanMode - If true, uses green color for scan effect
  * @returns {THREE.ShaderMaterial}
  */
-export function createXrayMaterial(baseColorHex = 0x5A6570, options = {}) {
+export function createXrayMaterial(baseColorHex = 0x5a6570, options = {}) {
   const isScanMode = options.scanMode === true;
-  
+
   // Scan mode: green colors
-  const baseColor = isScanMode ? 0x2D5A3D : baseColorHex;
-  const rimColor = isScanMode ? 0x4ADE80 : (options.rimColor || 0x8A9AAC);
-  
+  const baseColor = isScanMode ? 0x2d5a3d : baseColorHex;
+  const rimColor = isScanMode ? 0x4ade80 : options.rimColor || 0x8a9aac;
+
   const uniforms = {
     baseColor: { value: new THREE.Color(baseColor) },
     rimColor: { value: new THREE.Color(rimColor) },
     opacity: { value: options.opacity ?? 0.3 },
     rimIntensity: { value: options.rimIntensity ?? 0.6 },
   };
-  
+
   const material = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: xrayShader.vertexShader,
@@ -85,6 +85,6 @@ export function createXrayMaterial(baseColorHex = 0x5A6570, options = {}) {
     side: THREE.DoubleSide,
     opacity: options.opacity ?? 0.3,
   });
-  
+
   return material;
 }

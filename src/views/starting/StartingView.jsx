@@ -9,8 +9,7 @@ import useAppStore from '../../store/useAppStore';
  */
 function StartingView({ startupError, startDaemon }) {
   const { darkMode, transitionTo, setHardwareError } = useAppStore();
-  
-  
+
   const handleScanComplete = useCallback(() => {
     // ✅ HardwareScanView only calls this callback after successful healthcheck
     // ✅ Clear any hardware errors when scan completes successfully
@@ -42,7 +41,7 @@ function StartingView({ startupError, startDaemon }) {
           justifyContent: 'center',
         }}
       >
-        <HardwareScanView 
+        <HardwareScanView
           startupError={startupError}
           onScanComplete={handleScanComplete}
           startDaemon={startDaemon}

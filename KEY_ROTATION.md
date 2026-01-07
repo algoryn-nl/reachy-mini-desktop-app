@@ -208,7 +208,7 @@ security find-identity -v -p codesigning | grep "Developer ID Application"
 
 ```bash
 # Navigate to project root
-cd /path/to/tauri-app
+cd /path/to/reachy_mini_desktop_app
 
 # Place the .p12 file at root (temporarily)
 # Then run the preparation script

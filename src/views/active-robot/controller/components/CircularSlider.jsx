@@ -4,33 +4,33 @@ import { Box, Typography, Slider } from '@mui/material';
 /**
  * Circular Slider Component - Hybrid version
  * Small circular visualization + horizontal slider for interaction
- * 
+ *
  * The circular arc represents 270° of a full circle (3/4 circle)
  * - Normal mode: cut at bottom (135deg rotation)
  * - Inverted mode: cut at top (-45deg rotation)
- * 
+ *
  * ⚡ PERF: Wrapped in React.memo to prevent unnecessary re-renders
  */
-const CircularSlider = memo(function CircularSlider({ 
-  label, 
-  value, 
-  onChange, 
-  min = -Math.PI, 
-  max = Math.PI, 
+const CircularSlider = memo(function CircularSlider({
+  label,
+  value,
+  onChange,
+  min = -Math.PI,
+  max = Math.PI,
   unit = 'rad',
-  darkMode, 
+  darkMode,
   disabled = false,
   inverted = false, // If true, circle cut at top instead of bottom
   reverse = false, // If true, arc starts from the opposite side (reversed direction)
   alignRight = false, // If true, align content to the right and reverse order
-  smoothedValue // Optional smoothed/ghost value to display as a visual indicator
+  smoothedValue, // Optional smoothed/ghost value to display as a visual indicator
 }) {
   // Constants for circular arc calculation
-  const ARC_START = 0.01;      // Start of visible arc (1% of circle)
-  const ARC_END = 0.74;        // End of visible arc (74% of circle)
+  const ARC_START = 0.01; // Start of visible arc (1% of circle)
+  const ARC_END = 0.74; // End of visible arc (74% of circle)
   const ARC_SPAN = ARC_END - ARC_START; // 0.73 (73% of circle = 270°)
-  const ARC_DEGREES = 270;     // Arc spans 270 degrees (3/4 of circle)
-  
+  const ARC_DEGREES = 270; // Arc spans 270 degrees (3/4 of circle)
+
   // SVG dimensions
   const radius = 18;
   const border = 5;
@@ -38,47 +38,45 @@ const CircularSlider = memo(function CircularSlider({
   const circumference = 2 * Math.PI * circleRadius;
   const strokeWidth = border;
   const innerStrokeWidth = border / 1.1;
-  
+
   // Convert value to internal range [ARC_START, ARC_END] for circular progress
-  const convertToInternalRange = (val) => {
+  const convertToInternalRange = val => {
     const normalized = (val - min) / (max - min);
     return ARC_START + normalized * ARC_SPAN;
   };
-  
+
   // Memoize calculations to avoid recalculation on every render
   const svgCalculations = useMemo(() => {
     const internalValue = convertToInternalRange(value);
-    
+
     // If reverse, invert the internal value so arc starts from opposite side
-    const effectiveInternalValue = reverse 
-      ? ARC_END - (internalValue - ARC_START) 
-      : internalValue;
-    
+    const effectiveInternalValue = reverse ? ARC_END - (internalValue - ARC_START) : internalValue;
+
     const strokeDashoffset = circumference * (1 - effectiveInternalValue);
     const totalStrokeDashoffset = circumference * (1 - ARC_END);
-    
+
     // Calculate rotation: inverted = cut at top, normal = cut at bottom
     const svgRotation = inverted ? -45 : 135;
-    
+
     // Calculate progress angle: map internal value [0.01, 0.74] to [0°, 270°]
     // If reverse, start from the end and go backwards
     const progressAngle = reverse
-      ? ARC_DEGREES - ((internalValue - ARC_START) / ARC_SPAN * ARC_DEGREES)
-      : (internalValue - ARC_START) / ARC_SPAN * ARC_DEGREES;
-    
+      ? ARC_DEGREES - ((internalValue - ARC_START) / ARC_SPAN) * ARC_DEGREES
+      : ((internalValue - ARC_START) / ARC_SPAN) * ARC_DEGREES;
+
     // Calculate ghost position if smoothedValue is provided
     let ghostInternalValue = null;
     let ghostProgressAngle = null;
     if (smoothedValue !== undefined && smoothedValue !== null) {
       ghostInternalValue = convertToInternalRange(smoothedValue);
-      const effectiveGhostInternalValue = reverse 
-        ? ARC_END - (ghostInternalValue - ARC_START) 
+      const effectiveGhostInternalValue = reverse
+        ? ARC_END - (ghostInternalValue - ARC_START)
         : ghostInternalValue;
       ghostProgressAngle = reverse
-        ? ARC_DEGREES - ((ghostInternalValue - ARC_START) / ARC_SPAN * ARC_DEGREES)
-        : (ghostInternalValue - ARC_START) / ARC_SPAN * ARC_DEGREES;
+        ? ARC_DEGREES - ((ghostInternalValue - ARC_START) / ARC_SPAN) * ARC_DEGREES
+        : ((ghostInternalValue - ARC_START) / ARC_SPAN) * ARC_DEGREES;
     }
-    
+
     return {
       internalValue,
       effectiveInternalValue,
@@ -89,96 +87,122 @@ const CircularSlider = memo(function CircularSlider({
       ghostProgressAngle,
     };
   }, [value, min, max, inverted, reverse, circumference, smoothedValue]);
-  
-  const displayValue = typeof value === 'number' 
-    ? value.toFixed(unit === 'deg' ? 1 : 3) 
-    : (unit === 'deg' ? '0.0' : '0.000');
-  
+
+  const displayValue =
+    typeof value === 'number'
+      ? value.toFixed(unit === 'deg' ? 1 : 3)
+      : unit === 'deg'
+        ? '0.0'
+        : '0.000';
+
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: alignRight ? 'stretch' : 'center', 
-      gap: 0.5,
-      p: 0.75,
-      borderRadius: '0px',
-      bgcolor: 'transparent',
-      border: 'none',
-      opacity: disabled ? 0.5 : 1,
-      pointerEvents: disabled ? 'none' : 'auto',
-      width: '100%',
-      boxSizing: 'border-box',
-    }}>
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 1, 
-        width: alignRight ? 'auto' : '100%',
-        mb: 0.5,
-        justifyContent: alignRight ? 'flex-end' : 'flex-start',
-        flexDirection: alignRight ? 'row-reverse' : 'row',
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: alignRight ? 'stretch' : 'center',
+        gap: 0.5,
+        p: 0.75,
+        borderRadius: '0px',
+        bgcolor: 'transparent',
+        border: 'none',
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+        width: '100%',
         boxSizing: 'border-box',
-        ml: alignRight ? 'auto' : 0,
-      }}>
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          width: alignRight ? 'auto' : '100%',
+          mb: 0.5,
+          justifyContent: alignRight ? 'flex-end' : 'flex-start',
+          flexDirection: alignRight ? 'row-reverse' : 'row',
+          boxSizing: 'border-box',
+          ml: alignRight ? 'auto' : 0,
+        }}
+      >
         {alignRight ? (
           <>
-            <Typography sx={{ 
-              fontSize: 9, 
-              fontFamily: 'monospace', 
-              fontWeight: 500, 
-              color: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
-              letterSpacing: '0.02em',
-              textAlign: 'right',
-            }}>
-              {displayValue}{unit === 'deg' ? '°' : ` ${unit}`}
+            <Typography
+              sx={{
+                fontSize: 9,
+                fontFamily: 'monospace',
+                fontWeight: 500,
+                color: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                letterSpacing: '0.02em',
+                textAlign: 'right',
+              }}
+            >
+              {displayValue}
+              {unit === 'deg' ? '°' : ` ${unit}`}
             </Typography>
-            <Typography sx={{ 
-              fontSize: 10, 
-              fontWeight: 700, 
-              color: darkMode ? '#f5f5f5' : '#333', 
-              letterSpacing: '-0.2px',
-              textAlign: 'right',
-            }}>
+            <Typography
+              sx={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: darkMode ? '#f5f5f5' : '#333',
+                letterSpacing: '-0.2px',
+                textAlign: 'right',
+              }}
+            >
               {label}
             </Typography>
           </>
         ) : (
           <>
-        <Typography sx={{ fontSize: 10, fontWeight: 700, color: darkMode ? '#f5f5f5' : '#333', letterSpacing: '-0.2px' }}>
-          {label}
-        </Typography>
-        <Typography sx={{ 
-          fontSize: 9, 
-          fontFamily: 'monospace', 
-          fontWeight: 500, 
-          color: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
-          letterSpacing: '0.02em',
-        }}>
-          {displayValue}{unit === 'deg' ? '°' : ` ${unit}`}
-        </Typography>
+            <Typography
+              sx={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: darkMode ? '#f5f5f5' : '#333',
+                letterSpacing: '-0.2px',
+              }}
+            >
+              {label}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: 9,
+                fontFamily: 'monospace',
+                fontWeight: 500,
+                color: darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {displayValue}
+              {unit === 'deg' ? '°' : ` ${unit}`}
+            </Typography>
           </>
         )}
       </Box>
-      
+
       {/* Container with circular display and horizontal slider - single line, compact */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: alignRight ? 'row-reverse' : 'row', 
-        alignItems: 'center', 
-        gap: 1.5,
-        width: '100%',
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: alignRight ? 'row-reverse' : 'row',
+          alignItems: 'center',
+          gap: 1.5,
+          width: '100%',
+        }}
+      >
         {/* Small circular visualization */}
-        <Box sx={{ 
-          position: 'relative', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}>
+        <Box
+          sx={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
           <svg
             viewBox={`0 0 ${radius * 2} ${radius * 2}`}
-            style={{ 
+            style={{
               transform: `rotate(${svgCalculations.svgRotation}deg)`,
               width: radius * 2,
               height: radius * 2,
@@ -186,7 +210,11 @@ const CircularSlider = memo(function CircularSlider({
             }}
           >
             <defs>
-              <filter id={`dropshadow-${label}`} filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+              <filter
+                id={`dropshadow-${label}`}
+                filterUnits="userSpaceOnUse"
+                colorInterpolationFilters="sRGB"
+              >
                 <feComponentTransfer in="SourceAlpha">
                   <feFuncR type="discrete" tableValues="0.3" />
                   <feFuncG type="discrete" tableValues="0.3" />
@@ -197,7 +225,7 @@ const CircularSlider = memo(function CircularSlider({
                 <feComposite in="SourceGraphic" in2="shadow" operator="over" />
               </filter>
             </defs>
-            
+
             {/* Background circle (shadow) */}
             <circle
               stroke={darkMode ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)'}
@@ -207,13 +235,13 @@ const CircularSlider = memo(function CircularSlider({
               strokeDashoffset={svgCalculations.totalStrokeDashoffset}
               strokeDasharray={circumference}
               style={{
-                filter: `url(#dropshadow-${label})`
+                filter: `url(#dropshadow-${label})`,
               }}
               r={circleRadius}
               cx={radius}
               cy={radius}
             />
-            
+
             {/* Background circle (main) with border */}
             <circle
               stroke={darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}
@@ -226,7 +254,7 @@ const CircularSlider = memo(function CircularSlider({
               cx={radius}
               cy={radius}
             />
-            
+
             {/* Border arc - follows the visible arc shape */}
             <circle
               stroke={darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}
@@ -239,7 +267,7 @@ const CircularSlider = memo(function CircularSlider({
               cx={radius}
               cy={radius}
             />
-            
+
             {/* Active progress circle - gray instead of primary, more contrasted */}
             <circle
               stroke={darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'}
@@ -254,15 +282,17 @@ const CircularSlider = memo(function CircularSlider({
             />
           </svg>
         </Box>
-        
+
         {/* Horizontal slider for interaction with ghost indicator */}
-        <Box sx={{ 
-          flex: 1,
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          position: 'relative',
-        }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+          }}
+        >
           {/* Ghost indicator - shows smoothed target value (same style as Joystick2D ghost) */}
           {smoothedValue !== undefined && smoothedValue !== null && (
             <Box
@@ -282,17 +312,17 @@ const CircularSlider = memo(function CircularSlider({
               }}
             />
           )}
-          <Slider 
+          <Slider
             orientation="horizontal"
-            value={value} 
+            value={value}
             onChange={(e, newValue) => onChange(newValue, true)}
             onChangeCommitted={(e, newValue) => onChange(newValue, false)}
-            min={min} 
-            max={max} 
+            min={min}
+            max={max}
             step={0.1}
             disabled={disabled}
-            sx={{ 
-              color: '#FF9500', 
+            sx={{
+              color: '#FF9500',
               height: 3,
               position: 'relative',
               zIndex: 2,
@@ -307,7 +337,7 @@ const CircularSlider = memo(function CircularSlider({
                 },
                 '&:active': {
                   boxShadow: '0 4px 12px rgba(255, 149, 0, 0.8)',
-                }
+                },
               },
               '& .MuiSlider-track': {
                 height: 3,
@@ -316,8 +346,8 @@ const CircularSlider = memo(function CircularSlider({
               '& .MuiSlider-rail': {
                 height: 3,
                 opacity: darkMode ? 0.2 : 0.3,
-              }
-            }} 
+              },
+            }}
           />
         </Box>
       </Box>

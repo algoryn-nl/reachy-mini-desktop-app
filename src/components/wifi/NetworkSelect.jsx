@@ -1,8 +1,8 @@
 import React from 'react';
-import { 
-  Select, 
-  MenuItem, 
-  FormControl, 
+import {
+  Select,
+  MenuItem,
+  FormControl,
   InputLabel,
   Typography,
   CircularProgress,
@@ -11,11 +11,11 @@ import {
 
 /**
  * NetworkSelect - Reusable WiFi network dropdown
- * 
+ *
  * Used in:
  * - ChangeWifiOverlay (Settings)
  * - WiFiConfiguration (Setup flow)
- * 
+ *
  * @param {string} value - Selected SSID
  * @param {function} onChange - Callback when selection changes
  * @param {string[]} networks - List of available networks
@@ -42,18 +42,18 @@ export default function NetworkSelect({
   sx = {},
 }) {
   const textSecondary = darkMode ? '#888' : '#666';
-  
+
   const selectContent = (
     <Select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={e => onChange(e.target.value)}
       disabled={disabled}
       onOpen={() => {
         if (onOpen) onOpen('NetworkSelect-onOpen');
       }}
       size="small"
       fullWidth
-      label={showLabel ? "Network" : undefined}
+      label={showLabel ? 'Network' : undefined}
       displayEmpty
       notched={showLabel}
       MenuProps={{
@@ -76,16 +76,12 @@ export default function NetworkSelect({
                 bgcolor: darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)',
               },
             },
-          }
-        }
+          },
+        },
       }}
-      renderValue={(val) => {
+      renderValue={val => {
         if (!val) {
-          return (
-            <span style={{ color: textSecondary }}>
-              Select a network
-            </span>
-          );
+          return <span style={{ color: textSecondary }}>Select a network</span>;
         }
         return val;
       }}
@@ -95,7 +91,7 @@ export default function NetworkSelect({
         <MenuItem value="" disabled sx={{ color: textSecondary, fontSize: 12 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CircularProgress size={14} thickness={3} sx={{ color: textSecondary }} />
-          <em>Scanning networks...</em>
+            <em>Scanning networks...</em>
           </Box>
         </MenuItem>
       ) : networks.length === 0 ? (
@@ -106,11 +102,11 @@ export default function NetworkSelect({
         networks.map((network, i) => {
           const isCurrentNetwork = connectedNetwork && network === connectedNetwork;
           return (
-            <MenuItem 
-              key={`${network}-${i}`} 
-              value={network} 
+            <MenuItem
+              key={`${network}-${i}`}
+              value={network}
               disabled={isCurrentNetwork}
-              sx={{ 
+              sx={{
                 fontSize: 13,
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -144,4 +140,3 @@ export default function NetworkSelect({
 
   return selectContent;
 }
-

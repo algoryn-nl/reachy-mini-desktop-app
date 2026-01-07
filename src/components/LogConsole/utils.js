@@ -2,7 +2,7 @@
  * Format timestamp to HH:mm:ss string
  * Robust version with error handling
  */
-export const formatTimestamp = (timestamp) => {
+export const formatTimestamp = timestamp => {
   try {
     if (typeof timestamp === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(timestamp)) {
       return timestamp;
@@ -15,13 +15,13 @@ export const formatTimestamp = (timestamp) => {
         // Invalid timestamp, use current time
         timestamp = now;
       }
-      
+
       try {
-        return new Date(timestamp).toLocaleTimeString('en-GB', { 
-          hour: '2-digit', 
+        return new Date(timestamp).toLocaleTimeString('en-GB', {
+          hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          hour12: false
+          hour12: false,
         });
       } catch (e) {
         // Fallback if toLocaleTimeString fails
@@ -31,11 +31,11 @@ export const formatTimestamp = (timestamp) => {
     // Fallback to current time
     const now = Date.now();
     try {
-      return new Date(now).toLocaleTimeString('en-GB', { 
-        hour: '2-digit', 
+      return new Date(now).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: false
+        hour12: false,
       });
     } catch (e) {
       return new Date(now).toISOString().substring(11, 19);
@@ -50,49 +50,56 @@ export const formatTimestamp = (timestamp) => {
  * Normalize a log entry to a consistent format
  * Robust version with validation and error handling
  */
-export const normalizeLog = (log) => {
+export const normalizeLog = log => {
   try {
     if (log && typeof log === 'object' && log.message != null) {
       // Validate and sanitize message
       const message = String(log.message || '').slice(0, 10000); // Max 10KB
-      
+
       // Validate timestamp
       let timestampNumeric = Date.now();
       if (typeof log.timestamp === 'number' && !isNaN(log.timestamp) && isFinite(log.timestamp)) {
         timestampNumeric = log.timestamp;
-      } else if (log.timestampNumeric && typeof log.timestampNumeric === 'number' && !isNaN(log.timestampNumeric) && isFinite(log.timestampNumeric)) {
+      } else if (
+        log.timestampNumeric &&
+        typeof log.timestampNumeric === 'number' &&
+        !isNaN(log.timestampNumeric) &&
+        isFinite(log.timestampNumeric)
+      ) {
         timestampNumeric = log.timestampNumeric;
       }
-      
+
       return {
         message,
         source: log.source || 'daemon',
-        timestamp: log.timestamp ? formatTimestamp(log.timestamp) : formatTimestamp(timestampNumeric),
+        timestamp: log.timestamp
+          ? formatTimestamp(log.timestamp)
+          : formatTimestamp(timestampNumeric),
         level: log.level || 'info',
         appName: log.appName || undefined,
         timestampNumeric,
       };
     }
-    
+
     if (typeof log === 'string') {
       // Parse Rust logs with format "TIMESTAMP|MESSAGE"
       // If no pipe found, treat as legacy log without timestamp
       const pipeIndex = log.indexOf('|');
       let message = log;
       let timestampNumeric = 0;
-      
+
       if (pipeIndex > 0 && pipeIndex < 20) {
         // Potential timestamp prefix (Unix millis is ~13 digits)
         const potentialTimestamp = log.substring(0, pipeIndex);
         const parsedTs = parseInt(potentialTimestamp, 10);
-        
+
         // Validate it looks like a Unix timestamp (reasonable range)
         if (!isNaN(parsedTs) && parsedTs > 1600000000000 && parsedTs < 2000000000000) {
           timestampNumeric = parsedTs;
           message = log.substring(pipeIndex + 1);
         }
       }
-      
+
       return {
         message: message.slice(0, 10000), // Max 10KB
         source: 'daemon',
@@ -101,7 +108,7 @@ export const normalizeLog = (log) => {
         level: 'info',
       };
     }
-    
+
     // Fallback for any other type
     const now = Date.now();
     return {
@@ -123,4 +130,3 @@ export const normalizeLog = (log) => {
     };
   }
 };
-

@@ -43,45 +43,48 @@ export const uiInitialState = {
  */
 export const createUISlice = (set, get) => ({
   ...uiInitialState,
-  
+
   // Window management
-  addOpenWindow: (windowLabel) => set((state) => {
-    if (!state.openWindows.includes(windowLabel)) {
-      return { openWindows: [...state.openWindows, windowLabel] };
-    }
-    return state;
-  }),
-  
-  removeOpenWindow: (windowLabel) => set((state) => ({
-    openWindows: state.openWindows.filter(label => label !== windowLabel),
-  })),
-  
-  isWindowOpen: (windowLabel) => {
+  addOpenWindow: windowLabel =>
+    set(state => {
+      if (!state.openWindows.includes(windowLabel)) {
+        return { openWindows: [...state.openWindows, windowLabel] };
+      }
+      return state;
+    }),
+
+  removeOpenWindow: windowLabel =>
+    set(state => ({
+      openWindows: state.openWindows.filter(label => label !== windowLabel),
+    })),
+
+  isWindowOpen: windowLabel => {
     const state = get();
     return state.openWindows.includes(windowLabel);
   },
-  
+
   // Right panel view management
-  setRightPanelView: (view) => set({ rightPanelView: view }),
-  
+  setRightPanelView: view => set({ rightPanelView: view }),
+
   // First time WiFi setup view management
-  setShowFirstTimeWifiSetup: (value) => set({ showFirstTimeWifiSetup: value }),
-  
+  setShowFirstTimeWifiSetup: value => set({ showFirstTimeWifiSetup: value }),
+
   // Bluetooth support view management
-  setShowBluetoothSupportView: (value) => set({ showBluetoothSupportView: value }),
-  
+  setShowBluetoothSupportView: value => set({ showBluetoothSupportView: value }),
+
   // Dark mode management
-  setDarkMode: (value) => {
+  setDarkMode: value => {
     localStorage.setItem('darkMode', JSON.stringify(value));
     set({ darkMode: value });
   },
-  
-  toggleDarkMode: () => set((state) => {
-    const newValue = !state.darkMode;
-    localStorage.setItem('darkMode', JSON.stringify(newValue));
-    return { darkMode: newValue };
-  }),
-  
+
+  toggleDarkMode: () =>
+    set(state => {
+      const newValue = !state.darkMode;
+      localStorage.setItem('darkMode', JSON.stringify(newValue));
+      return { darkMode: newValue };
+    }),
+
   resetDarkMode: () => {
     localStorage.removeItem('darkMode');
     const systemPreference = getSystemPreference();
@@ -95,20 +98,19 @@ export const createUISlice = (set, get) => ({
  */
 export const setupSystemPreferenceListener = (getState, setState) => {
   if (typeof window === 'undefined') return;
-  
+
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  
-  const handleSystemPreferenceChange = (e) => {
+
+  const handleSystemPreferenceChange = e => {
     const storedPreference = getStoredPreference();
     if (storedPreference === null) {
       setState({ darkMode: e.matches });
     }
   };
-  
+
   if (mediaQuery.addEventListener) {
     mediaQuery.addEventListener('change', handleSystemPreferenceChange);
   } else {
     mediaQuery.addListener(handleSystemPreferenceChange);
   }
 };
-

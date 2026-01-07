@@ -5,7 +5,7 @@ import useAppStore from '../../store/useAppStore';
 /**
  * Hook to listen to sidecar logs during daemon startup
  * Provides real-time feedback to the user about what's happening
- * 
+ *
  * @param {boolean} isStarting - Whether daemon is currently starting
  * @returns {object} { logs, hasError, lastMessage }
  */
@@ -36,7 +36,7 @@ export function useDaemonStartupLogs(isStarting) {
     // This ensures logs continue to be captured during error state
     const currentState = useAppStore.getState();
     const shouldKeepListening = isStarting || currentState.hardwareError;
-    
+
     if (!shouldKeepListening) {
       // Cleanup listeners when not starting and no error
       if (unlistenStdoutRef.current) {
@@ -53,21 +53,22 @@ export function useDaemonStartupLogs(isStarting) {
     const setupListeners = async () => {
       try {
         // Listen to stdout (info messages)
-        unlistenStdoutRef.current = await listen('sidecar-stdout', (event) => {
-          const logLine = typeof event.payload === 'string' 
-            ? event.payload 
-            : event.payload?.toString() || '';
-          
+        unlistenStdoutRef.current = await listen('sidecar-stdout', event => {
+          const logLine =
+            typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
+
           // Clean up prefix if present
           const cleanLine = logLine.replace(/^Sidecar stdout:\s*/, '').trim();
-          
+
           // Filter out noise (HTTP logs, WebSocket, etc.)
-          if (!cleanLine || 
-              cleanLine.includes('GET /api/') || 
-              cleanLine.includes('INFO:     127.0.0.1') ||
-              cleanLine.includes('WebSocket') ||
-              cleanLine.includes('connection open') ||
-              cleanLine.includes('connection closed')) {
+          if (
+            !cleanLine ||
+            cleanLine.includes('GET /api/') ||
+            cleanLine.includes('INFO:     127.0.0.1') ||
+            cleanLine.includes('WebSocket') ||
+            cleanLine.includes('connection open') ||
+            cleanLine.includes('connection closed')
+          ) {
             return;
           }
 
@@ -77,47 +78,49 @@ export function useDaemonStartupLogs(isStarting) {
             level: 'info',
             timestamp: Date.now(),
           };
-          
+
           logsRef.current = [...logsRef.current, newLog].slice(-50); // Keep last 50
           setStartupLogs([...logsRef.current]);
           setLastMessage(cleanLine);
-          
+
           // Don't add to frontendLogs - these logs are already in startupLogs for the scan view
           // and will be in backend logs array, avoiding duplicates
         });
 
         // Listen to stderr (errors and warnings)
-        unlistenStderrRef.current = await listen('sidecar-stderr', (event) => {
-          const logLine = typeof event.payload === 'string' 
-            ? event.payload 
-            : event.payload?.toString() || '';
-          
+        unlistenStderrRef.current = await listen('sidecar-stderr', event => {
+          const logLine =
+            typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
+
           // Clean up prefix if present
           const cleanLine = logLine.replace(/^Sidecar stderr:\s*/, '').trim();
-          
+
           // Filter out noise
-          if (!cleanLine || 
-              cleanLine.includes('GET /api/') || 
-              cleanLine.includes('INFO:     127.0.0.1')) {
+          if (
+            !cleanLine ||
+            cleanLine.includes('GET /api/') ||
+            cleanLine.includes('INFO:     127.0.0.1')
+          ) {
             return;
           }
 
           // Check if it's an error (not just a warning)
-          const isError = cleanLine.toLowerCase().includes('error') || 
-                         cleanLine.toLowerCase().includes('failed') ||
-                         cleanLine.toLowerCase().includes('exception') ||
-                         cleanLine.toLowerCase().includes('traceback');
+          const isError =
+            cleanLine.toLowerCase().includes('error') ||
+            cleanLine.toLowerCase().includes('failed') ||
+            cleanLine.toLowerCase().includes('exception') ||
+            cleanLine.toLowerCase().includes('traceback');
 
           // Filter duplicate errors at source (same error within 10 seconds = skip)
           if (isError) {
             const now = Date.now();
             const lastSeen = errorTimestampsRef.current.get(cleanLine);
-            
+
             // If we've seen this exact error within the last 10 seconds, skip it
-            if (lastSeen && (now - lastSeen) < 10000) {
+            if (lastSeen && now - lastSeen < 10000) {
               return; // Skip duplicate error
             }
-            
+
             // Update timestamp for this error
             errorTimestampsRef.current.set(cleanLine, now);
           }
@@ -127,15 +130,15 @@ export function useDaemonStartupLogs(isStarting) {
             level: isError ? 'error' : 'warning',
             timestamp: Date.now(),
           };
-          
+
           logsRef.current = [...logsRef.current, newLog].slice(-50);
           setStartupLogs([...logsRef.current]);
           setLastMessage(cleanLine);
-          
+
           if (isError) {
             setHasError(true);
           }
-          
+
           // Don't add to frontendLogs - these logs are already in startupLogs for the scan view
           // and will be in backend logs array, avoiding duplicates
           // Errors are already filtered at source to prevent spam
@@ -165,4 +168,3 @@ export function useDaemonStartupLogs(isStarting) {
     lastMessage,
   };
 }
-

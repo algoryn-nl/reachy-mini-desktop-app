@@ -4,7 +4,7 @@ import { useActiveRobotContext } from '../context';
 /**
  * Hook to monitor active robot movements and update store status
  * Sets robotStatus to 'busy' with busyReason 'moving' when movements are active
- * 
+ *
  * Uses ActiveRobotContext for decoupling from global stores
  * Now reads activeMoves directly from robotState (populated by useActiveMoves WebSocket hook)
  */
@@ -44,4 +44,3 @@ export function useRobotMovementStatus(isActive) {
     }
   }, [isActive, activeMoves, robotStatus, busyReason, transitionTo]);
 }
-

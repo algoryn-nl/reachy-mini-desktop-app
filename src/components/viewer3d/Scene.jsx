@@ -16,16 +16,16 @@ import { DAEMON_CONFIG } from '../../config/daemon';
 /**
  * 3D Scene with lighting, environment and post-processing effects
  */
-function Scene({ 
-  headPose, 
+function Scene({
+  headPose,
   headJoints, // ✅ Array of 7 values [yaw_body, stewart_1, ..., stewart_6]
   passiveJoints, // 🚀 GAME-CHANGING: Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z] (from unified WebSocket)
-  yawBody, 
-  antennas, 
-  isActive, 
-  isTransparent, 
+  yawBody,
+  antennas,
+  isActive,
+  isTransparent,
   wireframe = false, // ✅ Wireframe mode
-  forceLoad = false, 
+  forceLoad = false,
   hideGrid = false,
   showScanEffect = false, // Display the scan effect
   usePremiumScan = false, // Use premium world-class scan effect
@@ -42,17 +42,17 @@ function Scene({
   // State to store meshes to outline
   const [outlineMeshes, setOutlineMeshes] = useState([]);
   const [robotRef, setRobotRef] = useState(null); // Reference to robot
-  
+
   // ✅ Forward meshes to parent callback if provided
   useEffect(() => {
     if (onMeshesReady && outlineMeshes.length > 0) {
       onMeshesReady(outlineMeshes);
     }
   }, [onMeshesReady, outlineMeshes]);
-  
+
   // 🚀 GAME-CHANGING: passiveJoints now comes from props (unified WebSocket) instead of useRobotParts
   // This eliminates the DOUBLE WebSocket problem!
-  
+
   // ✅ Expose kinematic data via window for debug (simplified, without useRobotParts)
   // ✅ OPTIMIZED: Use numeric comparison instead of JSON.stringify (much faster)
   const lastHeadJointsRef = useRef(null);
@@ -61,11 +61,12 @@ function Scene({
     // Only log if we have meaningful data
     if (headJoints && headJoints.length === 7) {
       // ✅ OPTIMIZED: Compare numerically instead of JSON.stringify (78% faster)
-      const headJointsChanged = !lastHeadJointsRef.current || 
+      const headJointsChanged =
+        !lastHeadJointsRef.current ||
         headJoints.some((v, i) => Math.abs(v - (lastHeadJointsRef.current?.[i] || 0)) > 0.001);
       const hasPassiveJoints = !!passiveJoints;
       const passiveJointsChanged = hasPassiveJoints !== lastHasPassiveJointsRef.current;
-      
+
       if (headJointsChanged || passiveJointsChanged) {
         window.kinematics = {
           headJoints,
@@ -79,8 +80,7 @@ function Scene({
       }
     }
   }, [headJoints, passiveJoints, headPose]);
-  
-  
+
   // ⚡ Scan duration read from central config
   const scanDuration = DAEMON_CONFIG.ANIMATIONS.SCAN_DURATION / 1000;
 
@@ -121,33 +121,33 @@ function Scene({
   // Use useMemo to recalculate only when effect changes (optimization)
   const headPosition = useMemo(() => {
     if (!robotRef) return [0, 0.18, 0.02]; // Default position
-    
+
     // Find camera link (at head level)
     const cameraLink = robotRef.links?.['camera'];
     if (cameraLink) {
       // 🚀 GAME-CHANGING: Reuse Vector3 instead of creating new one
       cameraLink.getWorldPosition(headPositionVectorRef.current);
-      
+
       // Add offset so particles appear above and in front of head
       return [
-        headPositionVectorRef.current.x, 
-        headPositionVectorRef.current.y + 0.03, 
-        headPositionVectorRef.current.z + 0.02
+        headPositionVectorRef.current.x,
+        headPositionVectorRef.current.y + 0.03,
+        headPositionVectorRef.current.z + 0.02,
       ];
     }
-    
+
     // Fallback to xl_330 if camera is not available
     const headLink = robotRef.links?.['xl_330'];
     if (headLink) {
       // 🚀 GAME-CHANGING: Reuse Vector3 instead of creating new one
       headLink.getWorldPosition(headPositionVectorRef.current);
       return [
-        headPositionVectorRef.current.x, 
-        headPositionVectorRef.current.y + 0.03, 
-        headPositionVectorRef.current.z + 0.02
+        headPositionVectorRef.current.x,
+        headPositionVectorRef.current.y + 0.03,
+        headPositionVectorRef.current.z + 0.02,
       ];
     }
-    
+
     return [0, 0.18, 0.02]; // Fallback if no link found
   }, [robotRef, activeEffect]); // ✅ Recalculate only when a new effect starts
 
@@ -156,7 +156,7 @@ function Scene({
     // Colors adapted to dark mode - improved visibility
     const majorLineColor = darkMode ? '#555555' : '#999999';
     const minorLineColor = darkMode ? '#333333' : '#cccccc';
-    
+
     const grid = new THREE.GridHelper(2, 20, majorLineColor, minorLineColor);
     grid.material.opacity = darkMode ? 0.4 : 0.5;
     grid.material.transparent = true;
@@ -169,22 +169,25 @@ function Scene({
     if (!errorFocusMesh) {
       return null;
     }
-    
+
     // If we don't have robotRef or outlineMeshes yet, return just the error mesh
     if (!robotRef || !outlineMeshes.length) {
       return [errorFocusMesh]; // Return array with single mesh
     }
 
     // Helper function to find the parent link of a mesh
-    const findParentLink = (mesh) => {
+    const findParentLink = mesh => {
       let current = mesh;
       let depth = 0;
       while (current && current.parent && depth < 10) {
         const parentName = current.parent.name || '';
         // Check if parent is a link (URDF links often have specific names)
-        if (robotRef.links && Object.keys(robotRef.links).some(linkName => 
-          parentName === linkName || parentName.includes(linkName)
-        )) {
+        if (
+          robotRef.links &&
+          Object.keys(robotRef.links).some(
+            linkName => parentName === linkName || parentName.includes(linkName)
+          )
+        ) {
           return current.parent;
         }
         // Also check by name
@@ -213,13 +216,13 @@ function Scene({
     // Check if the error mesh is part of the camera
     let isCameraMesh = false;
     let cameraLink = null;
-    
+
     // Method 1: Check via camera link directly
     if (robotRef.links?.['camera']) {
       cameraLink = robotRef.links['camera'];
       const cameraMeshes = collectMeshesFromObject(cameraLink, []);
       isCameraMesh = cameraMeshes.includes(errorFocusMesh);
-      
+
       if (isCameraMesh) {
         return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
       }
@@ -231,7 +234,7 @@ function Scene({
     while (current && current.parent && depth < 10) {
       const parentName = (current.parent.name || '').toLowerCase();
       const currentName = (current.name || '').toLowerCase();
-      
+
       if (parentName.includes('camera') || currentName.includes('camera')) {
         isCameraMesh = true;
         break;
@@ -247,10 +250,10 @@ function Scene({
         const cameraMeshes = collectMeshesFromObject(cameraLink, []);
         return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
       }
-      
+
       // Otherwise, search for all meshes with "camera" in their hierarchy
       const cameraMeshes = [];
-      outlineMeshes.forEach((mesh) => {
+      outlineMeshes.forEach(mesh => {
         let current = mesh;
         let depth = 0;
         while (current && current.parent && depth < 10) {
@@ -268,53 +271,46 @@ function Scene({
       return cameraMeshes.length > 0 ? cameraMeshes : [errorFocusMesh];
     }
 
-      // Otherwise, return just the error mesh
+    // Otherwise, return just the error mesh
     return [errorFocusMesh];
   }, [errorFocusMesh, robotRef, outlineMeshes]);
 
   // ✅ Fog color adapted to dark mode
   const fogColor = darkMode ? '#1a1a1a' : '#fdfcfa';
-  
+
   return (
     <>
       {/* Fog for fade out effect */}
       <fog attach="fog" args={[fogColor, 1, scene.fogDistance]} />
-      
+
       {/* Three-point lighting setup */}
       <ambientLight intensity={lighting.ambient} />
-      
+
       {/* Key Light - Main light (front-right, elevated) */}
-      <directionalLight 
-        position={[2, 4, 2]} 
-        intensity={lighting.keyIntensity} 
-        castShadow 
+      <directionalLight
+        position={[2, 4, 2]}
+        intensity={lighting.keyIntensity}
+        castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
       />
-      
+
       {/* Fill Light - Fill light (front-left, softer) */}
-      <directionalLight 
-        position={[-2, 2, 1.5]} 
-        intensity={lighting.fillIntensity}
-      />
-      
+      <directionalLight position={[-2, 2, 1.5]} intensity={lighting.fillIntensity} />
+
       {/* Back/Rim Light - Back light (for separation) */}
-      <directionalLight 
-        position={[0, 3, -2]} 
-        intensity={lighting.rimIntensity}
-        color="#FFB366"
-      />
-      
+      <directionalLight position={[0, 3, -2]} intensity={lighting.rimIntensity} color="#FFB366" />
+
       {/* Floor grid - Using primitive with Three.js GridHelper */}
       {!hideGrid && scene.showGrid && <primitive object={gridHelper} position={[0, 0, 0]} />}
-      
-      <URDFRobot 
-        headPose={headPose} 
+
+      <URDFRobot
+        headPose={headPose}
         headJoints={headJoints}
         passiveJoints={passiveJoints}
-        yawBody={yawBody} 
+        yawBody={yawBody}
         antennas={antennas}
-        isActive={isActive} 
+        isActive={isActive}
         isTransparent={isTransparent}
         wireframe={wireframe}
         xrayOpacity={xraySettings.opacity}
@@ -323,53 +319,53 @@ function Scene({
         forceLoad={forceLoad}
         dataVersion={dataVersion}
       />
-      
+
       {/* Scan effect during loading */}
       {showScanEffect && (
         <>
-        {usePremiumScan ? (
-          <PremiumScanEffect 
-            meshes={outlineMeshes}
-            scanColor="#00ff88"
-            enabled={true}
-            onScanMesh={(mesh, index, total) => {
-              // Call parent callback if provided (no annotations for premium scan)
-              if (onScanMesh) {
-                onScanMesh(mesh, index, total);
-              }
-            }}
-            onComplete={() => {
-              if (onScanComplete) {
-                onScanComplete();
-              }
-            }}
-          />
-        ) : (
-          <>
-          <ScanEffect 
-            meshes={outlineMeshes}
-            scanColor="#16a34a"
-            enabled={true}
-            onScanMesh={(mesh, index, total) => {
-              // Call parent callback if provided
-              if (onScanMesh) {
-                onScanMesh(mesh, index, total);
-              }
-            }}
-            onComplete={() => {
-              if (onScanComplete) {
-                onScanComplete();
-              }
-            }}
-          />
-          </>
-        )}
+          {usePremiumScan ? (
+            <PremiumScanEffect
+              meshes={outlineMeshes}
+              scanColor="#00ff88"
+              enabled={true}
+              onScanMesh={(mesh, index, total) => {
+                // Call parent callback if provided (no annotations for premium scan)
+                if (onScanMesh) {
+                  onScanMesh(mesh, index, total);
+                }
+              }}
+              onComplete={() => {
+                if (onScanComplete) {
+                  onScanComplete();
+                }
+              }}
+            />
+          ) : (
+            <>
+              <ScanEffect
+                meshes={outlineMeshes}
+                scanColor="#16a34a"
+                enabled={true}
+                onScanMesh={(mesh, index, total) => {
+                  // Call parent callback if provided
+                  if (onScanMesh) {
+                    onScanMesh(mesh, index, total);
+                  }
+                }}
+                onComplete={() => {
+                  if (onScanComplete) {
+                    onScanComplete();
+                  }
+                }}
+              />
+            </>
+          )}
         </>
       )}
-      
+
       {/* Highlight effect in case of error */}
       {errorFocusMesh && (
-        <ErrorHighlight 
+        <ErrorHighlight
           errorMesh={errorFocusMesh}
           errorMeshes={errorMeshes}
           allMeshes={outlineMeshes}
@@ -377,7 +373,7 @@ function Scene({
           enabled={true}
         />
       )}
-      
+
       {/* Camera: 2 possible modes */}
       {useCinematicCamera ? (
         // Mode 1: Vertically animated camera (StartingView scan)
@@ -390,7 +386,7 @@ function Scene({
         />
       ) : (
         // Mode 2: Manual OrbitControls (default) - Free rotation with zoom
-        <OrbitControls 
+        <OrbitControls
           enablePan={false}
           enableRotate={true}
           enableZoom={true}
@@ -401,7 +397,7 @@ function Scene({
           maxDistance={cameraConfig.maxDistance || 10}
         />
       )}
-      
+
       {/* Visual particle effects (sleep, love, etc.) - DISABLED */}
       {/* {!hideEffects && activeEffect && (
         <ParticleEffect
@@ -433,13 +429,13 @@ export default memo(Scene, (prevProps, nextProps) => {
   ) {
     return false; // Re-render
   }
-  
+
   // ⚡ OPTIMIZED: Compare dataVersion instead of all arrays (O(1) vs O(n))
   // dataVersion increments when any robot data changes in WebSocket
   if (prevProps.dataVersion !== nextProps.dataVersion) {
     return false; // Re-render - new robot data available
   }
-  
+
   // All props are equal, skip re-render
   return true;
 });

@@ -1,6 +1,6 @@
 /**
  * App Metadata Utilities
- * 
+ *
  * Helpers for consolidating and enriching app metadata
  * from different sources (daemon, /api/spaces, Hugging Face dataset)
  */
@@ -26,7 +26,7 @@ export function isOfficialAppWithSpacesData(daemonApp) {
  */
 export function extractSpacesMetadata(spaceData) {
   if (!spaceData) return null;
-  
+
   return {
     id: spaceData.id,
     name: spaceData.id?.split('/').pop(),
@@ -65,17 +65,19 @@ export function consolidateRuntime(daemonApp, hfMetadata) {
 export function buildEnrichedApp(daemonApp, hfMetadata, spaceData, isInstalled) {
   const isOfficialApp = !!spaceData;
   const consolidatedRuntime = consolidateRuntime(daemonApp, hfMetadata);
-  
+
   return {
     name: daemonApp.name,
     id: hfMetadata?.id || daemonApp.id || daemonApp.name,
-    description: daemonApp.description || 
-                hfMetadata?.description || 
-                spaceData?.cardData?.short_description || 
-                '',
-    url: daemonApp.url || 
-         (hfMetadata?.id ? `https://huggingface.co/spaces/${hfMetadata.id}` : null) ||
-         (spaceData?.id ? `https://huggingface.co/spaces/${spaceData.id}` : null),
+    description:
+      daemonApp.description ||
+      hfMetadata?.description ||
+      spaceData?.cardData?.short_description ||
+      '',
+    url:
+      daemonApp.url ||
+      (hfMetadata?.id ? `https://huggingface.co/spaces/${hfMetadata.id}` : null) ||
+      (spaceData?.id ? `https://huggingface.co/spaces/${spaceData.id}` : null),
     source_kind: daemonApp.source_kind || 'local',
     isInstalled,
     extra: {
@@ -86,23 +88,29 @@ export function buildEnrichedApp(daemonApp, hfMetadata, spaceData, isInstalled) 
         // Spread existing cardData (from /api/spaces for official apps)
         ...(spaceData?.cardData || daemonApp.extra?.cardData || {}),
         // Only override if missing
-        emoji: spaceData?.cardData?.emoji || 
-               daemonApp.extra?.cardData?.emoji || 
-               hfMetadata?.icon || 
-               daemonApp.icon || 
-               daemonApp.emoji || 
-               '📦',
-        short_description: spaceData?.cardData?.short_description || 
-                          daemonApp.extra?.cardData?.short_description || 
-                          hfMetadata?.description || 
-                          daemonApp.description || 
-                          '',
+        emoji:
+          spaceData?.cardData?.emoji ||
+          daemonApp.extra?.cardData?.emoji ||
+          hfMetadata?.icon ||
+          daemonApp.icon ||
+          daemonApp.emoji ||
+          '📦',
+        short_description:
+          spaceData?.cardData?.short_description ||
+          daemonApp.extra?.cardData?.short_description ||
+          hfMetadata?.description ||
+          daemonApp.description ||
+          '',
       },
       // Metadata: priority is /api/spaces (for official apps) > hfMetadata (for others)
       // Use nullish coalescing to preserve 0 values
       likes: spaceData?.likes ?? daemonApp.extra?.likes ?? hfMetadata?.likes ?? 0,
       downloads: spaceData?.downloads ?? daemonApp.extra?.downloads ?? hfMetadata?.downloads ?? 0,
-      lastModified: spaceData?.lastModified ?? daemonApp.extra?.lastModified ?? hfMetadata?.lastModified ?? new Date().toISOString(),
+      lastModified:
+        spaceData?.lastModified ??
+        daemonApp.extra?.lastModified ??
+        hfMetadata?.lastModified ??
+        new Date().toISOString(),
       // Preserve tags from /api/spaces
       tags: spaceData?.tags ?? daemonApp.extra?.tags ?? [],
       // Explicitly set runtime from consolidated value
@@ -124,30 +132,32 @@ export function buildEnrichedApp(daemonApp, hfMetadata, spaceData, isInstalled) 
 export function enrichInstalledAppsWithAvailableMetadata(installedApps, availableApps) {
   return installedApps.map(installedApp => {
     // Check if we need to enrich with metadata from available apps
-    const needsEmoji = !installedApp.extra?.cardData?.emoji || installedApp.extra.cardData.emoji === '📦';
+    const needsEmoji =
+      !installedApp.extra?.cardData?.emoji || installedApp.extra.cardData.emoji === '📦';
     const needsLastModified = !installedApp.extra?.lastModified;
-    
+
     // If already has everything, keep it
     if (!needsEmoji && !needsLastModified) {
       return installedApp;
     }
-    
+
     // Try to find matching available app by name/id
-    const matchingAvailable = availableApps.find(availApp => 
-      availApp.name === installedApp.name ||
-      availApp.id === installedApp.name ||
-      availApp.name?.toLowerCase() === installedApp.name?.toLowerCase() ||
-      availApp.id?.toLowerCase() === installedApp.name?.toLowerCase()
+    const matchingAvailable = availableApps.find(
+      availApp =>
+        availApp.name === installedApp.name ||
+        availApp.id === installedApp.name ||
+        availApp.name?.toLowerCase() === installedApp.name?.toLowerCase() ||
+        availApp.id?.toLowerCase() === installedApp.name?.toLowerCase()
     );
-    
+
     if (!matchingAvailable) {
       return installedApp;
     }
-    
+
     const enrichedExtra = {
       ...installedApp.extra,
     };
-    
+
     // Preserve and enrich cardData if needed
     if (matchingAvailable.extra?.cardData) {
       enrichedExtra.cardData = {
@@ -156,9 +166,11 @@ export function enrichInstalledAppsWithAvailableMetadata(installedApps, availabl
         // Merge with available app's cardData
         ...matchingAvailable.extra.cardData,
         // Override emoji only if needed
-        ...(needsEmoji && matchingAvailable.extra.cardData.emoji ? {
-          emoji: matchingAvailable.extra.cardData.emoji
-        } : {}),
+        ...(needsEmoji && matchingAvailable.extra.cardData.emoji
+          ? {
+              emoji: matchingAvailable.extra.cardData.emoji,
+            }
+          : {}),
       };
     } else if (needsEmoji && matchingAvailable.extra?.cardData?.emoji) {
       // Fallback: only add emoji if cardData doesn't exist
@@ -167,21 +179,20 @@ export function enrichInstalledAppsWithAvailableMetadata(installedApps, availabl
         emoji: matchingAvailable.extra.cardData.emoji,
       };
     }
-    
+
     // Add lastModified if needed
     if (needsLastModified && matchingAvailable.extra?.lastModified) {
       enrichedExtra.lastModified = matchingAvailable.extra.lastModified;
     }
-    
+
     // Preserve likes and other metadata from available app
     if (matchingAvailable.extra?.likes !== undefined) {
       enrichedExtra.likes = matchingAvailable.extra.likes;
     }
-    
+
     return {
       ...installedApp,
       extra: enrichedExtra,
     };
   });
 }
-

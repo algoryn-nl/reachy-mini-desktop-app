@@ -18,4 +18,3 @@ export { useViewRouter, ViewRouterWrapper } from './useViewRouter';
 // Note: useInternetHealthcheck moved to views/update/hooks
 export { useNetworkStatus } from './useNetworkStatus';
 export { useLocalWifiScan } from './useLocalWifiScan';
-

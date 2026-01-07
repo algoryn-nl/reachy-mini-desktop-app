@@ -9,13 +9,27 @@ import { STEWART_JOINT_NAMES, PASSIVE_JOINT_NAMES } from '../../constants/robotB
 
 // ✅ Passive joint names for initialization
 const ALL_PASSIVE_JOINT_NAMES = [
-  'passive_1_x', 'passive_1_y', 'passive_1_z',
-  'passive_2_x', 'passive_2_y', 'passive_2_z',
-  'passive_3_x', 'passive_3_y', 'passive_3_z',
-  'passive_4_x', 'passive_4_y', 'passive_4_z',
-  'passive_5_x', 'passive_5_y', 'passive_5_z',
-  'passive_6_x', 'passive_6_y', 'passive_6_z',
-  'passive_7_x', 'passive_7_y', 'passive_7_z',
+  'passive_1_x',
+  'passive_1_y',
+  'passive_1_z',
+  'passive_2_x',
+  'passive_2_y',
+  'passive_2_z',
+  'passive_3_x',
+  'passive_3_y',
+  'passive_3_z',
+  'passive_4_x',
+  'passive_4_y',
+  'passive_4_z',
+  'passive_5_x',
+  'passive_5_y',
+  'passive_5_z',
+  'passive_6_x',
+  'passive_6_y',
+  'passive_6_z',
+  'passive_7_x',
+  'passive_7_y',
+  'passive_7_z',
 ];
 
 /**
@@ -23,14 +37,14 @@ const ALL_PASSIVE_JOINT_NAMES = [
  * Loads assets from /assets/robot-3d/ instead of daemon
  * Manages 3D model loading, head and antenna animations
  */
-function URDFRobot({ 
+function URDFRobot({
   headPose, // ✅ Pose matrix (for debug/comparison, but we use joints)
   headJoints, // ✅ Array of 7 values [yaw_body, stewart_1, ..., stewart_6]
   passiveJoints, // ✅ Array of 21 values [passive_1_x, passive_1_y, passive_1_z, ..., passive_7_z] (optional, only if Placo active)
-  yawBody, 
-  antennas, 
-  isActive, 
-  isTransparent, 
+  yawBody,
+  antennas,
+  isActive,
+  isTransparent,
   cellShading = { enabled: false, bands: 100, smoothShading: true },
   xrayOpacity = 0.5,
   wireframe = false, // ✅ Wireframe mode
@@ -51,7 +65,7 @@ function URDFRobot({
   // Use a ref to capture only the INITIAL value, avoid triggering effect on every update
   const robotStateFullRef = useRef(null);
   const robotStateFull = useAppStore(state => state.robotStateFull);
-  
+
   // ✅ Capture initial value once (when first valid data arrives)
   if (!robotStateFullRef.current && robotStateFull?.data?.head_joints) {
     robotStateFullRef.current = robotStateFull;
@@ -62,44 +76,44 @@ function URDFRobot({
   const frameCountRef = useRef(0); // ✅ OPTIMIZED: Frame counter for deterministic throttling (optimization #2)
   const lastClickTimeRef = useRef(0); // ✅ Throttle clicks to avoid spam
   const clickThrottleMs = 300; // Minimum time between clicks (300ms)
-  
+
   // ✅ Reuse Three.js objects to avoid allocations on each frame
   const tempMatrix = useRef(new THREE.Matrix4());
   const tempPosition = useRef(new THREE.Vector3());
   const tempQuaternion = useRef(new THREE.Quaternion());
   const tempScale = useRef(new THREE.Vector3());
-  
+
   // ⚡ OPTIMIZED: Only track dataVersion - no need for individual value refs anymore
   const lastAppliedVersionRef = useRef(-1);
-  
+
   // ✅ Mouse movement handler for raycaster
   useEffect(() => {
-    const handleMouseMove = (event) => {
+    const handleMouseMove = event => {
       const rect = gl.domElement.getBoundingClientRect();
       mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     };
-    
+
     // ✅ Click handler to log piece information
-    const handleClick = (event) => {
+    const handleClick = event => {
       if (!robot) return;
-      
+
       // Throttle clicks to avoid spam
       const now = Date.now();
       if (now - lastClickTimeRef.current < clickThrottleMs) {
         return;
       }
       lastClickTimeRef.current = now;
-      
+
       // Use requestAnimationFrame to avoid blocking
       requestAnimationFrame(() => {
         const rect = gl.domElement.getBoundingClientRect();
         const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        
+
         raycaster.current.setFromCamera(new THREE.Vector2(x, y), camera);
         const intersects = raycaster.current.intersectObject(robot, true);
-        
+
         if (intersects.length > 0) {
           const mesh = intersects[0].object;
           if (mesh.isMesh && !mesh.userData.isErrorMesh) {
@@ -109,7 +123,7 @@ function URDFRobot({
               '🤖 That tickles!',
               '✨ Nice aim!',
               '🎯 Bullseye!',
-              '👋 Hey there!'
+              '👋 Hey there!',
             ];
             const randomMessage = messages[Math.floor(Math.random() * messages.length)];
             logInfo(randomMessage);
@@ -117,7 +131,7 @@ function URDFRobot({
         }
       });
     };
-    
+
     gl.domElement.addEventListener('mousemove', handleMouseMove);
     gl.domElement.addEventListener('click', handleClick);
     return () => {
@@ -125,8 +139,6 @@ function URDFRobot({
       gl.domElement.removeEventListener('click', handleClick);
     };
   }, [gl, camera, robot]);
-  
-
 
   // STEP 1: Load URDF model from cache (preloaded at startup)
   useEffect(() => {
@@ -140,114 +152,115 @@ function URDFRobot({
     let isMounted = true;
 
     // ✅ Get model from cache (already preloaded)
-    robotModelCache.getModel().then((cachedModel) => {
-      if (!isMounted) return;
-      
-      // Clone model for this instance
-      const robotModel = cachedModel.clone(true);
-      
-      // Collect meshes
-      const collectedMeshes = [];
-      robotModel.traverse((child) => {
-        if (child.isMesh) {
-          collectedMeshes.push(child);
-        }
-      });
-      meshesRef.current = collectedMeshes;
-      
-      // Notify parent that meshes are ready
-      if (onMeshesReady) {
-        onMeshesReady(collectedMeshes);
-      }
-      
-      // Notify that robot is ready
-      if (onRobotReady) {
-        onRobotReady(robotModel);
-      }
-      
-      // ✅ Model loaded, let useLayoutEffect apply materials
-      // ✅ IMPROVED: Apply initial joints from robotStateFull (pre-populated in HardwareScanView)
-      // This ensures robot displays at correct position immediately, without 500ms delay
-      if (robotModel && robotModel.joints) {
-        // ✅ Use ref to get initial position (captured once, not reactive)
-        const initialJoints = robotStateFullRef.current?.data?.head_joints;
-        const hasValidInitialJoints = Array.isArray(initialJoints) && initialJoints.length === 7;
-        
-        if (hasValidInitialJoints) {
-          // ✅ Use ACTUAL robot position from daemon
-          
-          
-          // Apply yaw_body from first joint value
-          if (robotModel.joints['yaw_body']) {
-            robotModel.setJointValue('yaw_body', initialJoints[0]);
+    robotModelCache
+      .getModel()
+      .then(cachedModel => {
+        if (!isMounted) return;
+
+        // Clone model for this instance
+        const robotModel = cachedModel.clone(true);
+
+        // Collect meshes
+        const collectedMeshes = [];
+        robotModel.traverse(child => {
+          if (child.isMesh) {
+            collectedMeshes.push(child);
           }
-          
-          // Apply stewart joints (indices 1-6)
-          STEWART_JOINT_NAMES.forEach((jointName, index) => {
+        });
+        meshesRef.current = collectedMeshes;
+
+        // Notify parent that meshes are ready
+        if (onMeshesReady) {
+          onMeshesReady(collectedMeshes);
+        }
+
+        // Notify that robot is ready
+        if (onRobotReady) {
+          onRobotReady(robotModel);
+        }
+
+        // ✅ Model loaded, let useLayoutEffect apply materials
+        // ✅ IMPROVED: Apply initial joints from robotStateFull (pre-populated in HardwareScanView)
+        // This ensures robot displays at correct position immediately, without 500ms delay
+        if (robotModel && robotModel.joints) {
+          // ✅ Use ref to get initial position (captured once, not reactive)
+          const initialJoints = robotStateFullRef.current?.data?.head_joints;
+          const hasValidInitialJoints = Array.isArray(initialJoints) && initialJoints.length === 7;
+
+          if (hasValidInitialJoints) {
+            // ✅ Use ACTUAL robot position from daemon
+
+            // Apply yaw_body from first joint value
+            if (robotModel.joints['yaw_body']) {
+              robotModel.setJointValue('yaw_body', initialJoints[0]);
+            }
+
+            // Apply stewart joints (indices 1-6)
+            STEWART_JOINT_NAMES.forEach((jointName, index) => {
+              if (robotModel.joints[jointName]) {
+                robotModel.setJointValue(jointName, initialJoints[index + 1]);
+              }
+            });
+
+            // Apply antennas if available
+            const initialAntennas = robotStateFullRef.current?.data?.antennas;
+            if (Array.isArray(initialAntennas) && initialAntennas.length === 2) {
+              if (robotModel.joints['left_antenna']) {
+                robotModel.setJointValue('left_antenna', -initialAntennas[1]); // Right data (negated) goes to left visual antenna
+              }
+              if (robotModel.joints['right_antenna']) {
+                robotModel.setJointValue('right_antenna', -initialAntennas[0]); // Left data (negated) goes to right visual antenna
+              }
+            }
+          } else {
+            // ✅ Fallback: Initialize all joints to zero
+
+            // Initialize yaw_body to 0
+            if (robotModel.joints['yaw_body']) {
+              robotModel.setJointValue('yaw_body', 0);
+            }
+
+            // Initialize all stewart joints to 0
+            STEWART_JOINT_NAMES.forEach(jointName => {
+              if (robotModel.joints[jointName]) {
+                robotModel.setJointValue(jointName, 0);
+              }
+            });
+          }
+
+          // Initialize passive joints to 0 (will be computed by WASM later)
+          ALL_PASSIVE_JOINT_NAMES.forEach(jointName => {
             if (robotModel.joints[jointName]) {
-              robotModel.setJointValue(jointName, initialJoints[index + 1]);
+              robotModel.setJointValue(jointName, 0);
             }
           });
-          
-          // Apply antennas if available
-          const initialAntennas = robotStateFullRef.current?.data?.antennas;
-          if (Array.isArray(initialAntennas) && initialAntennas.length === 2) {
-            if (robotModel.joints['left_antenna']) {
-              robotModel.setJointValue('left_antenna', -initialAntennas[1]); // Right data (negated) goes to left visual antenna
+
+          // ✅ Force matrix update after initialization
+          robotModel.traverse(child => {
+            if (child.isObject3D) {
+              child.updateMatrix();
+              child.updateMatrixWorld(true);
             }
-            if (robotModel.joints['right_antenna']) {
-              robotModel.setJointValue('right_antenna', -initialAntennas[0]); // Left data (negated) goes to right visual antenna
-            }
+          });
+
+          // ✅ If we have initial position, display immediately without delay
+          if (hasValidInitialJoints) {
+            if (!isMounted) return;
+            setRobot(robotModel);
+            return; // Skip timeout
           }
-        } else {
-          // ✅ Fallback: Initialize all joints to zero
-          
-          
-        // Initialize yaw_body to 0
-        if (robotModel.joints['yaw_body']) {
-          robotModel.setJointValue('yaw_body', 0);
         }
-        
-        // Initialize all stewart joints to 0
-        STEWART_JOINT_NAMES.forEach(jointName => {
-          if (robotModel.joints[jointName]) {
-            robotModel.setJointValue(jointName, 0);
-          }
-        });
-        }
-        
-        // Initialize passive joints to 0 (will be computed by WASM later)
-        ALL_PASSIVE_JOINT_NAMES.forEach(jointName => {
-          if (robotModel.joints[jointName]) {
-            robotModel.setJointValue(jointName, 0);
-          }
-        });
-        
-        // ✅ Force matrix update after initialization
-        robotModel.traverse((child) => {
-          if (child.isObject3D) {
-            child.updateMatrix();
-            child.updateMatrixWorld(true);
-          }
-        });
-        
-        // ✅ If we have initial position, display immediately without delay
-        if (hasValidInitialJoints) {
+
+        // ✅ Fallback: Wait 500ms before displaying robot (only if no initial position)
+        displayTimeoutRef.current = setTimeout(() => {
           if (!isMounted) return;
           setRobot(robotModel);
-          return; // Skip timeout
-        }
-      }
-      
-      // ✅ Fallback: Wait 500ms before displaying robot (only if no initial position)
-      displayTimeoutRef.current = setTimeout(() => {
-        if (!isMounted) return;
-        setRobot(robotModel);
-        displayTimeoutRef.current = null;
-      }, 500);
-    }).catch((err) => {
-      console.error('❌ URDF loading error:', err);
-    });
+          displayTimeoutRef.current = null;
+        }, 500);
+      })
+      .catch(err => {
+        console.error('❌ URDF loading error:', err);
+      });
 
     return () => {
       isMounted = false;
@@ -263,13 +276,13 @@ function URDFRobot({
   // ✅ Apply antennas on initial load and when they change (even if isActive=false)
   useEffect(() => {
     if (!robot) return;
-    
+
     // Force antennas to position (folded by default if no value)
     const leftPos = antennas?.[0] !== undefined ? antennas[0] : 0;
     const rightPos = antennas?.[1] !== undefined ? antennas[1] : 0;
-    
+
     const currentAntennas = [leftPos, rightPos];
-    
+
     // ✅ FIX: Inverted mapping AND inverted values - left_antenna joint is visually on the right, and vice versa
     // The values also need to be negated to match the correct rotation direction
     if (robot.joints['left_antenna']) {
@@ -279,18 +292,17 @@ function URDFRobot({
       robot.setJointValue('right_antenna', -leftPos); // Left data (negated) goes to right visual antenna
     }
   }, [robot, antennas]); // Triggers on load AND when antennas change
-  
-  
+
   // ✅ Animation loop synchronized with Three.js render (60 FPS)
   // 🚀 GAME-CHANGING: Throttled to 10 Hz to match WebSocket frequency (83% reduction in checks)
   // useFrame is more performant than useEffect for Three.js updates
   useFrame(() => {
     if (!robot) return;
-    
+
     // ✅ Allow animations if robot is loaded (isActive OR forceLoad)
     // If forceLoad is true, we want robot to move even if isActive is temporarily false
     if (!isActive && !forceLoad) return;
-    
+
     // 🚀 GAME-CHANGING: Throttle to 20 Hz (check every 3 frames at 60 FPS)
     // ⚡ Doubled from 10 Hz for smoother robot visualization
     frameCountRef.current++;
@@ -312,11 +324,11 @@ function URDFRobot({
     // Do NOT force updateMatrixWorld() to avoid conflicts and flickering
     // ⚡ OPTIMIZED: No need to compare - dataVersion change guarantees new data
     if (headJoints && Array.isArray(headJoints) && headJoints.length === 7) {
-        // yaw_body (index 0) - Apply first
-        if (robot.joints['yaw_body']) {
-          robot.setJointValue('yaw_body', headJoints[0]);
-        }
-        
+      // yaw_body (index 0) - Apply first
+      if (robot.joints['yaw_body']) {
+        robot.setJointValue('yaw_body', headJoints[0]);
+      }
+
       // stewart_1 to stewart_6 (indices 1-6) - Apply directly (no loop overhead)
       if (robot.joints['stewart_1']) robot.setJointValue('stewart_1', headJoints[1]);
       if (robot.joints['stewart_2']) robot.setJointValue('stewart_2', headJoints[2]);
@@ -355,14 +367,14 @@ function URDFRobot({
         robot.setJointValue('right_antenna', -antennas[0]);
       }
     }
-    
+
     // ✅ Hover detection with raycaster for debug (COMPLETELY DISABLED in production)
     // ✅ OPTIMIZED: Raycaster completely disabled in production for maximum performance
     // In development, only run every 3rd throttled frame (~3.3 Hz) for minimal overhead
     if (process.env.NODE_ENV === 'development' && frameCountRef.current % 3 === 0) {
       raycaster.current.setFromCamera(mouse.current, camera);
       const intersects = raycaster.current.intersectObject(robot, true);
-      
+
       if (intersects.length > 0) {
         const mesh = intersects[0].object;
         if (mesh.isMesh && mesh !== hoveredMesh.current) {
@@ -379,16 +391,16 @@ function URDFRobot({
   // useLayoutEffect = synchronous BEFORE render, guarantees no "flash"
   useLayoutEffect(() => {
     if (!robot) return;
-    
+
     const isInitialSetup = !isReady;
-    
-    applyRobotMaterials(robot, { 
-      transparent: isTransparent, 
-      wireframe, 
-      xrayOpacity, 
-      darkMode 
+
+    applyRobotMaterials(robot, {
+      transparent: isTransparent,
+      wireframe,
+      xrayOpacity,
+      darkMode,
     });
-    
+
     // Mark as ready after first material application
     if (isInitialSetup) {
       setIsReady(true);
@@ -416,18 +428,18 @@ const URDFRobotMemo = memo(URDFRobot, (prevProps, nextProps) => {
   ) {
     return false; // Re-render
   }
-  
+
   // Compare cellShading object (shallow)
   if (prevProps.cellShading?.enabled !== nextProps.cellShading?.enabled) {
     return false; // Re-render
   }
-  
+
   // ⚡ OPTIMIZED: Compare dataVersion instead of all arrays (O(1) vs O(n))
   // dataVersion increments when any robot data changes in WebSocket
   if (prevProps.dataVersion !== nextProps.dataVersion) {
     return false; // Re-render - new robot data available
   }
-  
+
   // All props are equal, skip re-render
   return true;
 });

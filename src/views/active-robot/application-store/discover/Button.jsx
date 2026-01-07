@@ -15,8 +15,8 @@ export default function DiscoverAppsButton({ onClick, darkMode, disabled = false
       darkMode={darkMode}
       size="small"
       sx={{ fontSize: 12, fontWeight: 700, letterSpacing: '-0.2px' }}
-      >
-        Discover apps
+    >
+      Discover apps
     </PulseButton>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Web-only adapter for ActiveRobotModule
- * 
+ *
  * Simplified version of useActiveRobotAdapter that uses fetch() instead of Tauri APIs.
  * Used when the app is running in web-only mode (dashboard-v2).
  */
@@ -18,7 +18,7 @@ export function useWebActiveRobotAdapter() {
   // ============================================
   // ROBOT STATE - Read from useAppStore
   // ============================================
-  
+
   const isActive = useAppStore(state => state.isActive);
   const darkMode = useAppStore(state => state.darkMode);
   const robotStatus = useAppStore(state => state.robotStatus);
@@ -35,7 +35,7 @@ export function useWebActiveRobotAdapter() {
   const rightPanelView = useAppStore(state => state.rightPanelView);
   const activeEffect = useAppStore(state => state.activeEffect);
   const effectTimestamp = useAppStore(state => state.effectTimestamp);
-  
+
   // Apps state
   const availableApps = useAppStore(state => state.availableApps);
   const installedApps = useAppStore(state => state.installedApps);
@@ -51,65 +51,93 @@ export function useWebActiveRobotAdapter() {
   const installStartTime = useAppStore(state => state.installStartTime);
   const processedJobs = useAppStore(state => state.processedJobs);
   const jobSeenOnce = useAppStore(state => state.jobSeenOnce);
-  
+
   // Logs
   const logs = useAppStore(state => state.logs);
   const appLogs = useAppStore(state => state.appLogs);
-  
+
   // ============================================
   // MEMOIZED ROBOT STATE
   // ============================================
-  
-  const robotState = useMemo(() => ({
-    isActive,
-    darkMode,
-    robotStatus,
-    busyReason,
-    safeToShutdown,
-    isWakeSleepTransitioning,
-    isAppRunning,
-    isInstalling,
-    isCommandRunning,
-    currentAppName,
-    robotStateFull,
-    activeMoves,
-    isDaemonCrashed,
-    rightPanelView,
-    activeEffect,
-    effectTimestamp,
-    availableApps,
-    installedApps,
-    currentApp,
-    activeJobs,
-    appsLoading,
-    appsError,
-    appsOfficialMode,
-    appsCacheValid,
-    installingAppName,
-    installJobType,
-    installResult,
-    installStartTime,
-    processedJobs,
-    jobSeenOnce,
-    logs,
-    appLogs,
-  }), [
-    isActive, darkMode, robotStatus, busyReason, safeToShutdown, isWakeSleepTransitioning, isAppRunning, isInstalling, isCommandRunning,
-    currentAppName, robotStateFull, activeMoves, isDaemonCrashed, rightPanelView,
-    activeEffect, effectTimestamp,
-    availableApps, installedApps, currentApp, activeJobs, appsLoading,
-    appsError, appsOfficialMode, appsCacheValid, installingAppName,
-    installJobType, installResult, installStartTime, processedJobs, jobSeenOnce,
-    logs, appLogs,
-  ]);
-  
+
+  const robotState = useMemo(
+    () => ({
+      isActive,
+      darkMode,
+      robotStatus,
+      busyReason,
+      safeToShutdown,
+      isWakeSleepTransitioning,
+      isAppRunning,
+      isInstalling,
+      isCommandRunning,
+      currentAppName,
+      robotStateFull,
+      activeMoves,
+      isDaemonCrashed,
+      rightPanelView,
+      activeEffect,
+      effectTimestamp,
+      availableApps,
+      installedApps,
+      currentApp,
+      activeJobs,
+      appsLoading,
+      appsError,
+      appsOfficialMode,
+      appsCacheValid,
+      installingAppName,
+      installJobType,
+      installResult,
+      installStartTime,
+      processedJobs,
+      jobSeenOnce,
+      logs,
+      appLogs,
+    }),
+    [
+      isActive,
+      darkMode,
+      robotStatus,
+      busyReason,
+      safeToShutdown,
+      isWakeSleepTransitioning,
+      isAppRunning,
+      isInstalling,
+      isCommandRunning,
+      currentAppName,
+      robotStateFull,
+      activeMoves,
+      isDaemonCrashed,
+      rightPanelView,
+      activeEffect,
+      effectTimestamp,
+      availableApps,
+      installedApps,
+      currentApp,
+      activeJobs,
+      appsLoading,
+      appsError,
+      appsOfficialMode,
+      appsCacheValid,
+      installingAppName,
+      installJobType,
+      installResult,
+      installStartTime,
+      processedJobs,
+      jobSeenOnce,
+      logs,
+      appLogs,
+    ]
+  );
+
   // ============================================
   // ACTIONS
   // ============================================
-  
+
   const actions = useMemo(() => {
     const store = useAppStore.getState();
-    
+
     return {
       update: store.update,
       transitionTo: store.transitionTo,
@@ -148,65 +176,76 @@ export function useWebActiveRobotAdapter() {
       clearAppLogs: store.clearAppLogs,
     };
   }, []);
-  
+
   // ============================================
   // API CONFIG
   // ============================================
-  
-  const api = useMemo(() => ({
-    getBaseUrl, // 🌐 Dynamic base URL based on connection mode
-    timeouts: DAEMON_CONFIG.TIMEOUTS,
-    intervals: DAEMON_CONFIG.INTERVALS,
-    endpoints: DAEMON_CONFIG.ENDPOINTS,
-    buildApiUrl,
-    fetchWithTimeout,
-    config: DAEMON_CONFIG,
-  }), []);
-  
+
+  const api = useMemo(
+    () => ({
+      getBaseUrl, // 🌐 Dynamic base URL based on connection mode
+      timeouts: DAEMON_CONFIG.TIMEOUTS,
+      intervals: DAEMON_CONFIG.INTERVALS,
+      endpoints: DAEMON_CONFIG.ENDPOINTS,
+      buildApiUrl,
+      fetchWithTimeout,
+      config: DAEMON_CONFIG,
+    }),
+    []
+  );
+
   // ============================================
   // SHELL API (Web mode - uses window.open)
   // ============================================
-  
-  const shellApi = useMemo(() => ({
-    open: openUrl,
-  }), []);
-  
+
+  const shellApi = useMemo(
+    () => ({
+      open: openUrl,
+    }),
+    []
+  );
+
   // ============================================
   // WINDOW MANAGER (Mock for web mode)
   // ============================================
-  
-  const windowManager = useMemo(() => ({
-    openExpressionsWindow: () => {
-      console.log('[WebMode] openExpressionsWindow - not available in web mode');
-    },
-    closeExpressionsWindow: () => {
-      console.log('[WebMode] closeExpressionsWindow - not available in web mode');
-    },
-    isExpressionsWindowOpen: () => false,
-    openDevWindow: () => {
-      console.log('[WebMode] openDevWindow - not available in web mode');
-    },
-    closeDevWindow: () => {
-      console.log('[WebMode] closeDevWindow - not available in web mode');
-    },
-    isDevWindowOpen: () => false,
-    getAppWindow: () => ({
-      label: 'web',
-      setTitle: async () => {},
-      close: async () => {},
+
+  const windowManager = useMemo(
+    () => ({
+      openExpressionsWindow: () => {
+        console.log('[WebMode] openExpressionsWindow - not available in web mode');
+      },
+      closeExpressionsWindow: () => {
+        console.log('[WebMode] closeExpressionsWindow - not available in web mode');
+      },
+      isExpressionsWindowOpen: () => false,
+      openDevWindow: () => {
+        console.log('[WebMode] openDevWindow - not available in web mode');
+      },
+      closeDevWindow: () => {
+        console.log('[WebMode] closeDevWindow - not available in web mode');
+      },
+      isDevWindowOpen: () => false,
+      getAppWindow: () => ({
+        label: 'web',
+        setTitle: async () => {},
+        close: async () => {},
+      }),
     }),
-  }), []);
-  
+    []
+  );
+
   // ============================================
   // RETURN CONFIG
   // ============================================
-  
-  return useMemo(() => ({
-    robotState,
-    actions,
-    api,
-    shellApi,
-    windowManager,
-  }), [robotState, actions, api, shellApi, windowManager]);
-}
 
+  return useMemo(
+    () => ({
+      robotState,
+      actions,
+      api,
+      shellApi,
+      windowManager,
+    }),
+    [robotState, actions, api, shellApi, windowManager]
+  );
+}

@@ -40,44 +40,44 @@ controller/
 
 ### UI Components
 
-| Component | Purpose | Controls |
-|-----------|---------|----------|
-| **Joystick2D** | 2D control area | Position X/Y, Pitch/Yaw |
-| **VerticalSlider** | Vertical slider | Position Z (height) |
-| **SimpleSlider** | Horizontal slider | Roll, Body Yaw |
-| **CircularSlider** | Circular slider | Rotation angles |
+| Component          | Purpose           | Controls                |
+| ------------------ | ----------------- | ----------------------- |
+| **Joystick2D**     | 2D control area   | Position X/Y, Pitch/Yaw |
+| **VerticalSlider** | Vertical slider   | Position Z (height)     |
+| **SimpleSlider**   | Horizontal slider | Roll, Body Yaw          |
+| **CircularSlider** | Circular slider   | Rotation angles         |
 
 ### Business Logic Hooks
 
-| Hook | Responsibility |
-|------|---------------|
-| **useRobotPosition** | Main position state and API commands |
-| **useRobotAPI** | HTTP calls to daemon API (`/api/move/set_target`) |
-| **useRobotSmoothing** | Smooth input transitions (lerp) |
-| **useRobotSync** | Sync local state with robot state |
-| **useActiveMoves** | Track active movements from store |
-| **useInputProcessing** | Normalize and process raw inputs |
-| **usePositionHandlers** | Handle position change events |
+| Hook                    | Responsibility                                    |
+| ----------------------- | ------------------------------------------------- |
+| **useRobotPosition**    | Main position state and API commands              |
+| **useRobotAPI**         | HTTP calls to daemon API (`/api/move/set_target`) |
+| **useRobotSmoothing**   | Smooth input transitions (lerp)                   |
+| **useRobotSync**        | Sync local state with robot state                 |
+| **useActiveMoves**      | Track active movements from store                 |
+| **useInputProcessing**  | Normalize and process raw inputs                  |
+| **usePositionHandlers** | Handle position change events                     |
 
 ### Utilities
 
-| Utility | Purpose |
-|---------|---------|
-| **formatPoseForLog** | Format pose data for readable logs |
-| **hasSignificantChange** | Detect significant pose changes |
-| **intelligentLogging** | Throttled logging to reduce noise |
+| Utility                  | Purpose                            |
+| ------------------------ | ---------------------------------- |
+| **formatPoseForLog**     | Format pose data for readable logs |
+| **hasSignificantChange** | Detect significant pose changes    |
+| **intelligentLogging**   | Throttled logging to reduce noise  |
 
 ## 🔧 Usage
 
 ```jsx
 import Controller from '@views/active-robot/controller';
 
-<Controller 
+<Controller
   isActive={isActive}
   darkMode={darkMode}
   onResetReady={handleResetReady}
   onIsAtInitialPosition={handleIsAtInitialPosition}
-/>
+/>;
 ```
 
 ## 📦 Exports
@@ -87,29 +87,29 @@ import Controller from '@views/active-robot/controller';
 import Controller from '@views/active-robot/controller';
 
 // Individual components
-import { 
-  Joystick2D, 
-  VerticalSlider, 
-  SimpleSlider, 
-  CircularSlider 
+import {
+  Joystick2D,
+  VerticalSlider,
+  SimpleSlider,
+  CircularSlider,
 } from '@views/active-robot/controller/components';
 
 // Hooks
-import { 
-  useRobotPosition, 
-  useRobotAPI, 
-  useRobotSmoothing, 
-  useRobotSync, 
+import {
+  useRobotPosition,
+  useRobotAPI,
+  useRobotSmoothing,
+  useRobotSync,
   useActiveMoves,
   useInputProcessing,
-  usePositionHandlers
+  usePositionHandlers,
 } from '@views/active-robot/controller/hooks';
 
 // Utils
-import { 
-  formatPoseForLog, 
+import {
+  formatPoseForLog,
   hasSignificantChange,
-  intelligentLogging 
+  intelligentLogging,
 } from '@views/active-robot/controller/utils';
 ```
 
@@ -121,18 +121,18 @@ flowchart LR
         Joystick["Joystick2D"]
         Sliders["Sliders"]
     end
-    
+
     subgraph Processing["Processing"]
         InputProc["useInputProcessing"]
         Smoothing["useRobotSmoothing"]
         Position["useRobotPosition"]
     end
-    
+
     subgraph Output["Output"]
         API["useRobotAPI"]
         Daemon["Daemon API"]
     end
-    
+
     Joystick --> InputProc
     Sliders --> InputProc
     InputProc --> Smoothing

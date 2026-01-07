@@ -13,7 +13,15 @@ export default function Step5Success({
   const isReachyFound = wifiRobot?.available && wifiRobot?.host;
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+    <Box
+      sx={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+      }}
+    >
       {isReachyFound ? (
         <>
           <CheckCircleIcon sx={{ fontSize: 40, color: '#22c55e', mb: 1.5 }} />
@@ -73,4 +81,3 @@ export default function Step5Success({
     </Box>
   );
 }
-

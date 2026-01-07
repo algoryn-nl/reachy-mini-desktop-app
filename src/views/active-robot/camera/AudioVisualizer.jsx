@@ -4,7 +4,12 @@ import React, { useRef, useEffect } from 'react';
  * AudioVisualizer component - Displays a clean audio equalizer
  * For now, simulates FFT data with random noise
  */
-export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 150, 0.8)', showBackground = true, isLarge = false }) {
+export default function AudioVisualizer({
+  barCount = 6,
+  color = 'rgba(150, 150, 150, 0.8)',
+  showBackground = true,
+  isLarge = false,
+}) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const barsRef = useRef([]);
@@ -16,11 +21,11 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
   // ✅ Store seed in ref so fastRandom persists across renders
   const seedRef = useRef(null);
   const fastRandomRef = useRef(null);
-  
+
   // Canvas always at max size for quality
   const canvasWidth = 100;
   const canvasHeight = 48;
-  
+
   // Display sizes according to mode
   const displayWidth = isLarge ? 60 : 24;
   const displayHeight = isLarge ? 38 : 10;
@@ -30,12 +35,12 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    
+
     // ✅ OPTIMIZED: Use seeded random with unique instance seed for unpredictable patterns
     if (!seedRef.current) {
       seedRef.current = instanceSeedRef.current;
     }
-    
+
     // ✅ Create fastRandom function that persists across renders
     if (!fastRandomRef.current) {
       fastRandomRef.current = () => {
@@ -43,24 +48,28 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
         return seedRef.current / 233280;
       };
     }
-    
+
     const fastRandom = fastRandomRef.current;
-    
+
     // ✅ Add variation parameters for each bar (simulate different frequency bands)
     if (!barVariationsRef.current) {
-      barVariationsRef.current = Array(barCount).fill(0).map(() => ({
-        amplitude: fastRandom() * 0.4 + 0.2, // 20-60% amplitude variation per bar
-        speed: fastRandom() * 0.8 + 0.4, // Speed variation
-        phase: fastRandom() * Math.PI * 2, // Random phase offset
-      }));
+      barVariationsRef.current = Array(barCount)
+        .fill(0)
+        .map(() => ({
+          amplitude: fastRandom() * 0.4 + 0.2, // 20-60% amplitude variation per bar
+          speed: fastRandom() * 0.8 + 0.4, // Speed variation
+          phase: fastRandom() * Math.PI * 2, // Random phase offset
+        }));
     }
-    
+
     // Initialize bars with varied random values
     if (barsRef.current.length === 0) {
-      barsRef.current = Array(barCount).fill(0).map((_, i) => {
-        const variation = barVariationsRef.current[i];
-        return fastRandom() * variation.amplitude * 0.5;
-      });
+      barsRef.current = Array(barCount)
+        .fill(0)
+        .map((_, i) => {
+          const variation = barVariationsRef.current[i];
+          return fastRandom() * variation.amplitude * 0.5;
+        });
     }
 
     // Reset frame counter
@@ -72,30 +81,30 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
       const barVariations = barVariationsRef.current;
       const fastRandom = fastRandomRef.current; // ✅ Get fastRandom from ref
       const time = performance.now() * 0.001; // Time in seconds
-      
+
       for (let i = 0; i < bars.length; i++) {
         const variation = barVariations[i];
-        
+
         // FFT simulation: low frequencies (beginning) have more energy
         const frequencyBias = Math.exp(-i / (barCount * 0.3));
-        
+
         // ✅ Multiple random sources for more unpredictability
         const random1 = fastRandom();
         const random2 = fastRandom();
         const random3 = fastRandom();
-        
+
         // Mix random sources
-        const mixedRandom = (random1 * 0.5 + random2 * 0.3 + random3 * 0.2);
-        
+        const mixedRandom = random1 * 0.5 + random2 * 0.3 + random3 * 0.2;
+
         // Add time-based variation with different phases per bar
-        const timeVariation = Math.sin(time * variation.speed + variation.phase) * 0.15 +
-                             Math.cos(time * variation.speed * 1.3 + variation.phase * 0.7) * 0.1;
-        
+        const timeVariation =
+          Math.sin(time * variation.speed + variation.phase) * 0.15 +
+          Math.cos(time * variation.speed * 1.3 + variation.phase * 0.7) * 0.1;
+
         // Combine frequency bias, random variation, and time-based modulation
-        const targetValue = (
-          (mixedRandom * variation.amplitude + timeVariation) * frequencyBias * 0.8 + 0.1
-        );
-        
+        const targetValue =
+          (mixedRandom * variation.amplitude + timeVariation) * frequencyBias * 0.8 + 0.1;
+
         // Smoothing with variable rate for more natural movement
         const smoothingRate = 0.82 + fastRandom() * 0.06; // 82-88% smoothing
         bars[i] = bars[i] * smoothingRate + targetValue * (1 - smoothingRate);
@@ -105,14 +114,14 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
     // Render function
     const draw = () => {
       frameCountRef.current++;
-      
+
       // ✅ OPTIMIZED: Update bars less frequently (every 2 frames = ~30 FPS update, still smooth)
       if (frameCountRef.current % 2 === 0) {
         updateBars();
       }
-      
+
       const bars = barsRef.current;
-      
+
       // Clear canvas
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -130,7 +139,7 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
 
         // Bars with specified color and rounded corners (top AND bottom)
         ctx.fillStyle = color;
-        
+
         // Draw rectangle with all rounded corners
         ctx.beginPath();
         // Top left corner
@@ -180,4 +189,3 @@ export default function AudioVisualizer({ barCount = 6, color = 'rgba(150, 150, 
     />
   );
 }
-

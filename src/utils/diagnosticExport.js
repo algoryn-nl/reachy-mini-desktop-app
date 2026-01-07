@@ -1,6 +1,6 @@
 /**
  * Diagnostic Export Utility
- * 
+ *
  * Generates a comprehensive diagnostic report for debugging and support.
  * Includes: system info, app state, daemon logs, frontend logs, app logs.
  */
@@ -36,7 +36,7 @@ const getSystemInfo = async () => {
   const ua = navigator.userAgent;
   let osName = 'unknown';
   let osVersion = 'unknown';
-  
+
   if (ua.includes('Mac OS X')) {
     osName = 'macOS';
     const match = ua.match(/Mac OS X (\d+[._]\d+[._]?\d*)/);
@@ -47,13 +47,13 @@ const getSystemInfo = async () => {
     if (match) {
       const ntVersion = match[1];
       // Map NT versions to Windows versions
-      const ntMap = { '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' };
+      const ntMap = { '10.0': '10/11', 6.3: '8.1', 6.2: '8', 6.1: '7' };
       osVersion = ntMap[ntVersion] || ntVersion;
     }
   } else if (ua.includes('Linux')) {
     osName = 'Linux';
   }
-  
+
   info.os = {
     name: osName,
     version: osVersion,
@@ -68,36 +68,36 @@ const getSystemInfo = async () => {
  */
 const getRobotState = () => {
   const state = useAppStore.getState();
-  
+
   return {
     // Connection
     connectionMode: state.connectionMode,
     remoteHost: state.remoteHost,
     isUsbConnected: state.isUsbConnected,
     usbPortName: state.usbPortName,
-    
+
     // Status
     robotStatus: state.robotStatus,
     busyReason: state.busyReason,
     isActive: state.isActive,
     isStarting: state.isStarting,
     isStopping: state.isStopping,
-    
+
     // Daemon
     daemonVersion: state.daemonVersion,
     isDaemonCrashed: state.isDaemonCrashed,
     consecutiveTimeouts: state.consecutiveTimeouts,
-    
+
     // Errors
     startupError: state.startupError,
     hardwareError: state.hardwareError,
-    
+
     // App
     isAppRunning: state.isAppRunning,
     currentAppName: state.currentAppName,
     isInstalling: state.isInstalling,
     isCommandRunning: state.isCommandRunning,
-    
+
     // Active moves
     activeMoves: state.activeMoves,
   };
@@ -108,7 +108,7 @@ const getRobotState = () => {
  */
 const getLogs = () => {
   const state = useAppStore.getState();
-  
+
   return {
     daemonLogs: state.logs || [],
     frontendLogs: state.frontendLogs || [],
@@ -121,7 +121,7 @@ const getLogs = () => {
  */
 const getAppsState = () => {
   const state = useAppStore.getState();
-  
+
   return {
     installedApps: (state.apps || [])
       .filter(app => app.installed)
@@ -140,8 +140,6 @@ const getAppsState = () => {
  * Generate the full diagnostic report
  */
 export const generateDiagnosticReport = async () => {
-  
-  
   const report = {
     _meta: {
       version: '1.0',
@@ -153,21 +151,21 @@ export const generateDiagnosticReport = async () => {
     apps: getAppsState(),
     logs: getLogs(),
   };
-  
+
   return report;
 };
 
 /**
  * Format report as readable text (for quick viewing)
  */
-export const formatReportAsText = (report) => {
+export const formatReportAsText = report => {
   const lines = [];
-  
+
   lines.push('═══════════════════════════════════════════════════════════════════');
   lines.push('               REACHY MINI DIAGNOSTIC REPORT');
   lines.push('═══════════════════════════════════════════════════════════════════');
   lines.push('');
-  
+
   // System Info
   lines.push('📍 SYSTEM INFO');
   lines.push('───────────────────────────────────────────────────────────────────');
@@ -179,7 +177,7 @@ export const formatReportAsText = (report) => {
   lines.push(`  Screen: ${report.system.screenResolution}`);
   lines.push(`  Window: ${report.system.windowSize}`);
   lines.push('');
-  
+
   // Robot State
   lines.push('🤖 ROBOT STATE');
   lines.push('───────────────────────────────────────────────────────────────────');
@@ -198,7 +196,7 @@ export const formatReportAsText = (report) => {
     lines.push(`  ⚠️ Startup Error: ${report.robot.startupError}`);
   }
   lines.push('');
-  
+
   // Apps
   lines.push('📱 APPS');
   lines.push('───────────────────────────────────────────────────────────────────');
@@ -212,7 +210,7 @@ export const formatReportAsText = (report) => {
     });
   }
   lines.push('');
-  
+
   // Logs Summary
   lines.push('📜 LOGS SUMMARY');
   lines.push('───────────────────────────────────────────────────────────────────');
@@ -220,16 +218,23 @@ export const formatReportAsText = (report) => {
   lines.push(`  Frontend Logs: ${report.logs.frontendLogs.length}`);
   lines.push(`  App Logs: ${report.logs.appLogs.length}`);
   lines.push('');
-  
+
   // All Frontend Logs
   lines.push(`📝 FRONTEND LOGS (${report.logs.frontendLogs.length} entries)`);
   lines.push('───────────────────────────────────────────────────────────────────');
   report.logs.frontendLogs.forEach(log => {
-    const levelIcon = log.level === 'error' ? '❌' : log.level === 'warning' ? '⚠️' : log.level === 'success' ? '✅' : '•';
+    const levelIcon =
+      log.level === 'error'
+        ? '❌'
+        : log.level === 'warning'
+          ? '⚠️'
+          : log.level === 'success'
+            ? '✅'
+            : '•';
     lines.push(`  [${log.timestamp}] ${levelIcon} ${log.message}`);
   });
   lines.push('');
-  
+
   // All Daemon Logs
   lines.push(`🖥️ DAEMON LOGS (${report.logs.daemonLogs.length} entries)`);
   lines.push('───────────────────────────────────────────────────────────────────');
@@ -237,7 +242,7 @@ export const formatReportAsText = (report) => {
     lines.push(`  ${log}`);
   });
   lines.push('');
-  
+
   // All App Logs
   if (report.logs.appLogs.length > 0) {
     lines.push(`📱 APP LOGS (${report.logs.appLogs.length} entries)`);
@@ -248,11 +253,11 @@ export const formatReportAsText = (report) => {
     });
     lines.push('');
   }
-  
+
   lines.push('═══════════════════════════════════════════════════════════════════');
   lines.push('                         END OF REPORT');
   lines.push('═══════════════════════════════════════════════════════════════════');
-  
+
   return lines.join('\n');
 };
 
@@ -262,11 +267,11 @@ export const formatReportAsText = (report) => {
 export const downloadDiagnosticReport = async (format = 'json') => {
   try {
     const report = await generateDiagnosticReport();
-    
+
     let content;
     let mimeType;
     let extension;
-    
+
     if (format === 'text') {
       content = formatReportAsText(report);
       mimeType = 'text/plain';
@@ -276,15 +281,15 @@ export const downloadDiagnosticReport = async (format = 'json') => {
       mimeType = 'application/json';
       extension = 'json';
     }
-    
+
     // Generate filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const filename = `reachy-mini-diagnostic-${timestamp}.${extension}`;
-    
+
     // Create blob and download
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -292,8 +297,7 @@ export const downloadDiagnosticReport = async (format = 'json') => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
-    
+
     return { success: true, filename };
   } catch (error) {
     console.error('📋 Failed to generate diagnostic report:', error);
@@ -308,9 +312,9 @@ export const copyDiagnosticToClipboard = async () => {
   try {
     const report = await generateDiagnosticReport();
     const content = JSON.stringify(report, null, 2);
-    
+
     await navigator.clipboard.writeText(content);
-    
+
     return { success: true };
   } catch (error) {
     console.error('📋 Failed to copy diagnostic report:', error);
@@ -327,17 +331,16 @@ if (typeof window !== 'undefined') {
     downloadJson: () => downloadDiagnosticReport('json'),
     copy: copyDiagnosticToClipboard,
   };
-  
+
   // Secret keyboard shortcut: Ctrl+Shift+D (Cmd+Shift+D on Mac)
   // Downloads diagnostic report as text file
-  window.addEventListener('keydown', async (e) => {
+  window.addEventListener('keydown', async e => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifierKey = isMac ? e.metaKey : e.ctrlKey;
-    
+
     if (modifierKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'd') {
       e.preventDefault();
-      
-      
+
       // Show a subtle notification
       const notification = document.createElement('div');
       notification.textContent = '📋 Generating diagnostic report...';
@@ -355,9 +358,9 @@ if (typeof window !== 'undefined') {
         animation: fadeIn 0.3s ease;
       `;
       document.body.appendChild(notification);
-      
+
       const result = await downloadDiagnosticReport('text');
-      
+
       if (result.success) {
         notification.textContent = `✅ Downloaded: ${result.filename}`;
         notification.style.background = 'rgba(34, 197, 94, 0.9)';
@@ -365,7 +368,7 @@ if (typeof window !== 'undefined') {
         notification.textContent = `❌ Failed: ${result.error}`;
         notification.style.background = 'rgba(239, 68, 68, 0.9)';
       }
-      
+
       setTimeout(() => {
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.3s ease';
@@ -381,4 +384,3 @@ export default {
   downloadDiagnosticReport,
   copyDiagnosticToClipboard,
 };
-

@@ -9,7 +9,7 @@ import { mapMeshToScanPart, SCAN_PARTS } from '../../../utils/scanParts';
  * Uses a single requestAnimationFrame loop instead of one per mesh
  * Significantly reduces CPU/GPU load for large mesh counts (150+)
  */
-export default function ScanEffect({ 
+export default function ScanEffect({
   meshes = [], // List of meshes to scan
   scanColor = '#22c55e', // Color during scan (success green)
   enabled = true,
@@ -55,16 +55,17 @@ export default function ScanEffect({
     const duration = DAEMON_CONFIG.ANIMATIONS.SCAN_DURATION / 1000;
 
     // ✅ Filter shells AND outline meshes
-    const scannableMeshes = meshes.filter(mesh => 
-      mesh.material && 
-      !mesh.userData.isShellPiece && 
-      !mesh.userData.isOutline &&
-      !mesh.userData.isErrorMesh
+    const scannableMeshes = meshes.filter(
+      mesh =>
+        mesh.material &&
+        !mesh.userData.isShellPiece &&
+        !mesh.userData.isOutline &&
+        !mesh.userData.isErrorMesh
     );
-    
+
     // ✅ Cache mesh positions to avoid recalculating during sort
     const meshPositions = new Map();
-    const getMeshY = (mesh) => {
+    const getMeshY = mesh => {
       if (!meshPositions.has(mesh)) {
         const pos = new THREE.Vector3();
         mesh.getWorldPosition(pos);
@@ -72,12 +73,12 @@ export default function ScanEffect({
       }
       return meshPositions.get(mesh);
     };
-    
+
     // Group meshes by family using mapMeshToScanPart
     const familyGroups = new Map();
     const ungroupedMeshes = [];
     const meshPartCache = new WeakMap(); // Cache to avoid recalculating
-    
+
     scannableMeshes.forEach(mesh => {
       // ✅ Cache mesh-to-part mapping
       let partInfo = meshPartCache.get(mesh);
@@ -87,7 +88,7 @@ export default function ScanEffect({
           meshPartCache.set(mesh, partInfo);
         }
       }
-      
+
       if (partInfo && partInfo.family) {
         if (!familyGroups.has(partInfo.family)) {
           familyGroups.set(partInfo.family, []);
@@ -97,7 +98,7 @@ export default function ScanEffect({
         ungroupedMeshes.push(mesh);
       }
     });
-    
+
     // Sort families according to SCAN_PARTS order
     const familyOrder = SCAN_PARTS.map(f => f.family);
     const sortedFamilies = Array.from(familyGroups.entries()).sort((a, b) => {
@@ -109,7 +110,7 @@ export default function ScanEffect({
       if (indexB === -1) return -1;
       return indexA - indexB;
     });
-    
+
     // Sort meshes within each family by Y position (bottom to top)
     // Then flatten all families into a single array
     const sortedMeshes = [];
@@ -120,7 +121,7 @@ export default function ScanEffect({
       });
       sortedMeshes.push(...sortedFamilyMeshes);
     });
-    
+
     // Add ungrouped meshes at the end
     if (ungroupedMeshes.length > 0) {
       const sortedUngrouped = [...ungroupedMeshes].sort((a, b) => {
@@ -129,56 +130,58 @@ export default function ScanEffect({
       });
       sortedMeshes.push(...sortedUngrouped);
     }
-    
+
     // Pre-compute mesh data (material types, colors, etc.)
     const meshData = sortedMeshes.map((mesh, index) => {
-        const isAntenna = mesh.userData?.isAntenna || false;
-        const isShellPiece = mesh.userData?.isShellPiece || false;
+      const isAntenna = mesh.userData?.isAntenna || false;
+      const isShellPiece = mesh.userData?.isShellPiece || false;
       const materialName = (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase();
-      const isBigLens = materialName.includes('big_lens') || 
-                       materialName.includes('small_lens') ||
-                       materialName.includes('lens_d40') ||
-                       materialName.includes('lens_d30');
-        
+      const isBigLens =
+        materialName.includes('big_lens') ||
+        materialName.includes('small_lens') ||
+        materialName.includes('lens_d40') ||
+        materialName.includes('lens_d30');
+
       // Calculate target X-ray color
-        let targetXrayColor;
-        if (isAntenna) {
-        targetXrayColor = 0x5A6B7C;
-        } else if (isBigLens) {
-        targetXrayColor = 0x6B7B7A;
-        } else if (isShellPiece) {
-        targetXrayColor = 0x5A6570;
-        } else {
-          const originalColor = mesh.userData?.originalColor || 0xFF9500;
-          const r = (originalColor >> 16) & 0xFF;
-          const g = (originalColor >> 8) & 0xFF;
-          const b = originalColor & 0xFF;
-          const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
-          
-          if (luminance > 200) targetXrayColor = 0x6B757D;
-          else if (luminance > 150) targetXrayColor = 0x5A6570;
-          else if (luminance > 100) targetXrayColor = 0x4A5560;
-          else if (luminance > 50) targetXrayColor = 0x3A4550;
-          else targetXrayColor = 0x2A3540;
-        }
-        
+      let targetXrayColor;
+      if (isAntenna) {
+        targetXrayColor = 0x5a6b7c;
+      } else if (isBigLens) {
+        targetXrayColor = 0x6b7b7a;
+      } else if (isShellPiece) {
+        targetXrayColor = 0x5a6570;
+      } else {
+        const originalColor = mesh.userData?.originalColor || 0xff9500;
+        const r = (originalColor >> 16) & 0xff;
+        const g = (originalColor >> 8) & 0xff;
+        const b = originalColor & 0xff;
+        const luminance = r * 0.299 + g * 0.587 + b * 0.114;
+
+        if (luminance > 200) targetXrayColor = 0x6b757d;
+        else if (luminance > 150) targetXrayColor = 0x5a6570;
+        else if (luminance > 100) targetXrayColor = 0x4a5560;
+        else if (luminance > 50) targetXrayColor = 0x3a4550;
+        else targetXrayColor = 0x2a3540;
+      }
+
       // ✅ Use X-ray opacity from Scene config (0.2 light, 0.1 dark) instead of material opacity
       // Note: This will be adjusted by Scene.jsx based on darkMode, but we use a default here
       // The actual opacity is controlled by Scene.jsx xraySettings
       const xrayOpacity = 0.2; // Base opacity (Scene.jsx adjusts based on darkMode)
       const finalOpacity = isShellPiece ? xrayOpacity * 0.3 : xrayOpacity;
-        
+
       // Calculate start time for this mesh
       // Fixed duration per mesh (slower), distributed across total scan duration
       const highlightDuration = 350; // Fixed 350ms per mesh (slower than before)
       const totalScanTime = duration * 1000; // Total scan duration in ms
-      
+
       // Distribute meshes across total scan time
       // Ensure the last mesh starts early enough to finish before scan ends
       // Last mesh should start at: totalScanTime - highlightDuration
-      const startDelay = sortedMeshes.length > 1 
-        ? ((totalScanTime - highlightDuration) * index) / (sortedMeshes.length - 1)
-        : 0;
+      const startDelay =
+        sortedMeshes.length > 1
+          ? ((totalScanTime - highlightDuration) * index) / (sortedMeshes.length - 1)
+          : 0;
 
       return {
         mesh,
@@ -206,25 +209,34 @@ export default function ScanEffect({
       notifiedMeshes: new Set(),
       totalMeshes,
     };
-        
+
     // ✅ SINGLE requestAnimationFrame loop for all meshes
-        const animate = () => {
+    const animate = () => {
       const currentTime = Date.now();
 
       let activeMeshes = 0;
 
-      scanStateRef.current.meshes.forEach((meshData) => {
-        const { mesh, index, targetXrayColor, finalOpacity, isAntenna, isBigLens, isShellPiece, highlightDuration } = meshData;
-        
+      scanStateRef.current.meshes.forEach(meshData => {
+        const {
+          mesh,
+          index,
+          targetXrayColor,
+          finalOpacity,
+          isAntenna,
+          isBigLens,
+          isShellPiece,
+          highlightDuration,
+        } = meshData;
+
         if (!mesh.material || mesh.userData.isErrorMesh) return;
 
         const meshElapsed = currentTime - scanStateRef.current.startTime - meshData.startDelay;
 
         // Mesh hasn't started yet
         if (meshElapsed < 0) {
-            return;
-          }
-          
+          return;
+        }
+
         // Notify start of scan for this mesh
         if (!scanStateRef.current.notifiedMeshes.has(mesh)) {
           scanStateRef.current.notifiedMeshes.add(mesh);
@@ -234,34 +246,34 @@ export default function ScanEffect({
         }
 
         const progress = Math.min(meshElapsed / highlightDuration, 1.0);
-          
+
         // Phase 1: Intense scan (0-50%) - Extended for better visibility
-          if (progress < 0.5) {
+        if (progress < 0.5) {
           meshData.state = 'scanning';
           activeMeshes++;
-            
-            // ✅ Create scan material once (green mode)
-            if (!mesh.userData.scanMaterial) {
-              mesh.userData.scanMaterial = createXrayMaterial(0x2D5A3D, {
-                scanMode: true,
-                opacity: 0.4,
-                rimIntensity: 0.7,
-              });
-              if (!mesh.userData.originalMaterial) {
-                mesh.userData.originalMaterial = mesh.material;
-              }
+
+          // ✅ Create scan material once (green mode)
+          if (!mesh.userData.scanMaterial) {
+            mesh.userData.scanMaterial = createXrayMaterial(0x2d5a3d, {
+              scanMode: true,
+              opacity: 0.4,
+              rimIntensity: 0.7,
+            });
+            if (!mesh.userData.originalMaterial) {
+              mesh.userData.originalMaterial = mesh.material;
             }
-          
-            if (mesh.material !== mesh.userData.scanMaterial) {
+          }
+
+          if (mesh.material !== mesh.userData.scanMaterial) {
             mesh.material = mesh.userData.scanMaterial;
-            }
-            
-            // ✅ Simple pulse effect during scan
-            if (mesh.material.uniforms) {
+          }
+
+          // ✅ Simple pulse effect during scan
+          if (mesh.material.uniforms) {
             const scanProgress = progress / 0.5;
-              const pulse = Math.sin(scanProgress * Math.PI * 2) * 0.08; // Subtle pulse
-              mesh.material.uniforms.opacity.value = 0.4 + pulse;
-              mesh.material.opacity = mesh.material.uniforms.opacity.value;
+            const pulse = Math.sin(scanProgress * Math.PI * 2) * 0.08; // Subtle pulse
+            mesh.material.uniforms.opacity.value = 0.4 + pulse;
+            mesh.material.opacity = mesh.material.uniforms.opacity.value;
           }
         }
         // Phase 2: Transition to X-ray (50-100%)
@@ -275,26 +287,28 @@ export default function ScanEffect({
 
           // ✅ Transition from green scan to normal X-ray
           if (!mesh.userData.scanMaterial) {
-            mesh.userData.scanMaterial = createXrayMaterial(0x2D5A3D, {
+            mesh.userData.scanMaterial = createXrayMaterial(0x2d5a3d, {
               scanMode: true,
               opacity: 0.6,
               rimIntensity: 0.7,
             });
           }
-          
+
           if (mesh.material !== mesh.userData.scanMaterial) {
             mesh.material = mesh.userData.scanMaterial;
           }
 
           if (mesh.material.uniforms) {
             // ✅ Simple transition: lerp from green to X-ray color
-            const scanBaseColor = new THREE.Color(0x2D5A3D);
+            const scanBaseColor = new THREE.Color(0x2d5a3d);
             const xrayBaseColor = new THREE.Color(targetXrayColor);
             const lerpedColor = scanBaseColor.clone().lerp(xrayBaseColor, easeOut);
             mesh.material.uniforms.baseColor.value.copy(lerpedColor);
 
-            const scanRimColor = new THREE.Color(0x4ADE80);
-            const xrayRimColor = new THREE.Color(isAntenna ? 0x8A9AAC : isBigLens ? 0x7A8A8A : isShellPiece ? 0x7A8590 : 0x6A7580);
+            const scanRimColor = new THREE.Color(0x4ade80);
+            const xrayRimColor = new THREE.Color(
+              isAntenna ? 0x8a9aac : isBigLens ? 0x7a8a8a : isShellPiece ? 0x7a8590 : 0x6a7580
+            );
             const lerpedRim = scanRimColor.clone().lerp(xrayRimColor, easeOut);
             mesh.material.uniforms.rimColor.value.copy(lerpedRim);
 
@@ -303,14 +317,17 @@ export default function ScanEffect({
             mesh.material.opacity = newOpacity;
             mesh.material.uniforms.rimIntensity.value = THREE.MathUtils.lerp(0.7, 0.6, easeOut);
           }
-            
+
           // ✅ Create final X-ray material when transition completes
           if (transitionProgress >= 0.95 && !mesh.userData.finalMaterial) {
-            const rimColor = isAntenna ? 0x8A9AAC :
-                           isBigLens ? 0x7A8A8A :
-                           isShellPiece ? 0x7A8590 :
-                           0x6A7580;
-            
+            const rimColor = isAntenna
+              ? 0x8a9aac
+              : isBigLens
+                ? 0x7a8a8a
+                : isShellPiece
+                  ? 0x7a8590
+                  : 0x6a7580;
+
             mesh.userData.finalMaterial = createXrayMaterial(targetXrayColor, {
               rimColor: rimColor,
               opacity: finalOpacity,
@@ -325,11 +342,14 @@ export default function ScanEffect({
         // Complete - create final X-ray material
         else if (meshData.state !== 'complete') {
           if (!mesh.userData.finalMaterial) {
-            const rimColor = isAntenna ? 0x8A9AAC :
-                           isBigLens ? 0x7A8A8A :
-                           isShellPiece ? 0x7A8590 :
-                           0x6A7580;
-            
+            const rimColor = isAntenna
+              ? 0x8a9aac
+              : isBigLens
+                ? 0x7a8a8a
+                : isShellPiece
+                  ? 0x7a8590
+                  : 0x6a7580;
+
             mesh.userData.finalMaterial = createXrayMaterial(targetXrayColor, {
               rimColor: rimColor,
               opacity: finalOpacity,
@@ -337,31 +357,35 @@ export default function ScanEffect({
             });
           }
           mesh.material = mesh.userData.finalMaterial;
-            mesh.userData.scanned = true;
+          mesh.userData.scanned = true;
           meshData.state = 'complete';
           scanStateRef.current.scannedCount++;
         }
       });
-            
+
       // Check if all meshes are complete AND enough time has passed for the last mesh to finish
-      const allMeshesComplete = scanStateRef.current.scannedCount >= scanStateRef.current.totalMeshes;
-      
+      const allMeshesComplete =
+        scanStateRef.current.scannedCount >= scanStateRef.current.totalMeshes;
+
       // Find the last mesh's end time (startDelay + highlightDuration)
       const lastMesh = scanStateRef.current.meshes[scanStateRef.current.meshes.length - 1];
-      const lastMeshEndTime = scanStateRef.current.startTime + lastMesh.startDelay + lastMesh.highlightDuration;
+      const lastMeshEndTime =
+        scanStateRef.current.startTime + lastMesh.startDelay + lastMesh.highlightDuration;
       const allMeshesFinished = currentTime >= lastMeshEndTime;
-      
+
       if (allMeshesComplete && allMeshesFinished) {
         isScanningRef.current = false;
-              if (onCompleteRef.current) {
-                onCompleteRef.current();
-              }
+        if (onCompleteRef.current) {
+          onCompleteRef.current();
+        }
         return; // Stop animation loop
       }
 
       // Continue animation if there are active meshes or meshes waiting to start
-      const hasWaitingMeshes = scanStateRef.current.meshes.some(md => 
-        (currentTime - scanStateRef.current.startTime - md.startDelay) < scanStateRef.current.duration
+      const hasWaitingMeshes = scanStateRef.current.meshes.some(
+        md =>
+          currentTime - scanStateRef.current.startTime - md.startDelay <
+          scanStateRef.current.duration
       );
 
       if (activeMeshes > 0 || hasWaitingMeshes || !allMeshesFinished) {
@@ -381,12 +405,12 @@ export default function ScanEffect({
         animationFrameRef.current = null;
       }
       isScanningRef.current = false;
-      
+
       // ✅ Cleanup: dispose scan materials to prevent memory leaks
       // Note: We don't dispose finalMaterial as it's used after scan completes
       // Only dispose scanMaterial if scan was interrupted
       if (scanStateRef.current.meshes) {
-        scanStateRef.current.meshes.forEach((meshData) => {
+        scanStateRef.current.meshes.forEach(meshData => {
           const mesh = meshData.mesh;
           if (mesh && mesh.userData.scanMaterial && mesh.material === mesh.userData.scanMaterial) {
             // Only dispose if still using scan material (scan was interrupted)
@@ -403,4 +427,3 @@ export default function ScanEffect({
 
   return null; // No visual rendering, just logic
 }
-

@@ -3,7 +3,6 @@ export const FONT_SIZES = {
   NORMAL: 10,
 };
 
-
 export const PADDING = {
   SIMPLE: 16,
   COMPACT: { horizontal: 8, vertical: 4 },
@@ -37,7 +36,7 @@ export const ELLIPSIS_STYLES = {
  * @param {boolean} compact - Compact mode
  * @returns {number} Padding in theme units (0.2 or 0.3)
  */
-export const getItemPadding = (compact) => {
+export const getItemPadding = compact => {
   return compact ? 0.2 : 0.3;
 };
 
@@ -46,6 +45,6 @@ export const getItemPadding = (compact) => {
  * @param {boolean} compact - Compact mode
  * @returns {number} Padding in pixels (1.6px or 2.4px)
  */
-export const getItemPaddingPx = (compact) => {
+export const getItemPaddingPx = compact => {
   return compact ? 0.2 * 8 : 0.3 * 8;
 };

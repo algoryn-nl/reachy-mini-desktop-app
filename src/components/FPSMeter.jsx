@@ -72,4 +72,3 @@ export default function FPSMeterWrapper() {
   const { darkMode } = useAppStore();
   return <FPSMeter darkMode={darkMode} />;
 }
-

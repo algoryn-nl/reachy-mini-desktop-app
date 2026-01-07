@@ -30,12 +30,16 @@ export default function AppCard({
   const likes = app.extra?.likes || 0;
   const lastModified = app.extra?.lastModified || app.extra?.createdAt || null;
   const emoji = cardData.emoji || '📦';
-  
+
   // Format date
-  const formattedDate = lastModified 
-    ? new Date(lastModified).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formattedDate = lastModified
+    ? new Date(lastModified).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
     : null;
-  
+
   return (
     <Box
       key={`${app.name}-${selectedCategory || 'all'}-${searchQuery || ''}-${index}`}
@@ -49,31 +53,35 @@ export default function AppCard({
         position: 'relative',
         overflow: 'hidden',
         bgcolor: darkMode ? '#1a1a1a' : '#ffffff',
-        border: installFailed 
-          ? '1px solid rgba(239, 68, 68, 0.4)' 
-          : isInstalling 
-          ? '1px solid rgba(255, 149, 0, 0.4)' 
-          : `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`,
+        border: installFailed
+          ? '1px solid rgba(239, 68, 68, 0.4)'
+          : isInstalling
+            ? '1px solid rgba(255, 149, 0, 0.4)'
+            : `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`,
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         '&:hover': {
           transform: 'translateY(-2px)',
-          borderColor: installFailed 
-            ? 'rgba(239, 68, 68, 0.6)' 
-            : isInstalling 
-            ? 'rgba(255, 149, 0, 0.6)' 
-            : darkMode 
-            ? 'rgba(255, 255, 255, 0.18)' 
-            : 'rgba(0, 0, 0, 0.18)',
+          borderColor: installFailed
+            ? 'rgba(239, 68, 68, 0.6)'
+            : isInstalling
+              ? 'rgba(255, 149, 0, 0.6)'
+              : darkMode
+                ? 'rgba(255, 255, 255, 0.18)'
+                : 'rgba(0, 0, 0, 0.18)',
         },
       }}
-      onClick={app.url ? async () => {
-        try {
-          await open(app.url);
-        } catch (err) {
-          console.error('Failed to open space URL:', err);
-        }
-      } : undefined}
+      onClick={
+        app.url
+          ? async () => {
+              try {
+                await open(app.url);
+              } catch (err) {
+                console.error('Failed to open space URL:', err);
+              }
+            }
+          : undefined
+      }
     >
       {/* Top Bar with Author (left) and Likes (right) - Full width */}
       {(author || likes !== undefined) && (
@@ -117,7 +125,7 @@ export default function AppCard({
               </Typography>
             </Box>
           )}
-          
+
           {/* Likes - Right - Always show, even if 0 */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <FavoriteBorderIcon sx={{ fontSize: 16, color: darkMode ? '#aaaaaa' : '#666666' }} />
@@ -134,7 +142,7 @@ export default function AppCard({
           </Box>
         </Box>
       )}
-      
+
       {/* Separator */}
       {(author || likes !== undefined) && (
         <Box
@@ -153,7 +161,7 @@ export default function AppCard({
           />
         </Box>
       )}
-      
+
       {/* Content */}
       <Box
         sx={{
@@ -168,9 +176,19 @@ export default function AppCard({
         }}
       >
         {/* Title + Description + Date (left) + Emoji (right) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+        >
           {/* Left side: Title + Description + Date */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, alignItems: 'flex-start' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+              flex: 1,
+              alignItems: 'flex-start',
+            }}
+          >
             {/* Title */}
             <Typography
               sx={{
@@ -186,7 +204,7 @@ export default function AppCard({
             >
               {app.name}
             </Typography>
-            
+
             {/* Description */}
             <Typography
               sx={{
@@ -204,7 +222,7 @@ export default function AppCard({
             >
               {app.description || 'No description'}
             </Typography>
-            
+
             {/* Date */}
             {formattedDate && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -221,7 +239,7 @@ export default function AppCard({
               </Box>
             )}
           </Box>
-          
+
           {/* Right side: Emoji */}
           <Typography
             component="span"
@@ -234,25 +252,27 @@ export default function AppCard({
             {emoji}
           </Typography>
         </Box>
-        
+
         {/* Install/Installed Button */}
         <Button
           variant="outlined"
           color="primary"
           size="small"
           disabled={isBusy || isInstalled}
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation();
             if (!isInstalled) {
               handleInstall(app);
             }
           }}
           endIcon={
-            isInstalled 
-              ? <CheckCircleOutlineIcon sx={{ fontSize: 14 }} />
-              : isInstalling 
-              ? <CircularProgress size={14} sx={{ color: '#FF9500' }} /> 
-              : <DownloadOutlinedIcon sx={{ fontSize: 14 }} />
+            isInstalled ? (
+              <CheckCircleOutlineIcon sx={{ fontSize: 14 }} />
+            ) : isInstalling ? (
+              <CircularProgress size={14} sx={{ color: '#FF9500' }} />
+            ) : (
+              <DownloadOutlinedIcon sx={{ fontSize: 14 }} />
+            )
           }
           sx={{
             mt: 2.5,
@@ -264,29 +284,35 @@ export default function AppCard({
             borderRadius: '10px',
             bgcolor: 'transparent',
             color: isInstalled
-              ? (darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)')
-              : installFailed 
-              ? '#ef4444'
-              : '#FF9500',
+              ? darkMode
+                ? 'rgba(255, 255, 255, 0.5)'
+                : 'rgba(0, 0, 0, 0.5)'
+              : installFailed
+                ? '#ef4444'
+                : '#FF9500',
             border: isInstalled
-              ? (darkMode ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)')
-              : installFailed 
-              ? '1px solid #ef4444'
-              : isInstalling 
-              ? '1px solid #FF9500'
-              : '1px solid #FF9500',
+              ? darkMode
+                ? '1px solid rgba(255, 255, 255, 0.2)'
+                : '1px solid rgba(0, 0, 0, 0.2)'
+              : installFailed
+                ? '1px solid #ef4444'
+                : isInstalling
+                  ? '1px solid #FF9500'
+                  : '1px solid #FF9500',
             transition: 'all 0.2s ease',
             '&:hover': {
               bgcolor: isInstalled
                 ? 'transparent'
-                : installFailed 
-                ? 'rgba(239, 68, 68, 0.08)'
-                : 'rgba(255, 149, 0, 0.08)',
+                : installFailed
+                  ? 'rgba(239, 68, 68, 0.08)'
+                  : 'rgba(255, 149, 0, 0.08)',
               borderColor: isInstalled
-                ? (darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)')
-                : installFailed 
-                ? '#ef4444'
-                : '#FF9500',
+                ? darkMode
+                  ? 'rgba(255, 255, 255, 0.2)'
+                  : 'rgba(0, 0, 0, 0.2)'
+                : installFailed
+                  ? '#ef4444'
+                  : '#FF9500',
             },
             '&:disabled': {
               bgcolor: 'transparent',
@@ -295,13 +321,13 @@ export default function AppCard({
             },
           }}
         >
-          {isInstalled 
-            ? 'Installed' 
-            : isInstalling 
-            ? 'Installing...' 
-            : installFailed 
-            ? 'Retry Install' 
-            : 'Install'}
+          {isInstalled
+            ? 'Installed'
+            : isInstalling
+              ? 'Installing...'
+              : installFailed
+                ? 'Retry Install'
+                : 'Install'}
         </Button>
       </Box>
     </Box>

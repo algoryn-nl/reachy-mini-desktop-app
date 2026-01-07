@@ -1,6 +1,6 @@
 /**
  * Apps Slice - Manages application data and installation state
- * 
+ *
  * This slice handles:
  * - Available apps (from HF store)
  * - Installed apps (from daemon)
@@ -18,19 +18,19 @@ export const appsInitialState = {
   availableApps: [],
   installedApps: [],
   currentApp: null,
-  
+
   // Jobs management
   activeJobs: {},
-  
+
   // Loading/error states
   appsLoading: false,
   appsError: null,
-  
+
   // Cache management
   appsLastFetch: null,
   appsOfficialMode: true,
   appsCacheValid: false,
-  
+
   // Installation state
   installingAppName: null,
   installJobType: null,
@@ -38,7 +38,7 @@ export const appsInitialState = {
   installStartTime: null,
   processedJobs: [],
   jobSeenOnce: false,
-  
+
   // App stopping state (for UI feedback during stop request)
   isStoppingApp: false,
 };
@@ -51,21 +51,22 @@ export const appsInitialState = {
  */
 export const createAppsSlice = (set, get) => ({
   ...appsInitialState,
-  
+
   // ============================================
   // APPS DATA ACTIONS
   // ============================================
-  
-  setAvailableApps: (apps) => set({ 
-    availableApps: apps,
-    appsLastFetch: Date.now(),
-    appsCacheValid: true,
-    appsError: null,
-  }),
-  
-  setInstalledApps: (apps) => set({ installedApps: apps }),
-  
-  setCurrentApp: (app) => {
+
+  setAvailableApps: apps =>
+    set({
+      availableApps: apps,
+      appsLastFetch: Date.now(),
+      appsCacheValid: true,
+      appsError: null,
+    }),
+
+  setInstalledApps: apps => set({ installedApps: apps }),
+
+  setCurrentApp: app => {
     const prevApp = get().currentApp;
     // Log app transitions
     if (app && !prevApp) {
@@ -75,57 +76,56 @@ export const createAppsSlice = (set, get) => ({
     }
     set({ currentApp: app });
   },
-  
-  setActiveJobs: (jobs) => {
+
+  setActiveJobs: jobs => {
     if (typeof jobs === 'function') {
-      set((state) => {
-        const currentJobs = state.activeJobs instanceof Map 
-          ? Object.fromEntries(state.activeJobs) 
-          : (state.activeJobs || {});
+      set(state => {
+        const currentJobs =
+          state.activeJobs instanceof Map
+            ? Object.fromEntries(state.activeJobs)
+            : state.activeJobs || {};
         const newJobs = jobs(new Map(Object.entries(currentJobs)));
-        const jobsObj = newJobs instanceof Map 
-          ? Object.fromEntries(newJobs) 
-          : newJobs;
+        const jobsObj = newJobs instanceof Map ? Object.fromEntries(newJobs) : newJobs;
         return { activeJobs: jobsObj };
       });
     } else {
-      const jobsObj = jobs instanceof Map 
-        ? Object.fromEntries(jobs) 
-        : jobs;
+      const jobsObj = jobs instanceof Map ? Object.fromEntries(jobs) : jobs;
       set({ activeJobs: jobsObj || {} });
     }
   },
-  
-  setAppsLoading: (loading) => set({ appsLoading: loading }),
-  
-  setAppsError: (error) => set({ appsError: error }),
-  
-  setIsStoppingApp: (isStopping) => set({ isStoppingApp: isStopping }),
-  
-  setAppsOfficialMode: (mode) => set({ 
-    appsOfficialMode: mode,
-    appsCacheValid: false,
-  }),
-  
+
+  setAppsLoading: loading => set({ appsLoading: loading }),
+
+  setAppsError: error => set({ appsError: error }),
+
+  setIsStoppingApp: isStopping => set({ isStoppingApp: isStopping }),
+
+  setAppsOfficialMode: mode =>
+    set({
+      appsOfficialMode: mode,
+      appsCacheValid: false,
+    }),
+
   invalidateAppsCache: () => set({ appsCacheValid: false }),
-  
+
   // ✅ CRITICAL: Clear all apps data (called on disconnect)
-  clearApps: () => set({
-    availableApps: [],
-    installedApps: [],
-    currentApp: null,
-    activeJobs: {},
-    appsLoading: false,
-    appsError: null,
-    appsLastFetch: null,
-    appsCacheValid: false,
-    isStoppingApp: false,
-  }),
-  
+  clearApps: () =>
+    set({
+      availableApps: [],
+      installedApps: [],
+      currentApp: null,
+      activeJobs: {},
+      appsLoading: false,
+      appsError: null,
+      appsLastFetch: null,
+      appsCacheValid: false,
+      isStoppingApp: false,
+    }),
+
   // ============================================
   // INSTALLATION MANAGEMENT
   // ============================================
-  
+
   lockForInstall: (appName, jobType = 'install') => {
     logInstallStart(appName, jobType);
     // Note: transitionTo.busy('installing') is called from the caller
@@ -137,13 +137,13 @@ export const createAppsSlice = (set, get) => ({
       installStartTime: Date.now(),
       jobSeenOnce: false,
     });
-    
+
     const state = get();
     const jobKey = `${appName}_${jobType}`;
     const processedJobs = state.processedJobs.filter(key => key !== jobKey);
     set({ processedJobs });
   },
-  
+
   unlockInstall: () => {
     const state = get();
     const success = state.installResult === 'success';
@@ -161,18 +161,17 @@ export const createAppsSlice = (set, get) => ({
       processedJobs: [],
     });
   },
-  
-  setInstallResult: (result) => set({ installResult: result }),
-  
+
+  setInstallResult: result => set({ installResult: result }),
+
   markJobAsSeen: () => set({ jobSeenOnce: true }),
-  
+
   markJobAsProcessed: (appName, jobType) => {
     const state = get();
     const jobKey = `${appName}_${jobType}`;
-    const processedJobs = state.processedJobs.includes(jobKey) 
-      ? state.processedJobs 
+    const processedJobs = state.processedJobs.includes(jobKey)
+      ? state.processedJobs
       : [...state.processedJobs, jobKey];
     set({ processedJobs });
   },
 });
-
