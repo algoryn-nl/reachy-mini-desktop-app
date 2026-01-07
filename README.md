@@ -117,13 +117,11 @@ REACHY_MINI_SOURCE=feature/my-feature bash ./scripts/build/build-sidecar-unix.sh
 
 ## 📖 Documentation
 
-- [Project Conventions](./CONVENTIONS.md) - Coding standards, naming conventions, and project structure
-- [Build Process](./RAPPORT_BUILD.md) - Detailed documentation of the build process, sidecar, signing, and CI/CD
-- [Release Files](./RELEASE_FILES.md) - Documentation of all release-related files and their roles
 - [Scripts Directory](./scripts/README.md) - Organization and usage of build scripts
-- [Update Pipelines](./docs/UPDATE_PIPELINES.md) - Dev and production update workflows
-- [Testing Guide](./docs/TESTING_GUIDE.md) - How to test the application
-- [Architecture](./docs/STATE_MACHINE.md) - Application state machine and architecture
+- [Code Signing](./docs/CODE_SIGNING_REPORT.md) - macOS and Windows code signing documentation
+- [Update System](./docs/README.md) - Auto-updater and GitHub Pages deployment
+- [Technical Context](./CONTEXT.md) - Hardware specs, streaming, and technical reference
+- [Kinematics WASM](./kinematics-wasm/README.md) - WebAssembly kinematics module
 
 ### Application Store
 
@@ -227,31 +225,42 @@ reachy_mini_desktop_app/
 │   ├── components/                   # Reusable React components
 │   │   ├── viewer3d/                # 3D robot visualization (README.md)
 │   │   ├── emoji-grid/              # Emotion wheel and emoji display
+│   │   ├── camera/                  # Camera components
+│   │   ├── LogConsole/              # Log display components
+│   │   ├── Toast/                   # Toast notifications
+│   │   ├── wifi/                    # WiFi configuration components
 │   │   ├── App.jsx                  # Main application component
-│   │   ├── AppTopBar.jsx            # Top bar with controls
-│   │   └── FullscreenOverlay.jsx    # Overlay component
+│   │   └── AppTopBar.jsx            # Top bar with controls
 │   ├── hooks/                        # Custom React hooks (organized by domain)
+│   │   ├── audio/                   # Audio hooks (useDoA)
 │   │   ├── daemon/                  # Daemon lifecycle hooks
 │   │   │   ├── useDaemon.js         # Start/stop daemon
 │   │   │   ├── useDaemonHealthCheck.js  # Health monitoring
-│   │   │   └── useDaemonEventBus.js # Event bus for daemon events
+│   │   │   ├── useDaemonEventBus.js # Event bus for daemon events
+│   │   │   └── useStartupStages.js  # Startup stage tracking
+│   │   ├── media/                   # Media hooks
+│   │   │   ├── useAudioAnalyser.js  # Audio analysis
+│   │   │   └── useWebRTCStream.js   # WebRTC streaming
 │   │   ├── robot/                   # Robot state hooks
 │   │   │   ├── useRobotState.js     # Robot state polling
-│   │   │   └── useRobotCommands.js  # Robot command execution
+│   │   │   ├── useRobotCommands.js  # Robot command execution
+│   │   │   └── useActiveMoves.js    # Active moves tracking
 │   │   └── system/                  # System hooks
 │   │       ├── useUpdater.js        # Auto-update management
 │   │       ├── useUsbDetection.js   # USB robot detection
 │   │       ├── usePermissions.js    # macOS permissions
 │   │       ├── useViewRouter.jsx    # View state machine
-│   │       └── useWindowResize.js   # Window size management
+│   │       ├── useRobotDiscovery.js # Robot discovery (WiFi/mDNS)
+│   │       └── useNetworkStatus.js  # Network connectivity
 │   ├── views/                        # Main application views
-│   │   ├── update/                  # Update view
+│   │   ├── update/                  # Update checking view
 │   │   ├── permissions-required/    # Permissions view (macOS)
-│   │   ├── robot-not-detected/      # USB detection view
-│   │   ├── ready-to-start/          # Ready to start view
+│   │   ├── finding-robot/           # Connection selection view
+│   │   ├── first-time-wifi-setup/   # WiFi setup wizard
+│   │   ├── bluetooth-support/       # Bluetooth help view
 │   │   ├── starting/                # Hardware scan view
-│   │   ├── transition/              # Transition view
-│   │   ├── closing/                 # Closing view
+│   │   ├── closing/                 # Shutdown view
+│   │   ├── windows/                 # Multi-window management
 │   │   └── active-robot/            # Active robot view
 │   │       ├── application-store/   # App store (README.md)
 │   │       ├── controller/          # Robot controller (README.md)
@@ -260,6 +269,8 @@ reachy_mini_desktop_app/
 │   │       ├── right-panel/         # Right panel sections
 │   │       └── context/             # Active robot context
 │   ├── store/                        # State management (Zustand)
+│   │   ├── slices/                  # Store slices (apps, logs, robot, ui)
+│   │   ├── middleware/              # Store middleware (windowSync)
 │   │   ├── useAppStore.js           # Composite store
 │   │   ├── useRobotStore.js         # Robot state
 │   │   ├── useLogsStore.js          # Logs management
@@ -278,13 +289,9 @@ reachy_mini_desktop_app/
 │   │   └── window/                  # Window management
 │   ├── tauri.conf.json              # Tauri configuration
 │   └── capabilities/                # Security capabilities
-├── scripts/                          # Build and utility scripts (README.md)
-│   ├── build/                       # Build scripts
-│   ├── signing/                     # Code signing scripts
-│   ├── test/                        # Test scripts
-│   ├── daemon/                      # Daemon management
-│   └── utils/                       # Utility scripts
+├── kinematics-wasm/                  # WASM kinematics module (README.md)
 ├── uv-wrapper/                       # UV wrapper (Rust) for Python
+├── scripts/                          # Build and utility scripts (README.md)
 └── docs/                             # Additional documentation
 ```
 
@@ -298,9 +305,11 @@ Each major module has its own README with detailed documentation:
 | **Application Store** | [`src/views/active-robot/application-store/README.md`](./src/views/active-robot/application-store/README.md) | App discovery, installation, management |
 | **Controller** | [`src/views/active-robot/controller/README.md`](./src/views/active-robot/controller/README.md) | Robot position control, joysticks, sliders |
 | **Installation** | [`src/views/active-robot/application-store/hooks/installation/README.md`](./src/views/active-robot/application-store/hooks/installation/README.md) | Installation lifecycle and polling |
+| **Kinematics WASM** | [`kinematics-wasm/README.md`](./kinematics-wasm/README.md) | WebAssembly passive joints calculation |
 | **Scripts** | [`scripts/README.md`](./scripts/README.md) | Build, test, and utility scripts |
 | **DMG Assets** | [`src-tauri/dmg-assets/README.md`](./src-tauri/dmg-assets/README.md) | macOS DMG customization guide |
 | **Updates** | [`docs/README.md`](./docs/README.md) | Update system documentation |
+| **Technical Context** | [`CONTEXT.md`](./CONTEXT.md) | Hardware specs, streaming protocols |
 
 ### Architecture Overview
 
@@ -351,11 +360,10 @@ flowchart TB
 ```
 
 **Key Architecture Points:**
-- **Hooks** are organized by domain (daemon, robot, system) for better maintainability
+- **Hooks** are organized by domain (daemon, robot, system, media, audio) for better maintainability
 - **Views** are organized in dedicated folders with their associated components
-- **Store** uses a composite pattern with specialized sub-stores
+- **Store** uses a composite pattern with specialized sub-stores and slices
 - **Config** centralizes all configuration constants (timeouts, intervals, etc.)
-- See [CONVENTIONS.md](./CONVENTIONS.md) for detailed coding standards and conventions
 
 ### View Router State Machine
 
@@ -363,46 +371,41 @@ The application uses a priority-based view router that determines which screen t
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PermissionsCheck: App Launch
+    [*] --> PermissionsRequired: App Launch (macOS)
+    [*] --> UpdateView: App Launch (Win/Linux)
     
-    PermissionsCheck --> UpdateView: Permissions OK
-    PermissionsCheck --> PermissionsRequired: Missing Permissions
-    PermissionsRequired --> Restarting: Permissions Granted
+    PermissionsRequired --> UpdateView: Permissions Granted
+    PermissionsRequired --> Restarting: Grant & Restart
     Restarting --> [*]: Relaunch App
     
-    UpdateView --> CheckingUpdate: Auto Check
-    CheckingUpdate --> DownloadingUpdate: Update Available
-    CheckingUpdate --> USBCheck: No Update / Error
-    DownloadingUpdate --> Installing: Download Complete
+    UpdateView --> FindingRobot: No Update / Skip
+    UpdateView --> Installing: Update Available
     Installing --> [*]: Restart Required
     
-    USBCheck --> FindingRobot: No USB
-    USBCheck --> ReadyToStart: USB Connected
-    FindingRobot --> ReadyToStart: USB Connected
+    FindingRobot --> FirstTimeWifiSetup: Setup WiFi
+    FindingRobot --> BluetoothSupport: Need Help
+    FindingRobot --> Starting: User Selects Connection
+    FirstTimeWifiSetup --> FindingRobot: Back / Done
+    BluetoothSupport --> FindingRobot: Back
     
-    ReadyToStart --> Starting: User Clicks Start
-    Starting --> HardwareScan: Daemon Starting
-    HardwareScan --> HardwareError: Error Detected
-    HardwareError --> ReadyToStart: User Retry
-    HardwareScan --> Transition: Scan Complete
+    Starting --> ActiveRobot: Daemon Ready
+    Starting --> FindingRobot: Hardware Error (Retry)
     
-    Transition --> ActiveRobot: Window Resized
     ActiveRobot --> Closing: User Stops
-    ActiveRobot --> FindingRobot: USB Disconnected
+    ActiveRobot --> FindingRobot: Disconnected
     
-    Closing --> ReadyToStart: Daemon Stopped
-    Closing --> FindingRobot: USB Gone
+    Closing --> FindingRobot: Daemon Stopped
 ```
 
 **Priority order (highest to lowest):**
-1. 🔐 **Permissions** (macOS only) - Blocks until camera/microphone granted
-2. 🔄 **Update** - Check and download updates
-3. 🔌 **USB Check** - Detect robot connection
-4. ⏳ **Ready to Start** - Robot connected, waiting for user
-5. 🔍 **Starting** - Hardware scan animation
-6. ✨ **Transition** - Window resize animation
-7. 🛑 **Closing** - Shutdown sequence
-8. 🤖 **Active Robot** - Full control interface
+0. 🔐 **PermissionsRequired** (macOS only) - Blocks until camera/microphone granted
+1. 🔄 **UpdateView** - Check and download updates
+2. 📶 **FirstTimeWifiSetup** - Guided WiFi configuration wizard
+3. 📱 **BluetoothSupport** - Bluetooth setup help
+4. 🔍 **FindingRobot** - Connection selection (USB/WiFi/Simulation)
+5. ⚙️ **Starting** - Hardware scan and daemon startup
+6. 🛑 **Closing** - Shutdown sequence
+7. 🤖 **ActiveRobot** - Full control interface
 
 ## 🔄 Updates
 

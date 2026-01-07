@@ -18,7 +18,6 @@ controller/
 │   ├── useRobotAPI.js         # API communication hook
 │   ├── useRobotSmoothing.js   # Input smoothing logic
 │   ├── useRobotSync.js        # State synchronization
-│   ├── useActiveMoves.js      # Active moves tracking
 │   ├── useInputProcessing.js  # Input processing and normalization
 │   ├── usePositionHandlers.js # Position change handlers
 │   └── index.js               # Hook exports
@@ -55,7 +54,6 @@ controller/
 | **useRobotAPI**         | HTTP calls to daemon API (`/api/move/set_target`) |
 | **useRobotSmoothing**   | Smooth input transitions (lerp)                   |
 | **useRobotSync**        | Sync local state with robot state                 |
-| **useActiveMoves**      | Track active movements from store                 |
 | **useInputProcessing**  | Normalize and process raw inputs                  |
 | **usePositionHandlers** | Handle position change events                     |
 
@@ -100,7 +98,6 @@ import {
   useRobotAPI,
   useRobotSmoothing,
   useRobotSync,
-  useActiveMoves,
   useInputProcessing,
   usePositionHandlers,
 } from '@views/active-robot/controller/hooks';

@@ -29,11 +29,6 @@ application-store/
 ├── modals/                       # Additional modals
 │   ├── CreateAppTutorial.jsx    # Tutorial for creating apps
 │   └── index.js                 # Modal exports
-├── quick-actions/                # Quick action components
-│   ├── Donut.jsx                # Donut-shaped quick actions
-│   ├── Pad.jsx                  # Pad quick actions
-│   ├── HandwrittenArrows.jsx    # Arrow indicators
-│   └── index.js                 # Quick actions exports
 ├── hooks/                        # Business logic hooks
 │   ├── useApps.js               # Main apps orchestration hook
 │   ├── useAppsStore.js          # Store connection hook
@@ -146,12 +141,6 @@ flowchart LR
    - Start/stop controls
    - Uninstall functionality
    - App logs integration
-
-### Quick Actions
-
-- **Donut**: Circular quick actions interface
-- **Pad**: Pad-style quick actions
-- Used in various contexts (discovery, installed apps)
 
 ## 🔧 Key Features
 
