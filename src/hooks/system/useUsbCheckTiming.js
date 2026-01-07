@@ -4,10 +4,10 @@ import useAppStore from '../../store/useAppStore';
 
 /**
  * Hook to manage USB check timing after update check completes
- * 
+ *
  * Ensures USB check only starts after update view is dismissed,
  * and tracks minimum display time for USB check view.
- * 
+ *
  * @param {boolean} shouldShowUpdateView - Whether update view is currently showing
  * @returns {object} { usbCheckStartTime, shouldShowUsbCheck }
  */
@@ -25,7 +25,7 @@ export function useUsbCheckTiming(shouldShowUpdateView) {
       }
       return;
     }
-    
+
     // Start USB check tracking after update check completes (first time only)
     // Only start if update view is NOT showing and we haven't started yet
     if (usbCheckStartTime === null && isFirstCheck && !shouldShowUpdateView) {
@@ -53,19 +53,18 @@ export function useUsbCheckTiming(shouldShowUpdateView) {
   const shouldShowUsbCheck = useMemo(() => {
     // Don't show if update view is still showing
     if (shouldShowUpdateView) return false;
-    
+
     // Don't show if daemon is active/starting/stopping
     if (isActive || isStarting || isStopping) return false;
-    
+
     // Show if USB check minimum time hasn't elapsed yet (during first check)
     if (usbCheckStartTime !== null && isFirstCheck) {
       const elapsed = Date.now() - usbCheckStartTime;
       return elapsed < DAEMON_CONFIG.MIN_DISPLAY_TIMES.USB_CHECK;
     }
-    
+
     return false;
   }, [shouldShowUpdateView, isActive, isStarting, isStopping, usbCheckStartTime, isFirstCheck]);
 
   return { usbCheckStartTime, shouldShowUsbCheck };
 }
-

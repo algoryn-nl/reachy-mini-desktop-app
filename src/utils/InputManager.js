@@ -47,12 +47,12 @@ export class InputManager {
     this.gamepadConnected = false;
     this.rafId = null; // For requestAnimationFrame
     this.lastNotificationTime = 0; // For throttling notifications
-    
+
     // Debug state
     this.debugEnabled = false; // Set to true to enable debug logs
     this.lastButtonStates = {}; // Store last button states to detect changes
     this.lastInputValues = {}; // Store last input values to detect significant changes
-    
+
     // Progressive increment state for body yaw and position Z
     this.progressiveIncrement = {
       bodyYaw: { value: 0, holdTime: 0, isHolding: false },
@@ -120,12 +120,10 @@ export class InputManager {
 
     // Switch active device if input is recent
     if (this.activeDevice !== deviceType) {
-      const timeSinceLastActiveInput =
-        now - this.lastInputTime[this.activeDevice];
+      const timeSinceLastActiveInput = now - this.lastInputTime[this.activeDevice];
 
       if (timeSinceLastActiveInput > this.deviceSwitchThreshold) {
         if (this.debugEnabled) {
-          
         }
         this.activeDevice = deviceType;
 
@@ -143,9 +141,7 @@ export class InputManager {
 
     this.deviceChangeListeners.push(callback);
     return () => {
-      this.deviceChangeListeners = this.deviceChangeListeners.filter(
-        (cb) => cb !== callback
-      );
+      this.deviceChangeListeners = this.deviceChangeListeners.filter(cb => cb !== callback);
     };
   }
 
@@ -162,7 +158,7 @@ export class InputManager {
   addListener(callback) {
     this.listeners.push(callback);
     return () => {
-      this.listeners = this.listeners.filter((cb) => cb !== callback);
+      this.listeners = this.listeners.filter(cb => cb !== callback);
     };
   }
 
@@ -170,14 +166,14 @@ export class InputManager {
   notifyListeners() {
     const now = Date.now();
     const throttleMs = 33; // ~30fps (33ms between notifications)
-    
+
     // Throttle notifications to avoid excessive re-renders
     if (now - this.lastNotificationTime < throttleMs) {
       return;
     }
-    
+
     this.lastNotificationTime = now;
-    
+
     for (const listener of this.listeners) {
       listener({ ...this.inputs });
     }
@@ -188,10 +184,7 @@ export class InputManager {
     // Analog inputs (addition with limit)
     this.inputs.moveForward = Math.max(
       -1,
-      Math.min(
-        1,
-        this.keyboardInputs.moveForward + this.gamepadInputs.moveForward
-      )
+      Math.min(1, this.keyboardInputs.moveForward + this.gamepadInputs.moveForward)
     );
 
     this.inputs.moveRight = Math.max(
@@ -206,18 +199,12 @@ export class InputManager {
 
     this.inputs.lookHorizontal = Math.max(
       -1,
-      Math.min(
-        1,
-        this.keyboardInputs.lookHorizontal + this.gamepadInputs.lookHorizontal
-      )
+      Math.min(1, this.keyboardInputs.lookHorizontal + this.gamepadInputs.lookHorizontal)
     );
 
     this.inputs.lookVertical = Math.max(
       -1,
-      Math.min(
-        1,
-        this.keyboardInputs.lookVertical + this.gamepadInputs.lookVertical
-      )
+      Math.min(1, this.keyboardInputs.lookVertical + this.gamepadInputs.lookVertical)
     );
 
     this.inputs.roll = Math.max(
@@ -243,18 +230,12 @@ export class InputManager {
     );
 
     // Boolean inputs (OR combination)
-    this.inputs.toggleMode =
-      this.keyboardInputs.toggleMode || this.gamepadInputs.toggleMode;
-    this.inputs.nextPosition =
-      this.keyboardInputs.nextPosition || this.gamepadInputs.nextPosition;
-    this.inputs.action1 =
-      this.keyboardInputs.action1 || this.gamepadInputs.action1;
-    this.inputs.action2 =
-      this.keyboardInputs.action2 || this.gamepadInputs.action2;
-    this.inputs.interact =
-      this.keyboardInputs.interact || this.gamepadInputs.interact;
-    this.inputs.returnHome =
-      this.keyboardInputs.returnHome || this.gamepadInputs.returnHome;
+    this.inputs.toggleMode = this.keyboardInputs.toggleMode || this.gamepadInputs.toggleMode;
+    this.inputs.nextPosition = this.keyboardInputs.nextPosition || this.gamepadInputs.nextPosition;
+    this.inputs.action1 = this.keyboardInputs.action1 || this.gamepadInputs.action1;
+    this.inputs.action2 = this.keyboardInputs.action2 || this.gamepadInputs.action2;
+    this.inputs.interact = this.keyboardInputs.interact || this.gamepadInputs.interact;
+    this.inputs.returnHome = this.keyboardInputs.returnHome || this.gamepadInputs.returnHome;
   }
 
   // Set up event listeners
@@ -265,10 +246,7 @@ export class InputManager {
 
     // Gamepad event handling
     window.addEventListener('gamepadconnected', this.handleGamepadConnected);
-    window.addEventListener(
-      'gamepaddisconnected',
-      this.handleGamepadDisconnected
-    );
+    window.addEventListener('gamepaddisconnected', this.handleGamepadDisconnected);
 
     // Start polling loop for gamepad
     this.startGamepadPolling();
@@ -279,10 +257,7 @@ export class InputManager {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('gamepadconnected', this.handleGamepadConnected);
-    window.removeEventListener(
-      'gamepaddisconnected',
-      this.handleGamepadDisconnected
-    );
+    window.removeEventListener('gamepaddisconnected', this.handleGamepadDisconnected);
 
     // Cancel requestAnimationFrame if active
     if (this.rafId !== null) {
@@ -293,7 +268,7 @@ export class InputManager {
 
   // Keyboard event handling
   // DISABLED: Keyboard mode is not implemented yet - keyboard events are ignored for movement
-  handleKeyDown = (event) => {
+  handleKeyDown = event => {
     // Do NOT update active device to KEYBOARD (keyboard mode disabled)
     // this.updateActiveDevice(INPUT_DEVICE_TYPES.KEYBOARD);
     this.keysPressed[event.code] = true;
@@ -336,7 +311,7 @@ export class InputManager {
     this.notifyListeners();
   };
 
-  handleKeyUp = (event) => {
+  handleKeyUp = event => {
     // Do NOT update active device to KEYBOARD (keyboard mode disabled)
     // this.updateActiveDevice(INPUT_DEVICE_TYPES.KEYBOARD);
     this.keysPressed[event.code] = false;
@@ -390,26 +365,24 @@ export class InputManager {
     this.keyboardInputs.bodyYaw = 0;
     this.keyboardInputs.antennaLeft = 0;
     this.keyboardInputs.antennaRight = 0;
-    
+
     // Note: Special actions (toggleMode, nextPosition, interact, returnHome) are still processed
     // in handleKeyDown/handleKeyUp for future keyboard mode implementation
-    
+
     // Combine and notify (even though keyboard inputs are zero, gamepad inputs may still be active)
     this.combineInputs();
     this.notifyListeners();
   }
 
   // Gamepad handling
-  handleGamepadConnected = (event) => {
+  handleGamepadConnected = event => {
     if (this.debugEnabled) {
-      
     }
     this.gamepadConnected = true;
   };
 
-  handleGamepadDisconnected = (event) => {
+  handleGamepadDisconnected = event => {
     if (this.debugEnabled) {
-      
     }
     this.gamepadConnected = false;
 
@@ -448,247 +421,244 @@ export class InputManager {
         return;
       }
 
-    // Update connection state if necessary
-    if (!this.gamepadConnected) {
-      this.gamepadConnected = true;
-    }
-
-    // Detect gamepad activity
-    const hasGamepadInput =
-      Math.abs(gamepad.axes[0]) > this.config.deadzone ||
-      Math.abs(gamepad.axes[1]) > this.config.deadzone ||
-      Math.abs(gamepad.axes[2]) > this.config.deadzone ||
-      Math.abs(gamepad.axes[3]) > this.config.deadzone ||
-      gamepad.buttons.some((button) => button.pressed);
-
-    if (hasGamepadInput) {
-      this.updateActiveDevice(INPUT_DEVICE_TYPES.GAMEPAD);
-    }
-
-    // Movements (left stick)
-    // axes[0] = left stick horizontal (left = -1, right = +1)
-    // axes[1] = left stick vertical (up = -1, down = +1)
-    // Validate and sanitize axis values
-    const leftStickXValue = this.validateAxisValue(gamepad.axes[0]);
-    const leftStickYValue = this.validateAxisValue(gamepad.axes[1]);
-    const leftStickX = this.applyDeadzone(leftStickXValue);
-    const leftStickY = this.applyDeadzone(leftStickYValue);
-    this.gamepadInputs.moveRight = leftStickX;
-    this.gamepadInputs.moveForward = -leftStickY; // Invert Y (up = forward)
-
-    // Vertical axis movements (Z position) - controlled by D-pad Up/Down
-    // D-pad Up = move up (Z+), D-pad Down = move down (Z-)
-    // D-pad buttons: 12 = Up, 13 = Down, 14 = Left, 15 = Right (Xbox controller)
-    // Use progressive increment instead of direct mapping
-    const dpadUpPressed = gamepad.buttons[12]?.pressed || false;
-    const dpadDownPressed = gamepad.buttons[13]?.pressed || false;
-    const moveUpDirection = dpadUpPressed ? 1 : (dpadDownPressed ? -1 : 0);
-    
-    // Progressive increment for Z position (gamepad)
-    if (moveUpDirection !== 0) {
-      if (!this.progressiveIncrement.moveUp.isHolding) {
-        // First press: small increment (same as body yaw)
-        this.progressiveIncrement.moveUp.value = moveUpDirection * 0.2; // Initial step (20%)
-        this.progressiveIncrement.moveUp.isHolding = true;
-        this.progressiveIncrement.moveUp.holdTime = Date.now();
-      } else {
-        // Holding: linear increment per frame (slower, same as body yaw)
-        const frameIncrement = 0.002; // Slower increment per frame (~60fps) - same as body yaw
-        const maxIncrement = 1.0;
-        const newIncrement = this.progressiveIncrement.moveUp.value + (frameIncrement * moveUpDirection);
-        // Clamp to max increment
-        if (moveUpDirection > 0) {
-          this.progressiveIncrement.moveUp.value = Math.min(newIncrement, maxIncrement);
-        } else {
-          this.progressiveIncrement.moveUp.value = Math.max(newIncrement, -maxIncrement);
-        }
+      // Update connection state if necessary
+      if (!this.gamepadConnected) {
+        this.gamepadConnected = true;
       }
-    } else {
-      // Button released: reset
-      this.progressiveIncrement.moveUp.value = 0;
-      this.progressiveIncrement.moveUp.isHolding = false;
-      this.progressiveIncrement.moveUp.holdTime = 0;
-    }
-    
-    this.gamepadInputs.moveUp = this.progressiveIncrement.moveUp.value;
-    
-    // Body yaw - controlled by D-pad Left/Right
-    // D-pad Right = rotate right, D-pad Left = rotate left
-    // Use progressive increment instead of direct mapping
-    const dpadRightPressed = gamepad.buttons[15]?.pressed || false;
-    const dpadLeftPressed = gamepad.buttons[14]?.pressed || false;
-    const bodyYawDirection = dpadRightPressed ? 1 : (dpadLeftPressed ? -1 : 0);
-    
-    // Progressive increment for body yaw (gamepad)
-    if (bodyYawDirection !== 0) {
-      if (!this.progressiveIncrement.bodyYaw.isHolding) {
-        // First press: small increment
-        this.progressiveIncrement.bodyYaw.value = bodyYawDirection * 0.2; // Initial step (20%)
-        this.progressiveIncrement.bodyYaw.isHolding = true;
-        this.progressiveIncrement.bodyYaw.holdTime = Date.now();
-      } else {
-        // Holding: linear increment per frame (slower for body yaw)
-        const frameIncrement = 0.002; // Slower increment per frame (~60fps) - same as moveUp
-        const maxIncrement = 1.0;
-        const newIncrement = this.progressiveIncrement.bodyYaw.value + (frameIncrement * bodyYawDirection);
-        // Clamp to max increment
-        if (bodyYawDirection > 0) {
-          this.progressiveIncrement.bodyYaw.value = Math.min(newIncrement, maxIncrement);
-        } else {
-          this.progressiveIncrement.bodyYaw.value = Math.max(newIncrement, -maxIncrement);
-        }
+
+      // Detect gamepad activity
+      const hasGamepadInput =
+        Math.abs(gamepad.axes[0]) > this.config.deadzone ||
+        Math.abs(gamepad.axes[1]) > this.config.deadzone ||
+        Math.abs(gamepad.axes[2]) > this.config.deadzone ||
+        Math.abs(gamepad.axes[3]) > this.config.deadzone ||
+        gamepad.buttons.some(button => button.pressed);
+
+      if (hasGamepadInput) {
+        this.updateActiveDevice(INPUT_DEVICE_TYPES.GAMEPAD);
       }
-    } else {
-      // Button released: reset
-      this.progressiveIncrement.bodyYaw.value = 0;
-      this.progressiveIncrement.bodyYaw.isHolding = false;
-      this.progressiveIncrement.bodyYaw.holdTime = 0;
-    }
-    
-    this.gamepadInputs.bodyYaw = this.progressiveIncrement.bodyYaw.value;
 
-    // Antennas control (front triggers/bumpers L1/R1) - buttons[6] and buttons[7]
-    // These are analog buttons, so we use the .value property (0 to 1)
-    // Left bumper (L1, button 6) → Left antenna
-    // Right bumper (R1, button 7) → Right antenna
-    this.gamepadInputs.antennaLeft = gamepad.buttons[6]?.value || 0;
-    this.gamepadInputs.antennaRight = gamepad.buttons[7]?.value || 0;
+      // Movements (left stick)
+      // axes[0] = left stick horizontal (left = -1, right = +1)
+      // axes[1] = left stick vertical (up = -1, down = +1)
+      // Validate and sanitize axis values
+      const leftStickXValue = this.validateAxisValue(gamepad.axes[0]);
+      const leftStickYValue = this.validateAxisValue(gamepad.axes[1]);
+      const leftStickX = this.applyDeadzone(leftStickXValue);
+      const leftStickY = this.applyDeadzone(leftStickYValue);
+      this.gamepadInputs.moveRight = leftStickX;
+      this.gamepadInputs.moveForward = -leftStickY; // Invert Y (up = forward)
 
-    // Camera rotation (right stick) - Use curve for better sensitivity
-    // axes[2] = right stick horizontal (left = -1, right = +1)
-    // axes[3] = right stick vertical (up = -1, down = +1)
-    // Validate and sanitize axis values
-    const rightStickXValue = this.validateAxisValue(gamepad.axes[2]);
-    const rightStickYValue = this.validateAxisValue(gamepad.axes[3]);
-    this.gamepadInputs.lookHorizontal = this.applyLookCurve(rightStickXValue);
-    this.gamepadInputs.lookVertical = -this.applyLookCurve(rightStickYValue); // Invert Y (up = pitch up)
+      // Vertical axis movements (Z position) - controlled by D-pad Up/Down
+      // D-pad Up = move up (Z+), D-pad Down = move down (Z-)
+      // D-pad buttons: 12 = Up, 13 = Down, 14 = Left, 15 = Right (Xbox controller)
+      // Use progressive increment instead of direct mapping
+      const dpadUpPressed = gamepad.buttons[12]?.pressed || false;
+      const dpadDownPressed = gamepad.buttons[13]?.pressed || false;
+      const moveUpDirection = dpadUpPressed ? 1 : dpadDownPressed ? -1 : 0;
 
-    // Smart debug: only log when buttons/inputs change state
-    if (this.debugEnabled) {
-      // Check D-pad buttons
-      const dpadButtons = [
-        { index: 12, name: 'D-pad Up' },
-        { index: 13, name: 'D-pad Down' },
-        { index: 14, name: 'D-pad Left' },
-        { index: 15, name: 'D-pad Right' },
-      ];
-      
-      dpadButtons.forEach(({ index, name }) => {
-        const isPressed = gamepad.buttons[index]?.pressed || false;
-        const lastState = this.lastButtonStates[`dpad_${index}`];
-        if (isPressed !== lastState) {
-          
-          this.lastButtonStates[`dpad_${index}`] = isPressed;
-        }
-      });
-      
-      // Check bumpers (L1/R1)
-      const bumpers = [
-        { index: 6, name: 'L1 (Left Antenna)' },
-        { index: 7, name: 'R1 (Right Antenna)' },
-      ];
-      
-      bumpers.forEach(({ index, name }) => {
-        const value = gamepad.buttons[index]?.value || 0;
-          this.lastInputValues[`bumper_${index}`] = value;
-      });
-      
-      // Check action buttons (only when pressed)
-      const actionButtons = [
-        { index: 0, name: 'A (Interact)' },
-        { index: 1, name: 'B (Return Home)' },
-        { index: 2, name: 'X (Next Position)' },
-        { index: 3, name: 'Y (Toggle Mode)' },
-      ];
-      
-      actionButtons.forEach(({ index, name }) => {
-        const isPressed = gamepad.buttons[index]?.pressed || false;
-        const lastState = this.lastButtonStates[`action_${index}`];
-        if (isPressed && !lastState) {
-          
-          this.lastButtonStates[`action_${index}`] = isPressed;
-        } else if (!isPressed && lastState) {
-          this.lastButtonStates[`action_${index}`] = isPressed;
-        }
-      });
-      
-      // Check sticks - only log when they move significantly
-      const sticks = [
-        { axes: [0, 1], name: 'Left Stick', inputs: ['moveRight', 'moveForward'] },
-        { axes: [2, 3], name: 'Right Stick', inputs: ['lookHorizontal', 'lookVertical'] },
-      ];
-      
-      sticks.forEach(({ axes, name, inputs }) => {
-        const x = gamepad.axes[axes[0]] || 0;
-        const y = gamepad.axes[axes[1]] || 0;
-        const magnitude = Math.sqrt(x * x + y * y);
-        const lastMagnitude = this.lastInputValues[`stick_${name}`] || 0;
-        
-        // Only log if stick moves significantly (crosses deadzone threshold)
-        if ((magnitude > this.config.deadzone && lastMagnitude <= this.config.deadzone) ||
-            (magnitude <= this.config.deadzone && lastMagnitude > this.config.deadzone)) {
-          if (magnitude > this.config.deadzone) {
-            
+      // Progressive increment for Z position (gamepad)
+      if (moveUpDirection !== 0) {
+        if (!this.progressiveIncrement.moveUp.isHolding) {
+          // First press: small increment (same as body yaw)
+          this.progressiveIncrement.moveUp.value = moveUpDirection * 0.2; // Initial step (20%)
+          this.progressiveIncrement.moveUp.isHolding = true;
+          this.progressiveIncrement.moveUp.holdTime = Date.now();
+        } else {
+          // Holding: linear increment per frame (slower, same as body yaw)
+          const frameIncrement = 0.002; // Slower increment per frame (~60fps) - same as body yaw
+          const maxIncrement = 1.0;
+          const newIncrement =
+            this.progressiveIncrement.moveUp.value + frameIncrement * moveUpDirection;
+          // Clamp to max increment
+          if (moveUpDirection > 0) {
+            this.progressiveIncrement.moveUp.value = Math.min(newIncrement, maxIncrement);
           } else {
-            
+            this.progressiveIncrement.moveUp.value = Math.max(newIncrement, -maxIncrement);
           }
-          this.lastInputValues[`stick_${name}`] = magnitude;
         }
-      });
-    }
+      } else {
+        // Button released: reset
+        this.progressiveIncrement.moveUp.value = 0;
+        this.progressiveIncrement.moveUp.isHolding = false;
+        this.progressiveIncrement.moveUp.holdTime = 0;
+      }
 
-    // Roll - removed from gamepad, no longer controlled via gamepad
-    this.gamepadInputs.roll = 0;
+      this.gamepadInputs.moveUp = this.progressiveIncrement.moveUp.value;
 
-    // Actions (with state management to avoid repetition)
-    // Mode toggle (Y or triangle button)
-    if (gamepad.buttons[3]?.pressed && !this.previousButtonStates.mode) {
-      this.gamepadInputs.toggleMode = true;
-    } else {
-      this.gamepadInputs.toggleMode = false;
-    }
-    this.previousButtonStates.mode = gamepad.buttons[3]?.pressed;
+      // Body yaw - controlled by D-pad Left/Right
+      // D-pad Right = rotate right, D-pad Left = rotate left
+      // Use progressive increment instead of direct mapping
+      const dpadRightPressed = gamepad.buttons[15]?.pressed || false;
+      const dpadLeftPressed = gamepad.buttons[14]?.pressed || false;
+      const bodyYawDirection = dpadRightPressed ? 1 : dpadLeftPressed ? -1 : 0;
 
-    // Next position (X button)
-    if (
-      gamepad.buttons[2]?.pressed &&
-      !this.previousButtonStates.nextPosition
-    ) {
-      this.gamepadInputs.nextPosition = true;
-      setTimeout(() => {
-        this.gamepadInputs.nextPosition = false;
-        this.combineInputs();
-        this.notifyListeners();
-      }, 50);
-    }
-    this.previousButtonStates.nextPosition = gamepad.buttons[2]?.pressed;
+      // Progressive increment for body yaw (gamepad)
+      if (bodyYawDirection !== 0) {
+        if (!this.progressiveIncrement.bodyYaw.isHolding) {
+          // First press: small increment
+          this.progressiveIncrement.bodyYaw.value = bodyYawDirection * 0.2; // Initial step (20%)
+          this.progressiveIncrement.bodyYaw.isHolding = true;
+          this.progressiveIncrement.bodyYaw.holdTime = Date.now();
+        } else {
+          // Holding: linear increment per frame (slower for body yaw)
+          const frameIncrement = 0.002; // Slower increment per frame (~60fps) - same as moveUp
+          const maxIncrement = 1.0;
+          const newIncrement =
+            this.progressiveIncrement.bodyYaw.value + frameIncrement * bodyYawDirection;
+          // Clamp to max increment
+          if (bodyYawDirection > 0) {
+            this.progressiveIncrement.bodyYaw.value = Math.min(newIncrement, maxIncrement);
+          } else {
+            this.progressiveIncrement.bodyYaw.value = Math.max(newIncrement, -maxIncrement);
+          }
+        }
+      } else {
+        // Button released: reset
+        this.progressiveIncrement.bodyYaw.value = 0;
+        this.progressiveIncrement.bodyYaw.isHolding = false;
+        this.progressiveIncrement.bodyYaw.holdTime = 0;
+      }
 
-    // Interaction action (A or cross button)
-    if (gamepad.buttons[0]?.pressed && !this.previousButtonStates.interact) {
-      this.gamepadInputs.interact = true;
-    } else {
-      this.gamepadInputs.interact = false;
-    }
-    this.previousButtonStates.interact = gamepad.buttons[0]?.pressed;
+      this.gamepadInputs.bodyYaw = this.progressiveIncrement.bodyYaw.value;
 
-    // Return home (B or circle button)
-    if (gamepad.buttons[1]?.pressed && !this.previousButtonStates.returnHome) {
-      this.gamepadInputs.returnHome = true;
-      // Reset after short delay, like keyboard
-      setTimeout(() => {
-        this.gamepadInputs.returnHome = false;
-        this.combineInputs();
-        this.notifyListeners();
-      }, 50);
-    }
-    this.previousButtonStates.returnHome = gamepad.buttons[1]?.pressed;
+      // Antennas control (front triggers/bumpers L1/R1) - buttons[6] and buttons[7]
+      // These are analog buttons, so we use the .value property (0 to 1)
+      // Left bumper (L1, button 6) → Left antenna
+      // Right bumper (R1, button 7) → Right antenna
+      this.gamepadInputs.antennaLeft = gamepad.buttons[6]?.value || 0;
+      this.gamepadInputs.antennaRight = gamepad.buttons[7]?.value || 0;
 
-    // Action2 (Y or triangle)
-    this.gamepadInputs.action2 = gamepad.buttons[3]?.pressed || false;
+      // Camera rotation (right stick) - Use curve for better sensitivity
+      // axes[2] = right stick horizontal (left = -1, right = +1)
+      // axes[3] = right stick vertical (up = -1, down = +1)
+      // Validate and sanitize axis values
+      const rightStickXValue = this.validateAxisValue(gamepad.axes[2]);
+      const rightStickYValue = this.validateAxisValue(gamepad.axes[3]);
+      this.gamepadInputs.lookHorizontal = this.applyLookCurve(rightStickXValue);
+      this.gamepadInputs.lookVertical = -this.applyLookCurve(rightStickYValue); // Invert Y (up = pitch up)
 
-    // Combine and notify
-    this.combineInputs();
-    this.notifyListeners();
+      // Smart debug: only log when buttons/inputs change state
+      if (this.debugEnabled) {
+        // Check D-pad buttons
+        const dpadButtons = [
+          { index: 12, name: 'D-pad Up' },
+          { index: 13, name: 'D-pad Down' },
+          { index: 14, name: 'D-pad Left' },
+          { index: 15, name: 'D-pad Right' },
+        ];
+
+        dpadButtons.forEach(({ index, name }) => {
+          const isPressed = gamepad.buttons[index]?.pressed || false;
+          const lastState = this.lastButtonStates[`dpad_${index}`];
+          if (isPressed !== lastState) {
+            this.lastButtonStates[`dpad_${index}`] = isPressed;
+          }
+        });
+
+        // Check bumpers (L1/R1)
+        const bumpers = [
+          { index: 6, name: 'L1 (Left Antenna)' },
+          { index: 7, name: 'R1 (Right Antenna)' },
+        ];
+
+        bumpers.forEach(({ index, name }) => {
+          const value = gamepad.buttons[index]?.value || 0;
+          this.lastInputValues[`bumper_${index}`] = value;
+        });
+
+        // Check action buttons (only when pressed)
+        const actionButtons = [
+          { index: 0, name: 'A (Interact)' },
+          { index: 1, name: 'B (Return Home)' },
+          { index: 2, name: 'X (Next Position)' },
+          { index: 3, name: 'Y (Toggle Mode)' },
+        ];
+
+        actionButtons.forEach(({ index, name }) => {
+          const isPressed = gamepad.buttons[index]?.pressed || false;
+          const lastState = this.lastButtonStates[`action_${index}`];
+          if (isPressed && !lastState) {
+            this.lastButtonStates[`action_${index}`] = isPressed;
+          } else if (!isPressed && lastState) {
+            this.lastButtonStates[`action_${index}`] = isPressed;
+          }
+        });
+
+        // Check sticks - only log when they move significantly
+        const sticks = [
+          { axes: [0, 1], name: 'Left Stick', inputs: ['moveRight', 'moveForward'] },
+          { axes: [2, 3], name: 'Right Stick', inputs: ['lookHorizontal', 'lookVertical'] },
+        ];
+
+        sticks.forEach(({ axes, name, inputs }) => {
+          const x = gamepad.axes[axes[0]] || 0;
+          const y = gamepad.axes[axes[1]] || 0;
+          const magnitude = Math.sqrt(x * x + y * y);
+          const lastMagnitude = this.lastInputValues[`stick_${name}`] || 0;
+
+          // Only log if stick moves significantly (crosses deadzone threshold)
+          if (
+            (magnitude > this.config.deadzone && lastMagnitude <= this.config.deadzone) ||
+            (magnitude <= this.config.deadzone && lastMagnitude > this.config.deadzone)
+          ) {
+            if (magnitude > this.config.deadzone) {
+            } else {
+            }
+            this.lastInputValues[`stick_${name}`] = magnitude;
+          }
+        });
+      }
+
+      // Roll - removed from gamepad, no longer controlled via gamepad
+      this.gamepadInputs.roll = 0;
+
+      // Actions (with state management to avoid repetition)
+      // Mode toggle (Y or triangle button)
+      if (gamepad.buttons[3]?.pressed && !this.previousButtonStates.mode) {
+        this.gamepadInputs.toggleMode = true;
+      } else {
+        this.gamepadInputs.toggleMode = false;
+      }
+      this.previousButtonStates.mode = gamepad.buttons[3]?.pressed;
+
+      // Next position (X button)
+      if (gamepad.buttons[2]?.pressed && !this.previousButtonStates.nextPosition) {
+        this.gamepadInputs.nextPosition = true;
+        setTimeout(() => {
+          this.gamepadInputs.nextPosition = false;
+          this.combineInputs();
+          this.notifyListeners();
+        }, 50);
+      }
+      this.previousButtonStates.nextPosition = gamepad.buttons[2]?.pressed;
+
+      // Interaction action (A or cross button)
+      if (gamepad.buttons[0]?.pressed && !this.previousButtonStates.interact) {
+        this.gamepadInputs.interact = true;
+      } else {
+        this.gamepadInputs.interact = false;
+      }
+      this.previousButtonStates.interact = gamepad.buttons[0]?.pressed;
+
+      // Return home (B or circle button)
+      if (gamepad.buttons[1]?.pressed && !this.previousButtonStates.returnHome) {
+        this.gamepadInputs.returnHome = true;
+        // Reset after short delay, like keyboard
+        setTimeout(() => {
+          this.gamepadInputs.returnHome = false;
+          this.combineInputs();
+          this.notifyListeners();
+        }, 50);
+      }
+      this.previousButtonStates.returnHome = gamepad.buttons[1]?.pressed;
+
+      // Action2 (Y or triangle)
+      this.gamepadInputs.action2 = gamepad.buttons[3]?.pressed || false;
+
+      // Combine and notify
+      this.combineInputs();
+      this.notifyListeners();
     } catch (error) {
       console.error('❌ Error in pollGamepad:', error);
       // Fallback: reset inputs on error to prevent stuck states
@@ -700,7 +670,7 @@ export class InputManager {
 
   resetGamepadInputs() {
     // Reset gamepad inputs to zero
-    Object.keys(this.gamepadInputs).forEach((key) => {
+    Object.keys(this.gamepadInputs).forEach(key => {
       if (typeof this.gamepadInputs[key] === 'number') {
         this.gamepadInputs[key] = 0;
       } else if (typeof this.gamepadInputs[key] === 'boolean') {
@@ -711,7 +681,7 @@ export class InputManager {
 
   resetKeyboardInputs() {
     // Reset keyboard inputs to zero
-    Object.keys(this.keyboardInputs).forEach((key) => {
+    Object.keys(this.keyboardInputs).forEach(key => {
       if (typeof this.keyboardInputs[key] === 'number') {
         this.keyboardInputs[key] = 0;
       } else if (typeof this.keyboardInputs[key] === 'boolean') {
@@ -739,7 +709,6 @@ export class InputManager {
       this.lastButtonStates = {};
       this.lastInputValues = {};
     } else {
-      
     }
   }
 
@@ -758,8 +727,6 @@ export class InputManager {
 
   // Method to simulate next position action
   triggerNextPositionAction() {
-    
-
     // Reset all inputs first to avoid conflicts
     this.resetInputs();
 
@@ -775,14 +742,11 @@ export class InputManager {
       this.keyboardInputs.nextPosition = false;
       this.combineInputs();
       this.notifyListeners();
-      
     }, 50);
   }
 
   // Method to simulate interaction action
   triggerInteractAction() {
-    
-
     // Reset all inputs first to avoid conflicts
     this.resetInputs();
 
@@ -798,7 +762,6 @@ export class InputManager {
       this.keyboardInputs.interact = false;
       this.combineInputs();
       this.notifyListeners();
-      
     }, 50);
   }
 
@@ -815,16 +778,11 @@ export class InputManager {
     const gamepad = gamepads[0]; // Use first gamepad
 
     if (!gamepad || !this.gamepadConnected) {
-      
       return null;
     }
 
     // Try to use vibrationActuator (more widely supported)
-    if (
-      gamepad.vibrationActuator &&
-      typeof gamepad.vibrationActuator.playEffect === 'function'
-    ) {
-      
+    if (gamepad.vibrationActuator && typeof gamepad.vibrationActuator.playEffect === 'function') {
       return gamepad.vibrationActuator.playEffect('dual-rumble', {
         startDelay: 0,
         duration: duration,
@@ -834,10 +792,8 @@ export class InputManager {
     }
     // Alternative: use hapticActuators if available
     else if (gamepad.hapticActuators && gamepad.hapticActuators.length > 0) {
-      
       return gamepad.hapticActuators[0].pulse(strongMagnitude, duration);
     } else {
-      
       return null;
     }
   }
@@ -859,7 +815,7 @@ export const useInputs = () => {
 
   React.useEffect(() => {
     // Subscribe to input updates
-    const unsubscribe = getInputManager().addListener((newInputs) => {
+    const unsubscribe = getInputManager().addListener(newInputs => {
       setInputs({ ...newInputs });
     });
 
@@ -872,15 +828,13 @@ export const useInputs = () => {
 
 // React hook to get active device information
 export const useActiveDevice = () => {
-  const [activeDevice, setActiveDevice] = React.useState(
-    getInputManager().getActiveDevice()
-  );
+  const [activeDevice, setActiveDevice] = React.useState(getInputManager().getActiveDevice());
 
   React.useEffect(() => {
     const inputManager = getInputManager();
 
     // Subscribe to device changes
-    const unsubscribe = inputManager.addDeviceChangeListener((newDevice) => {
+    const unsubscribe = inputManager.addDeviceChangeListener(newDevice => {
       setActiveDevice(newDevice);
     });
 
@@ -896,13 +850,11 @@ export const useActiveDevice = () => {
 
 // React hook to check if a gamepad is connected
 export const useGamepadConnected = () => {
-  const [isConnected, setIsConnected] = React.useState(
-    getInputManager().isGamepadConnected()
-  );
+  const [isConnected, setIsConnected] = React.useState(getInputManager().isGamepadConnected());
 
   React.useEffect(() => {
     const inputManager = getInputManager();
-    
+
     // Periodically check connection state
     const checkInterval = setInterval(() => {
       setIsConnected(inputManager.isGamepadConnected());
@@ -913,4 +865,3 @@ export const useGamepadConnected = () => {
 
   return isConnected;
 };
-

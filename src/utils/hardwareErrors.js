@@ -1,6 +1,6 @@
 /**
  * Centralized hardware error configuration
- * 
+ *
  * This module provides a DRY, evolutive system for managing hardware errors:
  * - Single source of truth for error definitions
  * - Easy to add new error types
@@ -15,13 +15,13 @@
  */
 export function findMeshesByPattern(allMeshes, patterns) {
   if (!allMeshes || allMeshes.length === 0) return [];
-  
+
   const patternList = Array.isArray(patterns) ? patterns : [patterns];
-  
+
   return allMeshes.filter(mesh => {
     const meshName = (mesh.name || '').toLowerCase();
     const materialName = (mesh.userData?.materialName || mesh.material?.name || '').toLowerCase();
-    
+
     // Check mesh name and material name
     for (const pattern of patternList) {
       const patternLower = pattern.toLowerCase();
@@ -29,7 +29,7 @@ export function findMeshesByPattern(allMeshes, patterns) {
         return true;
       }
     }
-    
+
     // Check parent hierarchy
     let current = mesh.parent;
     let depth = 0;
@@ -44,7 +44,7 @@ export function findMeshesByPattern(allMeshes, patterns) {
       current = current.parent;
       depth++;
     }
-    
+
     return false;
   });
 }
@@ -60,12 +60,12 @@ export function findMeshesByLink(robotRef, allMeshes, linkName) {
   if (!robotRef?.links?.[linkName] || !allMeshes || allMeshes.length === 0) {
     return [];
   }
-  
+
   const link = robotRef.links[linkName];
   const linkMeshes = [];
-  
+
   // Helper to collect all meshes from an object
-  const collectMeshes = (obj) => {
+  const collectMeshes = obj => {
     if (obj.isMesh && !obj.userData.isOutline) {
       linkMeshes.push(obj);
     }
@@ -73,9 +73,9 @@ export function findMeshesByLink(robotRef, allMeshes, linkName) {
       obj.children.forEach(child => collectMeshes(child));
     }
   };
-  
+
   collectMeshes(link);
-  
+
   // Match meshes by UUID
   const linkMeshUuids = new Set(linkMeshes.map(m => m.uuid));
   return allMeshes.filter(mesh => linkMeshUuids.has(mesh.uuid));
@@ -96,7 +96,7 @@ export const HARDWARE_ERROR_CONFIGS = {
   NO_MOTORS: {
     type: 'no_motors',
     patterns: [
-      'No motors detected', 
+      'No motors detected',
       'RuntimeError: No motors detected',
       'No motor found on port',
       'RuntimeError: No motor found on port',
@@ -112,7 +112,7 @@ export const HARDWARE_ERROR_CONFIGS = {
     cameraPreset: 'scan', // Keep default scan view
     code: 'NO_POWER',
   },
-  
+
   CAMERA_ERROR: {
     type: 'camera',
     patterns: ['camera', 'xl_330', 'Camera communication error'],
@@ -126,7 +126,7 @@ export const HARDWARE_ERROR_CONFIGS = {
     cameraPreset: 'scan',
     code: null,
   },
-  
+
   MOTOR_COMMUNICATION: {
     type: 'motor_communication',
     patterns: ['Motor communication error', 'Failed to read raw bytes'],
@@ -141,7 +141,7 @@ export const HARDWARE_ERROR_CONFIGS = {
     cameraPreset: 'scan',
     code: null,
   },
-  
+
   APP_TRANSLOCATION: {
     type: 'app_translocation',
     patterns: ['AppTranslocation', 'APP_TRANSLOCATION_ERROR', 'Read-only file system'],
@@ -155,7 +155,7 @@ export const HARDWARE_ERROR_CONFIGS = {
     cameraPreset: 'scan',
     code: 'APP_TRANSLOCATION',
   },
-  
+
   // Add more error types here as needed
   // Example:
   // ANTENNA_ERROR: {
@@ -180,9 +180,9 @@ export const HARDWARE_ERROR_CONFIGS = {
  */
 export function findErrorConfig(errorMessage) {
   if (!errorMessage) return null;
-  
+
   const errorLower = errorMessage.toLowerCase();
-  
+
   // Check each error config
   for (const config of Object.values(HARDWARE_ERROR_CONFIGS)) {
     for (const pattern of config.patterns) {
@@ -191,7 +191,7 @@ export function findErrorConfig(errorMessage) {
       }
     }
   }
-  
+
   return null;
 }
 
@@ -206,7 +206,7 @@ export function getErrorMeshes(errorConfig, robotRef, allMeshes) {
   if (!errorConfig || !allMeshes || allMeshes.length === 0) {
     return null;
   }
-  
+
   // Prefer URDF link if available
   if (errorConfig.linkName && robotRef) {
     const linkMeshes = findMeshesByLink(robotRef, allMeshes, errorConfig.linkName);
@@ -214,7 +214,7 @@ export function getErrorMeshes(errorConfig, robotRef, allMeshes) {
       return linkMeshes;
     }
   }
-  
+
   // Fallback to mesh patterns
   if (errorConfig.meshPatterns) {
     const patternMeshes = findMeshesByPattern(allMeshes, errorConfig.meshPatterns);
@@ -222,7 +222,7 @@ export function getErrorMeshes(errorConfig, robotRef, allMeshes) {
       return patternMeshes;
     }
   }
-  
+
   return null;
 }
 
@@ -235,7 +235,7 @@ export function getErrorMeshes(errorConfig, robotRef, allMeshes) {
 export function createErrorFromConfig(errorConfig, originalMessage) {
   return {
     type: errorConfig.type,
-    message: errorConfig.message.text 
+    message: errorConfig.message.text
       ? `${errorConfig.message.text} ${errorConfig.message.bold} ${errorConfig.message.suffix}`
       : originalMessage,
     messageParts: errorConfig.message, // Keep structured message for UI
@@ -243,4 +243,3 @@ export function createErrorFromConfig(errorConfig, originalMessage) {
     cameraPreset: errorConfig.cameraPreset || 'scan',
   };
 }
-

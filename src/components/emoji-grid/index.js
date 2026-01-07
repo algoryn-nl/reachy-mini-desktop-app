@@ -2,4 +2,3 @@
 export { EmojiPicker } from './EmojiPicker';
 export { EmojiGrid } from './EmojiGrid';
 export { EmotionWheel } from './EmotionWheel';
-

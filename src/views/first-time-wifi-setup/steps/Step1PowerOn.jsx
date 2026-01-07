@@ -3,9 +3,9 @@ import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import powerOnImage from '../../../assets/power-on.jpg';
 
-export default function Step1PowerOn({ 
-  textPrimary, 
-  textSecondary, 
+export default function Step1PowerOn({
+  textPrimary,
+  textSecondary,
   countdown,
   hasReachyHotspot,
   hotspotName,
@@ -24,13 +24,15 @@ export default function Step1PowerOn({
           <Typography sx={{ fontSize: 12, color: textSecondary, mb: 2, lineHeight: 1.6 }}>
             Turn on your Reachy and wait. We're automatically detecting the WiFi hotspot it creates.
           </Typography>
-          
+
           {/* Power on illustration */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            mb: 2,
-          }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              mb: 2,
+            }}
+          >
             <Box
               component="img"
               src={powerOnImage}
@@ -43,7 +45,7 @@ export default function Step1PowerOn({
               }}
             />
           </Box>
-          
+
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
             <CircularProgress size={16} sx={{ color: '#FF9500' }} />
             <Typography sx={{ fontSize: 11, color: textSecondary }}>
@@ -55,14 +57,14 @@ export default function Step1PowerOn({
         // Timeout - hotspot not detected
         <>
           <Typography sx={{ fontSize: 12, color: textSecondary, mb: 2, lineHeight: 1.6 }}>
-            Automatic detection didn't find a Reachy hotspot, but it may still exist on your network.
-            Make sure your Reachy is powered on, then continue to the next step.
+            Automatic detection didn't find a Reachy hotspot, but it may still exist on your
+            network. Make sure your Reachy is powered on, then continue to the next step.
           </Typography>
 
           <Button
             variant="outlined"
             onClick={onNext}
-            sx={{ 
+            sx={{
               fontSize: 13,
               fontWeight: 600,
               textTransform: 'none',
@@ -97,4 +99,3 @@ export default function Step1PowerOn({
     </Box>
   );
 }
-

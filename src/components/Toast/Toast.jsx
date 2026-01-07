@@ -7,7 +7,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 /**
  * Premium Toast notification component
- * 
+ *
  * Features:
  * - Bottom-center positioning
  * - Glassmorphism design (backdrop blur + shadows)
@@ -16,29 +16,23 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
  * - Click to dismiss
  * - Dark/light mode support
  * - Success/Error/Info/Warning variants
- * 
+ *
  * @param {Object} props
  * @param {Object} props.toast - Toast state { open, message, severity }
  * @param {number} props.toastProgress - Progress bar percentage (0-100)
  * @param {Function} props.onClose - Close callback
  * @param {boolean} props.darkMode - Dark mode flag
  * @param {number} [props.zIndex=100001] - Z-index for toast
- * 
+ *
  * @example
- * <Toast 
- *   toast={toast} 
- *   toastProgress={toastProgress} 
- *   onClose={handleCloseToast} 
- *   darkMode={darkMode} 
+ * <Toast
+ *   toast={toast}
+ *   toastProgress={toastProgress}
+ *   onClose={handleCloseToast}
+ *   darkMode={darkMode}
  * />
  */
-export default function Toast({ 
-  toast, 
-  toastProgress, 
-  onClose, 
-  darkMode,
-  zIndex = 100001,
-}) {
+export default function Toast({ toast, toastProgress, onClose, darkMode, zIndex = 100001 }) {
   // Icon mapping
   const getIcon = () => {
     switch (toast.severity) {
@@ -119,15 +113,15 @@ export default function Toast({
         },
       }}
     >
-      <Box 
+      <Box
         onClick={onClose}
-        sx={{ 
-          position: 'relative', 
-          overflow: 'hidden', 
+        sx={{
+          position: 'relative',
+          overflow: 'hidden',
           borderRadius: '12px',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: darkMode 
+          boxShadow: darkMode
             ? '0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)'
             : '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
           zIndex,
@@ -169,17 +163,14 @@ export default function Toast({
               borderRadius: '0 0 12px 12px',
             }}
           />
-          
+
           {/* Icon */}
           {getIcon()}
-          
+
           {/* Message */}
-          <Box sx={{ flex: 1, textAlign: 'center' }}>
-            {toast.message}
-          </Box>
+          <Box sx={{ flex: 1, textAlign: 'center' }}>{toast.message}</Box>
         </Box>
       </Box>
     </Snackbar>
   );
 }
-

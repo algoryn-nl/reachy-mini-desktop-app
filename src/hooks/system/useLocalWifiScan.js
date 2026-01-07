@@ -33,16 +33,16 @@ export function useLocalWifiScan({ autoScan = false, scanInterval = 0 } = {}) {
   const scan = useCallback(async () => {
     setIsScanning(true);
     setError(null);
-    
+
     try {
       const result = await invoke('scan_local_wifi_networks');
       setNetworks(result);
       setLastScanTime(new Date());
-      
+
       // Extract Reachy hotspots
       const hotspots = result.filter(n => n.is_reachy_hotspot);
       setReachyHotspots(hotspots);
-      
+
       return result;
     } catch (err) {
       console.error('[useLocalWifiScan] Scan failed:', err);
@@ -66,7 +66,7 @@ export function useLocalWifiScan({ autoScan = false, scanInterval = 0 } = {}) {
       intervalRef.current = setInterval(() => {
         scan();
       }, scanInterval);
-      
+
       return () => {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -89,22 +89,18 @@ export function useLocalWifiScan({ autoScan = false, scanInterval = 0 } = {}) {
     networks,
     reachyHotspots,
     hasReachyHotspot: reachyHotspots.length > 0,
-    
+
     // State
     isScanning,
     error,
     lastScanTime,
-    
+
     // Actions
     scan,
-    
+
     // Helpers
-    getNetworkBySSID: useCallback(
-      (ssid) => networks.find(n => n.ssid === ssid),
-      [networks]
-    ),
+    getNetworkBySSID: useCallback(ssid => networks.find(n => n.ssid === ssid), [networks]),
   };
 }
 
 export default useLocalWifiScan;
-

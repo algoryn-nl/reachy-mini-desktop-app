@@ -1,6 +1,6 @@
 /**
  * Input smoothing utilities based on industry best practices
- * 
+ *
  * Industry standards for smooth gamepad input:
  * 1. Exponential Moving Average (EMA) for input smoothing
  * 2. Delta-time based updates (frame-rate independent)
@@ -11,7 +11,7 @@
 /**
  * Exponential Moving Average (EMA) smoother
  * Provides smooth interpolation between current and target values
- * 
+ *
  * @param {number} current - Current smoothed value
  * @param {number} target - Target value to smooth towards
  * @param {number} smoothingFactor - Smoothing factor (0-1), higher = smoother but slower response
@@ -27,7 +27,7 @@ export function smoothValue(current, target, smoothingFactor = 0.15) {
 /**
  * Smooth a value with velocity-based control
  * Accumulates velocity instead of directly setting position
- * 
+ *
  * @param {Object} state - Current state object with { value, velocity }
  * @param {number} targetInput - Target input value (-1 to 1)
  * @param {number} acceleration - Acceleration rate per frame
@@ -36,18 +36,25 @@ export function smoothValue(current, target, smoothingFactor = 0.15) {
  * @param {number} deltaTime - Time since last frame in seconds
  * @returns {Object} New state with { value, velocity }
  */
-export function smoothWithVelocity(state, targetInput, acceleration, maxVelocity, damping = 0.9, deltaTime = 1/60) {
+export function smoothWithVelocity(
+  state,
+  targetInput,
+  acceleration,
+  maxVelocity,
+  damping = 0.9,
+  deltaTime = 1 / 60
+) {
   const { value: currentValue, velocity: currentVelocity } = state;
-  
+
   // Calculate target velocity based on input
   const targetVelocity = targetInput * maxVelocity;
-  
+
   // Accelerate towards target velocity
   let newVelocity = currentVelocity;
   if (Math.abs(targetInput) > 0.01) {
     // Accelerate
     const velocityDiff = targetVelocity - currentVelocity;
-    newVelocity = currentVelocity + (velocityDiff * acceleration * deltaTime * 60); // Scale by 60 for 60fps reference
+    newVelocity = currentVelocity + velocityDiff * acceleration * deltaTime * 60; // Scale by 60 for 60fps reference
     newVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, newVelocity));
   } else {
     // Decelerate (damping)
@@ -56,10 +63,10 @@ export function smoothWithVelocity(state, targetInput, acceleration, maxVelocity
       newVelocity = 0;
     }
   }
-  
+
   // Update value based on velocity
-  const newValue = currentValue + (newVelocity * deltaTime);
-  
+  const newValue = currentValue + newVelocity * deltaTime;
+
   return {
     value: newValue,
     velocity: newVelocity,
@@ -69,7 +76,7 @@ export function smoothWithVelocity(state, targetInput, acceleration, maxVelocity
 /**
  * Apply exponential smoothing to an input object
  * Smooths all analog inputs in the input object
- * 
+ *
  * @param {Object} currentInputs - Current smoothed input values
  * @param {Object} rawInputs - Raw input values from InputManager
  * @param {Object} smoothingFactors - Smoothing factors for each input (optional)
@@ -77,7 +84,7 @@ export function smoothWithVelocity(state, targetInput, acceleration, maxVelocity
  */
 export function smoothInputs(currentInputs, rawInputs, smoothingFactors = {}) {
   const defaultSmoothing = 0.15; // Default smoothing factor
-  
+
   return {
     moveForward: smoothValue(
       currentInputs.moveForward || 0,
@@ -137,7 +144,7 @@ export function smoothInputs(currentInputs, rawInputs, smoothingFactors = {}) {
 
 /**
  * Calculate delta time for frame-rate independent updates
- * 
+ *
  * @param {number} lastTime - Last frame timestamp
  * @returns {number} Delta time in seconds
  */
@@ -145,8 +152,7 @@ export function getDeltaTime(lastTime) {
   const now = performance.now();
   const deltaTime = (now - lastTime) / 1000; // Convert to seconds
   return {
-    deltaTime: Math.min(deltaTime, 1/30), // Cap at 30fps minimum to prevent huge jumps
+    deltaTime: Math.min(deltaTime, 1 / 30), // Cap at 30fps minimum to prevent huge jumps
     currentTime: now,
   };
 }
-

@@ -4,14 +4,14 @@ import { getWsBaseUrl, buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../.
 
 /**
  * 🎯 Real-time hook for active moves via WebSocket
- * 
+ *
  * Responsibilities:
  * - Connect to /api/move/ws/updates WebSocket
  * - Receive real-time updates when moves start/stop
  * - Update activeMoves in store
- * 
+ *
  * Replaces the old polling of GET /api/move/running every 500ms
- * 
+ *
  * Benefits:
  * - ⚡ Real-time updates (no 500ms lag)
  * - 🚀 Less network overhead
@@ -30,13 +30,13 @@ export function useActiveMoves(isActive) {
 
     return () => {
       isMountedRef.current = false;
-      
+
       // Cleanup WebSocket
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
-      
+
       // Clear reconnect timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -53,12 +53,12 @@ export function useActiveMoves(isActive) {
         wsRef.current.close();
         wsRef.current = null;
       }
-      
+
       // Clear active moves when not active
       if (!isActive) {
         setActiveMoves([]);
       }
-      
+
       return;
     }
 
@@ -71,7 +71,7 @@ export function useActiveMoves(isActive) {
           DAEMON_CONFIG.TIMEOUTS.COMMAND,
           { silent: true }
         );
-        
+
         if (response.ok && isMountedRef.current) {
           const data = await response.json();
           if (Array.isArray(data)) {
@@ -96,24 +96,24 @@ export function useActiveMoves(isActive) {
 
         ws.onopen = () => {
           reconnectAttemptsRef.current = 0; // Reset on successful connection
-          
+
           // Fetch initial list of active moves via HTTP
           // (WebSocket only sends updates, not initial state)
           fetchInitialMoves();
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = event => {
           if (!isMountedRef.current) return;
 
           try {
             const data = JSON.parse(event.data);
-            
+
             // The WebSocket sends updates with the following structure:
             // { "type": "move_started", "uuid": "...", "details": "" }
             // { "type": "move_completed", "uuid": "...", "details": "" }
             // { "type": "move_failed", "uuid": "...", "details": "..." }
             // { "type": "move_cancelled", "uuid": "...", "details": "" }
-            
+
             if (data.type === 'move_started') {
               // Add new move
               setActiveMoves(prev => {
@@ -121,7 +121,11 @@ export function useActiveMoves(isActive) {
                 if (exists) return prev;
                 return [...prev, { uuid: data.uuid }];
               });
-            } else if (data.type === 'move_completed' || data.type === 'move_failed' || data.type === 'move_cancelled') {
+            } else if (
+              data.type === 'move_completed' ||
+              data.type === 'move_failed' ||
+              data.type === 'move_cancelled'
+            ) {
               // Remove completed/failed/cancelled move
               setActiveMoves(prev => prev.filter(m => m.uuid !== data.uuid));
             }
@@ -130,7 +134,7 @@ export function useActiveMoves(isActive) {
           }
         };
 
-        ws.onerror = (error) => {
+        ws.onerror = error => {
           console.warn('[ActiveMoves] WebSocket error:', error);
         };
 
@@ -143,7 +147,7 @@ export function useActiveMoves(isActive) {
           if (isActive && !isDaemonCrashed) {
             reconnectAttemptsRef.current += 1;
             const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
-            
+
             reconnectTimeoutRef.current = setTimeout(() => {
               if (isMountedRef.current && isActive && !isDaemonCrashed) {
                 connectWebSocket();
@@ -167,7 +171,7 @@ export function useActiveMoves(isActive) {
         wsRef.current.close();
         wsRef.current = null;
       }
-      
+
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
@@ -175,4 +179,3 @@ export function useActiveMoves(isActive) {
     };
   }, [isActive, isDaemonCrashed, setActiveMoves]);
 }
-

@@ -69,18 +69,18 @@ application-store/
 
 ### Hooks Overview
 
-| Hook | Responsibility |
-|------|---------------|
-| **useApps** | Main orchestration hook, combines all others |
-| **useAppsStore** | Connect to Zustand store for app state |
-| **useAppFetching** | Fetch apps from Hugging Face Spaces |
-| **useAppFiltering** | Filter apps by search query and category |
-| **useAppEnrichment** | Enrich app data with metadata |
-| **useAppHandlers** | Handle install/uninstall/start/stop actions |
-| **useAppInstallation** | Manage installation overlay state |
-| **useAppJobs** | Track background jobs (install/remove) |
-| **useAppLogs** | Manage app log display |
-| **useModalStack** | Manage modal open/close stack |
+| Hook                   | Responsibility                               |
+| ---------------------- | -------------------------------------------- |
+| **useApps**            | Main orchestration hook, combines all others |
+| **useAppsStore**       | Connect to Zustand store for app state       |
+| **useAppFetching**     | Fetch apps from Hugging Face Spaces          |
+| **useAppFiltering**    | Filter apps by search query and category     |
+| **useAppEnrichment**   | Enrich app data with metadata                |
+| **useAppHandlers**     | Handle install/uninstall/start/stop actions  |
+| **useAppInstallation** | Manage installation overlay state            |
+| **useAppJobs**         | Track background jobs (install/remove)       |
+| **useAppLogs**         | Manage app log display                       |
+| **useModalStack**      | Manage modal open/close stack                |
 
 ### Discovery Flow
 
@@ -93,24 +93,24 @@ flowchart TB
         Filters["CategoryFilters"]
         Cards["AppCard[]"]
     end
-    
+
     subgraph Hooks["Data Hooks"]
         Fetching["useAppFetching"]
         Filtering["useAppFiltering"]
         Enrichment["useAppEnrichment"]
     end
-    
+
     subgraph External["External"]
         HF["Hugging Face Spaces"]
     end
-    
+
     Button --> Modal
     Modal --> Search
     Modal --> Filters
     Search --> Filtering
     Filters --> Filtering
     Filtering --> Cards
-    
+
     Fetching --> HF
     HF --> Enrichment
     Enrichment --> Filtering
@@ -127,7 +127,7 @@ flowchart LR
     Poll["useInstallationPolling"]
     Result["Show result"]
     Unlock["unlockInstall()"]
-    
+
     Click --> Lock
     Lock --> API
     API --> Overlay
@@ -184,7 +184,7 @@ flowchart LR
 import ApplicationStore from '@views/active-robot/application-store';
 
 // Hooks
-import { 
+import {
   useApps,
   useAppsStore,
   useAppFetching,
@@ -194,7 +194,7 @@ import {
   useAppInstallation,
   useAppJobs,
   useAppLogs,
-  useModalStack
+  useModalStack,
 } from '@views/active-robot/application-store/hooks';
 
 // Components

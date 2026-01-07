@@ -32,7 +32,7 @@ export function useWindowFocus() {
         setHasFocus(document.hasFocus());
       }
     };
-    
+
     // Check focus state every 500ms as a fallback
     const focusCheckInterval = setInterval(checkFocus, 500);
 
@@ -45,4 +45,3 @@ export function useWindowFocus() {
 
   return hasFocus;
 }
-

@@ -1,7 +1,7 @@
 /**
  * ✅ OPTIMIZED: Compare arrays numerically with tolerance (much faster than JSON.stringify)
  * Used across the codebase for comparing robot state arrays (headJoints, antennas, etc.)
- * 
+ *
  * @param {Array} a - First array
  * @param {Array} b - Second array
  * @param {number} tolerance - Tolerance for comparison (default: 0.005 rad ~0.3°)
@@ -15,4 +15,3 @@ export const arraysEqual = (a, b, tolerance = 0.005) => {
   }
   return true;
 };
-

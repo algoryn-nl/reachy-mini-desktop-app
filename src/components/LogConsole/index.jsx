@@ -11,10 +11,10 @@ import { useVirtualizerScroll } from './useVirtualizerScroll';
 
 /**
  * LogConsole Component
- * 
+ *
  * A virtualized log console component that displays logs from multiple sources (daemon, frontend, apps).
  * Supports auto-scrolling, filtering, and multiple display modes.
- * 
+ *
  * @param {Object} props
  * @param {Array} props.logs - Array of daemon logs
  * @param {boolean} [props.darkMode=false] - Dark mode enabled
@@ -28,8 +28,8 @@ import { useVirtualizerScroll } from './useVirtualizerScroll';
  * @param {boolean} [props.simpleStyle=false] - Simple style mode (minimal formatting)
  * @param {string} [props.emptyMessage='No logs'] - Message to display when no logs
  */
-function LogConsole({ 
-  logs, 
+function LogConsole({
+  logs,
   darkMode = false,
   includeStoreLogs = true,
   sx = {},
@@ -42,20 +42,26 @@ function LogConsole({
   emptyMessage = 'No logs',
 }) {
   // Select logs from store - will trigger re-render when logs change
-  const frontendLogs = useAppStore(state => includeStoreLogs ? state.frontendLogs : EMPTY_ARRAY);
-  const appLogs = useAppStore(state => includeStoreLogs ? state.appLogs : EMPTY_ARRAY);
-  
+  const frontendLogs = useAppStore(state => (includeStoreLogs ? state.frontendLogs : EMPTY_ARRAY));
+  const appLogs = useAppStore(state => (includeStoreLogs ? state.appLogs : EMPTY_ARRAY));
+
   // Process and normalize all logs
-  const normalizedLogs = useLogProcessing(logs, frontendLogs, appLogs, includeStoreLogs, simpleStyle);
+  const normalizedLogs = useLogProcessing(
+    logs,
+    frontendLogs,
+    appLogs,
+    includeStoreLogs,
+    simpleStyle
+  );
 
   // Calculate heights
   const fontSize = compact ? FONT_SIZES.COMPACT : FONT_SIZES.NORMAL;
   const fixedItemHeight = useFixedItemHeight(compact);
   const containerHeight = useLogConsoleHeight({ lines, height, maxHeight, compact, simpleStyle });
-  
+
   // Parent ref for virtualizer
   const parentRef = useRef(null);
-  
+
   // Create virtualizer instance - NO paddingEnd, spacing handled by marginBottom on items
   const virtualizer = useVirtualizer({
     count: normalizedLogs.length,
@@ -63,7 +69,7 @@ function LogConsole({
     estimateSize: () => fixedItemHeight,
     overscan: 5,
   });
-  
+
   // Use auto-scroll hook
   const { handleScroll } = useVirtualizerScroll({
     virtualizer,
@@ -77,23 +83,27 @@ function LogConsole({
   // Copy all logs to clipboard
   const handleCopyLogs = async () => {
     try {
-      const logsText = normalizedLogs.map(log => {
-        if (showTimestamp && log.timestamp) {
-          return `[${log.timestamp}] ${log.message}`;
-        }
-        return log.message;
-      }).join('\n');
-      
+      const logsText = normalizedLogs
+        .map(log => {
+          if (showTimestamp && log.timestamp) {
+            return `[${log.timestamp}] ${log.message}`;
+          }
+          return log.message;
+        })
+        .join('\n');
+
       await navigator.clipboard.writeText(logsText);
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
-      textArea.value = normalizedLogs.map(log => {
-        if (showTimestamp && log.timestamp) {
-          return `[${log.timestamp}] ${log.message}`;
-        }
-        return log.message;
-      }).join('\n');
+      textArea.value = normalizedLogs
+        .map(log => {
+          if (showTimestamp && log.timestamp) {
+            return `[${log.timestamp}] ${log.message}`;
+          }
+          return log.message;
+        })
+        .join('\n');
       document.body.appendChild(textArea);
       textArea.select();
       try {
@@ -104,37 +114,55 @@ function LogConsole({
       document.body.removeChild(textArea);
     }
   };
-  
+
   // Memoize sx styles to prevent recalculation on every render
-  const boxSx = useMemo(() => ({
-        width: '100%',
-    // If containerHeight is null (height='100%'), use '100%', otherwise use calculated height
-    height: containerHeight === null ? '100%' : (height === 'auto' ? 'auto' : `${containerHeight}px`),
-        maxHeight: maxHeight || undefined,
-        borderRadius: simpleStyle ? 0 : (compact ? '6px' : '12px'),
-        bgcolor: simpleStyle ? 'transparent' : (darkMode ? '#1a1a1a' : '#ffffff'),
-        border: simpleStyle ? 'none' : (darkMode ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid rgba(0, 0, 0, 0.15)'),
-        overflow: 'hidden',
-    overflowY: normalizedLogs.length === 0 ? 'hidden' : 'auto', // No scroll when empty
-    overflowX: 'hidden', // No horizontal scroll - use ellipsis instead
-    position: 'relative', // For absolute positioning of empty state
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: simpleStyle ? 'monospace' : 'SF Mono, Monaco, Menlo, monospace',
-        fontSize,
-    ...TEXT_SELECT_STYLES,
-        transition: 'box-shadow 0.3s ease',
-          '&::-webkit-scrollbar': { width: 6 },
-          '&::-webkit-scrollbar-track': { background: 'transparent' },
-          '&::-webkit-scrollbar-thumb': { 
-            background: darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)', 
-            borderRadius: 3,
-          },
-          '&:hover::-webkit-scrollbar-thumb': { 
-            background: darkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
-          },
-        ...sx,
-  }), [height, containerHeight, maxHeight, simpleStyle, compact, darkMode, fontSize, normalizedLogs.length, sx]);
+  const boxSx = useMemo(
+    () => ({
+      width: '100%',
+      // If containerHeight is null (height='100%'), use '100%', otherwise use calculated height
+      height:
+        containerHeight === null ? '100%' : height === 'auto' ? 'auto' : `${containerHeight}px`,
+      maxHeight: maxHeight || undefined,
+      borderRadius: simpleStyle ? 0 : compact ? '6px' : '12px',
+      bgcolor: simpleStyle ? 'transparent' : darkMode ? '#1a1a1a' : '#ffffff',
+      border: simpleStyle
+        ? 'none'
+        : darkMode
+          ? '1px solid rgba(255, 255, 255, 0.15)'
+          : '1px solid rgba(0, 0, 0, 0.15)',
+      overflow: 'hidden',
+      overflowY: normalizedLogs.length === 0 ? 'hidden' : 'auto', // No scroll when empty
+      overflowX: 'hidden', // No horizontal scroll - use ellipsis instead
+      position: 'relative', // For absolute positioning of empty state
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: simpleStyle ? 'monospace' : 'SF Mono, Monaco, Menlo, monospace',
+      fontSize,
+      ...TEXT_SELECT_STYLES,
+      transition: 'box-shadow 0.3s ease',
+      '&::-webkit-scrollbar': { width: 6 },
+      '&::-webkit-scrollbar-track': { background: 'transparent' },
+      '&::-webkit-scrollbar-thumb': {
+        background: darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+        borderRadius: 3,
+      },
+      '&:hover::-webkit-scrollbar-thumb': {
+        background: darkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)',
+      },
+      ...sx,
+    }),
+    [
+      height,
+      containerHeight,
+      maxHeight,
+      simpleStyle,
+      compact,
+      darkMode,
+      fontSize,
+      normalizedLogs.length,
+      sx,
+    ]
+  );
 
   return (
     <Box
@@ -170,36 +198,40 @@ function LogConsole({
               padding: 0.5,
             }}
           >
-            <ContentCopyIcon 
-              sx={{ 
-                fontSize: 14, 
+            <ContentCopyIcon
+              sx={{
+                fontSize: 14,
                 color: darkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
-              }} 
+              }}
             />
           </IconButton>
         </Tooltip>
       )}
       {normalizedLogs.length === 0 ? (
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          width: '100%', 
-          height: '100%',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}>
-          <Typography sx={{ 
-            fontSize: simpleStyle ? 11 : fontSize, 
-            color: darkMode ? (simpleStyle ? '#888' : '#666') : (simpleStyle ? '#999' : '#999'), 
-            fontFamily: 'inherit', 
-            textAlign: 'center', 
-            fontStyle: simpleStyle ? 'italic' : 'normal',
-            lineHeight: 1,
-          }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: simpleStyle ? 11 : fontSize,
+              color: darkMode ? (simpleStyle ? '#888' : '#666') : simpleStyle ? '#999' : '#999',
+              fontFamily: 'inherit',
+              textAlign: 'center',
+              fontStyle: simpleStyle ? 'italic' : 'normal',
+              lineHeight: 1,
+            }}
+          >
             {emptyMessage}
           </Typography>
         </Box>
@@ -208,15 +240,23 @@ function LogConsole({
           ref={parentRef}
           onScroll={handleScroll}
           sx={{
-            height: '100%', 
+            height: '100%',
             width: '100%',
             overflow: 'auto',
             overflowX: 'hidden',
             position: 'relative',
-                  paddingLeft: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].horizontal}px`,
-                  paddingRight: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].horizontal}px`,
-                  paddingTop: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].vertical}px`,
-                  paddingBottom: simpleStyle ? `${PADDING.SIMPLE}px` : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].vertical}px`,
+            paddingLeft: simpleStyle
+              ? `${PADDING.SIMPLE}px`
+              : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].horizontal}px`,
+            paddingRight: simpleStyle
+              ? `${PADDING.SIMPLE}px`
+              : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].horizontal}px`,
+            paddingTop: simpleStyle
+              ? `${PADDING.SIMPLE}px`
+              : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].vertical}px`,
+            paddingBottom: simpleStyle
+              ? `${PADDING.SIMPLE}px`
+              : `${PADDING[compact ? 'COMPACT' : 'NORMAL'].vertical}px`,
             // Custom scrollbar styling
             '&::-webkit-scrollbar': {
               width: 6,
@@ -236,19 +276,19 @@ function LogConsole({
           <Box
             sx={{
               height: `${virtualizer.getTotalSize()}px`,
-                  width: '100%',
+              width: '100%',
               position: 'relative',
             }}
           >
-            {virtualizer.getVirtualItems().map((virtualItem) => {
+            {virtualizer.getVirtualItems().map(virtualItem => {
               const log = normalizedLogs[virtualItem.index];
               if (!log) return null;
-              
+
               return (
                 <Box
                   key={virtualItem.key}
                   data-index={virtualItem.index}
-                  ref={(node) => virtualizer.measureElement(node)}
+                  ref={node => virtualizer.measureElement(node)}
                   sx={{
                     position: 'absolute',
                     top: 0,

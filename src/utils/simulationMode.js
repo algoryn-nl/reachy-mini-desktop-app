@@ -1,6 +1,6 @@
 /**
  * 🎭 Simulation Mode Utility
- * 
+ *
  * Simulation mode is controlled by the user in the app interface.
  * Uses localStorage to persist the user's choice.
  */
@@ -22,7 +22,6 @@ export function isSimulationMode() {
 export function enableSimulationMode() {
   if (typeof window !== 'undefined') {
     localStorage.setItem('simMode', 'true');
-    
   }
 }
 
@@ -32,7 +31,6 @@ export function enableSimulationMode() {
 export function disableSimulationMode() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('simMode');
-    
   }
 }
 

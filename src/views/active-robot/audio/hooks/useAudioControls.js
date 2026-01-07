@@ -4,7 +4,7 @@ import { useActiveRobotContext } from '../../context';
 /**
  * Hook to manage audio controls (speaker and microphone)
  * Handles volume state, device info, and API calls
- * 
+ *
  * Uses API config from ActiveRobotContext for decoupling
  */
 export function useAudioControls(isActive) {
@@ -14,7 +14,7 @@ export function useAudioControls(isActive) {
   // Volume states
   const [volume, setVolume] = useState(50);
   const [microphoneVolume, setMicrophoneVolume] = useState(50);
-  
+
   // Device info from API
   const [speakerDevice, setSpeakerDevice] = useState(null);
   const [microphoneDevice, setMicrophoneDevice] = useState(null);
@@ -57,12 +57,24 @@ export function useAudioControls(isActive) {
       }
     };
 
-    fetchVolumeValue('/api/volume/current', setVolume, setSpeakerDevice, setSpeakerPlatform, 'volume');
-    fetchVolumeValue('/api/volume/microphone/current', setMicrophoneVolume, setMicrophoneDevice, setMicrophonePlatform, 'microphone volume');
+    fetchVolumeValue(
+      '/api/volume/current',
+      setVolume,
+      setSpeakerDevice,
+      setSpeakerPlatform,
+      'volume'
+    );
+    fetchVolumeValue(
+      '/api/volume/microphone/current',
+      setMicrophoneVolume,
+      setMicrophoneDevice,
+      setMicrophonePlatform,
+      'microphone volume'
+    );
   }, [isActive]);
 
   // Actual API call for volume (extracted for debouncing)
-  const updateVolumeInApi = useCallback(async (newVolume) => {
+  const updateVolumeInApi = useCallback(async newVolume => {
     try {
       const response = await fetchWithTimeout(
         buildApiUrl('/api/volume/set'),
@@ -74,7 +86,7 @@ export function useAudioControls(isActive) {
         DAEMON_CONFIG.TIMEOUTS.VERSION,
         { silent: false, label: `Set volume to ${newVolume}%` }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         // Update with actual value from API (in case it was clamped)
@@ -126,24 +138,27 @@ export function useAudioControls(isActive) {
   }, []);
 
   // Update volume via API with debounce (500ms)
-  const handleVolumeChange = useCallback((newVolume) => {
-    // Immediate optimistic update for UI responsiveness
-    setVolume(newVolume);
-    
-    // Clear previous timeout
-    if (volumeDebounceTimeoutRef.current) {
-      clearTimeout(volumeDebounceTimeoutRef.current);
-    }
-    
-    // Set new timeout to call API after 500ms of inactivity
-    volumeDebounceTimeoutRef.current = setTimeout(() => {
-      updateVolumeInApi(newVolume);
-      volumeDebounceTimeoutRef.current = null;
-    }, 500);
-  }, [updateVolumeInApi]);
+  const handleVolumeChange = useCallback(
+    newVolume => {
+      // Immediate optimistic update for UI responsiveness
+      setVolume(newVolume);
+
+      // Clear previous timeout
+      if (volumeDebounceTimeoutRef.current) {
+        clearTimeout(volumeDebounceTimeoutRef.current);
+      }
+
+      // Set new timeout to call API after 500ms of inactivity
+      volumeDebounceTimeoutRef.current = setTimeout(() => {
+        updateVolumeInApi(newVolume);
+        volumeDebounceTimeoutRef.current = null;
+      }, 500);
+    },
+    [updateVolumeInApi]
+  );
 
   // Actual API call for microphone volume (extracted for debouncing)
-  const updateMicrophoneVolumeInApi = useCallback(async (newVolume) => {
+  const updateMicrophoneVolumeInApi = useCallback(async newVolume => {
     try {
       const response = await fetchWithTimeout(
         buildApiUrl('/api/volume/microphone/set'),
@@ -155,7 +170,7 @@ export function useAudioControls(isActive) {
         DAEMON_CONFIG.TIMEOUTS.VERSION,
         { silent: false, label: `Set microphone volume to ${newVolume}%` }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         // Update with actual value from API (in case it was clamped)
@@ -207,56 +222,62 @@ export function useAudioControls(isActive) {
   }, []);
 
   // Update microphone volume via API with debounce (500ms)
-  const handleMicrophoneVolumeChange = useCallback((newVolume) => {
-    // Immediate optimistic update for UI responsiveness
-    setMicrophoneVolume(newVolume);
-    
-    // Clear previous timeout
-    if (microphoneDebounceTimeoutRef.current) {
-      clearTimeout(microphoneDebounceTimeoutRef.current);
-    }
-    
-    // Set new timeout to call API after 500ms of inactivity
-    microphoneDebounceTimeoutRef.current = setTimeout(() => {
-      updateMicrophoneVolumeInApi(newVolume);
-      microphoneDebounceTimeoutRef.current = null;
-    }, 500);
-  }, [updateMicrophoneVolumeInApi]);
+  const handleMicrophoneVolumeChange = useCallback(
+    newVolume => {
+      // Immediate optimistic update for UI responsiveness
+      setMicrophoneVolume(newVolume);
+
+      // Clear previous timeout
+      if (microphoneDebounceTimeoutRef.current) {
+        clearTimeout(microphoneDebounceTimeoutRef.current);
+      }
+
+      // Set new timeout to call API after 500ms of inactivity
+      microphoneDebounceTimeoutRef.current = setTimeout(() => {
+        updateMicrophoneVolumeInApi(newVolume);
+        microphoneDebounceTimeoutRef.current = null;
+      }, 500);
+    },
+    [updateMicrophoneVolumeInApi]
+  );
 
   // Update microphone via API (toggle) - for backward compatibility
-  const handleMicrophoneChange = useCallback((enabled) => {
-    handleMicrophoneVolumeChange(enabled ? 50 : 0);
-  }, [handleMicrophoneVolumeChange]);
+  const handleMicrophoneChange = useCallback(
+    enabled => {
+      handleMicrophoneVolumeChange(enabled ? 50 : 0);
+    },
+    [handleMicrophoneVolumeChange]
+  );
 
   // Quick mute/unmute handlers (immediate, no debounce)
   const handleSpeakerMute = useCallback(() => {
     const newVolume = volume > 0 ? 0 : 50;
-    
+
     // Cancel any pending debounced call
     if (volumeDebounceTimeoutRef.current) {
       clearTimeout(volumeDebounceTimeoutRef.current);
       volumeDebounceTimeoutRef.current = null;
     }
-    
+
     // Immediate update (optimistic)
     setVolume(newVolume);
-    
+
     // Immediate API call (no debounce for mute/unmute)
     updateVolumeInApi(newVolume);
   }, [volume, updateVolumeInApi]);
 
   const handleMicrophoneMute = useCallback(() => {
     const newVolume = microphoneVolume > 0 ? 0 : 50;
-    
+
     // Cancel any pending debounced call
     if (microphoneDebounceTimeoutRef.current) {
       clearTimeout(microphoneDebounceTimeoutRef.current);
       microphoneDebounceTimeoutRef.current = null;
     }
-    
+
     // Immediate update (optimistic)
     setMicrophoneVolume(newVolume);
-    
+
     // Immediate API call (no debounce for mute/unmute)
     updateMicrophoneVolumeInApi(newVolume);
   }, [microphoneVolume, updateMicrophoneVolumeInApi]);
@@ -287,4 +308,3 @@ export function useAudioControls(isActive) {
     handleMicrophoneMute,
   };
 }
-

@@ -36,18 +36,18 @@ export default function DiscoverModal({
 }) {
   // ✅ Debug: Log filteredApps changes
   useEffect(() => {
-    
+    console.log('[DiscoverModal] filteredApps changed', {
       count: filteredApps.length,
       selectedCategory,
       searchQuery,
       firstAppNames: filteredApps.slice(0, 3).map(a => a.name),
     });
   }, [filteredApps, selectedCategory, searchQuery]);
-  
+
   // ✅ Determine if filters are active
   const hasActiveFilter = selectedCategory !== null || (searchQuery && searchQuery.trim());
   const isFiltered = hasActiveFilter && filteredApps.length < totalAppsCount;
-  
+
   return (
     <FullscreenOverlay
       open={isOpen}
@@ -113,15 +113,15 @@ export default function DiscoverModal({
                 gap: 2,
               }}
             >
-              <CircularProgress 
-                size={40} 
-                sx={{ 
+              <CircularProgress
+                size={40}
+                sx={{
                   color: darkMode ? '#666' : '#999',
-                }} 
+                }}
               />
-              <Typography 
-                sx={{ 
-                  fontSize: 14, 
+              <Typography
+                sx={{
+                  fontSize: 14,
                   color: darkMode ? '#888' : '#999',
                   fontWeight: 500,
                 }}
@@ -130,7 +130,16 @@ export default function DiscoverModal({
               </Typography>
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 2.5, width: '100%', mb: 0 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 2.5,
+                width: '100%',
+                mb: 0,
+              }}
+            >
               {filteredApps.length === 0 ? (
                 <EmptyState
                   darkMode={darkMode}
@@ -144,7 +153,7 @@ export default function DiscoverModal({
                     const isInstalling = isJobRunning(app.name, 'install');
                     const installFailed = installJob && installJob.status === 'failed';
                     const isInstalled = app.isInstalled || false;
-                    
+
                     return (
                       <AppCard
                         key={`${app.name}-${selectedCategory || 'all'}-${searchQuery || ''}-${index}`}
@@ -161,13 +170,10 @@ export default function DiscoverModal({
                       />
                     );
                   })}
-                  
+
                   {/* Footer */}
                   {filteredApps.length > 0 && (
-                    <Footer
-                      darkMode={darkMode}
-                      onOpenCreateTutorial={onOpenCreateTutorial}
-                    />
+                    <Footer darkMode={darkMode} onOpenCreateTutorial={onOpenCreateTutorial} />
                   )}
                 </>
               )}

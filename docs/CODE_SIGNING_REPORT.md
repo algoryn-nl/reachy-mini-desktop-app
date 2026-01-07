@@ -4,7 +4,7 @@
 
 **Date :** 30 décembre 2024  
 **Auteur :** Équipe Reachy Mini  
-**Projet :** tauri-app (Reachy Mini Desktop App)
+**Projet :** reachy_mini_desktop_app (Reachy Mini Desktop App)
 
 ---
 

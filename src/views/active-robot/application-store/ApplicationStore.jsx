@@ -1,5 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, IconButton, Button, ButtonGroup, Accordion, AccordionSummary, AccordionDetails, Tooltip, Chip } from '@mui/material';
+import {
+  Box,
+  Typography,
+  IconButton,
+  Button,
+  ButtonGroup,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Tooltip,
+  Chip,
+} from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
@@ -8,7 +19,13 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import ReachyBox from '../../../assets/reachy-update-box.svg';
 import { useActiveRobotContext } from '../context';
-import { useApps, useAppHandlers, useAppInstallation, useAppFiltering, useModalStack } from './hooks';
+import {
+  useApps,
+  useAppHandlers,
+  useAppInstallation,
+  useAppFiltering,
+  useModalStack,
+} from './hooks';
 import { InstalledAppsSection } from './installed';
 import { Modal as DiscoverModal } from './discover';
 import { CreateAppTutorial as CreateAppTutorialModal } from './modals';
@@ -24,8 +41,8 @@ import { useWindowFocus } from '../../../hooks/system/useWindowFocus';
  * @param {Function} showToast - Function to show toasts (message, severity)
  */
 
-export default function ApplicationStore({ 
-  showToast, 
+export default function ApplicationStore({
+  showToast,
   onLoadingChange,
   isActive = false,
   isBusy = false,
@@ -33,9 +50,9 @@ export default function ApplicationStore({
 }) {
   const { robotState, actions } = useActiveRobotContext();
   const { toggleDarkMode } = actions;
-  
+
   // Get values from context with prop fallbacks
-  const { 
+  const {
     darkMode: contextDarkMode,
     isActive: contextIsActive,
     isAppRunning,
@@ -44,26 +61,26 @@ export default function ApplicationStore({
     installResult,
     installStartTime,
   } = robotState;
-  
+
   const effectiveDarkMode = darkMode !== undefined ? darkMode : contextDarkMode;
   const effectiveIsActive = isActive !== undefined ? isActive : contextIsActive;
   const effectiveIsBusy = isBusy !== undefined ? isBusy : actions.isBusy();
-  
+
   // Ref to store the reset function from Controller
   const controllerResetRef = React.useRef(null);
   // State to track if robot is at initial position
   const [isAtInitialPosition, setIsAtInitialPosition] = React.useState(true);
   // State to track if position control accordion is expanded
   const [isPositionControlExpanded, setIsPositionControlExpanded] = React.useState(true);
-  
+
   // Check if gamepad is connected and which device is active
   const isGamepadConnected = useGamepadConnected();
   const activeDevice = useActiveDevice();
   const hasWindowFocus = useWindowFocus();
-  
+
   // State for official/non-official filter
   const [officialOnly, setOfficialOnly] = useState(true); // Default: only official apps
-  
+
   // Hook to manage apps via API
   const {
     availableApps,
@@ -79,16 +96,16 @@ export default function ApplicationStore({
     isStoppingApp,
     error: appsError,
   } = useApps(effectiveIsActive, officialOnly);
-  
+
   // ✅ Notify parent when loading status changes
   useEffect(() => {
     if (onLoadingChange) {
       onLoadingChange(isLoading);
     }
   }, [isLoading, onLoadingChange]);
-  
+
   // ✅ REFACTORED: Separate hooks for different responsibilities
-  
+
   // Hook to manage installation lifecycle (tracking, overlay, completion)
   const {
     openModal,
@@ -98,7 +115,7 @@ export default function ApplicationStore({
     createAppTutorialModalOpen,
     createAppTutorialModalOnTop,
   } = useModalStack();
-  
+
   useAppInstallation({
     activeJobs,
     installedApps,
@@ -112,7 +129,7 @@ export default function ApplicationStore({
       }
     },
   });
-  
+
   // Hook to manage app actions (install, uninstall, start)
   const {
     expandedApp,
@@ -132,27 +149,32 @@ export default function ApplicationStore({
     stopCurrentApp,
     showToast,
   });
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null); // null = all categories
-  
+
   // ✅ Reset category when switching between official/non-official
   useEffect(() => {
     setSelectedCategory(null);
   }, [officialOnly]);
-  
+
   // Hook for filtering and categorizing apps
   // ✅ Filter & sort apps client-side (data is cached for 1 day)
-  const { categories, filteredApps } = useAppFiltering(availableApps, searchQuery, selectedCategory, officialOnly);
+  const { categories, filteredApps } = useAppFiltering(
+    availableApps,
+    searchQuery,
+    selectedCategory,
+    officialOnly
+  );
 
   // ✅ Get installing app info (with fallback if not in list yet)
   const installingApp = useMemo(() => {
     if (!installingAppName) return null;
-    
+
     // Try to find in available apps first
     const found = availableApps.find(app => app.name === installingAppName);
     if (found) return found;
-    
+
     // Fallback: Create minimal app object
     return {
       name: installingAppName,
@@ -164,8 +186,7 @@ export default function ApplicationStore({
       extra: {},
     };
   }, [installingAppName, availableApps]);
-  
-  
+
   // Retrieve the current installation job - Convert Map to array
   const activeJobsArray = Array.from(activeJobs.values());
   const installingJob = installingAppName
@@ -202,9 +223,9 @@ export default function ApplicationStore({
       }}
     >
       {/* Applications Section - Accordion */}
-      <Accordion 
+      <Accordion
         defaultExpanded={true}
-        sx={{ 
+        sx={{
           boxShadow: 'none !important',
           bgcolor: 'transparent !important',
           backgroundColor: 'transparent !important',
@@ -214,7 +235,9 @@ export default function ApplicationStore({
         }}
       >
         <AccordionSummary
-          expandIcon={<ExpandMoreIcon sx={{ color: effectiveDarkMode ? '#666' : '#bbb', opacity: 0.5 }} />}
+          expandIcon={
+            <ExpandMoreIcon sx={{ color: effectiveDarkMode ? '#666' : '#bbb', opacity: 0.5 }} />
+          }
           sx={{
             px: 3,
             py: 1,
@@ -228,19 +251,19 @@ export default function ApplicationStore({
               '&.Mui-expanded': { margin: '12px 0' },
             },
           }}
-      >
+        >
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-        <Typography
-          sx={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: effectiveDarkMode ? '#f5f5f5' : '#333',
-            letterSpacing: '-0.3px',
-          }}
-        >
-          Applications
-        </Typography>
+              <Typography
+                sx={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: effectiveDarkMode ? '#f5f5f5' : '#333',
+                  letterSpacing: '-0.3px',
+                }}
+              >
+                Applications
+              </Typography>
               {installedApps.length > 0 && (
                 <Typography
                   sx={{
@@ -252,49 +275,62 @@ export default function ApplicationStore({
                   {installedApps.length}
                 </Typography>
               )}
-              <Tooltip 
-                title="Apps that are currently installed on your robot. You can start, stop, configure, or uninstall them from here." 
-                arrow 
+              <Tooltip
+                title="Apps that are currently installed on your robot. You can start, stop, configure, or uninstall them from here."
+                arrow
                 placement="top"
               >
-                <InfoOutlinedIcon sx={{ fontSize: 14, color: effectiveDarkMode ? '#666' : '#999', opacity: 0.6, cursor: 'help' }} />
+                <InfoOutlinedIcon
+                  sx={{
+                    fontSize: 14,
+                    color: effectiveDarkMode ? '#666' : '#999',
+                    opacity: 0.6,
+                    cursor: 'help',
+                  }}
+                />
               </Tooltip>
             </Box>
-        <Typography
+            <Typography
+              sx={{
+                fontSize: 12,
+                color: effectiveDarkMode ? '#888' : '#999',
+                fontWeight: 500,
+              }}
+            >
+              Extend Reachy's capabilities
+            </Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails
           sx={{
-            fontSize: 12,
-            color: effectiveDarkMode ? '#888' : '#999',
-            fontWeight: 500,
+            px: 0,
+            pt: 0,
+            pb: 0,
+            bgcolor: 'transparent !important',
+            backgroundColor: 'transparent !important',
           }}
         >
-          Extend Reachy's capabilities
-        </Typography>
-      </Box>
-        </AccordionSummary>
-        <AccordionDetails sx={{ px: 0, pt: 0, pb: 0, bgcolor: 'transparent !important', backgroundColor: 'transparent !important' }}>
-
-      {/* Installed Apps Section */}
-      <InstalledAppsSection
-        installedApps={installedApps}
-        darkMode={effectiveDarkMode}
-        expandedApp={expandedApp}
-        setExpandedApp={setExpandedApp}
-        startingApp={startingApp}
-        currentApp={currentApp}
-        isBusy={effectiveIsBusy}
-        isJobRunning={isJobRunning}
-        isAppRunning={isAppRunning}
-        isStoppingApp={isStoppingApp}
-        handleStartApp={handleStartApp}
-        handleUninstall={handleUninstall}
-        getJobInfo={getJobInfo}
-        stopCurrentApp={stopCurrentApp}
+          {/* Installed Apps Section */}
+          <InstalledAppsSection
+            installedApps={installedApps}
+            darkMode={effectiveDarkMode}
+            expandedApp={expandedApp}
+            setExpandedApp={setExpandedApp}
+            startingApp={startingApp}
+            currentApp={currentApp}
+            isBusy={effectiveIsBusy}
+            isJobRunning={isJobRunning}
+            isAppRunning={isAppRunning}
+            isStoppingApp={isStoppingApp}
+            handleStartApp={handleStartApp}
+            handleUninstall={handleUninstall}
+            getJobInfo={getJobInfo}
+            stopCurrentApp={stopCurrentApp}
             onOpenDiscover={() => openModal('discover')}
-        onOpenCreateTutorial={() => openModal('createTutorial')}
-      />
+            onOpenCreateTutorial={() => openModal('createTutorial')}
+          />
         </AccordionDetails>
       </Accordion>
-
 
       {/* Robot Position Control */}
       <Accordion
@@ -317,7 +353,9 @@ export default function ApplicationStore({
         }}
       >
         <AccordionSummary
-          expandIcon={<ExpandMoreIcon sx={{ color: effectiveDarkMode ? '#666' : '#bbb', opacity: 0.5 }} />}
+          expandIcon={
+            <ExpandMoreIcon sx={{ color: effectiveDarkMode ? '#666' : '#bbb', opacity: 0.5 }} />
+          }
           sx={{
             px: 3,
             py: 1,
@@ -345,51 +383,77 @@ export default function ApplicationStore({
             </Typography>
             {!isAtInitialPosition && (
               <Tooltip title="Reset all position controls" arrow>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => {
+                <IconButton
+                  size="small"
+                  onClick={e => {
                     e.stopPropagation(); // Prevent accordion from closing
                     if (controllerResetRef.current) {
                       controllerResetRef.current();
                     }
                   }}
                   disabled={!effectiveIsActive || isBusy}
-                  sx={{ 
+                  sx={{
                     ml: 0.75,
                     color: effectiveDarkMode ? '#888' : '#999',
                     '&:hover': {
                       color: '#FF9500',
-                      bgcolor: effectiveDarkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
-                    }
+                      bgcolor: effectiveDarkMode
+                        ? 'rgba(255, 149, 0, 0.1)'
+                        : 'rgba(255, 149, 0, 0.05)',
+                    },
                   }}
                 >
                   <RefreshIcon sx={{ fontSize: 16, color: effectiveDarkMode ? '#888' : '#999' }} />
                 </IconButton>
               </Tooltip>
             )}
-            <Tooltip 
+            <Tooltip
               title={
                 <Box sx={{ p: 1 }}>
-                  <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1, color: effectiveDarkMode ? '#fff' : '#333' }}>
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      mb: 1,
+                      color: effectiveDarkMode ? '#fff' : '#333',
+                    }}
+                  >
                     API Documentation
                   </Typography>
-                  <Typography sx={{ fontSize: 11, mb: 1, color: effectiveDarkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      mb: 1,
+                      color: effectiveDarkMode ? '#f0f0f0' : '#666',
+                      lineHeight: 1.6,
+                    }}
+                  >
                     <strong>Endpoint:</strong> POST /api/move/set_target
                   </Typography>
-                  <Typography sx={{ fontSize: 11, mb: 1, color: effectiveDarkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      mb: 1,
+                      color: effectiveDarkMode ? '#f0f0f0' : '#666',
+                      lineHeight: 1.6,
+                    }}
+                  >
                     <strong>Request Body:</strong>
                   </Typography>
-                  <Box component="pre" sx={{ 
-                    fontSize: 10, 
-                    mb: 1, 
-                    color: effectiveDarkMode ? '#e0e0e0' : '#333', 
-                    fontFamily: 'monospace', 
-                    whiteSpace: 'pre-wrap', 
-                    bgcolor: effectiveDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', 
-                    p: 1, 
-                    borderRadius: 1 
-                  }}>
-{`{
+                  <Box
+                    component="pre"
+                    sx={{
+                      fontSize: 10,
+                      mb: 1,
+                      color: effectiveDarkMode ? '#e0e0e0' : '#333',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      bgcolor: effectiveDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                      p: 1,
+                      borderRadius: 1,
+                    }}
+                  >
+                    {`{
   "target_head_pose": {
     "x": float,    // Position X (m), range: -0.05 to 0.05
     "y": float,    // Position Y (m), range: -0.05 to 0.05
@@ -402,56 +466,87 @@ export default function ApplicationStore({
   "target_body_yaw": float           // Body rotation (rad), range: -160° to 160°
 }`}
                   </Box>
-                  <Typography sx={{ fontSize: 11, mb: 0.5, color: effectiveDarkMode ? '#f0f0f0' : '#666', lineHeight: 1.6 }}>
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      mb: 0.5,
+                      color: effectiveDarkMode ? '#f0f0f0' : '#666',
+                      lineHeight: 1.6,
+                    }}
+                  >
                     <strong>Controls:</strong>
                   </Typography>
-                  <Typography sx={{ fontSize: 10, mb: 1, color: effectiveDarkMode ? '#e0e0e0' : '#666', lineHeight: 1.6 }}>
-                    • Drag joysticks/sliders for continuous movement<br/>
-                    • Release to send final position<br/>
-                    • All movements use set_target (no interpolation)<br/>
-                    • Controls disabled when movements are active
+                  <Typography
+                    sx={{
+                      fontSize: 10,
+                      mb: 1,
+                      color: effectiveDarkMode ? '#e0e0e0' : '#666',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    • Drag joysticks/sliders for continuous movement
+                    <br />
+                    • Release to send final position
+                    <br />
+                    • All movements use set_target (no interpolation)
+                    <br />• Controls disabled when movements are active
                   </Typography>
                 </Box>
               }
-              arrow 
+              arrow
               placement="right"
               componentsProps={{
                 tooltip: {
                   sx: {
                     maxWidth: 420,
-                    bgcolor: effectiveDarkMode ? 'rgba(26, 26, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+                    bgcolor: effectiveDarkMode
+                      ? 'rgba(26, 26, 26, 0.98)'
+                      : 'rgba(255, 255, 255, 0.98)',
                     border: `1px solid ${effectiveDarkMode ? 'rgba(255, 149, 0, 0.3)' : 'rgba(255, 149, 0, 0.4)'}`,
-                    boxShadow: effectiveDarkMode ? '0 8px 24px rgba(0, 0, 0, 0.5)' : '0 8px 24px rgba(0, 0, 0, 0.15)',
-                  }
+                    boxShadow: effectiveDarkMode
+                      ? '0 8px 24px rgba(0, 0, 0, 0.5)'
+                      : '0 8px 24px rgba(0, 0, 0, 0.15)',
+                  },
                 },
                 arrow: {
                   sx: {
-                    color: effectiveDarkMode ? 'rgba(26, 26, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-                  }
-                }
+                    color: effectiveDarkMode
+                      ? 'rgba(26, 26, 26, 0.98)'
+                      : 'rgba(255, 255, 255, 0.98)',
+                  },
+                },
               }}
             >
-              <InfoOutlinedIcon sx={{ fontSize: 16, color: effectiveDarkMode ? '#888' : '#999', cursor: 'help', ml: 0.75 }} />
+              <InfoOutlinedIcon
+                sx={{
+                  fontSize: 16,
+                  color: effectiveDarkMode ? '#888' : '#999',
+                  cursor: 'help',
+                  ml: 0.75,
+                }}
+              />
             </Tooltip>
-      
+
             {!isAtInitialPosition && (
               <Tooltip title="Reset all position controls" arrow>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => {
+                <IconButton
+                  size="small"
+                  onClick={e => {
                     e.stopPropagation(); // Prevent accordion from closing
                     if (controllerResetRef.current) {
                       controllerResetRef.current();
                     }
                   }}
                   disabled={!effectiveIsActive || effectiveIsBusy}
-                  sx={{ 
+                  sx={{
                     ml: 0.5,
                     color: effectiveDarkMode ? '#888' : '#999',
                     '&:hover': {
                       color: '#FF9500',
-                      bgcolor: effectiveDarkMode ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 149, 0, 0.05)',
-                    }
+                      bgcolor: effectiveDarkMode
+                        ? 'rgba(255, 149, 0, 0.1)'
+                        : 'rgba(255, 149, 0, 0.05)',
+                    },
                   }}
                 >
                   <RefreshIcon sx={{ fontSize: 16, color: effectiveDarkMode ? '#888' : '#999' }} />
@@ -460,14 +555,22 @@ export default function ApplicationStore({
             )}
           </Box>
         </AccordionSummary>
-        <AccordionDetails sx={{ px: 0, pt: 0, pb: 3, bgcolor: 'transparent !important', backgroundColor: 'transparent !important' }}>
+        <AccordionDetails
+          sx={{
+            px: 0,
+            pt: 0,
+            pb: 3,
+            bgcolor: 'transparent !important',
+            backgroundColor: 'transparent !important',
+          }}
+        >
           <Controller
             isActive={effectiveIsActive}
             darkMode={effectiveDarkMode}
-            onResetReady={(resetFn) => {
+            onResetReady={resetFn => {
               controllerResetRef.current = resetFn;
             }}
-            onIsAtInitialPosition={(isAtInitial) => {
+            onIsAtInitialPosition={isAtInitial => {
               setIsAtInitialPosition(isAtInitial);
             }}
           />
@@ -513,7 +616,9 @@ export default function ApplicationStore({
       {installingAppName && installingApp && (
         <InstallOverlay
           appInfo={installingApp}
-          jobInfo={installingJob || { type: installJobType || 'install', status: 'starting', logs: [] }}
+          jobInfo={
+            installingJob || { type: installJobType || 'install', status: 'starting', logs: [] }
+          }
           darkMode={effectiveDarkMode}
           jobType={installJobType || 'install'}
           resultState={installResult}

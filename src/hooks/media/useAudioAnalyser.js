@@ -1,6 +1,6 @@
 /**
  * useAudioAnalyser - Hook for real-time audio level analysis
- * 
+ *
  * Takes a MediaStreamTrack (audio) and returns normalized audio levels
  * suitable for visualization (0-1 range).
  */
@@ -17,11 +17,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * @returns {Object} { level, levels, isActive }
  */
 export default function useAudioAnalyser(audioTrack, options = {}) {
-  const {
-    fftSize = 256,
-    smoothingTimeConstant = 0.8,
-    updateInterval = 50,
-  } = options;
+  const { fftSize = 256, smoothingTimeConstant = 0.8, updateInterval = 50 } = options;
 
   // Current audio level (0-1 normalized)
   const [level, setLevel] = useState(0);
@@ -116,10 +112,9 @@ export default function useAudioAnalyser(audioTrack, options = {}) {
       dataArrayRef.current = dataArray;
 
       setIsActive(true);
-      
 
       // Animation loop for reading audio levels
-      const analyze = (currentTime) => {
+      const analyze = currentTime => {
         if (!analyserRef.current || !dataArrayRef.current) {
           return;
         }
@@ -138,7 +133,7 @@ export default function useAudioAnalyser(audioTrack, options = {}) {
           }
           const average = sum / data.length;
           const rawLevel = average / 255; // Normalize to 0-1
-          
+
           // Apply logarithmic sensitivity curve (matches human hearing perception)
           // Formula: log(1 + x * gain) / log(1 + gain) normalizes output to 0-1
           const gain = 40; // Higher = more boost for quiet sounds
@@ -163,7 +158,6 @@ export default function useAudioAnalyser(audioTrack, options = {}) {
       };
 
       animationRef.current = requestAnimationFrame(analyze);
-
     } catch (e) {
       console.error('[useAudioAnalyser] Error setting up audio analysis:', e);
       cleanup();
@@ -174,9 +168,8 @@ export default function useAudioAnalyser(audioTrack, options = {}) {
   }, [audioTrack, fftSize, smoothingTimeConstant, updateInterval, cleanup]);
 
   return {
-    level,    // Single normalized level (0-1) - average amplitude
-    levels,   // Array of normalized levels for visualization
+    level, // Single normalized level (0-1) - average amplitude
+    levels, // Array of normalized levels for visualization
     isActive, // Whether analysis is running
   };
 }
-

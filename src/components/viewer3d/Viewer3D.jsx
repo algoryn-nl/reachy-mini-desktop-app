@@ -28,7 +28,7 @@ const CAMERA_PRESETS = {
     maxDistance: 0.6,
   },
   scan: {
-    position: [0, 0.22, 0.50], // Closer: Z reduced from 0.62 to 0.50
+    position: [0, 0.22, 0.5], // Closer: Z reduced from 0.62 to 0.50
     fov: 55,
     target: [0, 0.12, 0],
     minDistance: 0.15,
@@ -36,8 +36,8 @@ const CAMERA_PRESETS = {
   },
 };
 
-export default function RobotViewer3D({ 
-  isActive, 
+export default function RobotViewer3D({
+  isActive,
   initialMode = 'normal', // 'normal' or 'xray'
   hideControls = false, // Hide control buttons
   forceLoad = false, // Force robot loading even if isActive=false
@@ -72,9 +72,10 @@ export default function RobotViewer3D({
   canvasTranslateY = 0, // TranslateY for canvas (default 0)
 }) {
   // ✅ Get camera config
-  const cameraConfig = typeof cameraPreset === 'string' 
-    ? CAMERA_PRESETS[cameraPreset] 
-    : { ...CAMERA_PRESETS.normal, ...cameraPreset };
+  const cameraConfig =
+    typeof cameraPreset === 'string'
+      ? CAMERA_PRESETS[cameraPreset]
+      : { ...CAMERA_PRESETS.normal, ...cameraPreset };
   // Custom hook for WebSocket connection to daemon
   // ✅ IMPORTANT: Do NOT connect to WebSocket if isActive=false AND headJoints=null is explicitly passed
   // This allows having a completely static robot (for hardware scan view)
@@ -82,7 +83,7 @@ export default function RobotViewer3D({
   // headJoints === null means "static robot", headJoints === undefined means "use WebSocket"
   const shouldConnectWebSocket = isActive || (forceLoad && headJoints !== null);
   const robotState = useRobotWebSocket(shouldConnectWebSocket);
-  
+
   // ✅ Use provided props or those from WebSocket robotState
   // If headJoints is explicitly null, NEVER use WebSocket data for movements
   // This ensures the robot remains static in the scan view
@@ -93,19 +94,25 @@ export default function RobotViewer3D({
   const prevHeadJointsRef = useRef(null);
   const prevYawBodyRef = useRef(null);
   const prevPassiveJointsRef = useRef(null);
-  
+
   // ✅ OPTIMIZED: Only recalculate if values actually changed (not just reference)
   const finalAntennas = useMemo(() => {
-    const value = antennas !== null ? antennas : (shouldConnectWebSocket ? (robotState.antennas || [0, 0]) : [0, 0]);
+    const value =
+      antennas !== null
+        ? antennas
+        : shouldConnectWebSocket
+          ? robotState.antennas || [0, 0]
+          : [0, 0];
     if (!arraysEqual(value, prevAntennasRef.current)) {
       prevAntennasRef.current = value;
       return value;
     }
     return prevAntennasRef.current || value;
   }, [antennas, shouldConnectWebSocket, robotState.antennas]);
-  
+
   const finalHeadPose = useMemo(() => {
-    const value = headPose !== null ? headPose : (shouldConnectWebSocket ? robotState.headPose : null);
+    const value =
+      headPose !== null ? headPose : shouldConnectWebSocket ? robotState.headPose : null;
     if (value && (!prevHeadPoseRef.current || !arraysEqual(value, prevHeadPoseRef.current))) {
       prevHeadPoseRef.current = value;
       return value;
@@ -116,9 +123,10 @@ export default function RobotViewer3D({
     }
     return prevHeadPoseRef.current || value;
   }, [headPose, shouldConnectWebSocket, robotState.headPose]);
-  
+
   const finalHeadJoints = useMemo(() => {
-    const value = headJoints !== null ? headJoints : (shouldConnectWebSocket ? robotState.headJoints : null);
+    const value =
+      headJoints !== null ? headJoints : shouldConnectWebSocket ? robotState.headJoints : null;
     if (value && (!prevHeadJointsRef.current || !arraysEqual(value, prevHeadJointsRef.current))) {
       prevHeadJointsRef.current = value;
       return value;
@@ -129,20 +137,22 @@ export default function RobotViewer3D({
     }
     return prevHeadJointsRef.current || value;
   }, [headJoints, shouldConnectWebSocket, robotState.headJoints]);
-  
+
   const finalYawBody = useMemo(() => {
-    const value = yawBody !== null ? yawBody : (shouldConnectWebSocket ? robotState.yawBody : null);
+    const value = yawBody !== null ? yawBody : shouldConnectWebSocket ? robotState.yawBody : null;
     if (value !== undefined && Math.abs(value - (prevYawBodyRef.current ?? 0)) > 0.005) {
       prevYawBodyRef.current = value;
       return value;
     }
     return prevYawBodyRef.current ?? value ?? null;
   }, [yawBody, shouldConnectWebSocket, robotState.yawBody]);
-  
+
   // 🚀 GAME-CHANGING: Extract passiveJoints from unified WebSocket
   const finalPassiveJoints = useMemo(() => {
     const value = shouldConnectWebSocket ? robotState.passiveJoints : null;
-    const prevPassive = Array.isArray(prevPassiveJointsRef.current) ? prevPassiveJointsRef.current : prevPassiveJointsRef.current?.array;
+    const prevPassive = Array.isArray(prevPassiveJointsRef.current)
+      ? prevPassiveJointsRef.current
+      : prevPassiveJointsRef.current?.array;
     const currentPassive = Array.isArray(value) ? value : value?.array;
     if (value && (!prevPassiveJointsRef.current || !arraysEqual(currentPassive, prevPassive))) {
       prevPassiveJointsRef.current = value;
@@ -154,24 +164,26 @@ export default function RobotViewer3D({
     }
     return prevPassiveJointsRef.current || value;
   }, [shouldConnectWebSocket, robotState.passiveJoints]);
-  
+
   const [isTransparent, setIsTransparent] = useState(initialMode === 'xray');
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
-  
+
   // ✅ Get darkMode from store
   const darkMode = useAppStore(state => state.darkMode);
   const safeToShutdown = useAppStore(state => state.safeToShutdown);
   const isWakeSleepTransitioning = useAppStore(state => state.isWakeSleepTransitioning);
-  
+
   // ✅ Adapt backgroundColor based on darkMode if not explicitly provided
   // If transparent, keep transparent. Otherwise adapt default color to darkMode
-  const effectiveBackgroundColor = backgroundColor === 'transparent' 
-    ? 'transparent'
-    : backgroundColor === '#e0e0e0' 
-    ? (darkMode ? '#1a1a1a' : '#e0e0e0')
-    : backgroundColor;
-  
-  
+  const effectiveBackgroundColor =
+    backgroundColor === 'transparent'
+      ? 'transparent'
+      : backgroundColor === '#e0e0e0'
+        ? darkMode
+          ? '#1a1a1a'
+          : '#e0e0e0'
+        : backgroundColor;
+
   // ✨ Determine robot status for tag (with state machine)
   const getStatusTag = () => {
     // If robotStatus provided, use state machine (NEW)
@@ -179,16 +191,16 @@ export default function RobotViewer3D({
       switch (robotStatus) {
         case 'disconnected':
           return { label: 'Offline', color: '#999' };
-        
+
         case 'ready-to-start':
           return { label: 'Ready to Start', color: '#3b82f6' };
-        
+
         case 'starting':
           return { label: 'Starting', color: '#3b82f6', animated: true };
-        
+
         case 'sleeping':
           return { label: 'Sleeping', color: '#6b7280' };
-        
+
         case 'ready':
           // If motors on → Ready, if off → Standby
           if (isOn === true) {
@@ -197,66 +209,70 @@ export default function RobotViewer3D({
             return { label: 'Standby', color: '#6b7280' };
           }
           return { label: 'Connected', color: '#3b82f6' };
-        
+
         case 'busy':
           // Specific labels based on reason
           const busyLabels = {
-            'moving': { label: 'Moving', color: '#a855f7' },
-            'command': { label: 'Executing', color: '#a855f7' },
+            moving: { label: 'Moving', color: '#a855f7' },
+            command: { label: 'Executing', color: '#a855f7' },
             'app-running': { label: 'App Running', color: '#a855f7' },
-            'installing': { label: 'Installing', color: '#3b82f6' },
+            installing: { label: 'Installing', color: '#3b82f6' },
           };
           const busyInfo = busyLabels[busyReason] || { label: 'Busy', color: '#a855f7' };
           return { ...busyInfo, animated: true };
-        
+
         case 'stopping':
           return { label: 'Stopping', color: '#ef4444', animated: true };
-        
+
         case 'crashed':
           return { label: 'Crashed', color: '#ef4444' };
-        
+
         default:
           return { label: 'Unknown', color: '#999' };
       }
     }
-    
+
     // Legacy fallback (if robotStatus not provided)
     if (!isActive) {
       return { label: 'Offline', color: '#999' };
     }
-    
+
     if (isMoving) {
       return { label: 'Moving', color: '#a855f7', animated: true };
     }
-    
+
     if (isOn === true) {
       return { label: 'Ready', color: '#22c55e' };
     }
-    
+
     if (isOn === false) {
       return { label: 'Standby', color: '#6b7280' };
     }
-    
+
     return { label: 'Connected', color: '#3b82f6' };
   };
-  
+
   const status = getStatusTag();
 
   return (
-    <div style={{ 
-      width: '100%', 
-      height: '100%', 
-      background: effectiveBackgroundColor === 'transparent' ? 'transparent' : effectiveBackgroundColor,
-      backgroundColor: effectiveBackgroundColor === 'transparent' ? 'transparent' : effectiveBackgroundColor,
-      borderRadius: hideBorder ? '0' : '16px',
-      position: 'relative',
-      overflow: 'visible',
-    }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        background:
+          effectiveBackgroundColor === 'transparent' ? 'transparent' : effectiveBackgroundColor,
+        backgroundColor:
+          effectiveBackgroundColor === 'transparent' ? 'transparent' : effectiveBackgroundColor,
+        borderRadius: hideBorder ? '0' : '16px',
+        position: 'relative',
+        overflow: 'visible',
+      }}
+    >
       <Canvas
         camera={{ position: cameraConfig.position, fov: cameraConfig.fov }}
         dpr={[1, 2]} // ✅ OPTIMIZED: Limit to 2x pixel ratio (3x too heavy for most GPUs)
-        frameloop={hideEffects ? "demand" : "always"} // ✅ Stop rendering loop for small/hidden views
-        gl={{ 
+        frameloop={hideEffects ? 'demand' : 'always'} // ✅ Stop rendering loop for small/hidden views
+        gl={{
           antialias: true, // ✅ MSAA anti-aliasing enabled
           alpha: effectiveBackgroundColor === 'transparent',
           preserveDrawingBuffer: true,
@@ -276,51 +292,52 @@ export default function RobotViewer3D({
             gl.setClearColor(0x000000, 0);
           }
         }}
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          display: 'block', 
-          background: effectiveBackgroundColor === 'transparent' ? 'transparent' : effectiveBackgroundColor,
-                   border: hideBorder ? 'none' : darkMode 
-                     ? '1px solid rgba(255, 255, 255, 0.08)' 
-                     : '1px solid rgba(0, 0, 0, 0.08)',
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          background:
+            effectiveBackgroundColor === 'transparent' ? 'transparent' : effectiveBackgroundColor,
+          border: hideBorder
+            ? 'none'
+            : darkMode
+              ? '1px solid rgba(255, 255, 255, 0.08)'
+              : '1px solid rgba(0, 0, 0, 0.08)',
           borderRadius: hideBorder ? '0' : '16px',
           transform: `scale(${canvasScale}) translate(${canvasTranslateX}, ${canvasTranslateY})`,
           transformOrigin: 'center center',
         }}
       >
         {effectiveBackgroundColor !== 'transparent' && (
-                 <color attach="background" args={[effectiveBackgroundColor]} />
+          <color attach="background" args={[effectiveBackgroundColor]} />
         )}
-               <Scene 
-                headPose={finalHeadPose}
-                headJoints={finalHeadJoints} // ✅ Use joints directly
-                passiveJoints={finalPassiveJoints} // 🚀 GAME-CHANGING: Pass passiveJoints from unified WebSocket
-                yawBody={finalYawBody}
-                antennas={finalAntennas} 
-                isActive={isActive} 
-                isTransparent={isTransparent}
-                wireframe={wireframe} // ✅ Wireframe mode
-                forceLoad={forceLoad}
-                hideGrid={hideGrid}
-                showScanEffect={showScanEffect}
-                usePremiumScan={usePremiumScan}
-                onScanComplete={onScanComplete}
-                onScanMesh={onScanMesh}
-                onMeshesReady={onMeshesReady}
-                cameraConfig={cameraConfig}
-                useCinematicCamera={useCinematicCamera}
-              errorFocusMesh={errorFocusMesh}
-              hideEffects={hideEffects}
-                   darkMode={darkMode}
-                dataVersion={robotState.dataVersion} // ⚡ OPTIMIZED: Skip comparisons in URDFRobot
-            />
+        <Scene
+          headPose={finalHeadPose}
+          headJoints={finalHeadJoints} // ✅ Use joints directly
+          passiveJoints={finalPassiveJoints} // 🚀 GAME-CHANGING: Pass passiveJoints from unified WebSocket
+          yawBody={finalYawBody}
+          antennas={finalAntennas}
+          isActive={isActive}
+          isTransparent={isTransparent}
+          wireframe={wireframe} // ✅ Wireframe mode
+          forceLoad={forceLoad}
+          hideGrid={hideGrid}
+          showScanEffect={showScanEffect}
+          usePremiumScan={usePremiumScan}
+          onScanComplete={onScanComplete}
+          onScanMesh={onScanMesh}
+          onMeshesReady={onMeshesReady}
+          cameraConfig={cameraConfig}
+          useCinematicCamera={useCinematicCamera}
+          errorFocusMesh={errorFocusMesh}
+          hideEffects={hideEffects}
+          darkMode={darkMode}
+          dataVersion={robotState.dataVersion} // ⚡ OPTIMIZED: Skip comparisons in URDFRobot
+        />
       </Canvas>
-      
-      
+
       {/* Note: Camera Feed swap is now handled by ViewportSwapper component */}
-      
-      
+
       {/* Top Right Controls */}
       {!hideControls && (
         <Box
@@ -338,57 +355,64 @@ export default function RobotViewer3D({
           {/* Settings Button - Disabled when robot is busy/transitioning or during sleep transition */}
           <Tooltip
             title={
-              busyReason 
-                ? "Settings (unavailable while busy)" 
+              busyReason
+                ? 'Settings (unavailable while busy)'
                 : isWakeSleepTransitioning
-                  ? "Settings (wait for transition...)"
-                  : (robotStatus === 'sleeping' && !safeToShutdown)
-                    ? "Settings (wait for sleep transition...)"
-                    : "Settings"
+                  ? 'Settings (wait for transition...)'
+                  : robotStatus === 'sleeping' && !safeToShutdown
+                    ? 'Settings (wait for sleep transition...)'
+                    : 'Settings'
             }
             placement="top"
             arrow
           >
             <span>
-            <IconButton
-              onClick={() => setShowSettingsOverlay(true)}
-              size="small"
-                disabled={!!busyReason || isWakeSleepTransitioning || (robotStatus === 'sleeping' && !safeToShutdown)}
-              sx={{
-                width: 36,
-                height: 36,
-                transition: 'all 0.2s ease',
-                color: busyReason ? (darkMode ? '#666' : '#999') : '#FF9500',
-                bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              <IconButton
+                onClick={() => setShowSettingsOverlay(true)}
+                size="small"
+                disabled={
+                  !!busyReason ||
+                  isWakeSleepTransitioning ||
+                  (robotStatus === 'sleeping' && !safeToShutdown)
+                }
+                sx={{
+                  width: 36,
+                  height: 36,
+                  transition: 'all 0.2s ease',
+                  color: busyReason ? (darkMode ? '#666' : '#999') : '#FF9500',
+                  bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                   border: '1px solid',
-                borderColor: busyReason 
-                  ? (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)')
-                  : (darkMode ? 'rgba(255, 149, 0, 0.5)' : 'rgba(255, 149, 0, 0.4)'),
-                backdropFilter: 'blur(10px)',
-                boxShadow: darkMode 
-                  ? '0 2px 8px rgba(0, 0, 0, 0.3)' 
-                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
-                opacity: busyReason ? 0.4 : 1,
-                '&:hover': {
-                  bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
-                  borderColor: '#FF9500',
-                  transform: busyReason ? 'none' : 'scale(1.05)',
-                },
-                '&:active': {
-                  transform: busyReason ? 'none' : 'scale(0.95)',
+                  borderColor: busyReason
+                    ? darkMode
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(0, 0, 0, 0.1)'
+                    : darkMode
+                      ? 'rgba(255, 149, 0, 0.5)'
+                      : 'rgba(255, 149, 0, 0.4)',
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: darkMode
+                    ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                    : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                  opacity: busyReason ? 0.4 : 1,
+                  '&:hover': {
+                    bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
+                    borderColor: '#FF9500',
+                    transform: busyReason ? 'none' : 'scale(1.05)',
+                  },
+                  '&:active': {
+                    transform: busyReason ? 'none' : 'scale(0.95)',
                   },
                   '&.Mui-disabled': {
-                  bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)',
-                  color: darkMode ? '#666' : '#999',
-                  borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-                },
-              }}
-            >
-              <SettingsOutlinedIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+                    bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)',
+                    color: darkMode ? '#666' : '#999',
+                    borderColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                  },
+                }}
+              >
+                <SettingsOutlinedIcon sx={{ fontSize: 18 }} />
+              </IconButton>
             </span>
           </Tooltip>
-
 
           {/* View Mode Toggle - COMMENTED */}
           {/* <Tooltip
@@ -417,10 +441,9 @@ export default function RobotViewer3D({
               )}
             </IconButton>
           </Tooltip> */}
-
         </Box>
       )}
-      
+
       {/* FPS Meter - Above Status Tag (dev only) */}
       {!hideControls && import.meta.env.DEV && (
         <Box
@@ -434,7 +457,7 @@ export default function RobotViewer3D({
           <FPSMeter darkMode={darkMode} />
         </Box>
       )}
-      
+
       {/* Status Tag - Bottom Left (🤖 State Machine) */}
       {!hideControls && showStatusTag && (
         <Box
@@ -450,12 +473,19 @@ export default function RobotViewer3D({
             borderRadius: '10px',
             bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             border: `1.5px solid ${
-              status.color === '#22c55e' ? 'rgba(34, 197, 94, 0.3)' : 
-              status.color === '#6b7280' ? 'rgba(107, 114, 128, 0.3)' :
-              status.color === '#3b82f6' ? 'rgba(59, 130, 246, 0.3)' :
-              status.color === '#a855f7' ? 'rgba(168, 85, 247, 0.35)' :
-              status.color === '#ef4444' ? 'rgba(239, 68, 68, 0.4)' :
-              status.color === '#999' ? 'rgba(153, 153, 153, 0.25)' : 'rgba(0, 0, 0, 0.12)'
+              status.color === '#22c55e'
+                ? 'rgba(34, 197, 94, 0.3)'
+                : status.color === '#6b7280'
+                  ? 'rgba(107, 114, 128, 0.3)'
+                  : status.color === '#3b82f6'
+                    ? 'rgba(59, 130, 246, 0.3)'
+                    : status.color === '#a855f7'
+                      ? 'rgba(168, 85, 247, 0.35)'
+                      : status.color === '#ef4444'
+                        ? 'rgba(239, 68, 68, 0.4)'
+                        : status.color === '#999'
+                          ? 'rgba(153, 153, 153, 0.25)'
+                          : 'rgba(0, 0, 0, 0.12)'
             }`,
             backdropFilter: 'blur(10px)',
             transition: 'none',
@@ -463,9 +493,9 @@ export default function RobotViewer3D({
             zIndex: 10,
           }}
         >
-          <CircleIcon 
-            sx={{ 
-              fontSize: 7, 
+          <CircleIcon
+            sx={{
+              fontSize: 7,
               color: status.color,
               ...(status.animated && {
                 animation: 'pulse-dot 1.5s ease-in-out infinite',
@@ -480,7 +510,7 @@ export default function RobotViewer3D({
                   },
                 },
               }),
-            }} 
+            }}
           />
           <Typography
             sx={{
@@ -504,4 +534,3 @@ export default function RobotViewer3D({
     </div>
   );
 }
-

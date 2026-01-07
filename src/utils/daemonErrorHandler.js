@@ -3,10 +3,10 @@ import { logError } from './logging';
 
 /**
  * Centralized daemon error handler
- * 
+ *
  * Single source of truth for handling all daemon-related errors.
  * Ensures consistent error handling across the application.
- * 
+ *
  * @param {string} errorType - Type of error ('startup', 'crash', 'hardware', 'timeout')
  * @param {Error|string|Object} error - Error object, message, or data
  * @param {Object} context - Additional context (code, status, etc.)
@@ -16,12 +16,12 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   // Always get fresh store state
   const useAppStore = require('../store/useAppStore').default;
   const store = useAppStore.getState();
-  
+
   const { setHardwareError, transitionTo, setStartupError } = store;
-  
+
   let errorObject = null;
   let errorMessage = null;
-  
+
   // Extract error message
   if (typeof error === 'string') {
     errorMessage = error;
@@ -32,10 +32,10 @@ export const handleDaemonError = (errorType, error, context = {}) => {
   } else {
     errorMessage = 'Unknown error';
   }
-  
+
   // Try to find error config for hardware errors
   const errorConfig = findErrorConfig(errorMessage);
-  
+
   if (errorConfig) {
     // Use centralized error config
     errorObject = createErrorFromConfig(errorConfig, errorMessage);
@@ -56,7 +56,7 @@ export const handleDaemonError = (errorType, error, context = {}) => {
           cameraPreset: 'scan',
         };
         break;
-        
+
       case 'crash':
         errorObject = {
           type: 'daemon_crash',
@@ -70,11 +70,13 @@ export const handleDaemonError = (errorType, error, context = {}) => {
           cameraPreset: 'scan',
         };
         break;
-        
+
       case 'timeout':
         errorObject = {
           type: 'daemon_timeout',
-          message: errorMessage || 'Daemon did not become active within 30 seconds. Please check the robot connection.',
+          message:
+            errorMessage ||
+            'Daemon did not become active within 30 seconds. Please check the robot connection.',
           messageParts: {
             text: 'Daemon did not become active within',
             bold: '30 seconds',
@@ -84,7 +86,7 @@ export const handleDaemonError = (errorType, error, context = {}) => {
           cameraPreset: 'scan',
         };
         break;
-        
+
       case 'hardware':
         // Generic hardware error (no specific config found)
         errorObject = {
@@ -95,7 +97,7 @@ export const handleDaemonError = (errorType, error, context = {}) => {
           cameraPreset: 'scan',
         };
         break;
-        
+
       default:
         errorObject = {
           type: 'daemon_error',
@@ -106,18 +108,18 @@ export const handleDaemonError = (errorType, error, context = {}) => {
         };
     }
   }
-  
+
   // Set error in store
   setHardwareError(errorObject);
   setStartupError(errorMessage);
-  
+
   // ✅ CRITICAL: Ensure robotStatus is 'starting' to keep scan view active
   transitionTo.starting();
-  
+
   // Log to frontend logs using standardized logger
   const logMessage = `Daemon ${errorType} error: ${errorMessage}`;
   logError(logMessage);
-  
+
   return errorObject;
 };
 
@@ -137,4 +139,3 @@ export const createDaemonError = (type, message, options = {}) => {
     cameraPreset: options.cameraPreset || 'scan',
   };
 };
-

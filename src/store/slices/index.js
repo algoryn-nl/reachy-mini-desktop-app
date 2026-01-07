@@ -1,6 +1,6 @@
 /**
  * Store Slices - Modular state management
- * 
+ *
  * Each slice handles a specific domain:
  * - robotSlice: Robot connection, status, state machine
  * - logsSlice: Daemon, frontend, and app logs
@@ -24,4 +24,3 @@ export {
   selectIsBusy,
   selectIsReady,
 } from './robotSlice';
-

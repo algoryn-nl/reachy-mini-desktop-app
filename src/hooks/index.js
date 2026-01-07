@@ -1,7 +1,7 @@
 /**
  * Main barrel export for global hooks
  * Hooks specific to components/views are now located near their usage
- * 
+ *
  * Global hooks (used across multiple areas):
  * - useConnection: 🔌 Unified connection interface (USB/WiFi/Simulation)
  * - daemon: App lifecycle management
@@ -20,4 +20,3 @@ export { useRobotCommands, useRobotState } from './robot';
 
 // System (global utilities)
 export { useLogs, useUpdater, useUsbDetection, useWindowResize } from './system';
-

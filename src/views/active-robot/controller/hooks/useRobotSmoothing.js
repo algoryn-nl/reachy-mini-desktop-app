@@ -10,7 +10,7 @@ const UI_UPDATE_INTERVAL_MS = 1000 / 15; // ~66ms = 15fps for UI
 /**
  * Hook for managing robot position smoothing
  * Handles the continuous smoothing loop that applies to ALL input sources
- * 
+ *
  * 🚀 ARCHITECTURE:
  * - Smoothing loop runs at 60fps for smooth interpolation
  * - Calls sendCommand every frame with latest smoothed values
@@ -36,30 +36,33 @@ export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLo
       // Update smoothed values towards targets
       const currentSmoothed = targetSmoothingRef.current.update();
       const targetValues = targetSmoothingRef.current.getTargetValues();
-      
+
       // Check if ghost has reached destination (game-like pattern: keep sending until caught up)
       // Calculate difference between current smoothed values and targets
-      const headPoseDiff = Math.abs(currentSmoothed.headPose.x - targetValues.headPose.x) +
-                          Math.abs(currentSmoothed.headPose.y - targetValues.headPose.y) +
-                          Math.abs(currentSmoothed.headPose.z - targetValues.headPose.z) +
-                          Math.abs(currentSmoothed.headPose.pitch - targetValues.headPose.pitch) +
-                          Math.abs(currentSmoothed.headPose.yaw - targetValues.headPose.yaw) +
-                          Math.abs(currentSmoothed.headPose.roll - targetValues.headPose.roll);
+      const headPoseDiff =
+        Math.abs(currentSmoothed.headPose.x - targetValues.headPose.x) +
+        Math.abs(currentSmoothed.headPose.y - targetValues.headPose.y) +
+        Math.abs(currentSmoothed.headPose.z - targetValues.headPose.z) +
+        Math.abs(currentSmoothed.headPose.pitch - targetValues.headPose.pitch) +
+        Math.abs(currentSmoothed.headPose.yaw - targetValues.headPose.yaw) +
+        Math.abs(currentSmoothed.headPose.roll - targetValues.headPose.roll);
       const bodyYawDiff = Math.abs(currentSmoothed.bodyYaw - targetValues.bodyYaw);
-      const antennasDiff = Math.abs(currentSmoothed.antennas[0] - targetValues.antennas[0]) +
-                          Math.abs(currentSmoothed.antennas[1] - targetValues.antennas[1]);
-      
+      const antennasDiff =
+        Math.abs(currentSmoothed.antennas[0] - targetValues.antennas[0]) +
+        Math.abs(currentSmoothed.antennas[1] - targetValues.antennas[1]);
+
       // Tolerance for considering ghost has reached target (larger to avoid micro-updates)
       const TOLERANCE = 0.01;
-      const hasReachedTarget = headPoseDiff < TOLERANCE && bodyYawDiff < TOLERANCE && antennasDiff < TOLERANCE;
-      
+      const hasReachedTarget =
+        headPoseDiff < TOLERANCE && bodyYawDiff < TOLERANCE && antennasDiff < TOLERANCE;
+
       // Send smoothed values to robot if:
       // 1. We're actively dragging (mouse or gamepad), OR
       // 2. Ghost hasn't reached target yet (game-like continuous update pattern)
       // This ensures smooth movement continues until ghost catches up
       // IMPORTANT: Always send when dragging, and continue sending until ghost catches up
       const shouldSend = isDraggingRef.current || !hasReachedTarget;
-      
+
       if (shouldSend) {
         // Clamp to actual robot limits before sending
         // Use centralized mappings to transform robot coordinates to API coordinates
@@ -75,7 +78,11 @@ export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLo
             ROBOT_POSITION_RANGES.POSITION.min,
             ROBOT_POSITION_RANGES.POSITION.max
           ),
-          z: clamp(currentSmoothed.headPose.z, ROBOT_POSITION_RANGES.POSITION.min, ROBOT_POSITION_RANGES.POSITION.max),
+          z: clamp(
+            currentSmoothed.headPose.z,
+            ROBOT_POSITION_RANGES.POSITION.min,
+            ROBOT_POSITION_RANGES.POSITION.max
+          ),
           pitch: clamp(
             mapRobotToAPI(currentSmoothed.headPose.pitch, 'pitch'),
             ROBOT_POSITION_RANGES.PITCH.min,
@@ -92,27 +99,27 @@ export function useRobotSmoothing(isActive, isDraggingRef, sendCommandRef, setLo
             ROBOT_POSITION_RANGES.ROLL.max
           ),
         };
-        
+
         sendCommandRef.current(
           apiClampedHeadPose,
           currentSmoothed.antennas,
           currentSmoothed.bodyYaw
         );
       }
-      
+
       // ⚡ PERF: Throttle UI state updates to 15fps
       // Robot commands are throttled by sendCommand (50ms)
       // Only React re-renders are limited here
       const now = performance.now();
       if (now - lastUIUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
         lastUIUpdateRef.current = now;
-      setSmoothedValues({
-        headPose: { ...currentSmoothed.headPose },
-        bodyYaw: currentSmoothed.bodyYaw,
-        antennas: [...currentSmoothed.antennas],
-      });
+        setSmoothedValues({
+          headPose: { ...currentSmoothed.headPose },
+          bodyYaw: currentSmoothed.bodyYaw,
+          antennas: [...currentSmoothed.antennas],
+        });
       }
-      
+
       smoothingRafRef.current = requestAnimationFrame(smoothingLoop);
     };
 

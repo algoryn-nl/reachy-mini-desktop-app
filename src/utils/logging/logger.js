@@ -29,7 +29,7 @@ const addLog = (message, level = LOG_LEVELS.INFO) => {
     logsStore.addFrontendLog(message, level);
     return;
   }
-  
+
   // Fallback: try async window detection (for secondary windows or if store not available)
   // We don't await this to keep functions synchronous
   (async () => {
@@ -48,14 +48,14 @@ const addLog = (message, level = LOG_LEVELS.INFO) => {
 
 /**
  * Static logging functions for use outside React components
- * 
+ *
  * These functions can be used in utility files, event handlers, etc.
  * where React hooks are not available.
- * 
+ *
  * @example
  * ```javascript
  * import { logSuccess, logError } from '@/utils/logging';
- * 
+ *
  * async function fetchData() {
  *   try {
  *     const data = await fetch('/api/data');
@@ -80,7 +80,6 @@ export const logInfo = (message, context = {}) => {
  */
 export const logSuccess = (message, context = {}) => {
   if (process.env.NODE_ENV === 'development') {
-    
   }
   addLog(message, LOG_LEVELS.SUCCESS);
 };
@@ -103,9 +102,7 @@ export const logError = (message, context = {}) => {
  * Log an API call
  */
 export const logApiCall = (method, endpoint, success, details = '') => {
-  const message = details 
-    ? `${method} ${endpoint}: ${details}`
-    : `${method} ${endpoint}`;
+  const message = details ? `${method} ${endpoint}: ${details}` : `${method} ${endpoint}`;
   addLog(message, success ? LOG_LEVELS.SUCCESS : LOG_LEVELS.ERROR);
 };
 
@@ -131,23 +128,20 @@ export const logApp = (appName, message, level = LOG_LEVELS.INFO) => {
  * Log a user action
  */
 export const logUserAction = (action, details = '') => {
-  const message = details 
-    ? `${action}: ${details}`
-    : action;
+  const message = details ? `${action}: ${details}` : action;
   addLog(message, LOG_LEVELS.INFO);
 };
 
 /**
  * Log a permission-related message
  */
-export const logPermission = (message) => {
+export const logPermission = message => {
   addLog(message, LOG_LEVELS.WARNING);
 };
 
 /**
  * Log a timeout message
  */
-export const logTimeout = (message) => {
+export const logTimeout = message => {
   addLog(message, LOG_LEVELS.WARNING);
 };
-

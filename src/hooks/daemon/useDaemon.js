@@ -3,7 +3,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../../store/useAppStore';
 import { useLogger } from '../../utils/logging';
-import { DAEMON_CONFIG, fetchWithTimeout, fetchWithTimeoutSkipInstall, buildApiUrl } from '../../config/daemon';
+import {
+  DAEMON_CONFIG,
+  fetchWithTimeout,
+  fetchWithTimeoutSkipInstall,
+  buildApiUrl,
+} from '../../config/daemon';
 import { isSimulationMode, disableSimulationMode } from '../../utils/simulationMode';
 import { findErrorConfig, createErrorFromConfig } from '../../utils/hardwareErrors';
 import { useDaemonEventBus } from './useDaemonEventBus';
@@ -11,7 +16,7 @@ import { handleDaemonError } from '../../utils/daemonErrorHandler';
 
 export const useDaemon = () => {
   const logger = useLogger();
-  const { 
+  const {
     robotStatus,
     startupError,
     // Note: connectionMode is read via getState() inside callbacks for fresh value
@@ -23,55 +28,60 @@ export const useDaemon = () => {
     clearStartupTimeout,
     resetAll,
   } = useAppStore();
-  
+
   // Derived from robotStatus (state machine)
   // Include 'sleeping' in isActive so window resizes on connection (not just on wake)
   const isActive = robotStatus === 'sleeping' || robotStatus === 'ready' || robotStatus === 'busy';
   const isStarting = robotStatus === 'starting';
   const isStopping = robotStatus === 'stopping';
-  
+
   const eventBus = useDaemonEventBus();
-  
+
   // Register event handlers (centralized error handling)
   useEffect(() => {
-    const unsubStartSuccess = eventBus.on('daemon:start:success', (data) => {
+    const unsubStartSuccess = eventBus.on('daemon:start:success', data => {
       if (data?.simMode) {
         logger.info('Daemon started in simulation mode (mockup-sim)');
       }
     });
-    
-    const unsubStartError = eventBus.on('daemon:start:error', (error) => {
+
+    const unsubStartError = eventBus.on('daemon:start:error', error => {
       handleDaemonError('startup', error);
       clearStartupTimeout();
     });
-    
+
     const unsubStartTimeout = eventBus.on('daemon:start:timeout', () => {
       const currentState = useAppStore.getState();
       if (!currentState.isActive && currentState.isStarting) {
         handleDaemonError('timeout', {
-          message: 'Daemon did not become active within 30 seconds. Please check the robot connection.'
+          message:
+            'Daemon did not become active within 30 seconds. Please check the robot connection.',
         });
       }
     });
-    
-    const unsubCrash = eventBus.on('daemon:crash', (data) => {
+
+    const unsubCrash = eventBus.on('daemon:crash', data => {
       const currentState = useAppStore.getState();
       if (currentState.isStarting) {
-        handleDaemonError('crash', {
-          message: `Daemon process terminated unexpectedly (status: ${data.status})`
-        }, { status: data.status });
+        handleDaemonError(
+          'crash',
+          {
+            message: `Daemon process terminated unexpectedly (status: ${data.status})`,
+          },
+          { status: data.status }
+        );
         clearStartupTimeout();
       }
     });
-    
-    const unsubHardwareError = eventBus.on('daemon:hardware:error', (data) => {
+
+    const unsubHardwareError = eventBus.on('daemon:hardware:error', data => {
       const currentState = useAppStore.getState();
       const shouldProcess = currentState.isStarting || currentState.hardwareError;
-      
+
       if (!shouldProcess) {
         return;
       }
-      
+
       if (data.errorConfig) {
         const errorObject = createErrorFromConfig(data.errorConfig, data.errorLine);
         setHardwareError(errorObject);
@@ -83,7 +93,7 @@ export const useDaemon = () => {
         }
       }
     });
-    
+
     return () => {
       unsubStartSuccess();
       unsubStartError();
@@ -115,27 +125,28 @@ export const useDaemon = () => {
   // Listen to sidecar termination events to detect immediate crashes
   useEffect(() => {
     let unlistenTerminated;
-    
+
     const setupTerminationListener = async () => {
       try {
-        unlistenTerminated = await listen('sidecar-terminated', (event) => {
+        unlistenTerminated = await listen('sidecar-terminated', event => {
           if (!isStarting) {
             return;
           }
-          
-          const status = typeof event.payload === 'string' 
-            ? event.payload 
-            : event.payload?.toString() || 'unknown';
-          
+
+          const status =
+            typeof event.payload === 'string'
+              ? event.payload
+              : event.payload?.toString() || 'unknown';
+
           eventBus.emit('daemon:crash', { status });
         });
       } catch (error) {
         console.error('[Daemon] Failed to setup termination listener:', error);
       }
     };
-    
+
     setupTerminationListener();
-    
+
     return () => {
       if (unlistenTerminated) {
         unlistenTerminated();
@@ -146,30 +157,29 @@ export const useDaemon = () => {
   // Listen to sidecar stderr events to detect hardware errors
   useEffect(() => {
     let unlistenStderr;
-    
+
     const setupStderrListener = async () => {
       try {
-        unlistenStderr = await listen('sidecar-stderr', (event) => {
+        unlistenStderr = await listen('sidecar-stderr', event => {
           const currentState = useAppStore.getState();
           const shouldProcess = isStarting || currentState.hardwareError;
-          
+
           if (!shouldProcess) {
             return;
           }
-          
-          const errorLine = typeof event.payload === 'string' 
-            ? event.payload 
-            : event.payload?.toString() || '';
-          
+
+          const errorLine =
+            typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
+
           const errorConfig = findErrorConfig(errorLine);
-          
+
           if (errorConfig) {
             eventBus.emit('daemon:hardware:error', { errorConfig, errorLine });
           } else if (errorLine.includes('RuntimeError')) {
-            eventBus.emit('daemon:hardware:error', { 
-              errorConfig: null, 
+            eventBus.emit('daemon:hardware:error', {
+              errorConfig: null,
               errorLine,
-              isGeneric: true 
+              isGeneric: true,
             });
           }
         });
@@ -177,9 +187,9 @@ export const useDaemon = () => {
         console.error('[Daemon] Failed to setup stderr listener:', error);
       }
     };
-    
+
     setupStderrListener();
-    
+
     return () => {
       if (unlistenStderr) {
         unlistenStderr();
@@ -191,45 +201,45 @@ export const useDaemon = () => {
   useEffect(() => {
     let unlistenStdout;
     let lastActivityReset = 0;
-    
+
     const setupStdoutListener = async () => {
       try {
         unlistenStdout = await listen('sidecar-stdout', () => {
           const currentState = useAppStore.getState();
-          
+
           if (!currentState.isStarting || currentState.isActive) {
             return;
           }
-          
+
           const now = Date.now();
           if (now - lastActivityReset < DAEMON_CONFIG.STARTUP.ACTIVITY_RESET_DELAY) {
             return;
           }
           lastActivityReset = now;
-          
+
           clearStartupTimeout();
-          
+
           const simMode = isSimulationMode();
-          const startupTimeout = simMode 
-            ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION 
+          const startupTimeout = simMode
+            ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION
             : DAEMON_CONFIG.STARTUP.TIMEOUT_NORMAL;
-          
+
           const newTimeoutId = setTimeout(() => {
             const state = useAppStore.getState();
             if (!state.isActive && state.isStarting) {
               eventBus.emit('daemon:start:timeout');
             }
           }, startupTimeout);
-          
+
           setStartupTimeout(newTimeoutId);
         });
       } catch (error) {
         console.error('[Daemon] Failed to setup stdout listener:', error);
       }
     };
-    
+
     setupStdoutListener();
-    
+
     return () => {
       if (unlistenStdout) {
         unlistenStdout();
@@ -239,13 +249,15 @@ export const useDaemon = () => {
 
   const startDaemon = useCallback(async () => {
     const currentConnectionMode = useAppStore.getState().connectionMode;
-    
+
     // WiFi mode: daemon is remote, initialize it if needed
     if (currentConnectionMode === 'wifi') {
       eventBus.emit('daemon:start:attempt');
-      
-      await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SPINNER_RENDER_DELAY));
-      
+
+      await new Promise(resolve =>
+        setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SPINNER_RENDER_DELAY)
+      );
+
       try {
         const statusResponse = await fetchWithTimeout(
           buildApiUrl(DAEMON_CONFIG.ENDPOINTS.DAEMON_STATUS),
@@ -253,15 +265,20 @@ export const useDaemon = () => {
           DAEMON_CONFIG.TIMEOUTS.STARTUP_CHECK,
           { label: 'WiFi daemon status check' }
         );
-        
+
         if (!statusResponse.ok) {
           throw new Error(`Daemon status check failed: ${statusResponse.status}`);
         }
-        
+
         const statusData = await statusResponse.json();
-        
+
         // Start daemon WITHOUT wake_up - robot stays sleeping
-        if (statusData.state === 'not_initialized' || statusData.state === 'starting' || statusData.state === 'stopped' || statusData.state === 'stopping') {
+        if (
+          statusData.state === 'not_initialized' ||
+          statusData.state === 'starting' ||
+          statusData.state === 'stopped' ||
+          statusData.state === 'stopping'
+        ) {
           try {
             await fetchWithTimeout(
               buildApiUrl('/api/daemon/start?wake_up=false'),
@@ -273,9 +290,8 @@ export const useDaemon = () => {
             // Request sent, response may be delayed
           }
         }
-        
+
         eventBus.emit('daemon:start:success', { existing: true, wifi: true });
-        
       } catch (e) {
         console.error('[Daemon] WiFi connection failed:', e.message);
         resetAll();
@@ -283,12 +299,14 @@ export const useDaemon = () => {
       }
       return;
     }
-    
+
     // USB/Simulation mode
     eventBus.emit('daemon:start:attempt');
-    
-    await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SPINNER_RENDER_DELAY));
-    
+
+    await new Promise(resolve =>
+      setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.SPINNER_RENDER_DELAY)
+    );
+
     try {
       // Check if daemon already running
       try {
@@ -309,18 +327,22 @@ export const useDaemon = () => {
 
       const simMode = isSimulationMode();
 
-      invoke('start_daemon', { simMode: simMode }).then(() => {
-        eventBus.emit('daemon:start:success', { existing: false, simMode });
-      }).catch((e) => {
-        eventBus.emit('daemon:start:error', e);
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY));
-      
-      const startupTimeout = simMode 
-        ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION 
+      invoke('start_daemon', { simMode: simMode })
+        .then(() => {
+          eventBus.emit('daemon:start:success', { existing: false, simMode });
+        })
+        .catch(e => {
+          eventBus.emit('daemon:start:error', e);
+        });
+
+      await new Promise(resolve =>
+        setTimeout(resolve, DAEMON_CONFIG.ANIMATIONS.BUTTON_SPINNER_DELAY)
+      );
+
+      const startupTimeout = simMode
+        ? DAEMON_CONFIG.STARTUP.TIMEOUT_SIMULATION
         : DAEMON_CONFIG.STARTUP.TIMEOUT_NORMAL;
-      
+
       const timeoutId = setTimeout(() => {
         const currentState = useAppStore.getState();
         if (!currentState.isActive && currentState.isStarting) {
@@ -328,7 +350,6 @@ export const useDaemon = () => {
         }
       }, startupTimeout);
       setStartupTimeout(timeoutId);
-      
     } catch (e) {
       eventBus.emit('daemon:start:error', e);
     }
@@ -337,11 +358,11 @@ export const useDaemon = () => {
   const stopDaemon = useCallback(async () => {
     const currentConnectionMode = useAppStore.getState().connectionMode;
     const currentIsAppRunning = useAppStore.getState().isAppRunning;
-    
+
     transitionTo.stopping();
     clearStartupTimeout();
     disableSimulationMode();
-    
+
     // Stop any running app first
     if (currentIsAppRunning) {
       try {
@@ -355,10 +376,10 @@ export const useDaemon = () => {
         // Continue with shutdown
       }
     }
-    
+
     // Wait for any daemon goto_target to complete
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     // WiFi mode: stop daemon then disconnect
     if (currentConnectionMode === 'wifi') {
       try {
@@ -371,13 +392,13 @@ export const useDaemon = () => {
       } catch (e) {
         // Continue with reset
       }
-      
+
       setTimeout(() => {
         resetAll();
       }, DAEMON_CONFIG.ANIMATIONS.STOP_DAEMON_DELAY);
       return;
     }
-    
+
     // USB/Simulation mode
     try {
       try {
@@ -390,9 +411,9 @@ export const useDaemon = () => {
       } catch (e) {
         // Continue with kill
       }
-      
+
       await invoke('stop_daemon');
-      
+
       setTimeout(() => {
         resetAll();
       }, DAEMON_CONFIG.ANIMATIONS.STOP_DAEMON_DELAY);

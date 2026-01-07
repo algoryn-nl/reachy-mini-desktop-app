@@ -25,7 +25,7 @@ export default function Header({ darkMode }) {
               mb: 2,
             }}
           />
-          
+
           <Box sx={{ flex: 1 }}>
             <Typography
               sx={{
@@ -61,9 +61,25 @@ export default function Header({ darkMode }) {
                 mb: 1.5,
               }}
             >
-              Install apps created by the <Box component="span" sx={{ fontWeight: 700 }}>community</Box>. Each app adds new <Box component="span" sx={{ fontWeight: 700 }}>behaviors, interactions, or features</Box> to your robot—from <Box component="span" sx={{ fontWeight: 700 }}>games and demos</Box> to advanced <Box component="span" sx={{ fontWeight: 700 }}>AI-powered applications</Box>.
+              Install apps created by the{' '}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                community
+              </Box>
+              . Each app adds new{' '}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                behaviors, interactions, or features
+              </Box>{' '}
+              to your robot—from{' '}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                games and demos
+              </Box>{' '}
+              to advanced{' '}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                AI-powered applications
+              </Box>
+              .
             </Typography>
-            
+
             {/* Powered by - Subtle inline */}
             <Typography
               component="div"

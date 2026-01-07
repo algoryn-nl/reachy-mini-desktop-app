@@ -33,7 +33,7 @@ function AudioControls({
   // Fetch DoA when microphone is active
   const isMicActive = microphoneVolume > 0 && !disabled;
   const { angle, isTalking, isAvailable } = useDoA(isMicActive);
-  
+
   // Get real audio level from robot's microphone via WebRTC
   const { audioTrack } = useWebRTCStreamContext();
   const { level: microphoneLevel } = useAudioAnalyser(isMicActive ? audioTrack : null);
@@ -93,16 +93,49 @@ function AudioControls({
     letterSpacing: '0.02em',
   };
 
-  const renderControl = (label, tooltip, device, platform, volume, isActive, onMute, onVolumeChange, extraIndicator = null, externalAudioLevel = null) => (
-    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, opacity: disabled ? 0.5 : 1, transition: 'opacity 0.2s ease' }}>
+  const renderControl = (
+    label,
+    tooltip,
+    device,
+    platform,
+    volume,
+    isActive,
+    onMute,
+    onVolumeChange,
+    extraIndicator = null,
+    externalAudioLevel = null
+  ) => (
+    <Box
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.75,
+        opacity: disabled ? 0.5 : 1,
+        transition: 'opacity 0.2s ease',
+      }}
+    >
       {/* Label row with optional indicator on the right */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 600, color: darkMode ? '#888' : '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <Typography
+            sx={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: darkMode ? '#888' : '#999',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
             {label}
           </Typography>
           <Tooltip title={tooltip} arrow placement="top">
-            <InfoOutlinedIcon sx={{ fontSize: 12, color: darkMode ? '#666' : '#999', opacity: 0.6, cursor: 'help' }} />
+            <InfoOutlinedIcon
+              sx={{ fontSize: 12, color: darkMode ? '#666' : '#999', opacity: 0.6, cursor: 'help' }}
+            />
           </Tooltip>
         </Box>
         {/* Extra indicator (DoA) on the right of label */}
@@ -112,9 +145,28 @@ function AudioControls({
       {/* Card */}
       <Box sx={{ ...cardStyle, width: '100%', boxSizing: 'border-box' }}>
         {/* Controls row */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, p: 1.5, pb: 0, minWidth: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            p: 1.5,
+            pb: 0,
+            minWidth: 0,
+          }}
+        >
           {/* Device info */}
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25, overflow: 'hidden' }}>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.25,
+              overflow: 'hidden',
+            }}
+          >
             <Typography sx={deviceTextStyle}>{device}</Typography>
             {platform && <Typography sx={platformTextStyle}>{platform}</Typography>}
           </Box>
@@ -130,31 +182,63 @@ function AudioControls({
                 height: 20,
                 padding: 0,
                 flexShrink: 0,
-                color: isActive ? (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)') : (darkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'),
+                color: isActive
+                  ? darkMode
+                    ? 'rgba(255, 255, 255, 0.6)'
+                    : 'rgba(0, 0, 0, 0.6)'
+                  : darkMode
+                    ? 'rgba(255, 255, 255, 0.3)'
+                    : 'rgba(0, 0, 0, 0.3)',
                 '&:hover': {
-                  color: isActive ? '#FF9500' : (darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'),
+                  color: isActive
+                    ? '#FF9500'
+                    : darkMode
+                      ? 'rgba(255, 255, 255, 0.5)'
+                      : 'rgba(0, 0, 0, 0.5)',
                   bgcolor: 'transparent',
                 },
               }}
             >
               {isActive ? (
-                label === 'Speaker' ? <VolumeUpIcon sx={{ fontSize: 14 }} /> : <MicIcon sx={{ fontSize: 14 }} />
+                label === 'Speaker' ? (
+                  <VolumeUpIcon sx={{ fontSize: 14 }} />
+                ) : (
+                  <MicIcon sx={{ fontSize: 14 }} />
+                )
+              ) : label === 'Speaker' ? (
+                <VolumeOffIcon sx={{ fontSize: 14 }} />
               ) : (
-                label === 'Speaker' ? <VolumeOffIcon sx={{ fontSize: 14 }} /> : <MicOffIcon sx={{ fontSize: 14 }} />
+                <MicOffIcon sx={{ fontSize: 14 }} />
               )}
             </IconButton>
-            <Box sx={{ width: 60, height: 24, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <Slider value={volume} onChange={(e, val) => onVolumeChange(val)} disabled={disabled} size="small" sx={sliderStyle} />
+            <Box
+              sx={{ width: 60, height: 24, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+            >
+              <Slider
+                value={volume}
+                onChange={(e, val) => onVolumeChange(val)}
+                disabled={disabled}
+                size="small"
+                sx={sliderStyle}
+              />
             </Box>
           </Box>
         </Box>
 
         {/* Visualizer - only show if we have real audio data */}
         {externalAudioLevel !== null && (
-          <Box sx={{ width: '100%', height: '28px', flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box' }}>
-            <AudioLevelBars 
-              isActive={isActive} 
-              color={darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)'} 
+          <Box
+            sx={{
+              width: '100%',
+              height: '28px',
+              flexShrink: 0,
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+            }}
+          >
+            <AudioLevelBars
+              isActive={isActive}
+              color={darkMode ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)'}
               barCount={8}
               externalLevel={externalAudioLevel}
             />
@@ -165,7 +249,17 @@ function AudioControls({
   );
 
   return (
-    <Box sx={{ width: '100%', mb: 1.5, display: 'flex', gap: 1.5, alignItems: 'stretch', minWidth: 0, boxSizing: 'border-box' }}>
+    <Box
+      sx={{
+        width: '100%',
+        mb: 1.5,
+        display: 'flex',
+        gap: 1.5,
+        alignItems: 'stretch',
+        minWidth: 0,
+        boxSizing: 'border-box',
+      }}
+    >
       {renderControl(
         'Speaker',
         "Adjust the robot's audio output volume",
@@ -184,8 +278,13 @@ function AudioControls({
         microphoneVolume,
         microphoneVolume > 0,
         onMicrophoneMute,
-        onMicrophoneVolumeChange || ((val) => onMicrophoneChange(val > 0)),
-        <DoAIndicator angle={angle} isTalking={isTalking} isAvailable={isAvailable} darkMode={darkMode} />,
+        onMicrophoneVolumeChange || (val => onMicrophoneChange(val > 0)),
+        <DoAIndicator
+          angle={angle}
+          isTalking={isTalking}
+          isAvailable={isAvailable}
+          darkMode={darkMode}
+        />,
         microphoneLevel // Real audio level from robot's microphone
       )}
     </Box>
@@ -193,4 +292,3 @@ function AudioControls({
 }
 
 export default React.memo(AudioControls);
-

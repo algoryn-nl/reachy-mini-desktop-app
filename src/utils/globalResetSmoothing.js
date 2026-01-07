@@ -13,7 +13,7 @@ import { mapRobotToAPI } from '@utils/inputMappings';
 let globalSmoothingManager = null;
 let globalResetRafRef = null;
 let globalSendCommandRef = null;
-let globalIsActiveRef = { current: false };
+const globalIsActiveRef = { current: false };
 
 /**
  * Initialize global reset smoothing system
@@ -79,18 +79,21 @@ export function startSmoothReset(currentValues) {
     const targetValues = globalSmoothingManager.getTargetValues();
 
     // Check if we've reached zero
-    const headPoseDiff = Math.abs(currentSmoothed.headPose.x - targetValues.headPose.x) +
-                        Math.abs(currentSmoothed.headPose.y - targetValues.headPose.y) +
-                        Math.abs(currentSmoothed.headPose.z - targetValues.headPose.z) +
-                        Math.abs(currentSmoothed.headPose.pitch - targetValues.headPose.pitch) +
-                        Math.abs(currentSmoothed.headPose.yaw - targetValues.headPose.yaw) +
-                        Math.abs(currentSmoothed.headPose.roll - targetValues.headPose.roll);
+    const headPoseDiff =
+      Math.abs(currentSmoothed.headPose.x - targetValues.headPose.x) +
+      Math.abs(currentSmoothed.headPose.y - targetValues.headPose.y) +
+      Math.abs(currentSmoothed.headPose.z - targetValues.headPose.z) +
+      Math.abs(currentSmoothed.headPose.pitch - targetValues.headPose.pitch) +
+      Math.abs(currentSmoothed.headPose.yaw - targetValues.headPose.yaw) +
+      Math.abs(currentSmoothed.headPose.roll - targetValues.headPose.roll);
     const bodyYawDiff = Math.abs(currentSmoothed.bodyYaw - targetValues.bodyYaw);
-    const antennasDiff = Math.abs(currentSmoothed.antennas[0] - targetValues.antennas[0]) +
-                        Math.abs(currentSmoothed.antennas[1] - targetValues.antennas[1]);
+    const antennasDiff =
+      Math.abs(currentSmoothed.antennas[0] - targetValues.antennas[0]) +
+      Math.abs(currentSmoothed.antennas[1] - targetValues.antennas[1]);
 
     const TOLERANCE = 0.01;
-    const hasReachedTarget = headPoseDiff < TOLERANCE && bodyYawDiff < TOLERANCE && antennasDiff < TOLERANCE;
+    const hasReachedTarget =
+      headPoseDiff < TOLERANCE && bodyYawDiff < TOLERANCE && antennasDiff < TOLERANCE;
 
     // Send smoothed values to robot
     if (!hasReachedTarget && globalSendCommandRef) {
@@ -106,7 +109,11 @@ export function startSmoothReset(currentValues) {
           ROBOT_POSITION_RANGES.POSITION.min,
           ROBOT_POSITION_RANGES.POSITION.max
         ),
-        z: clamp(currentSmoothed.headPose.z, ROBOT_POSITION_RANGES.POSITION.min, ROBOT_POSITION_RANGES.POSITION.max),
+        z: clamp(
+          currentSmoothed.headPose.z,
+          ROBOT_POSITION_RANGES.POSITION.min,
+          ROBOT_POSITION_RANGES.POSITION.max
+        ),
         pitch: clamp(
           mapRobotToAPI(currentSmoothed.headPose.pitch, 'pitch'),
           ROBOT_POSITION_RANGES.PITCH.min,
@@ -124,11 +131,7 @@ export function startSmoothReset(currentValues) {
         ),
       };
 
-      globalSendCommandRef(
-        apiClampedHeadPose,
-        currentSmoothed.antennas,
-        currentSmoothed.bodyYaw
-      );
+      globalSendCommandRef(apiClampedHeadPose, currentSmoothed.antennas, currentSmoothed.bodyYaw);
     }
 
     // Continue loop if not reached target
@@ -162,4 +165,3 @@ export function getCurrentSmoothedValues() {
   }
   return globalSmoothingManager.getCurrentValues();
 }
-

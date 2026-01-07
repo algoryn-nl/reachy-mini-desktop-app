@@ -5,14 +5,14 @@ import useAppStore from '../store/useAppStore';
 
 /**
  * Production-ready Window Manager for Tauri v2
- * 
+ *
  * Features:
  * - Centralized window lifecycle management
  * - Automatic cleanup and state synchronization
  * - Robust error handling with retry logic
  * - Window state validation
  * - Event-driven architecture
- * 
+ *
  * NOTE: Controller and Expressions are now displayed in the right panel instead of separate windows.
  * This code is kept for potential future use or if window-based display is needed again.
  * Currently, no secondary windows are configured.
@@ -70,7 +70,7 @@ async function closeWindowInternal(windowLabel, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const window = await getWindowReference(windowLabel);
-      
+
       if (!window) {
         // Window doesn't exist, clean up state
         cleanupWindowState(windowLabel);
@@ -122,7 +122,7 @@ async function closeWindowInternal(windowLabel, retries = 3) {
 function cleanupWindowState(windowLabel) {
   windowRefs.delete(windowLabel);
   windowStates.delete(windowLabel);
-  
+
   // Safely remove from store (may not exist after hot reload)
   try {
     const store = useAppStore.getState();
@@ -142,7 +142,7 @@ async function sendInitialStateToWindow(windowLabel) {
   try {
     const { emit } = await import('@tauri-apps/api/event');
     const state = useAppStore.getState();
-    
+
     // Send complete initial state that secondary windows need
     const initialState = {
       darkMode: state.darkMode ?? false,
@@ -156,13 +156,13 @@ async function sendInitialStateToWindow(windowLabel) {
       activeMoves: state.activeMoves ?? [],
       frontendLogs: state.frontendLogs ?? [], // Include logs in initial state
     };
-    
+
     // Send initial state immediately and also after a short delay to ensure it's received
     // This handles cases where the window is still initializing
     const sendState = async () => {
       try {
         await emit('store-update', initialState);
-        
+        console.log('[WindowManager] Sent initial state', {
           isActive: initialState.isActive,
           robotStatus: initialState.robotStatus,
           hasRobotStateFull: !!initialState.robotStateFull?.data,
@@ -171,10 +171,10 @@ async function sendInitialStateToWindow(windowLabel) {
         console.warn(`Failed to emit initial state to ${windowLabel}:`, emitError);
       }
     };
-    
+
     // Send immediately
     sendState();
-    
+
     // Also send after a short delay to catch windows that weren't ready
     setTimeout(sendState, 500);
   } catch (error) {
@@ -188,16 +188,15 @@ async function sendInitialStateToWindow(windowLabel) {
 function setupWindowListeners(window, windowLabel) {
   // Track window creation
   window.once('tauri://created', async () => {
-    
     windowStates.set(windowLabel, 'created');
-    
+
     try {
       // Apply transparent titlebar style (macOS)
       await invoke('apply_transparent_titlebar', { windowLabel });
-      
+
       // Mark window as ready and track in store
       windowStates.set(windowLabel, 'ready');
-      
+
       // Safely add to store (may not exist after hot reload)
       try {
         const store = useAppStore.getState();
@@ -207,7 +206,7 @@ function setupWindowListeners(window, windowLabel) {
       } catch (error) {
         console.debug('Could not add window to store (expected after hot reload):', error);
       }
-      
+
       // Send initial state to the new window (including darkMode, isActive, etc.)
       await sendInitialStateToWindow(windowLabel);
     } catch (error) {
@@ -218,12 +217,11 @@ function setupWindowListeners(window, windowLabel) {
 
   // Track window destruction
   window.once('tauri://destroyed', () => {
-    
     cleanupWindowState(windowLabel);
   });
 
   // Track window errors
-  window.once('tauri://error', (error) => {
+  window.once('tauri://error', error => {
     console.error(`❌ Error in window '${windowLabel}':`, error);
     windowStates.set(windowLabel, 'error');
     cleanupWindowState(windowLabel);
@@ -254,7 +252,7 @@ async function createWindow(windowLabel) {
 
   // Create new window
   const window = new WebviewWindow(windowLabel, config);
-  
+
   // Store reference immediately
   windowRefs.set(windowLabel, window);
   windowStates.set(windowLabel, 'creating');
@@ -297,10 +295,12 @@ export async function isWindowOpen(windowLabel) {
  * Public API: Close all secondary windows
  */
 export async function closeAllSecondaryWindows() {
-    const secondaryWindows = [];
-  const closePromises = secondaryWindows.map(label => closeWindow(label).catch(error => {
-    console.error(`Failed to close ${label}:`, error);
-  }));
+  const secondaryWindows = [];
+  const closePromises = secondaryWindows.map(label =>
+    closeWindow(label).catch(error => {
+      console.error(`Failed to close ${label}:`, error);
+    })
+  );
   await Promise.allSettled(closePromises);
 }
 
@@ -311,20 +311,20 @@ export async function initializeWindowManager() {
   try {
     const allWindows = await getAllWindows();
     const secondaryLabels = [];
-    
+
     for (const label of secondaryLabels) {
       const window = allWindows.find(w => w.label === label);
       if (window) {
         // Window exists, sync state
         windowRefs.set(label, window);
         windowStates.set(label, 'ready');
-        
+
         // Safely add to store (may not exist after hot reload)
         const store = useAppStore.getState();
         if (store && typeof store.addOpenWindow === 'function') {
           store.addOpenWindow(label);
         }
-        
+
         // Re-setup listeners for existing windows
         setupWindowListeners(window, label);
       }

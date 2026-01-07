@@ -62,12 +62,9 @@ export function WebRTCStreamProvider({ children }) {
 
     const checkWirelessVersion = async () => {
       try {
-        const response = await fetchWithTimeout(
-          buildApiUrl('/api/daemon/status'),
-          {},
-          5000,
-          { silent: true }
-        );
+        const response = await fetchWithTimeout(buildApiUrl('/api/daemon/status'), {}, 5000, {
+          silent: true,
+        });
         if (response.ok) {
           const data = await response.json();
           setIsWirelessVersion(data.wireless_version === true);
@@ -161,7 +158,7 @@ export function WebRTCStreamProvider({ children }) {
 
       // Connection listener
       connectionListenerRef.current = {
-        connected: (clientId) => {
+        connected: clientId => {
           if (!mountedRef.current) return;
         },
         disconnected: () => {
@@ -185,7 +182,7 @@ export function WebRTCStreamProvider({ children }) {
 
       // Producers listener
       producersListenerRef.current = {
-        producerAdded: (producer) => {
+        producerAdded: producer => {
           if (!mountedRef.current) return;
 
           if (sessionRef.current) {
@@ -200,7 +197,7 @@ export function WebRTCStreamProvider({ children }) {
 
           sessionRef.current = session;
 
-          session.addEventListener('error', (e) => {
+          session.addEventListener('error', e => {
             if (!mountedRef.current) return;
             console.error('[WebRTC] Session error:', e.message);
             setError(e.message || 'Stream error');
@@ -211,7 +208,7 @@ export function WebRTCStreamProvider({ children }) {
             if (!mountedRef.current) return;
             sessionRef.current = null;
             setStream(null);
-            setState((prev) => prev === StreamState.CONNECTED ? StreamState.DISCONNECTED : prev);
+            setState(prev => (prev === StreamState.CONNECTED ? StreamState.DISCONNECTED : prev));
           });
 
           session.addEventListener('streamsChanged', () => {
@@ -222,7 +219,7 @@ export function WebRTCStreamProvider({ children }) {
               const mediaStream = streams[0];
               setStream(mediaStream);
               setState(StreamState.CONNECTED);
-              
+
               // Extract audio track from stream (robot microphone)
               const audioTracks = mediaStream.getAudioTracks();
               if (audioTracks.length > 0) {
@@ -236,7 +233,7 @@ export function WebRTCStreamProvider({ children }) {
           session.connect();
         },
 
-        producerRemoved: (producer) => {
+        producerRemoved: producer => {
           if (!mountedRef.current) return;
 
           if (sessionRef.current) {
@@ -249,7 +246,6 @@ export function WebRTCStreamProvider({ children }) {
       };
 
       api.registerProducersListener(producersListenerRef.current);
-
     } catch (e) {
       console.error('[WebRTC] Connection error:', e.message);
       setError(e.message);
@@ -289,24 +285,20 @@ export function WebRTCStreamProvider({ children }) {
     error,
     isConnected: state === StreamState.CONNECTED,
     isConnecting: state === StreamState.CONNECTING,
-    
+
     // Derived state
     isWifiMode,
     isWirelessVersion,
     checkFailed,
     isRobotAwake,
     shouldConnect,
-    
+
     // Actions
     connect,
     disconnect,
   };
 
-  return (
-    <WebRTCStreamContext.Provider value={value}>
-      {children}
-    </WebRTCStreamContext.Provider>
-  );
+  return <WebRTCStreamContext.Provider value={value}>{children}</WebRTCStreamContext.Provider>;
 }
 
 /**

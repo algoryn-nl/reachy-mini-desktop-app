@@ -17,14 +17,15 @@ export default function Step4Reconnecting({
           <>
             <CircularProgress size={32} sx={{ color: '#FF9500', mb: 2 }} />
             <Typography sx={{ fontSize: 13, color: textSecondary, lineHeight: 1.6 }}>
-              Verifying connection to <strong style={{ color: textPrimary }}>{configuredNetwork || 'network'}</strong>...
+              Verifying connection to{' '}
+              <strong style={{ color: textPrimary }}>{configuredNetwork || 'network'}</strong>...
             </Typography>
             <Typography sx={{ fontSize: 11, color: textSecondary, mt: 1, opacity: 0.7 }}>
               This may take a few seconds
             </Typography>
           </>
         );
-      
+
       case 'found':
         return (
           <>
@@ -37,24 +38,26 @@ export default function Step4Reconnecting({
             </Typography>
           </>
         );
-      
+
       case 'failed':
         return (
           <>
             <Typography sx={{ fontSize: 13, color: textSecondary, mb: 1, lineHeight: 1.6 }}>
               Connection failed.
             </Typography>
-            <Typography sx={{ fontSize: 12, color: textSecondary, mb: 2, lineHeight: 1.5, opacity: 0.8 }}>
+            <Typography
+              sx={{ fontSize: 12, color: textSecondary, mb: 2, lineHeight: 1.5, opacity: 0.8 }}
+            >
               Please check your WiFi password and try again.
             </Typography>
             <Button
               variant="outlined"
               size="small"
               onClick={onRetry}
-              sx={{ 
-                fontSize: 12, 
+              sx={{
+                fontSize: 12,
                 fontWeight: 600,
-                textTransform: 'none', 
+                textTransform: 'none',
                 borderColor: '#FF9500',
                 color: '#FF9500',
                 px: 2,
@@ -70,16 +73,23 @@ export default function Step4Reconnecting({
             </Button>
           </>
         );
-      
+
       default:
         return null;
     }
   };
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+    <Box
+      sx={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+      }}
+    >
       {getStatusContent()}
     </Box>
   );
 }
-

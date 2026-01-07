@@ -1,9 +1,5 @@
 import React from 'react';
-import { 
-  Box, 
-  Typography, 
-  CircularProgress,
-} from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import WifiIcon from '@mui/icons-material/Wifi';
 import SectionHeader from './SectionHeader';
 
@@ -32,9 +28,9 @@ export default function SettingsWifiCard({
 
   return (
     <Box sx={{ ...cardStyle, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <SectionHeader 
-        title="WiFi Network" 
-        icon={WifiIcon} 
+      <SectionHeader
+        title="WiFi Network"
+        icon={WifiIcon}
         darkMode={darkMode}
         action={
           wifiStatus && (
@@ -58,14 +54,16 @@ export default function SettingsWifiCard({
       <Box sx={{ minHeight: 140, display: 'flex', flexDirection: 'column' }}>
         {isLoadingWifi && !wifiStatus ? (
           // Loading state
-          <Box sx={{ 
-            flex: 1,
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center', 
-            justifyContent: 'center',
-            gap: 1.5,
-          }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1.5,
+            }}
+          >
             <CircularProgress size={24} color="primary" />
             <Typography sx={{ fontSize: 12, color: textSecondary }}>
               Scanning networks...
@@ -73,54 +71,70 @@ export default function SettingsWifiCard({
           </Box>
         ) : (
           // Status display
-          <Box sx={{ 
-            flex: 1,
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            gap: 1.5,
-          }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              gap: 1.5,
+            }}
+          >
             {/* Network name + status */}
             <Box>
-              <Typography sx={{ 
-                fontSize: 14, 
-                fontWeight: 600,
-                color: textPrimary,
-                mb: 0.5,
-              }}>
-                {isConnected ? wifiStatus.connected_network : 
-                 isHotspot ? 'Hotspot mode' :
-                 isDisconnected ? 'Disconnected' : 'Unknown'}
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: textPrimary,
+                  mb: 0.5,
+                }}
+              >
+                {isConnected
+                  ? wifiStatus.connected_network
+                  : isHotspot
+                    ? 'Hotspot mode'
+                    : isDisconnected
+                      ? 'Disconnected'
+                      : 'Unknown'}
               </Typography>
-              <Typography sx={{ 
-                fontSize: 12, 
-                color: isConnected ? '#22c55e' : isHotspot ? '#f59e0b' : textMuted,
-              }}>
-                {isConnected ? 'Connected' : 
-                 isHotspot ? 'Broadcasting network' :
-                 'Not connected to any network'}
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  color: isConnected ? '#22c55e' : isHotspot ? '#f59e0b' : textMuted,
+                }}
+              >
+                {isConnected
+                  ? 'Connected'
+                  : isHotspot
+                    ? 'Broadcasting network'
+                    : 'Not connected to any network'}
               </Typography>
             </Box>
 
             {/* Known networks as inline tags */}
             {knownNetworks.length > 0 && (
               <Box sx={{ width: '100%', mt: 0.5 }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  gap: 1,
-                  mb: 0.75,
-                }}>
-                  <Typography sx={{ 
-                    fontSize: 10, 
-                    fontWeight: 600,
-                    color: textMuted,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 1,
+                    mb: 0.75,
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: textMuted,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
                     Saved ({knownNetworks.length})
                   </Typography>
                   <Typography sx={{ color: textMuted, fontSize: 10 }}>•</Typography>
@@ -136,13 +150,15 @@ export default function SettingsWifiCard({
                     Clear all
                   </Typography>
                 </Box>
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: 0.5,
-                }}>
-                  {knownNetworks.map((network) => {
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: 0.5,
+                  }}
+                >
+                  {knownNetworks.map(network => {
                     const isActive = network === wifiStatus?.connected_network;
                     return (
                       <Box
@@ -153,23 +169,29 @@ export default function SettingsWifiCard({
                           py: 0.25,
                           px: 0.75,
                           borderRadius: '6px',
-                          bgcolor: isActive 
-                            ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)')
-                            : (darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
+                          bgcolor: isActive
+                            ? darkMode
+                              ? 'rgba(34, 197, 94, 0.15)'
+                              : 'rgba(34, 197, 94, 0.1)'
+                            : darkMode
+                              ? 'rgba(255,255,255,0.05)'
+                              : 'rgba(0,0,0,0.04)',
                           border: isActive
                             ? '1px solid rgba(34, 197, 94, 0.3)'
                             : `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
                         }}
                       >
-                        <Typography sx={{ 
-                          fontSize: 11, 
-                          color: isActive ? '#22c55e' : textSecondary,
-                          fontWeight: isActive ? 600 : 400,
-                          maxWidth: 100,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}>
+                        <Typography
+                          sx={{
+                            fontSize: 11,
+                            color: isActive ? '#22c55e' : textSecondary,
+                            fontWeight: isActive ? 600 : 400,
+                            maxWidth: 100,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {network}
                         </Typography>
                       </Box>
@@ -184,4 +206,3 @@ export default function SettingsWifiCard({
     </Box>
   );
 }
-

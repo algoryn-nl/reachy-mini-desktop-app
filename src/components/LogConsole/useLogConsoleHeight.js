@@ -13,18 +13,20 @@ import { FONT_SIZES, PADDING, getItemPaddingPx } from './constants';
  */
 export const useLogConsoleHeight = ({ lines, height, maxHeight, compact, simpleStyle }) => {
   const fixedItemHeight = useFixedItemHeight(compact);
-  
+
   // Calculate container height based on priority: lines > height > maxHeight > null (flex)
   return useMemo(() => {
     // Priority 1: lines prop (calculate from number of lines)
     if (lines != null && typeof lines === 'number' && lines > 0) {
-      const verticalPadding = simpleStyle 
-        ? PADDING.SIMPLE * 2 
-        : (compact ? PADDING.COMPACT.vertical * 2 : PADDING.NORMAL.vertical * 2);
-      const calculatedHeight = (lines * fixedItemHeight) + verticalPadding;
+      const verticalPadding = simpleStyle
+        ? PADDING.SIMPLE * 2
+        : compact
+          ? PADDING.COMPACT.vertical * 2
+          : PADDING.NORMAL.vertical * 2;
+      const calculatedHeight = lines * fixedItemHeight + verticalPadding;
       return Math.round(calculatedHeight);
     }
-    
+
     // Priority 2: height prop
     if (height && height !== 'auto') {
       if (typeof height === 'number') return height;
@@ -34,7 +36,7 @@ export const useLogConsoleHeight = ({ lines, height, maxHeight, compact, simpleS
       // If height is '100%', return null to let flex handle it
       if (height === '100%') return null;
     }
-    
+
     // Priority 3: maxHeight prop
     if (maxHeight) {
       if (typeof maxHeight === 'number') return maxHeight;
@@ -42,7 +44,7 @@ export const useLogConsoleHeight = ({ lines, height, maxHeight, compact, simpleS
         return parseInt(maxHeight.replace('px', ''), 10);
       }
     }
-    
+
     // Priority 4: no default height, return null for flex/auto
     return null;
   }, [lines, height, maxHeight, fixedItemHeight, compact, simpleStyle]);
@@ -53,7 +55,7 @@ export const useLogConsoleHeight = ({ lines, height, maxHeight, compact, simpleS
  * @param {boolean} compact - Compact mode
  * @returns {number} Fixed item height in pixels
  */
-export const useFixedItemHeight = (compact) => {
+export const useFixedItemHeight = compact => {
   return useMemo(() => {
     const fontSize = compact ? FONT_SIZES.COMPACT : FONT_SIZES.NORMAL;
     const lineHeight = compact ? 1.4 : 1.6;
@@ -64,4 +66,3 @@ export const useFixedItemHeight = (compact) => {
     return Math.round(baseHeight + spacing);
   }, [compact]);
 };
-
