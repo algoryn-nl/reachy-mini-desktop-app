@@ -210,7 +210,7 @@ export default function RobotViewer3D({
           }
           return { label: 'Connected', color: '#3b82f6' };
 
-        case 'busy':
+        case 'busy': {
           // Specific labels based on reason
           const busyLabels = {
             moving: { label: 'Moving', color: '#a855f7' },
@@ -220,6 +220,7 @@ export default function RobotViewer3D({
           };
           const busyInfo = busyLabels[busyReason] || { label: 'Busy', color: '#a855f7' };
           return { ...busyInfo, animated: true };
+        }
 
         case 'stopping':
           return { label: 'Stopping', color: '#ef4444', animated: true };

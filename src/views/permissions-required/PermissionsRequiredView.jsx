@@ -217,24 +217,14 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
       const settingsCommand = `open_${type}_settings`;
 
       // Check current status
-      let currentStatus;
-      try {
-        currentStatus = await invoke(checkCommand);
-      } catch (checkError) {
-        throw checkError;
-      }
+      const currentStatus = await invoke(checkCommand);
 
       if (currentStatus === true) {
         return;
       }
 
       // Request permission
-      let result;
-      try {
-        result = await invoke(requestCommand);
-      } catch (requestError) {
-        throw requestError;
-      }
+      const result = await invoke(requestCommand);
 
       if (type === 'camera') {
         dispatch({ type: 'SET_CAMERA_REQUESTED' });
@@ -275,11 +265,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
 
       if (result === false) {
         // Permission denied, open settings
-        try {
-          await invoke(settingsCommand);
-        } catch (settingsError) {
-          throw settingsError;
-        }
+        await invoke(settingsCommand);
       }
     } catch (error) {
       const errorMsg = error?.message || error?.toString() || 'Unknown error';

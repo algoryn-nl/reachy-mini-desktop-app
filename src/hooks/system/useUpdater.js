@@ -312,7 +312,7 @@ export const useUpdater = ({
               }, 60000); // 60 seconds timeout
               break;
 
-            case 'Progress':
+            case 'Progress': {
               const { chunkLength, contentLength } = event.data;
               const progress =
                 contentLength > 0 ? Math.round((chunkLength / contentLength) * 100) : 0;
@@ -359,6 +359,7 @@ export const useUpdater = ({
               }
 
               break;
+            }
 
             case 'Finished':
               // Stop animation and cleanup

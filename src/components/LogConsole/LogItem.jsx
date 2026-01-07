@@ -18,10 +18,44 @@ import { TEXT_SELECT_STYLES, ELLIPSIS_STYLES } from './constants';
  */
 export const LogItem = React.memo(
   ({ log, index, totalCount, darkMode, fontSize, compact, showTimestamp, simpleStyle }) => {
-    if (!log) return null;
-
     // Calculate spacing between items (marginBottom on all items except last)
     const itemSpacing = compact ? 1.6 : 2.4; // 0.2 * 8 or 0.3 * 8
+
+    // Memoize calculations - MUST be called before any early returns (Rules of Hooks)
+    const memoizedValues = useMemo(() => {
+      if (!log) return null;
+
+      const isFrontend = log.source === 'frontend';
+      const isApp = log.source === 'app';
+      const message = log.message;
+      const logLevel = log.level || 'info';
+
+      const isSuccess = message.includes('SUCCESS') || message.includes('✓');
+      const isError =
+        logLevel === 'error' ||
+        message.includes('FAILED') ||
+        message.includes('ERROR') ||
+        message.includes('❌') ||
+        message.includes('[ERROR]');
+      const isWarning =
+        logLevel === 'warning' || message.includes('WARNING') || message.includes('[WARNING]');
+      const isCommand = message.includes('→') || message.includes('📥');
+
+      const displayMessage = isApp && log.appName ? `[app] ${message}` : message;
+
+      return {
+        isFrontend,
+        isApp,
+        displayMessage,
+        isSuccess,
+        isError,
+        isWarning,
+        isCommand,
+      };
+    }, [log]);
+
+    // Early return for null log
+    if (!log || !memoizedValues) return null;
 
     // Simple style: message with colored dot
     if (simpleStyle) {
@@ -61,48 +95,11 @@ export const LogItem = React.memo(
       );
     }
 
+    // Destructure memoized values for default style
+    const { isFrontend, isApp, displayMessage, isSuccess, isError, isWarning, isCommand } =
+      memoizedValues;
+
     // Default style: full formatting with colors and timestamps
-    // Memoize calculations to avoid recalculating on every render
-    const {
-      isFrontend,
-      isApp,
-      displayMessage,
-      logLevel,
-      isSuccess,
-      isError,
-      isWarning,
-      isCommand,
-    } = useMemo(() => {
-      const isFrontend = log.source === 'frontend';
-      const isApp = log.source === 'app';
-      const message = log.message;
-      const logLevel = log.level || 'info';
-
-      const isSuccess = message.includes('SUCCESS') || message.includes('✓');
-      const isError =
-        logLevel === 'error' ||
-        message.includes('FAILED') ||
-        message.includes('ERROR') ||
-        message.includes('❌') ||
-        message.includes('[ERROR]');
-      const isWarning =
-        logLevel === 'warning' || message.includes('WARNING') || message.includes('[WARNING]');
-      const isCommand = message.includes('→') || message.includes('📥');
-
-      const displayMessage = isApp && log.appName ? `[app] ${message}` : message;
-
-      return {
-        isFrontend,
-        isApp,
-        displayMessage,
-        logLevel,
-        isSuccess,
-        isError,
-        isWarning,
-        isCommand,
-      };
-    }, [log.source, log.message, log.level, log.appName]);
-
     return (
       <Box
         sx={{
