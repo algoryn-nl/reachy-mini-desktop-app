@@ -15,7 +15,15 @@ viewer3d/
 │   ├── ScanEffect.jsx        # Progressive scan effect
 │   ├── PremiumScanEffect.jsx # Premium world-class scan effect
 │   ├── ErrorHighlight.jsx    # Error mesh highlighting
-│   └── ParticleEffect.jsx    # Particle effects (sleep, love, etc.)
+│   ├── ParticleEffect.jsx    # Particle effects (sleep, love, etc.)
+│   └── particles/
+│       └── NoiseGenerator.js # Noise generation for particles
+├── settings/                 # Settings panel components
+│   ├── SettingsAppearanceCard.jsx  # Dark mode, display settings
+│   ├── SettingsCacheCard.jsx       # Cache management
+│   ├── SettingsUpdateCard.jsx      # App updates
+│   ├── SettingsWifiCard.jsx        # WiFi configuration
+│   └── ChangeWifiOverlay.jsx       # WiFi change dialog
 ├── hooks/
 │   └── useRobotWebSocket.js  # WebSocket hook for daemon connection
 └── index.js                  # Public module exports

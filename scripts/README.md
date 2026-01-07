@@ -28,12 +28,7 @@ scripts/
 │   ├── test-sidecar.sh             # Test Python sidecar
 │   ├── test-update-prod.sh         # Test production updates
 │   ├── test-updater.sh             # Test update system
-│   ├── test-update-debug.js        # Debug update endpoints
-│   ├── test-update-endpoint.js     # Test update endpoint availability
-│   ├── test-update-signature.sh    # Test update signature
-│   ├── test-signature-complete.sh  # Complete signature verification
-│   ├── analyze-signatures.sh       # Analyze binary signatures
-│   └── verify-releases.sh          # Verify release artifacts
+│   └── test-update-endpoint.js     # Test update endpoint availability
 │
 ├── daemon/                         # Daemon management scripts
 │   ├── check-daemon.sh             # Check daemon status
@@ -119,11 +114,6 @@ yarn test:update-prod       # Test production updates
 
 # All tests
 yarn test:all
-
-# Advanced signature tests
-bash ./scripts/test/analyze-signatures.sh "path/to/app"
-bash ./scripts/test/test-signature-complete.sh
-bash ./scripts/test/verify-releases.sh
 ```
 
 ### Daemon
