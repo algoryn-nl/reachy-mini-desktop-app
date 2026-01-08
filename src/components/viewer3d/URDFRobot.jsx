@@ -86,6 +86,12 @@ function URDFRobot({
   // ⚡ OPTIMIZED: Only track dataVersion - no need for individual value refs anymore
   const lastAppliedVersionRef = useRef(-1);
 
+  // 🔧 FIX FLICKER: Track when isActive changes to true, add stabilization delay
+  // This prevents the "jump" when transitioning from HardwareScanView to ActiveRobotView
+  const isActiveTransitionTimeRef = useRef(null);
+  const prevIsActiveRef = useRef(isActive);
+  const STABILIZATION_DELAY_MS = 150; // 150ms delay to let WebSocket stabilize
+
   // ✅ Mouse movement handler for raycaster
   useEffect(() => {
     const handleMouseMove = event => {
@@ -302,6 +308,29 @@ function URDFRobot({
     // ✅ Allow animations if robot is loaded (isActive OR forceLoad)
     // If forceLoad is true, we want robot to move even if isActive is temporarily false
     if (!isActive && !forceLoad) return;
+
+    // 🔧 FIX FLICKER: Detect when isActive transitions to true
+    // Add stabilization delay to prevent "jump" from HardwareScanView to ActiveRobotView
+    if (isActive && !prevIsActiveRef.current) {
+      // Just transitioned to active - start stabilization timer
+      isActiveTransitionTimeRef.current = Date.now();
+      prevIsActiveRef.current = true;
+    } else if (!isActive && prevIsActiveRef.current) {
+      // Transitioned to inactive - reset
+      prevIsActiveRef.current = false;
+      isActiveTransitionTimeRef.current = null;
+    }
+
+    // 🔧 FIX FLICKER: Skip animation updates during stabilization period
+    // This gives WebSocket time to establish connection and send stable data
+    if (isActiveTransitionTimeRef.current) {
+      const elapsed = Date.now() - isActiveTransitionTimeRef.current;
+      if (elapsed < STABILIZATION_DELAY_MS) {
+        return; // Skip this frame - still in stabilization period
+      }
+      // Stabilization complete - clear timer
+      isActiveTransitionTimeRef.current = null;
+    }
 
     // 🚀 GAME-CHANGING: Throttle to 20 Hz (check every 3 frames at 60 FPS)
     // ⚡ Doubled from 10 Hz for smoother robot visualization

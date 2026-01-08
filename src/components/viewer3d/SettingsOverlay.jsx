@@ -10,7 +10,6 @@ import reachyUpdateBoxSvg from '../../assets/reachy-update-box.svg';
 import { invoke } from '@tauri-apps/api/core';
 import { logSuccess } from '../../utils/logging';
 import { useToast } from '../../hooks/useToast';
-import Toast from '../Toast';
 
 // Sub-components
 import {
@@ -91,9 +90,9 @@ export default function SettingsOverlay({ open, onClose, darkMode }) {
   const [isClearingNetworks, setIsClearingNetworks] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════════
-  // TOAST NOTIFICATIONS
+  // TOAST NOTIFICATIONS (global - rendered in App.jsx)
   // ═══════════════════════════════════════════════════════════════════
-  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
+  const { showToast } = useToast();
 
   // ═══════════════════════════════════════════════════════════════════
   // UPDATE FUNCTIONS
@@ -1165,13 +1164,7 @@ export default function SettingsOverlay({ open, onClose, darkMode }) {
         </FullscreenOverlay>
       )}
 
-      {/* Toast Notifications */}
-      <Toast
-        toast={toast}
-        toastProgress={toastProgress}
-        onClose={handleCloseToast}
-        darkMode={darkMode}
-      />
+      {/* Toast Notifications - handled by global Toast in App.jsx */}
     </FullscreenOverlay>
   );
 }

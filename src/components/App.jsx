@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 import { useDaemon, useDaemonHealthCheck } from '../hooks/daemon';
 import {
@@ -9,12 +9,15 @@ import {
   useUpdateViewState,
   usePermissions,
   useUsbCheckTiming,
+  useDeepLink,
 } from '../hooks/system';
 import { useViewRouter, ViewRouterWrapper } from '../hooks/system/useViewRouter';
 import { useRobotCommands, useRobotState, useActiveMoves } from '../hooks/robot';
 import { DAEMON_CONFIG, setAppStoreInstance } from '../config/daemon';
 import { isDevMode } from '../utils/devMode';
 import useAppStore from '../store/useAppStore';
+import { useToast } from '../hooks/useToast';
+import Toast from './Toast/Toast';
 
 // Initialize diagnostic export tools (exposes window.reachyDiagnostic)
 import '../utils/diagnosticExport';
@@ -24,7 +27,19 @@ function App() {
   useEffect(() => {
     setAppStoreInstance(useAppStore);
   }, []);
-  const { daemonVersion, hardwareError, connectionMode } = useAppStore();
+  const {
+    daemonVersion,
+    hardwareError,
+    connectionMode,
+    isAppRunning,
+    robotStatus,
+    busyReason,
+    isInstalling,
+    isStoppingApp,
+    isCommandRunning,
+    darkMode,
+    setPendingDeepLinkInstall,
+  } = useAppStore();
   const {
     isActive,
     isStarting,
@@ -35,8 +50,35 @@ function App() {
     fetchDaemonVersion,
   } = useDaemon();
   const { isUsbConnected, usbPortName, checkUsbRobot } = useUsbDetection();
-  const { sendCommand, playRecordedMove, isCommandRunning } = useRobotCommands();
+  const { sendCommand, playRecordedMove } = useRobotCommands(); // Note: isCommandRunning comes from store
   const { logs, fetchLogs } = useLogs();
+
+  // 🍞 Global toast for deep link feedback
+  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
+
+  // 🔗 Deep link handler - at root level for global access
+  // Note: Toast is shown in ActiveRobotView when processing completes (with accurate status)
+  const handleDeepLinkInstall = useCallback(
+    appName => {
+      console.log('[App] Deep link install requested for:', appName);
+      // Store pending install - ActiveRobotView will pick it up and process it
+      setPendingDeepLinkInstall(appName);
+    },
+    [setPendingDeepLinkInstall]
+  );
+
+  useDeepLink({
+    isActive,
+    isAppRunning,
+    // Detailed busy state for specific error messages
+    robotStatus,
+    busyReason,
+    isInstalling,
+    isStoppingApp,
+    isCommandRunning,
+    onInstallRequest: handleDeepLinkInstall,
+    showToast,
+  });
 
   // 🔐 Permissions check (macOS only)
   // Blocks the app until camera and microphone permissions are granted
@@ -257,7 +299,18 @@ function App() {
     usbPortName,
   });
 
-  return <ViewRouterWrapper viewConfig={viewConfig} />;
+  return (
+    <>
+      <ViewRouterWrapper viewConfig={viewConfig} />
+      {/* 🍞 Global Toast - single instance for all notifications */}
+      <Toast
+        toast={toast}
+        toastProgress={toastProgress}
+        onClose={handleCloseToast}
+        darkMode={darkMode}
+      />
+    </>
+  );
 }
 
 export default App;

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import useAppStore from '../../store/useAppStore';
 import { isSimulationMode, SIMULATED_USB_PORT } from '../../utils/simulationMode';
@@ -14,31 +14,40 @@ export const useUsbDetection = () => {
     setIsFirstCheck,
   } = useAppStore();
 
+  // Track if a check is already in progress to avoid overlapping calls
+  const isCheckingRef = useRef(false);
+
   const checkUsbRobot = useCallback(async () => {
-    const startTime = Date.now();
-
-    // 🎭 Simulation mode: simulate USB connection
-    if (isSimulationMode()) {
-      // Ensure at least minimum delay for smooth UX on first check only
-      if (isFirstCheck) {
-        const elapsed = Date.now() - startTime;
-        const minDelay = DAEMON_CONFIG.MIN_DISPLAY_TIMES.USB_CHECK_FIRST;
-
-        if (elapsed < minDelay) {
-          await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
-        }
-
-        setIsFirstCheck(false);
-      }
-
-      // Simulate USB connection
-      setIsUsbConnected(true);
-      setUsbPortName(SIMULATED_USB_PORT);
+    // Skip if already checking (prevents callback accumulation)
+    if (isCheckingRef.current) {
       return;
     }
 
-    // Normal mode: real USB check
+    isCheckingRef.current = true;
+    const startTime = Date.now();
+
     try {
+      // 🎭 Simulation mode: simulate USB connection
+      if (isSimulationMode()) {
+        // Ensure at least minimum delay for smooth UX on first check only
+        if (isFirstCheck) {
+          const elapsed = Date.now() - startTime;
+          const minDelay = DAEMON_CONFIG.MIN_DISPLAY_TIMES.USB_CHECK_FIRST;
+
+          if (elapsed < minDelay) {
+            await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+          }
+
+          setIsFirstCheck(false);
+        }
+
+        // Simulate USB connection
+        setIsUsbConnected(true);
+        setUsbPortName(SIMULATED_USB_PORT);
+        return;
+      }
+
+      // Normal mode: real USB check
       const portName = await invoke('check_usb_robot');
 
       // Ensure at least minimum delay for smooth UX on first check only
@@ -73,6 +82,8 @@ export const useUsbDetection = () => {
 
       setIsUsbConnected(false);
       setUsbPortName(null);
+    } finally {
+      isCheckingRef.current = false;
     }
   }, [isFirstCheck, setIsUsbConnected, setUsbPortName, setIsFirstCheck]);
 

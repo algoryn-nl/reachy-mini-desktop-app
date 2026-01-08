@@ -41,6 +41,9 @@ export const appsInitialState = {
 
   // App stopping state (for UI feedback during stop request)
   isStoppingApp: false,
+
+  // Deep link pending install (set by root App, processed by ActiveRobotView)
+  pendingDeepLinkInstall: null,
 };
 
 /**
@@ -120,7 +123,15 @@ export const createAppsSlice = (set, get) => ({
       appsLastFetch: null,
       appsCacheValid: false,
       isStoppingApp: false,
+      pendingDeepLinkInstall: null,
     }),
+
+  // ============================================
+  // DEEP LINK PENDING INSTALL
+  // ============================================
+
+  setPendingDeepLinkInstall: appName => set({ pendingDeepLinkInstall: appName }),
+  clearPendingDeepLinkInstall: () => set({ pendingDeepLinkInstall: null }),
 
   // ============================================
   // INSTALLATION MANAGEMENT

@@ -153,10 +153,14 @@ export function useAppLogs(currentAppName, isAppRunning) {
       return;
     }
 
+    let isMounted = true;
+
     const setupListeners = async () => {
       try {
         // Listen to stdout
-        unlistenStdoutRef.current = await listen('sidecar-stdout', event => {
+        const unlistenStdout = await listen('sidecar-stdout', event => {
+          if (!isMounted) return;
+
           const logLine =
             typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
 
@@ -185,8 +189,17 @@ export function useAppLogs(currentAppName, isAppRunning) {
           }
         });
 
+        if (isMounted) {
+          unlistenStdoutRef.current = unlistenStdout;
+        } else {
+          unlistenStdout();
+          return;
+        }
+
         // Listen to stderr (errors and warnings)
-        unlistenStderrRef.current = await listen('sidecar-stderr', event => {
+        const unlistenStderr = await listen('sidecar-stderr', event => {
+          if (!isMounted) return;
+
           const logLine =
             typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
 
@@ -212,6 +225,12 @@ export function useAppLogs(currentAppName, isAppRunning) {
             }
           }
         });
+
+        if (isMounted) {
+          unlistenStderrRef.current = unlistenStderr;
+        } else {
+          unlistenStderr();
+        }
       } catch (error) {
         console.error('Failed to setup sidecar log listeners:', error);
       }
@@ -220,6 +239,7 @@ export function useAppLogs(currentAppName, isAppRunning) {
     setupListeners();
 
     return () => {
+      isMounted = false;
       if (unlistenStdoutRef.current) {
         unlistenStdoutRef.current();
         unlistenStdoutRef.current = null;

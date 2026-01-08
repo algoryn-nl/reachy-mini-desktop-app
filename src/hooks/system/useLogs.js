@@ -1,18 +1,30 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import useAppStore from '../../store/useAppStore';
 import { useLogger } from '../../utils/logging';
+
+// Global ref to prevent overlapping log fetches across re-renders
+const isFetchingLogsRef = { current: false };
 
 export const useLogs = () => {
   const { logs, setLogs } = useAppStore();
   const logger = useLogger();
 
   const fetchLogs = useCallback(async () => {
+    // Skip if already fetching (prevents callback accumulation)
+    if (isFetchingLogsRef.current) {
+      return;
+    }
+
+    isFetchingLogsRef.current = true;
+
     try {
       const fetchedLogs = await invoke('get_logs');
       setLogs(fetchedLogs);
     } catch (e) {
       console.error('Error fetching logs:', e);
+    } finally {
+      isFetchingLogsRef.current = false;
     }
   }, [setLogs]);
 

@@ -10,7 +10,6 @@ import { useLocalWifiScan, useRobotDiscovery } from '../../hooks/system';
 import { useConnection, ConnectionMode } from '../../hooks/useConnection';
 import { useToast } from '../../hooks/useToast';
 import FullscreenOverlay from '../../components/FullscreenOverlay';
-import Toast from '../../components/Toast';
 import {
   Step1PowerOn,
   Step2ConnectHotspot,
@@ -45,8 +44,8 @@ export default function FirstTimeWifiSetupView() {
   const [activeStep, setActiveStep] = useState(0);
   const [configuredNetwork, setConfiguredNetwork] = useState(null);
 
-  // Toast notifications
-  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
+  // Toast notifications (global - rendered in App.jsx)
+  const { showToast } = useToast();
 
   // Step 1: Local WiFi scan to detect hotspot
   const {
@@ -584,13 +583,7 @@ export default function FirstTimeWifiSetupView() {
         </Typography>
       </Box>
 
-      {/* Toast Notifications */}
-      <Toast
-        toast={toast}
-        toastProgress={toastProgress}
-        onClose={handleCloseToast}
-        darkMode={darkMode}
-      />
+      {/* Toast Notifications - handled by global Toast in App.jsx */}
     </FullscreenOverlay>
   );
 }

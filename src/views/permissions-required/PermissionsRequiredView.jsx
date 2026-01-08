@@ -1,4 +1,4 @@
-import React, { useReducer } from 'react';
+import React, { useReducer, useRef, useEffect } from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
 import PulseButton from '@components/PulseButton';
@@ -157,13 +157,36 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     restartStarted: false,
   });
 
+  // Ref to track permission polling interval for cleanup
+  const permissionPollingRef = useRef(null);
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (permissionPollingRef.current) {
+        clearInterval(permissionPollingRef.current);
+        permissionPollingRef.current = null;
+      }
+    };
+  }, []);
+
   // Listen to Rust logs from backend (only show errors)
-  React.useEffect(() => {
-    let unlistenRustLog;
+  const unlistenRustLogRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
 
     const setupRustLogListener = async () => {
+      // Cleanup previous listener if any
+      if (unlistenRustLogRef.current) {
+        unlistenRustLogRef.current();
+        unlistenRustLogRef.current = null;
+      }
+
       try {
-        unlistenRustLog = await listen('rust-log', event => {
+        const unlisten = await listen('rust-log', event => {
+          if (!isMounted) return;
+
           const message =
             typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
 
@@ -172,6 +195,12 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
             logError(message);
           }
         });
+
+        if (isMounted) {
+          unlistenRustLogRef.current = unlisten;
+        } else {
+          unlisten();
+        }
       } catch (error) {
         console.error('Failed to setup rust-log listener:', error);
       }
@@ -180,8 +209,10 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
     setupRustLogListener();
 
     return () => {
-      if (unlistenRustLog) {
-        unlistenRustLog();
+      isMounted = false;
+      if (unlistenRustLogRef.current) {
+        unlistenRustLogRef.current();
+        unlistenRustLogRef.current = null;
       }
     };
   }, []);
@@ -234,6 +265,11 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
 
       if (result === null) {
         // Popup shown, start polling silently
+        // Clear any existing interval first
+        if (permissionPollingRef.current) {
+          clearInterval(permissionPollingRef.current);
+        }
+
         let checkCount = 0;
         const maxChecks = 20;
         const permCheckCommand =
@@ -241,14 +277,17 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
             ? 'plugin:macos-permissions|check_camera_permission'
             : 'plugin:macos-permissions|check_microphone_permission';
 
-        const aggressiveInterval = setInterval(async () => {
+        permissionPollingRef.current = setInterval(async () => {
           checkCount++;
           await refreshPermissions();
 
           try {
             const status = await invoke(permCheckCommand);
             if (status === true) {
-              clearInterval(aggressiveInterval);
+              if (permissionPollingRef.current) {
+                clearInterval(permissionPollingRef.current);
+                permissionPollingRef.current = null;
+              }
               await refreshPermissions();
             }
           } catch (error) {
@@ -256,7 +295,10 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
           }
 
           if (checkCount >= maxChecks) {
-            clearInterval(aggressiveInterval);
+            if (permissionPollingRef.current) {
+              clearInterval(permissionPollingRef.current);
+              permissionPollingRef.current = null;
+            }
           }
         }, 500);
 
@@ -370,7 +412,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
         />
       </Box>
 
-      <Box sx={{ maxWidth: 600, textAlign: 'center' }}>
+      <Box sx={{ maxWidth: 700, textAlign: 'center' }}>
         {state.isRestarting || externalIsRestarting ? (
           <>
             {/* Restarting view */}
