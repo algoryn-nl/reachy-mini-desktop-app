@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -33,6 +33,7 @@ import { Overlay as InstallOverlay } from './installation';
 import Controller from '../controller';
 import { useGamepadConnected, useActiveDevice } from '../../../utils/InputManager';
 import { useWindowFocus } from '../../../hooks/system/useWindowFocus';
+import { useDeepLink } from '../../../hooks/system';
 
 /**
  * Application Store for Reachy Mini
@@ -166,6 +167,65 @@ export default function ApplicationStore({
     selectedCategory,
     officialOnly
   );
+
+  // ✅ Deep link handler for installing apps from website
+  const handleDeepLinkInstall = useCallback(
+    async appName => {
+      console.log('[ApplicationStore] Deep link install requested for:', appName);
+
+      // Find app in available apps (try exact match first, then partial match)
+      let app = availableApps.find(
+        a => a.name === appName || a.name?.toLowerCase() === appName?.toLowerCase()
+      );
+
+      // Try matching by HF space ID (e.g., "pollen-robotics/conversation-app")
+      if (!app) {
+        app = availableApps.find(a =>
+          a.extra?.id?.toLowerCase().endsWith(`/${appName?.toLowerCase()}`)
+        );
+      }
+
+      if (!app) {
+        showToast?.(`App "${appName}" not found. Refreshing app list...`, 'info');
+        await fetchAvailableApps();
+
+        // Retry after refresh
+        const refreshedApps = availableApps;
+        app = refreshedApps.find(
+          a =>
+            a.name === appName ||
+            a.name?.toLowerCase() === appName?.toLowerCase() ||
+            a.extra?.id?.toLowerCase().endsWith(`/${appName?.toLowerCase()}`)
+        );
+
+        if (!app) {
+          showToast?.(`App "${appName}" not found in the store`, 'error');
+          return;
+        }
+      }
+
+      // Check if already installed
+      if (app.isInstalled) {
+        showToast?.(`${app.name} is already installed`, 'info');
+        return;
+      }
+
+      // Trigger installation
+      console.log('[ApplicationStore] Starting installation via deep link:', app.name);
+      showToast?.(`Starting installation of ${app.name}...`, 'success');
+      handleInstall(app);
+    },
+    [availableApps, fetchAvailableApps, handleInstall, showToast]
+  );
+
+  // ✅ Setup deep link listener
+  useDeepLink({
+    isActive: effectiveIsActive,
+    isAppRunning,
+    isBusy: effectiveIsBusy,
+    onInstallRequest: handleDeepLinkInstall,
+    showToast,
+  });
 
   // ✅ Get installing app info (with fallback if not in list yet)
   const installingApp = useMemo(() => {

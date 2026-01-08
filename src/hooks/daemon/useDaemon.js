@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import useAppStore from '../../store/useAppStore';
@@ -122,14 +122,29 @@ export const useDaemon = () => {
     }
   }, [setDaemonVersion]);
 
+  // Refs to store unlisten functions (avoid race conditions on cleanup)
+  const unlistenTerminatedRef = useRef(null);
+  const unlistenStderrRef = useRef(null);
+  const unlistenStdoutRef = useRef(null);
+  const lastActivityResetRef = useRef(0);
+
   // Listen to sidecar termination events to detect immediate crashes
   useEffect(() => {
-    let unlistenTerminated;
+    let isMounted = true;
 
     const setupTerminationListener = async () => {
+      // Cleanup previous listener if any
+      if (unlistenTerminatedRef.current) {
+        unlistenTerminatedRef.current();
+        unlistenTerminatedRef.current = null;
+      }
+
       try {
-        unlistenTerminated = await listen('sidecar-terminated', event => {
-          if (!isStarting) {
+        const unlisten = await listen('sidecar-terminated', event => {
+          if (!isMounted) return;
+
+          const currentState = useAppStore.getState();
+          if (!currentState.isStarting) {
             return;
           }
 
@@ -140,6 +155,12 @@ export const useDaemon = () => {
 
           eventBus.emit('daemon:crash', { status });
         });
+
+        if (isMounted) {
+          unlistenTerminatedRef.current = unlisten;
+        } else {
+          unlisten();
+        }
       } catch (error) {
         console.error('[Daemon] Failed to setup termination listener:', error);
       }
@@ -148,21 +169,31 @@ export const useDaemon = () => {
     setupTerminationListener();
 
     return () => {
-      if (unlistenTerminated) {
-        unlistenTerminated();
+      isMounted = false;
+      if (unlistenTerminatedRef.current) {
+        unlistenTerminatedRef.current();
+        unlistenTerminatedRef.current = null;
       }
     };
-  }, [isStarting, eventBus]);
+  }, [eventBus]);
 
   // Listen to sidecar stderr events to detect hardware errors
   useEffect(() => {
-    let unlistenStderr;
+    let isMounted = true;
 
     const setupStderrListener = async () => {
+      // Cleanup previous listener if any
+      if (unlistenStderrRef.current) {
+        unlistenStderrRef.current();
+        unlistenStderrRef.current = null;
+      }
+
       try {
-        unlistenStderr = await listen('sidecar-stderr', event => {
+        const unlisten = await listen('sidecar-stderr', event => {
+          if (!isMounted) return;
+
           const currentState = useAppStore.getState();
-          const shouldProcess = isStarting || currentState.hardwareError;
+          const shouldProcess = currentState.isStarting || currentState.hardwareError;
 
           if (!shouldProcess) {
             return;
@@ -183,6 +214,12 @@ export const useDaemon = () => {
             });
           }
         });
+
+        if (isMounted) {
+          unlistenStderrRef.current = unlisten;
+        } else {
+          unlisten();
+        }
       } catch (error) {
         console.error('[Daemon] Failed to setup stderr listener:', error);
       }
@@ -191,20 +228,29 @@ export const useDaemon = () => {
     setupStderrListener();
 
     return () => {
-      if (unlistenStderr) {
-        unlistenStderr();
+      isMounted = false;
+      if (unlistenStderrRef.current) {
+        unlistenStderrRef.current();
+        unlistenStderrRef.current = null;
       }
     };
-  }, [isStarting, eventBus]);
+  }, [eventBus]);
 
   // Listen to sidecar stdout events to reset timeout when we see activity
   useEffect(() => {
-    let unlistenStdout;
-    let lastActivityReset = 0;
+    let isMounted = true;
 
     const setupStdoutListener = async () => {
+      // Cleanup previous listener if any
+      if (unlistenStdoutRef.current) {
+        unlistenStdoutRef.current();
+        unlistenStdoutRef.current = null;
+      }
+
       try {
-        unlistenStdout = await listen('sidecar-stdout', () => {
+        const unlisten = await listen('sidecar-stdout', () => {
+          if (!isMounted) return;
+
           const currentState = useAppStore.getState();
 
           if (!currentState.isStarting || currentState.isActive) {
@@ -212,10 +258,10 @@ export const useDaemon = () => {
           }
 
           const now = Date.now();
-          if (now - lastActivityReset < DAEMON_CONFIG.STARTUP.ACTIVITY_RESET_DELAY) {
+          if (now - lastActivityResetRef.current < DAEMON_CONFIG.STARTUP.ACTIVITY_RESET_DELAY) {
             return;
           }
-          lastActivityReset = now;
+          lastActivityResetRef.current = now;
 
           clearStartupTimeout();
 
@@ -233,6 +279,12 @@ export const useDaemon = () => {
 
           setStartupTimeout(newTimeoutId);
         });
+
+        if (isMounted) {
+          unlistenStdoutRef.current = unlisten;
+        } else {
+          unlisten();
+        }
       } catch (error) {
         console.error('[Daemon] Failed to setup stdout listener:', error);
       }
@@ -241,8 +293,10 @@ export const useDaemon = () => {
     setupStdoutListener();
 
     return () => {
-      if (unlistenStdout) {
-        unlistenStdout();
+      isMounted = false;
+      if (unlistenStdoutRef.current) {
+        unlistenStdoutRef.current();
+        unlistenStdoutRef.current = null;
       }
     };
   }, [eventBus, clearStartupTimeout, setStartupTimeout]);

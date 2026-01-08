@@ -50,10 +50,14 @@ export function useDaemonStartupLogs(isStarting) {
       return;
     }
 
+    let isMounted = true;
+
     const setupListeners = async () => {
       try {
         // Listen to stdout (info messages)
-        unlistenStdoutRef.current = await listen('sidecar-stdout', event => {
+        const unlistenStdout = await listen('sidecar-stdout', event => {
+          if (!isMounted) return;
+
           const logLine =
             typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
 
@@ -87,8 +91,17 @@ export function useDaemonStartupLogs(isStarting) {
           // and will be in backend logs array, avoiding duplicates
         });
 
+        if (isMounted) {
+          unlistenStdoutRef.current = unlistenStdout;
+        } else {
+          unlistenStdout();
+          return; // Don't setup stderr listener if already unmounted
+        }
+
         // Listen to stderr (errors and warnings)
-        unlistenStderrRef.current = await listen('sidecar-stderr', event => {
+        const unlistenStderr = await listen('sidecar-stderr', event => {
+          if (!isMounted) return;
+
           const logLine =
             typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
 
@@ -143,6 +156,12 @@ export function useDaemonStartupLogs(isStarting) {
           // and will be in backend logs array, avoiding duplicates
           // Errors are already filtered at source to prevent spam
         });
+
+        if (isMounted) {
+          unlistenStderrRef.current = unlistenStderr;
+        } else {
+          unlistenStderr();
+        }
       } catch (error) {
         console.error('Failed to setup startup log listeners:', error);
       }
@@ -151,6 +170,7 @@ export function useDaemonStartupLogs(isStarting) {
     setupListeners();
 
     return () => {
+      isMounted = false;
       if (unlistenStdoutRef.current) {
         unlistenStdoutRef.current();
         unlistenStdoutRef.current = null;

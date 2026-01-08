@@ -27,10 +27,19 @@ export function useLocalWifiScan({ autoScan = false, scanInterval = 0 } = {}) {
   const [lastScanTime, setLastScanTime] = useState(null);
   const intervalRef = useRef(null);
 
+  // Ref to prevent overlapping scans
+  const isScanningRef = useRef(false);
+
   /**
    * Scan for available WiFi networks
    */
   const scan = useCallback(async () => {
+    // Skip if already scanning (prevents callback accumulation)
+    if (isScanningRef.current) {
+      return [];
+    }
+
+    isScanningRef.current = true;
     setIsScanning(true);
     setError(null);
 
@@ -49,6 +58,7 @@ export function useLocalWifiScan({ autoScan = false, scanInterval = 0 } = {}) {
       setError(typeof err === 'string' ? err : err.message || 'Failed to scan WiFi networks');
       return [];
     } finally {
+      isScanningRef.current = false;
       setIsScanning(false);
     }
   }, []);

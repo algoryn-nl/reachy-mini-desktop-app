@@ -63,7 +63,7 @@ export const DAEMON_CONFIG = {
   // Animation/transition durations
   ANIMATIONS: {
     MODEL_LOAD_TIME: 1000, // ⚡ 3D model loading time (margin)
-    SCAN_DURATION: 3000, // 3D mesh scan duration
+    SCAN_DURATION: 3500, // 3D mesh scan duration (3.5s for smoother transition)
     SCAN_INTERNAL_DELAYS: 250, // X-ray return delay for last mesh
     SCAN_COMPLETE_PAUSE: 600, // ⚡ Pause to SEE scan success before transition
     SLEEP_DURATION: 4000, // goto_sleep duration before kill

@@ -78,14 +78,24 @@ export function useStartupStages({
   }, [scanComplete, currentStage.id, isStarting, hasError, isSimMode]);
 
   // Listen to sidecar logs for automatic stage detection
+  const unlistenStdoutRef = useRef(null);
+
   useEffect(() => {
     if (!isStarting) return;
 
-    let unlistenStdout;
+    let isMounted = true;
 
     const setupListener = async () => {
+      // Cleanup previous listener first
+      if (unlistenStdoutRef.current) {
+        unlistenStdoutRef.current();
+        unlistenStdoutRef.current = null;
+      }
+
       try {
-        unlistenStdout = await listen('sidecar-stdout', event => {
+        const unlisten = await listen('sidecar-stdout', event => {
+          if (!isMounted) return;
+
           const logMessage =
             typeof event.payload === 'string' ? event.payload : event.payload?.toString() || '';
 
@@ -106,6 +116,12 @@ export function useStartupStages({
             }
           }
         });
+
+        if (isMounted) {
+          unlistenStdoutRef.current = unlisten;
+        } else {
+          unlisten();
+        }
       } catch (error) {
         console.error('Failed to setup sidecar-stdout listener for stages:', error);
       }
@@ -114,8 +130,10 @@ export function useStartupStages({
     setupListener();
 
     return () => {
-      if (unlistenStdout) {
-        unlistenStdout();
+      isMounted = false;
+      if (unlistenStdoutRef.current) {
+        unlistenStdoutRef.current();
+        unlistenStdoutRef.current = null;
       }
     };
   }, [isStarting, currentStage, stages, isSimMode]);

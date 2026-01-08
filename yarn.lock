@@ -1112,6 +1112,13 @@
     "@tauri-apps/cli-win32-ia32-msvc" "2.9.3"
     "@tauri-apps/cli-win32-x64-msvc" "2.9.3"
 
+"@tauri-apps/plugin-deep-link@^2.0.0":
+  version "2.4.5"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-deep-link/-/plugin-deep-link-2.4.5.tgz#7b0cfdf1265c248340126764a85ae70f8f525dc8"
+  integrity sha512-Zf2RTj1D9IQQ45/jqW8XTKvql24HqlPjcpv0mV/O2jHQkNe11HOTZBVj6IK37qs+MWV7xZzcmazx/QVZnhAwaQ==
+  dependencies:
+    "@tauri-apps/api" "^2.8.0"
+
 "@tauri-apps/plugin-http@^2.5.4":
   version "2.5.4"
   resolved "https://registry.npmjs.org/@tauri-apps/plugin-http/-/plugin-http-2.5.4.tgz"

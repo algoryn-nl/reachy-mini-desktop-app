@@ -28,6 +28,7 @@
       "macos-permissions:allow-request-camera-permission",
       "macos-permissions:allow-check-microphone-permission",
       "macos-permissions:allow-request-microphone-permission",
+    "deep-link:default",
     {
       "identifier": "http:default",
       "allow": [

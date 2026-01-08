@@ -61,6 +61,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Filter out Tauri callback warnings that are harmless race conditions
+      // This happens when React unmounts components while Tauri async operations are pending
+      const originalWarn = console.warn;
+      console.warn = function(...args) {
+        const message = args[0];
+        if (typeof message === 'string' && message.includes("Couldn't find callback id")) {
+          return; // Suppress this specific warning
+        }
+        originalWarn.apply(console, args);
+      };
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
