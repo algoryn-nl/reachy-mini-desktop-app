@@ -94,6 +94,39 @@ jobs:
         run: |
           TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-sidecar-unix.sh || echo "Sidecar build skipped"
 
+      - name: Update macOS resources config with cpython folder name
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          # Find the actual cpython folder name created by uv-bundle
+          CPYTHON_FOLDER=$(ls -d src-tauri/binaries/cpython-* 2>/dev/null | head -1 | xargs basename || echo "")
+          
+          if [ -z "$CPYTHON_FOLDER" ]; then
+            echo "❌ No cpython folder found in src-tauri/binaries/"
+            echo "   This is required for macOS builds"
+            ls -la src-tauri/binaries/ || echo "binaries/ directory not found"
+            exit 1
+          fi
+          
+          echo "🔧 Found cpython folder: $CPYTHON_FOLDER"
+          echo "   Target: ${{ matrix.target }}"
+          echo "   Updating tauri.macos.conf.json..."
+          
+          # Update tauri.macos.conf.json with the exact cpython folder name
+          # This handles both aarch64 and x86_64 builds dynamically
+          sed -i '' "s|cpython-3.12.12-macos-aarch64-none|$CPYTHON_FOLDER|g" src-tauri/tauri.macos.conf.json
+          sed -i '' "s|cpython-3.12.12-macos-x86_64-none|$CPYTHON_FOLDER|g" src-tauri/tauri.macos.conf.json
+          # Also handle any version number variations
+          sed -i '' "s|cpython-3\.12\.[0-9]*-macos-[^\"]*|$CPYTHON_FOLDER|g" src-tauri/tauri.macos.conf.json
+          
+          echo "✅ Updated tauri.macos.conf.json:"
+          cat src-tauri/tauri.macos.conf.json
+          
+          # Verify the binaries directory contents
+          echo ""
+          echo "📦 Contents of src-tauri/binaries/:"
+          ls -la src-tauri/binaries/
+
       - name: Update Linux resources config with cpython folder name
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
