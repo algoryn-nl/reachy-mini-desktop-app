@@ -37,10 +37,10 @@ The controller uses a state machine for clear mode management:
 
 ```javascript
 const ControllerMode = {
-  IDLE: 'idle',                    // No interaction
+  IDLE: 'idle', // No interaction
   DRAGGING_MOUSE: 'dragging_mouse', // Mouse/touch interaction
   DRAGGING_GAMEPAD: 'dragging_gamepad', // Gamepad input
-  RESETTING: 'resetting',          // Reset animation
+  RESETTING: 'resetting', // Reset animation
 };
 ```
 
@@ -76,6 +76,7 @@ useControllerHandlers  useControllerInput
 ```
 
 The context provides:
+
 - `state`: Current controller state (mode, values, timestamps)
 - `actions`: State transition functions
 - `smoother`: TargetSmoothingManager instance
@@ -102,7 +103,11 @@ import Controller from '@views/active-robot/controller';
 import Controller from '@views/active-robot/controller';
 
 // Context
-import { ControllerProvider, useController, ControllerMode } from '@views/active-robot/controller/context';
+import {
+  ControllerProvider,
+  useController,
+  ControllerMode,
+} from '@views/active-robot/controller/context';
 
 // Hooks
 import {

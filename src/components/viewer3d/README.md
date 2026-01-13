@@ -77,7 +77,7 @@ Hook that reads robot state from the centralized Zustand store.
 }
 ```
 
-**WASM Fallback**: When the daemon doesn't provide passive joints (e.g., USB mode with AnalyticalKinematics), 
+**WASM Fallback**: When the daemon doesn't provide passive joints (e.g., USB mode with AnalyticalKinematics),
 they are calculated locally using the Rust WASM module (`useKinematicsWasm`).
 
 ## 🎨 Material System
