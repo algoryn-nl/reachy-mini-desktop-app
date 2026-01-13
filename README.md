@@ -242,7 +242,7 @@ reachy_mini_desktop_app/
 │   │   │   ├── useAudioAnalyser.js  # Audio analysis
 │   │   │   └── useWebRTCStream.js   # WebRTC streaming
 │   │   ├── robot/                   # Robot state hooks
-│   │   │   ├── useRobotState.js     # Robot state polling
+│   │   │   ├── useRobotStateWebSocket.js  # Centralized WebSocket streaming (20Hz)
 │   │   │   ├── useRobotCommands.js  # Robot command execution
 │   │   │   └── useActiveMoves.js    # Active moves tracking
 │   │   └── system/                  # System hooks
@@ -271,10 +271,9 @@ reachy_mini_desktop_app/
 │   ├── store/                        # State management (Zustand)
 │   │   ├── slices/                  # Store slices (apps, logs, robot, ui)
 │   │   ├── middleware/              # Store middleware (windowSync)
-│   │   ├── useAppStore.js           # Composite store
-│   │   ├── useRobotStore.js         # Robot state
-│   │   ├── useLogsStore.js          # Logs management
-│   │   └── useUIStore.js            # UI state
+│   │   ├── useAppStore.js           # Composite store (legacy alias)
+│   │   ├── useStore.js              # Main unified store
+│   │   └── index.js                 # Store exports
 │   ├── utils/                        # Utility functions
 │   ├── config/                       # Centralized configuration
 │   └── constants/                    # Shared constants
@@ -352,7 +351,7 @@ flowchart TB
     Modules --> UV
     UV --> Daemon
     
-    Hooks <-->|REST API| Daemon
+    Hooks <-->|WebSocket/REST| Daemon
     Daemon <-->|Serial| Robot
     
     Hooks -.-> HF
@@ -362,7 +361,8 @@ flowchart TB
 **Key Architecture Points:**
 - **Hooks** are organized by domain (daemon, robot, system, media, audio) for better maintainability
 - **Views** are organized in dedicated folders with their associated components
-- **Store** uses a composite pattern with specialized sub-stores and slices
+- **Store** uses a unified Zustand store with slices (robot, logs, ui, apps)
+- **WebSocket** centralizes robot state streaming at 20Hz via `useRobotStateWebSocket`
 - **Config** centralizes all configuration constants (timeouts, intervals, etc.)
 
 ### View Router State Machine
