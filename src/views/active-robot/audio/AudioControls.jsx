@@ -29,14 +29,18 @@ function AudioControls({
   onMicrophoneMute,
   darkMode,
   disabled = false,
+  isSleeping = false, // Hide DoA and audio visualizer when robot is sleeping
 }) {
-  // Fetch DoA when microphone is active
   const isMicActive = microphoneVolume > 0 && !disabled;
-  const { angle, isTalking, isAvailable } = useDoA(isMicActive);
 
-  // Get real audio level from robot's microphone via WebRTC
-  const { audioTrack } = useWebRTCStreamContext();
-  const { level: microphoneLevel } = useAudioAnalyser(isMicActive ? audioTrack : null);
+  // Get WebRTC context - only available in WiFi mode
+  const { audioTrack, isWifiMode } = useWebRTCStreamContext();
+
+  // DoA and audio visualization only available in WiFi mode (real WebRTC stream)
+  const { angle, isTalking, isAvailable } = useDoA(isWifiMode && isMicActive);
+  const { level: microphoneLevel } = useAudioAnalyser(
+    isWifiMode && isMicActive ? audioTrack : null
+  );
   // Shared styles
   const cardStyle = {
     height: 64,
@@ -279,13 +283,17 @@ function AudioControls({
         microphoneVolume > 0,
         onMicrophoneMute,
         onMicrophoneVolumeChange || (val => onMicrophoneChange(val > 0)),
-        <DoAIndicator
-          angle={angle}
-          isTalking={isTalking}
-          isAvailable={isAvailable}
-          darkMode={darkMode}
-        />,
-        microphoneLevel // Real audio level from robot's microphone
+        // DoA indicator only in WiFi mode AND when robot is awake
+        isWifiMode && !isSleeping ? (
+          <DoAIndicator
+            angle={angle}
+            isTalking={isTalking}
+            isAvailable={isAvailable}
+            darkMode={darkMode}
+          />
+        ) : null,
+        // Audio waveform only in WiFi mode AND when robot is awake
+        isWifiMode && !isSleeping ? microphoneLevel : null
       )}
     </Box>
   );

@@ -384,14 +384,14 @@ export default function UpdateView({
       {/* Update logs console - positioned at the bottom */}
       <Box
         sx={{
-          position: 'absolute',
+          position: 'fixed',
           bottom: 16,
           left: '50%',
           transform: 'translateX(-50%)',
           width: 'calc(100% - 32px)',
           maxWidth: '420px',
           zIndex: 1000,
-          opacity: 0.6, // Semi-transparent by default
+          opacity: 0.2, // Very subtle by default
           transition: 'opacity 0.3s ease-in-out',
           '&:hover': {
             opacity: 1, // Full opacity on hover
@@ -403,14 +403,13 @@ export default function UpdateView({
           darkMode={darkMode}
           includeStoreLogs={true}
           compact={true}
-          showTimestamp={true}
-          lines={6}
+          showTimestamp={false}
+          lines={3}
           sx={{
-            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.8)',
-            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)'}`,
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            borderRadius: 2,
+            bgcolor: darkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)',
+            border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
           }}
         />
       </Box>

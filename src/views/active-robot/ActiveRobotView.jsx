@@ -25,13 +25,13 @@ import { PowerButton, SleepButton } from './controls';
 import AudioControls from './audio/AudioControls';
 import { useRobotPowerState, useRobotMovementStatus } from './hooks';
 import { useAudioControls } from './audio/hooks';
-import { useAppLogs } from './application-store/hooks';
+import { useAppLogs, useApps, useAppHandlers } from './application-store/hooks';
 import { useActiveRobotContext } from './context';
 import { CHOREOGRAPHY_DATASETS, DANCES, QUICK_ACTIONS } from '../../constants/choreographies';
 import { WebRTCStreamProvider } from '../../contexts/WebRTCStreamContext';
 import { useToast } from '../../hooks/useToast';
-import Toast from '../../components/Toast';
 import ConnectionLostIllustration from '../../assets/connection-lost.svg';
+import useAppStore from '../../store/useAppStore';
 
 function ActiveRobotView({
   isActive,
@@ -77,8 +77,102 @@ function ActiveRobotView({
   // ✅ Monitor active movements and update store status (robotStatus: 'busy', busyReason: 'moving')
   useRobotMovementStatus(isActive);
 
-  // Toast notifications
-  const { toast, toastProgress, showToast, handleCloseToast } = useToast();
+  // Toast notifications (global - rendered in App.jsx)
+  const { showToast } = useToast();
+
+  // ✅ Apps hook for deep link installation
+  const {
+    availableApps,
+    installApp,
+    fetchAvailableApps,
+    error: appsError,
+  } = useApps(isActive, true); // officialOnly=true by default
+
+  // ✅ App handlers for deep link installation
+  const { handleInstall } = useAppHandlers({
+    currentApp: null,
+    activeJobs: new Map(),
+    installApp,
+    removeApp: () => {},
+    startApp: () => {},
+    stopCurrentApp: () => {},
+    showToast,
+  });
+
+  // ✅ Deep link pending install - processed from root App.jsx
+  const { pendingDeepLinkInstall, clearPendingDeepLinkInstall } = useAppStore();
+
+  // Process pending deep link install when it's set
+  useEffect(() => {
+    if (!pendingDeepLinkInstall) return;
+
+    const processDeepLinkInstall = async () => {
+      const appName = pendingDeepLinkInstall;
+      console.log('[ActiveRobotView] Processing pending deep link install:', appName);
+
+      // Clear immediately to avoid re-processing
+      clearPendingDeepLinkInstall();
+
+      // Find app in available apps
+      let app = availableApps.find(
+        a => a.name === appName || a.name?.toLowerCase() === appName?.toLowerCase()
+      );
+
+      if (!app) {
+        console.log('[ActiveRobotView] App not found, refreshing list...');
+
+        // Check network status before fetching
+        if (!navigator.onLine) {
+          showToast?.('No internet connection. Cannot fetch app list.', 'error');
+          return;
+        }
+
+        await fetchAvailableApps(true); // Force refresh
+
+        // Check if there was an error during fetch
+        const storeState = useAppStore.getState();
+        if (storeState.appsError && storeState.appsError.includes('internet')) {
+          showToast?.('No internet connection. Please check your network.', 'error');
+          return;
+        }
+
+        // Retry after refresh - need to get fresh state
+        const freshApps = storeState.availableApps;
+        app = freshApps.find(
+          a => a.name === appName || a.name?.toLowerCase() === appName?.toLowerCase()
+        );
+
+        if (!app) {
+          // More helpful message depending on context
+          if (freshApps.length === 0) {
+            showToast?.('Could not load app list. Check your internet connection.', 'error');
+          } else {
+            showToast?.(`App "${appName}" not found in the store`, 'error');
+          }
+          return;
+        }
+      }
+
+      if (app.isInstalled) {
+        showToast?.(`${app.name} is already installed`, 'info');
+        return;
+      }
+
+      // Trigger installation
+      console.log('[ActiveRobotView] Starting installation via deep link:', app.name);
+      showToast?.(`Starting installation of ${app.name}...`, 'success');
+      handleInstall(app);
+    };
+
+    processDeepLinkInstall();
+  }, [
+    pendingDeepLinkInstall,
+    clearPendingDeepLinkInstall,
+    availableApps,
+    fetchAvailableApps,
+    handleInstall,
+    showToast,
+  ]);
 
   // Logs fullscreen modal
   const [logsFullscreenOpen, setLogsFullscreenOpen] = useState(false);
@@ -104,16 +198,21 @@ function ActiveRobotView({
   const hasLoadedOnceRef = useRef(false);
 
   // ✅ Check if robot has received its first position data
-  // robotStateFull is pre-populated in HardwareScanView, so this should be true immediately
+  // robotStateFull is pre-populated in HardwareScanView (including passive_joints via WASM)
+  // so this should be true immediately on mount
   const robotPositionReady = useMemo(() => {
     return (
       robotStateFull?.data?.head_joints &&
       Array.isArray(robotStateFull.data.head_joints) &&
-      robotStateFull.data.head_joints.length === 7
+      robotStateFull.data.head_joints.length === 7 &&
+      // 🎯 Also require passive_joints (calculated via WASM in HardwareScanView)
+      robotStateFull?.data?.passive_joints &&
+      Array.isArray(robotStateFull.data.passive_joints) &&
+      robotStateFull.data.passive_joints.length === 21
     );
   }, [robotStateFull]);
 
-  // ✅ Combined ready state: apps loaded AND robot position ready
+  // ✅ Combined ready state: apps loaded AND robot position ready (including passive_joints)
   const isFullyReady = !appsLoading && robotPositionReady;
 
   // ✅ Callback to receive apps loading state from RightPanel
@@ -405,27 +504,24 @@ function ActiveRobotView({
               }}
             >
               {/* ViewportSwapper: handles swap between 3D and Camera with Portals */}
-              {/* ✅ OPTIMIZED: Memoize Viewer3D props to avoid re-renders when parent re-renders */}
-              {useMemo(
-                () => (
-                  <ViewportSwapper
-                    view3D={
-                      <Viewer3D
-                        isActive={isActive}
-                        forceLoad={true}
-                        showStatusTag={true}
-                        isOn={isOn}
-                        isMoving={isMoving}
-                        robotStatus={robotStatus}
-                        busyReason={busyReason}
-                        hideCameraFeed={true}
-                      />
-                    }
-                    viewCamera={<CameraFeed width={640} height={480} isLarge={true} />}
+              {/* ✅ FIX: Don't use useMemo here - it causes complete remounts on prop changes */}
+              {/* Instead, let React handle prop updates on the existing component instances */}
+              {/* This prevents WebGL context accumulation from repeated Canvas remounts */}
+              <ViewportSwapper
+                view3D={
+                  <Viewer3D
+                    isActive={isActive}
+                    forceLoad={true}
+                    showStatusTag={true}
+                    isOn={isOn}
+                    isMoving={isMoving}
+                    robotStatus={robotStatus}
+                    busyReason={busyReason}
+                    hideCameraFeed={true}
                   />
-                ),
-                [isActive, isOn, isMoving, robotStatus, busyReason]
-              )}
+                }
+                viewCamera={<CameraFeed width={640} height={480} isLarge={true} />}
+              />
 
               {/* Power Button - top left corner (only enabled when sleeping AND safe to shutdown AND not transitioning) */}
               <PowerButton
@@ -460,6 +556,7 @@ function ActiveRobotView({
                 onMicrophoneMute={handleMicrophoneMute}
                 darkMode={darkMode}
                 disabled={isBusyState}
+                isSleeping={robotStatus === 'sleeping'}
               />
             </Box>
 
@@ -564,14 +661,7 @@ function ActiveRobotView({
           </Box>
         </Box>
 
-        {/* Toast Notifications */}
-        <Toast
-          toast={toast}
-          toastProgress={toastProgress}
-          onClose={handleCloseToast}
-          darkMode={darkMode}
-          zIndex={100000}
-        />
+        {/* Toast Notifications - handled by global Toast in App.jsx */}
 
         {/* Logs Fullscreen Modal */}
         <FullscreenOverlay

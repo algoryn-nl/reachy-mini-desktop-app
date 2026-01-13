@@ -4,13 +4,19 @@
  */
 
 /**
- * Robot state from the daemon
+ * Robot state from the daemon (streamed via WebSocket at 20Hz)
  * @typedef {Object} RobotStateFull
- * @property {Object} data - Robot data from API
+ * @property {Object} data - Robot data from WebSocket
  * @property {string} data.control_mode - 'enabled' | 'disabled'
+ * @property {number[]} data.head_pose - 4x4 matrix (16 floats)
+ * @property {number[]} data.head_joints - Head joint positions (7 floats)
  * @property {number} data.body_yaw - Body yaw angle
  * @property {number[]} data.antennas_position - [left, right] antenna positions
- * @property {Object} data.head_joints - Head joint positions
+ * @property {number[]} data.passive_joints - Passive joint positions (21 floats)
+ * @property {Object|null} data.doa - Direction of Arrival from microphone
+ * @property {number} data.doa.angle - Angle in radians (0=left, π/2=front, π=right)
+ * @property {boolean} data.doa.speech_detected - Speech is detected
+ * @property {number} data.dataVersion - Version counter for memo optimization
  */
 
 /**

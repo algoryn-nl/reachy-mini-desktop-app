@@ -401,7 +401,7 @@ stateDiagram-v2
 0. 🔐 **PermissionsRequired** (macOS only) - Blocks until camera/microphone granted
 1. 🔄 **UpdateView** - Check and download updates
 2. 📶 **FirstTimeWifiSetup** - Guided WiFi configuration wizard
-3. 📱 **BluetoothSupport** - Bluetooth setup help
+3. 📱 **BluetoothSupport** - Links to external Bluetooth reset tool (for unresponsive robots)
 4. 🔍 **FindingRobot** - Connection selection (USB/WiFi/Simulation)
 5. ⚙️ **Starting** - Hardware scan and daemon startup
 6. 🛑 **Closing** - Shutdown sequence

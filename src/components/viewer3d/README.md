@@ -25,7 +25,7 @@ viewer3d/
 │   ├── SettingsWifiCard.jsx        # WiFi configuration
 │   └── ChangeWifiOverlay.jsx       # WiFi change dialog
 ├── hooks/
-│   └── useRobotWebSocket.js  # WebSocket hook for daemon connection
+│   └── useRobotWebSocket.js  # Reads robot state from centralized store
 └── index.js                  # Public module exports
 
 Utils:
@@ -58,7 +58,11 @@ Utils:
 
 ### `useRobotWebSocket(isActive)`
 
-Hook to manage WebSocket connection to Reachy daemon.
+Hook that reads robot state from the centralized Zustand store.
+
+> **Note**: This hook no longer maintains its own WebSocket connection.
+> Robot state is streamed by `useRobotStateWebSocket` (in App.jsx) and stored in `robotStateFull`.
+> This hook simply reads from the store for backward compatibility.
 
 **Returns:**
 
@@ -66,11 +70,15 @@ Hook to manage WebSocket connection to Reachy daemon.
 {
   headPose: Array(16),       // 4x4 head pose matrix
   headJoints: Array(7),      // [yaw_body, stewart_1..6]
-  passiveJoints: Array(21),  // Stewart passive joints
+  passiveJoints: Array(21),  // Stewart passive joints (from daemon or WASM fallback)
   yawBody: number,           // Body rotation
-  antennas: [left, right]    // Antenna positions
+  antennas: [left, right],   // Antenna positions
+  dataVersion: number,       // For memo optimization
 }
 ```
+
+**WASM Fallback**: When the daemon doesn't provide passive joints (e.g., USB mode with AnalyticalKinematics), 
+they are calculated locally using the Rust WASM module (`useKinematicsWasm`).
 
 ## 🎨 Material System
 
@@ -83,17 +91,33 @@ The `src/utils/viewer3d/materials.js` module provides:
   - `rimIntensity` - Rim effect intensity (default: 0.6)
   - `scanMode` - Use green colors for scan effect
 
-## 📡 WebSocket
+## 📡 Data Flow
 
-Connection: `ws://localhost:8000/api/state/ws/full`
-
-**Parameters:**
-
-- `frequency=10` - 10 Hz update rate
-- `with_head_pose=true` - 4x4 matrix
-- `with_head_joints=true` - Stewart joints + yaw_body
-- `with_passive_joints=true` - Complete Stewart kinematics
-- `with_antenna_positions=true` - Antenna positions
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        App.jsx                              │
+│  useRobotStateWebSocket(isActive)                          │
+│         │                                                   │
+│         ▼                                                   │
+│   WebSocket /api/state/ws/full @ 20Hz                      │
+│   (head_pose, head_joints, body_yaw, antennas, passive)    │
+│         │                                                   │
+│         ▼                                                   │
+│   robotStateFull (Zustand Store)                           │
+└─────────┬───────────────────────────────────────────────────┘
+          │
+          ▼
+    Viewer3D.jsx
+          │
+          ▼
+    useRobotWebSocket(isActive)  ← Reads from store
+          │
+          ▼ (if passive_joints === null)
+    🦀 WASM calculates passive joints
+          │
+          ▼
+    Scene.jsx → URDFRobot.jsx (renders 3D model)
+```
 
 ## 🚀 Usage
 
@@ -112,7 +136,8 @@ import Viewer3D from './viewer3d';
 
 ## ⚡ Performance
 
-- **Memoization**: Scene and URDFRobot are memoized with deep comparison
-- **Throttling**: WebSocket updates processed at 10 Hz
+- **Single WebSocket**: All robot data streamed via one connection at 20Hz
+- **Memoization**: Scene and URDFRobot use `dataVersion` for efficient updates
 - **Object reuse**: Vector3/Matrix4 objects reused to avoid allocations
 - **DPR limit**: Capped at 2x for GPU efficiency
+- **WASM kinematics**: < 1ms for passive joint calculation when needed

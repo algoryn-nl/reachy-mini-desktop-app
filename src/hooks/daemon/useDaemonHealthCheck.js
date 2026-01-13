@@ -12,7 +12,7 @@ import { useDaemonEventBus } from './useDaemonEventBus';
  * 3. Emit health events to the event bus
  *
  * NOT responsible for:
- * - Fetching robot state data (that's useRobotState's job)
+ * - Fetching robot state data (that's useRobotStateWebSocket's job)
  * - Transitioning to ready (that's HardwareScanView's job)
  *
  * ⚠️ SKIP during installations (daemon may be overloaded)

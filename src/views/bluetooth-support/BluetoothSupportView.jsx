@@ -82,7 +82,7 @@ export default function BluetoothSupportView() {
 
           <Typography sx={{ fontSize: 13, color: textSecondary, mb: 3, lineHeight: 1.6 }}>
             Reset your Reachy via Bluetooth if it's stuck or unresponsive. Use the web-based
-            Bluetooth dashboard in Chrome or Edge.
+            Bluetooth dashboard in Chrome.
           </Typography>
 
           <Button
@@ -109,7 +109,7 @@ export default function BluetoothSupportView() {
           </Button>
 
           <Typography sx={{ fontSize: 11, color: textSecondary, lineHeight: 1.5 }}>
-            Requires Chrome, Edge, or Opera browser.
+            Requires Chrome browser.
             <br />
             Make sure Bluetooth is enabled on your computer.
           </Typography>

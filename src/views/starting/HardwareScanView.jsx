@@ -1,18 +1,103 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Box, Typography, CircularProgress, Button, LinearProgress, useTheme } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Box, Typography } from '@mui/material';
 import Viewer3D from '../../components/viewer3d';
 import useAppStore from '../../store/useAppStore';
 import { invoke } from '@tauri-apps/api/core';
 import { HARDWARE_ERROR_CONFIGS, getErrorMeshes } from '../../utils/hardwareErrors';
-import { getTotalScanParts, getCurrentScanPart, mapMeshToScanPart } from '../../utils/scanParts';
+import { getTotalScanParts, mapMeshToScanPart } from '../../utils/scanParts';
 import { useDaemonStartupLogs } from '../../hooks/daemon/useDaemonStartupLogs';
 import LogConsole from '@components/LogConsole';
 import { DAEMON_CONFIG, fetchWithTimeout, buildApiUrl } from '../../config/daemon';
 import { detectMovementChanges } from '../../utils/movementDetection';
 import { useAppFetching, useAppEnrichment } from '../active-robot/application-store/hooks';
+import { ScanErrorDisplay, ScanStepsIndicator, TipsCarousel } from './components';
+import { calculatePassiveJointsAsync } from '../../utils/kinematics-wasm/useKinematicsWasm';
+
+/**
+ * Get connection-specific timeout error messages
+ * @param {string} connectionMode - 'usb' | 'wifi' | 'simulation'
+ * @param {number} timeoutSeconds - timeout duration
+ * @param {'daemon' | 'movement'} phase - which phase timed out
+ */
+const getTimeoutError = (connectionMode, timeoutSeconds, phase) => {
+  const isWifi = connectionMode === 'wifi';
+  const isSim = connectionMode === 'simulation';
+
+  if (phase === 'daemon') {
+    if (isWifi) {
+      return {
+        type: 'timeout',
+        message: 'WiFi connection timed out',
+        messageParts: {
+          text: 'WiFi connection',
+          bold: 'timed out',
+          suffix: `after ${timeoutSeconds}s`,
+        },
+        details: 'Make sure Reachy is powered on. You can try restarting Reachy.',
+      };
+    }
+    if (isSim) {
+      return {
+        type: 'timeout',
+        message: 'Simulation daemon timed out',
+        messageParts: {
+          text: 'Simulation',
+          bold: 'not responding',
+          suffix: `after ${timeoutSeconds}s`,
+        },
+        details: 'The daemon may have crashed. Try restarting the app.',
+      };
+    }
+    // USB
+    return {
+      type: 'timeout',
+      message: 'USB connection timed out',
+      messageParts: {
+        text: 'USB connection',
+        bold: 'timed out',
+        suffix: `after ${timeoutSeconds}s`,
+      },
+      details: 'Check the USB cable is properly connected.',
+    };
+  }
+
+  // Movement phase
+  if (isWifi) {
+    return {
+      type: 'timeout',
+      message: 'Robot not responding',
+      messageParts: {
+        text: 'Robot',
+        bold: 'not responding',
+        suffix: 'over WiFi',
+      },
+      details: 'Connection established but no data received. Try restarting Reachy.',
+    };
+  }
+  if (isSim) {
+    return {
+      type: 'timeout',
+      message: 'Simulation not responding',
+      messageParts: {
+        text: 'Simulation',
+        bold: 'stuck',
+        suffix: 'waiting for data',
+      },
+      details: 'The simulated robot is not producing movement data.',
+    };
+  }
+  // USB
+  return {
+    type: 'timeout',
+    message: 'Robot not responding',
+    messageParts: {
+      text: 'Robot',
+      bold: 'not responding',
+      suffix: 'over USB',
+    },
+    details: 'The daemon started but the robot is not sending movement data.',
+  };
+};
 
 /**
  * Generate text shadow for better readability on transparent backgrounds
@@ -51,16 +136,18 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
     transitionTo,
     robotStatus,
     setRobotStateFull,
+    robotStateFull, // 🎯 For checking WebSocket dataVersion
+    setShouldStreamRobotState, // 🎯 Start WebSocket early
     setAvailableApps,
     setInstalledApps,
     setAppsLoading,
+    resetAll,
   } = useAppStore();
 
   // ✅ App fetching hooks for pre-loading apps before transition
   const { fetchOfficialApps, fetchAllAppsFromDaemon, fetchInstalledApps } = useAppFetching();
   const { enrichApps } = useAppEnrichment();
   const isStarting = robotStatus === 'starting';
-  const theme = useTheme();
   const {
     logs: startupLogs,
     hasError: hasStartupError,
@@ -75,12 +162,14 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
   const [scanComplete, setScanComplete] = useState(false);
   const [waitingForDaemon, setWaitingForDaemon] = useState(false);
   const [waitingForMovements, setWaitingForMovements] = useState(false);
+  const [waitingForWebSocket, setWaitingForWebSocket] = useState(false); // 🎯 Wait for WebSocket stable data
   const [waitingForApps, setWaitingForApps] = useState(false); // ✅ NEW: Pre-fetch apps state
-  const [daemonStep, setDaemonStep] = useState('connecting'); // 'connecting' | 'initializing' | 'detecting' | 'loading_apps'
+  const [daemonStep, setDaemonStep] = useState('connecting'); // 'connecting' | 'initializing' | 'detecting' | 'syncing' | 'loading_apps'
   const [daemonAttempts, setDaemonAttempts] = useState(0);
   const [movementAttempts, setMovementAttempts] = useState(0);
   const [allMeshes, setAllMeshes] = useState([]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0); // ✅ Track elapsed time for progressive messages
+  const elapsedSecondsRef = useRef(0); // ✅ Ref for reliable access in callbacks
   const robotRefRef = useRef(null);
   const healthCheckIntervalRef = useRef(null);
   const movementCheckIntervalRef = useRef(null);
@@ -93,18 +182,18 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
   // ✅ Helper to get progressive message based on elapsed time
   const getProgressiveMessage = useCallback(() => {
     if (elapsedSeconds >= MESSAGE_THRESHOLDS.VERY_LONG) {
-      return { text: 'Taking its time.', bold: 'Worth the wait', suffix: '!' };
+      return 'Almost there...';
     }
     if (elapsedSeconds >= MESSAGE_THRESHOLDS.LONG_WAIT) {
-      return { text: 'Patience is a', bold: 'virtue', suffix: ', they say' };
+      return 'Still working on it';
     }
     if (elapsedSeconds >= MESSAGE_THRESHOLDS.TAKING_TIME) {
-      return { text: 'Loading robot', bold: 'superpowers', suffix: '...' };
+      return 'Taking a moment';
     }
     if (elapsedSeconds >= MESSAGE_THRESHOLDS.FIRST_LAUNCH) {
-      return { text: 'First launch may take a bit', bold: 'longer', suffix: '' };
+      return 'First launch takes longer';
     }
-    return null; // Use default message
+    return null;
   }, [elapsedSeconds, MESSAGE_THRESHOLDS]);
 
   // ✅ Helper to clear all intervals (DRY)
@@ -181,6 +270,8 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
       setScanComplete(false);
       setWaitingForDaemon(false);
       setWaitingForMovements(false);
+      setWaitingForWebSocket(false); // 🎯 Reset WebSocket waiting state
+      setShouldStreamRobotState(false); // 🎯 Stop WebSocket streaming
       setDaemonStep('connecting');
       setDaemonAttempts(0);
       setMovementAttempts(0);
@@ -213,7 +304,7 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
       // ✅ Keep scan view active - don't reload, let the error be handled by startDaemon
       // startDaemon will set hardwareError if it fails, keeping us in scan view
     }
-  }, [transitionTo, startDaemon, clearAllIntervals]);
+  }, [transitionTo, startDaemon, clearAllIntervals, setShouldStreamRobotState]);
 
   /**
    * Check daemon health status AND robot ready state
@@ -337,190 +428,291 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
     setElapsedSeconds(0); // ✅ Reset elapsed time
     let attemptCount = 0;
     let daemonReady = false;
+    let isCheckingHealth = false; // ✅ Guard against overlapping requests
 
     // ✅ Use centralized config
     const { CHECK_INTERVAL, DAEMON_MAX_ATTEMPTS, MOVEMENT_MAX_ATTEMPTS } =
       DAEMON_CONFIG.HARDWARE_SCAN;
 
     // ✅ Start elapsed time counter (updates every second)
+    elapsedSecondsRef.current = 0;
     elapsedTimerRef.current = setInterval(() => {
-      setElapsedSeconds(prev => prev + 1);
+      elapsedSecondsRef.current += 1;
+      setElapsedSeconds(elapsedSecondsRef.current);
     }, 1000);
 
     // Step 1: Wait for daemon to be ready
     const checkHealth = async () => {
-      attemptCount++;
-      setDaemonAttempts(attemptCount);
-
-      const result = await checkDaemonHealth();
-
-      if (result.ready && !daemonReady) {
-        // ✅ Daemon is ready AND robot has control_mode
-
-        daemonReady = true;
-        setDaemonStep('initializing');
-
-        // Small delay to show "initializing" step
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        setWaitingForDaemon(false);
-        setWaitingForMovements(true);
-        setDaemonStep('detecting');
-
-        // Clear health check interval
-        if (healthCheckIntervalRef.current) {
-          clearInterval(healthCheckIntervalRef.current);
-          healthCheckIntervalRef.current = null;
-        }
-
-        // Start checking for movements
-        let movementAttemptCount = 0;
-        const checkMovements = async () => {
-          movementAttemptCount++;
-          setMovementAttempts(movementAttemptCount);
-
-          const result = await checkDaemonHealth();
-
-          if (result.hasMovements) {
-            // ✅ Movements detected, now pre-fetch apps before transition
-
-            setWaitingForMovements(false);
-            clearAllIntervals();
-
-            // ✅ NEW: Pre-fetch apps before transitioning to ActiveRobotView
-            setWaitingForApps(true);
-            setDaemonStep('loading_apps');
-
-            try {
-              setAppsLoading(true);
-
-              // Fetch all apps in parallel (official + community + installed)
-              const [officialResult, communityResult, installedResult] = await Promise.allSettled([
-                fetchOfficialApps(),
-                fetchAllAppsFromDaemon(),
-                fetchInstalledApps(),
-              ]);
-
-              // Extract results
-              let officialApps =
-                officialResult.status === 'fulfilled' ? officialResult.value || [] : [];
-              let communityApps =
-                communityResult.status === 'fulfilled' ? communityResult.value || [] : [];
-              const installedAppsFromDaemon =
-                installedResult.status === 'fulfilled' ? installedResult.value?.apps || [] : [];
-
-              // Mark apps with isOfficial flag
-              officialApps = officialApps.map(app => ({ ...app, isOfficial: true }));
-              communityApps = communityApps.map(app => ({ ...app, isOfficial: false }));
-
-              // Merge all apps
-              let allApps = [...officialApps, ...communityApps];
-
-              // Add local-only installed apps
-              const availableAppNames = new Set(allApps.map(app => app.name?.toLowerCase()));
-              const localOnlyApps = installedAppsFromDaemon
-                .filter(app => !availableAppNames.has(app.name?.toLowerCase()))
-                .map(app => ({
-                  ...app,
-                  source_kind: app.source_kind || 'local',
-                  isOfficial: false,
-                }));
-
-              if (localOnlyApps.length > 0) {
-                allApps = [...allApps, ...localOnlyApps];
-              }
-
-              // Create lookup structures for installed apps
-              const installedAppNames = new Set(
-                installedAppsFromDaemon.map(app => app.name?.toLowerCase()).filter(Boolean)
-              );
-              const installedAppsMap = new Map(
-                installedAppsFromDaemon.map(app => [app.name?.toLowerCase(), app])
-              );
-
-              // Enrich apps with metadata
-              const { enrichedApps, installed } = await enrichApps(
-                allApps,
-                installedAppNames,
-                installedAppsMap,
-                officialApps
-              );
-
-              // Preserve isOfficial flag after enrichment
-              const enrichedAppsWithFlag = enrichedApps.map(app => {
-                const original = allApps.find(a => a.name === app.name);
-                return { ...app, isOfficial: original?.isOfficial ?? false };
-              });
-
-              // Store in global store (will be used immediately by ActiveRobotView)
-              setAvailableApps(enrichedAppsWithFlag);
-              setInstalledApps(installed);
-            } catch (err) {
-              console.warn(
-                '⚠️ Failed to pre-fetch apps (will retry in ActiveRobotView):',
-                err.message
-              );
-            } finally {
-              setAppsLoading(false);
-              setWaitingForApps(false);
-            }
-
-            // Now we can safely call the callback
-            if (onScanCompleteCallback) {
-              onScanCompleteCallback();
-            }
-            return;
-          }
-
-          // ✅ If max attempts reached, set timeout error instead of continuing
-          if (movementAttemptCount >= MOVEMENT_MAX_ATTEMPTS) {
-            console.error(
-              `❌ Movement check timeout after ${MOVEMENT_MAX_ATTEMPTS} attempts (${(MOVEMENT_MAX_ATTEMPTS * CHECK_INTERVAL) / 1000}s)`
-            );
-            setWaitingForMovements(false);
-            clearAllIntervals();
-
-            // Set timeout error
-            const timeoutError = {
-              type: 'timeout',
-              message: 'Robot movements not detected within timeout period',
-              messageParts: {
-                text: 'Robot movements',
-                bold: 'not detected',
-                suffix: 'within timeout period. Please check the robot connection.',
-              },
-            };
-            setHardwareError(timeoutError);
-            return;
-          }
-        };
-
-        // Start checking movements immediately, then every interval
-        checkMovements();
-        movementCheckIntervalRef.current = setInterval(checkMovements, CHECK_INTERVAL);
+      // ✅ Skip if already checking (prevents request pileup on slow WiFi)
+      if (isCheckingHealth) {
         return;
       }
+      isCheckingHealth = true;
 
-      // ✅ If max attempts reached for daemon, set timeout error instead of continuing
-      if (attemptCount >= DAEMON_MAX_ATTEMPTS && !daemonReady) {
-        console.error(
-          `❌ Daemon healthcheck timeout after ${DAEMON_MAX_ATTEMPTS} attempts (${(DAEMON_MAX_ATTEMPTS * CHECK_INTERVAL) / 1000}s)`
-        );
-        setWaitingForDaemon(false);
-        clearAllIntervals();
+      try {
+        attemptCount++;
+        setDaemonAttempts(attemptCount);
 
-        // Set timeout error
-        const timeoutError = {
-          type: 'timeout',
-          message: 'Daemon did not become ready within timeout period',
-          messageParts: {
-            text: 'Daemon did not become',
-            bold: 'ready',
-            suffix: 'within timeout period. Please check the robot connection.',
-          },
-        };
-        setHardwareError(timeoutError);
-        return;
+        const result = await checkDaemonHealth();
+
+        if (result.ready && !daemonReady) {
+          // ✅ Daemon is ready AND robot has control_mode
+          daemonReady = true;
+
+          // Move directly to healthcheck (detecting movements)
+          setWaitingForDaemon(false);
+          setWaitingForMovements(true);
+          setDaemonStep('detecting');
+
+          // Clear health check interval
+          if (healthCheckIntervalRef.current) {
+            clearInterval(healthCheckIntervalRef.current);
+            healthCheckIntervalRef.current = null;
+          }
+
+          // Start checking for movements
+          let movementAttemptCount = 0;
+          const movementStartTime = elapsedSecondsRef.current;
+          const checkMovements = async () => {
+            movementAttemptCount++;
+            setMovementAttempts(movementAttemptCount);
+
+            const result = await checkDaemonHealth();
+
+            if (result.hasMovements) {
+              // ✅ Movements detected, now start WebSocket and wait for stable data
+              setWaitingForMovements(false);
+              setWaitingForWebSocket(true);
+              setDaemonStep('syncing');
+
+              // 🎯 Start WebSocket streaming early (before transitioning to ActiveRobotView)
+              // This prevents the flicker when arriving in ActiveRobotView
+              setShouldStreamRobotState(true);
+
+              // 🎯 Wait for WebSocket to receive stable data AND calculate passive_joints via WASM
+              // passive_joints are NOT sent by daemon - they MUST be calculated via WASM before transition
+              const WS_STABLE_FRAMES = 3; // Require at least 3 frames
+              const WS_CHECK_INTERVAL = 50; // Check every 50ms
+              const WS_TIMEOUT = 3000; // 3 seconds max
+              const wsStartTime = Date.now();
+
+              console.log(
+                '[HardwareScanView] 🔄 Waiting for WebSocket stable data + WASM passive joints...'
+              );
+
+              const waitForWebSocketAndWasm = async () => {
+                return new Promise(resolve => {
+                  const checkWebSocket = async () => {
+                    const currentState = useAppStore.getState();
+                    const data = currentState.robotStateFull?.data;
+                    const dataVersion = data?.dataVersion;
+                    const hasHeadJoints =
+                      Array.isArray(data?.head_joints) && data.head_joints.length === 7;
+                    const hasHeadPose =
+                      Array.isArray(data?.head_pose) && data.head_pose.length === 16;
+
+                    // Debug log every 500ms
+                    const elapsed = Date.now() - wsStartTime;
+                    if (elapsed % 500 < WS_CHECK_INTERVAL) {
+                      console.log(
+                        `[HardwareScanView] ⏳ Check: dataVersion=${dataVersion}, hasHeadJoints=${hasHeadJoints}, hasHeadPose=${hasHeadPose}`
+                      );
+                    }
+
+                    // Require dataVersion >= 3 AND head_joints AND head_pose
+                    if (dataVersion >= WS_STABLE_FRAMES && hasHeadJoints && hasHeadPose) {
+                      // 🦀 Calculate passive_joints via WASM
+                      console.log('[HardwareScanView] 🦀 Calculating passive joints via WASM...');
+                      try {
+                        const passiveJoints = await calculatePassiveJointsAsync(
+                          data.head_joints,
+                          data.head_pose
+                        );
+
+                        if (passiveJoints && passiveJoints.length === 21) {
+                          // Store passive_joints in the store so Viewer3D can use them immediately
+                          const { setRobotStateFull } = useAppStore.getState();
+                          setRobotStateFull(prev => ({
+                            ...prev,
+                            data: {
+                              ...prev.data,
+                              passive_joints: passiveJoints,
+                            },
+                          }));
+
+                          console.log(
+                            `[HardwareScanView] ✅ Ready! (dataVersion=${dataVersion}, passive_joints=${passiveJoints.length})`
+                          );
+                          resolve();
+                          return;
+                        }
+                      } catch (wasmErr) {
+                        console.warn('[HardwareScanView] ⚠️ WASM error:', wasmErr.message);
+                        // Continue anyway - Viewer3D will calculate via WASM
+                      }
+                    }
+
+                    if (elapsed > WS_TIMEOUT) {
+                      console.warn(
+                        `[HardwareScanView] ⚠️ Timeout after ${WS_TIMEOUT}ms, proceeding anyway`
+                      );
+                      resolve();
+                      return;
+                    }
+
+                    setTimeout(checkWebSocket, WS_CHECK_INTERVAL);
+                  };
+                  checkWebSocket();
+                });
+              };
+
+              await waitForWebSocketAndWasm();
+              setWaitingForWebSocket(false);
+              clearAllIntervals();
+
+              // ✅ NEW: Pre-fetch apps before transitioning to ActiveRobotView
+              setWaitingForApps(true);
+              setDaemonStep('loading_apps');
+
+              try {
+                setAppsLoading(true);
+
+                // Fetch all apps in parallel (official + community + installed)
+                const [officialResult, communityResult, installedResult] = await Promise.allSettled(
+                  [fetchOfficialApps(), fetchAllAppsFromDaemon(), fetchInstalledApps()]
+                );
+
+                // Extract results
+                let officialApps =
+                  officialResult.status === 'fulfilled' ? officialResult.value || [] : [];
+                let communityApps =
+                  communityResult.status === 'fulfilled' ? communityResult.value || [] : [];
+                const installedAppsFromDaemon =
+                  installedResult.status === 'fulfilled' ? installedResult.value?.apps || [] : [];
+
+                // Mark apps with isOfficial flag
+                officialApps = officialApps.map(app => ({ ...app, isOfficial: true }));
+                communityApps = communityApps.map(app => ({ ...app, isOfficial: false }));
+
+                // Merge all apps
+                let allApps = [...officialApps, ...communityApps];
+
+                // Add local-only installed apps
+                const availableAppNames = new Set(allApps.map(app => app.name?.toLowerCase()));
+                const localOnlyApps = installedAppsFromDaemon
+                  .filter(app => !availableAppNames.has(app.name?.toLowerCase()))
+                  .map(app => ({
+                    ...app,
+                    source_kind: app.source_kind || 'local',
+                    isOfficial: false,
+                  }));
+
+                if (localOnlyApps.length > 0) {
+                  allApps = [...allApps, ...localOnlyApps];
+                }
+
+                // Create lookup structures for installed apps
+                const installedAppNames = new Set(
+                  installedAppsFromDaemon.map(app => app.name?.toLowerCase()).filter(Boolean)
+                );
+                const installedAppsMap = new Map(
+                  installedAppsFromDaemon.map(app => [app.name?.toLowerCase(), app])
+                );
+
+                // Enrich apps with metadata
+                const { enrichedApps, installed } = await enrichApps(
+                  allApps,
+                  installedAppNames,
+                  installedAppsMap,
+                  officialApps
+                );
+
+                // Preserve isOfficial flag after enrichment
+                const enrichedAppsWithFlag = enrichedApps.map(app => {
+                  const original = allApps.find(a => a.name === app.name);
+                  return { ...app, isOfficial: original?.isOfficial ?? false };
+                });
+
+                // Store in global store (will be used immediately by ActiveRobotView)
+                setAvailableApps(enrichedAppsWithFlag);
+                setInstalledApps(installed);
+              } catch (err) {
+                console.warn(
+                  '⚠️ Failed to pre-fetch apps (will retry in ActiveRobotView):',
+                  err.message
+                );
+              } finally {
+                setAppsLoading(false);
+                // ✅ FIX: Don't reset waitingForApps here - keep it true during the delay
+                // Otherwise isTransitioning becomes true and steps flash back to Connect
+              }
+
+              // ✅ Give user time to see the completed state before transitioning
+              // This makes the progress feel more natural and lets them see "Apps" complete
+              await new Promise(resolve => setTimeout(resolve, 1200));
+
+              // ✅ Now reset waitingForApps right before callback (view will unmount anyway)
+              setWaitingForApps(false);
+
+              // Now we can safely call the callback
+              if (onScanCompleteCallback) {
+                onScanCompleteCallback();
+              }
+              return;
+            }
+
+            // ✅ Time-based timeout for movements
+            const { MOVEMENT_TIMEOUT_SECONDS } = DAEMON_CONFIG.HARDWARE_SCAN;
+            const movementElapsed = elapsedSecondsRef.current - movementStartTime;
+
+            if (movementElapsed >= MOVEMENT_TIMEOUT_SECONDS) {
+              const currentConnectionMode = useAppStore.getState().connectionMode;
+              console.error(
+                `❌ Movement check timeout after ${movementElapsed}s (limit: ${MOVEMENT_TIMEOUT_SECONDS}s, mode: ${currentConnectionMode})`
+              );
+              setWaitingForMovements(false);
+              clearAllIntervals();
+
+              // Set connection-specific timeout error
+              const timeoutError = getTimeoutError(
+                currentConnectionMode,
+                MOVEMENT_TIMEOUT_SECONDS,
+                'movement'
+              );
+              setHardwareError(timeoutError);
+              return;
+            }
+          };
+
+          // Start checking movements immediately, then every interval
+          checkMovements();
+          movementCheckIntervalRef.current = setInterval(checkMovements, CHECK_INTERVAL);
+          return;
+        }
+
+        // ✅ Time-based timeout (more reliable than attempt count with request guards)
+        const currentElapsed = elapsedSecondsRef.current;
+        const { DAEMON_TIMEOUT_SECONDS } = DAEMON_CONFIG.HARDWARE_SCAN;
+
+        if (currentElapsed >= DAEMON_TIMEOUT_SECONDS && !daemonReady) {
+          const currentConnectionMode = useAppStore.getState().connectionMode;
+          console.error(
+            `❌ Daemon healthcheck timeout after ${currentElapsed}s (limit: ${DAEMON_TIMEOUT_SECONDS}s, mode: ${currentConnectionMode})`
+          );
+          setWaitingForDaemon(false);
+          clearAllIntervals();
+
+          // Set connection-specific timeout error
+          const timeoutError = getTimeoutError(
+            currentConnectionMode,
+            DAEMON_TIMEOUT_SECONDS,
+            'daemon'
+          );
+          setHardwareError(timeoutError);
+          return;
+        }
+      } finally {
+        isCheckingHealth = false;
       }
     };
 
@@ -532,6 +724,7 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
     onScanCompleteCallback,
     clearAllIntervals,
     setHardwareError,
+    setShouldStreamRobotState, // 🎯 Start WebSocket early
     fetchOfficialApps,
     fetchAllAppsFromDaemon,
     fetchInstalledApps,
@@ -704,121 +897,14 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
         }}
       >
         {startupError || scanError ? (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 1,
-              py: 0.5,
-              maxWidth: '360px',
-              minHeight: '90px',
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: darkMode ? '#666' : '#999',
-                letterSpacing: '1px',
-                textTransform: 'uppercase',
-              }}
-            >
-              Hardware Error
-            </Typography>
-
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography
-                component="span"
-                sx={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: darkMode ? '#f5f5f5' : '#333',
-                  lineHeight: 1.5,
-                }}
-              >
-                {startupError && typeof startupError === 'object' && startupError.messageParts ? (
-                  <>
-                    {startupError.messageParts.text && `${startupError.messageParts.text} `}
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      {startupError.messageParts.bold}
-                    </Box>
-                    {startupError.messageParts.suffix && ` ${startupError.messageParts.suffix}`}
-                  </>
-                ) : scanError?.action ? (
-                  <>
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      Check
-                    </Box>{' '}
-                    the{' '}
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      camera cable
-                    </Box>{' '}
-                    connection and{' '}
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      restart
-                    </Box>
-                  </>
-                ) : startupError && typeof startupError === 'object' && startupError.message ? (
-                  startupError.message
-                ) : (
-                  startupError || 'Hardware error detected'
-                )}
-              </Typography>
-            </Box>
-
-            {scanError?.code && (
-              <Typography
-                sx={{
-                  fontSize: 9,
-                  fontWeight: 500,
-                  color: darkMode ? '#666' : '#999',
-                  fontFamily: 'monospace',
-                  bgcolor: darkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.05)',
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: '6px',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                }}
-              >
-                {scanError.code}
-              </Typography>
-            )}
-
-            <Button
-              variant="outlined"
-              startIcon={
-                isRetrying ? (
-                  <CircularProgress size={15} sx={{ color: '#ef4444' }} />
-                ) : (
-                  <RefreshIcon sx={{ fontSize: 15, color: '#ef4444' }} />
-                )
-              }
-              onClick={handleRetry}
-              disabled={isRetrying}
-              sx={{
-                borderColor: '#ef4444',
-                color: '#ef4444',
-                fontWeight: 600,
-                fontSize: 11,
-                px: 2.5,
-                py: 0.75,
-                borderRadius: '10px',
-                textTransform: 'none',
-                bgcolor: 'transparent',
-                '&:hover': {
-                  borderColor: '#dc2626',
-                  bgcolor: darkMode ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)',
-                },
-                '&:disabled': {
-                  borderColor: darkMode ? 'rgba(239, 68, 68, 0.3)' : '#fca5a5',
-                  color: darkMode ? 'rgba(239, 68, 68, 0.3)' : '#fca5a5',
-                },
-              }}
-            >
-              {isRetrying ? 'Restarting...' : 'Restart Scan'}
-            </Button>
-          </Box>
+          <ScanErrorDisplay
+            error={startupError}
+            scanError={scanError}
+            isRetrying={isRetrying}
+            onRetry={handleRetry}
+            onBack={resetAll}
+            darkMode={darkMode}
+          />
         ) : (
           <Box
             sx={{
@@ -827,222 +913,45 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
               alignItems: 'center',
               gap: 1,
               py: 0.5,
-              maxWidth: '360px',
+              width: '100%',
+              maxWidth: '340px',
               minHeight: '90px',
+              px: 1,
             }}
           >
-            {scanComplete && !waitingForDaemon && !waitingForMovements ? (
-              <>
+            {/* Steps with integrated progress bar */}
+            <ScanStepsIndicator
+              scanComplete={scanComplete}
+              waitingForDaemon={waitingForDaemon}
+              waitingForMovements={waitingForMovements}
+              waitingForWebSocket={waitingForWebSocket}
+              waitingForApps={waitingForApps}
+              daemonStep={daemonStep}
+              darkMode={darkMode}
+              scanProgress={scanProgress}
+              daemonAttempts={daemonAttempts}
+              movementAttempts={movementAttempts}
+            />
+
+            {/* Tips carousel */}
+            <TipsCarousel darkMode={darkMode} interval={5000} />
+
+            {/* Progressive message for long waits */}
+            {(waitingForDaemon || waitingForMovements || waitingForWebSocket) &&
+              getProgressiveMessage() && (
                 <Typography
                   sx={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: darkMode ? '#666' : '#999',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                    mb: 0.5,
+                    fontSize: 10,
+                    fontWeight: 400,
+                    color: darkMode ? '#555' : '#aaa',
+                    mt: 1,
+                    fontStyle: 'italic',
+                    textAlign: 'center',
                   }}
                 >
-                  Hardware Scan Complete
+                  {getProgressiveMessage()}
                 </Typography>
-
-                <Box sx={{ margin: 'auto', width: '300px' }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={100}
-                    sx={{
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: darkMode
-                        ? `${theme.palette.success.main}33`
-                        : `${theme.palette.success.main}1A`,
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: theme.palette.success.main,
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: darkMode ? '#f5f5f5' : '#333',
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    All components{' '}
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      verified
-                    </Box>
-                  </Typography>
-                </Box>
-              </>
-            ) : (
-              <>
-                <Typography
-                  sx={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: darkMode ? '#666' : '#999',
-                    letterSpacing: '1px',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {waitingForApps
-                    ? 'Loading Applications'
-                    : waitingForMovements
-                      ? 'Detecting Movements'
-                      : waitingForDaemon
-                        ? daemonStep === 'connecting'
-                          ? 'Connecting to Daemon'
-                          : daemonStep === 'initializing'
-                            ? 'Initializing Control'
-                            : 'Starting Software'
-                        : 'Scanning Hardware'}
-                </Typography>
-
-                <Box sx={{ margin: 'auto', width: '300px' }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(() => {
-                      // ✅ Use centralized progress distribution (adjusted for apps loading step)
-                      const { PROGRESS, DAEMON_MAX_ATTEMPTS, MOVEMENT_MAX_ATTEMPTS } =
-                        DAEMON_CONFIG.HARDWARE_SCAN;
-
-                      // Hardware scan: 0-25%
-                      if (!scanComplete && !waitingForDaemon && scanProgress.total > 0) {
-                        return (scanProgress.current / scanProgress.total) * 25;
-                      }
-
-                      // Daemon connecting: 25-40%
-                      if (waitingForDaemon && daemonStep === 'connecting') {
-                        return 25 + Math.min(15, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * 15);
-                      }
-
-                      // Daemon initializing: 40-55%
-                      if (waitingForDaemon && daemonStep === 'initializing') {
-                        return 40 + Math.min(15, (daemonAttempts / DAEMON_MAX_ATTEMPTS) * 15);
-                      }
-
-                      // Detecting movements: 55-80%
-                      if (waitingForMovements) {
-                        return 55 + Math.min(25, (movementAttempts / MOVEMENT_MAX_ATTEMPTS) * 25);
-                      }
-
-                      // Loading apps: 80-100%
-                      if (waitingForApps) {
-                        return 85; // Static value while loading apps
-                      }
-
-                      // Scan complete
-                      if (
-                        scanComplete &&
-                        !waitingForDaemon &&
-                        !waitingForMovements &&
-                        !waitingForApps
-                      ) {
-                        return 100;
-                      }
-
-                      return 0;
-                    })()}
-                    sx={{
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: darkMode
-                        ? `${theme.palette.primary.main}33`
-                        : `${theme.palette.primary.main}1A`,
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor: theme.palette.primary.main,
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: darkMode ? '#f5f5f5' : '#333',
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {waitingForApps ? (
-                      <>
-                        <Box component="span" sx={{ fontWeight: 700 }}>
-                          Fetching
-                        </Box>{' '}
-                        available apps...
-                      </>
-                    ) : waitingForDaemon && daemonStep === 'connecting' ? (
-                      <>
-                        <Box component="span" sx={{ fontWeight: 700 }}>
-                          Establishing
-                        </Box>{' '}
-                        connection...
-                      </>
-                    ) : waitingForDaemon && daemonStep === 'initializing' ? (
-                      <>
-                        <Box component="span" sx={{ fontWeight: 700 }}>
-                          Preparing
-                        </Box>{' '}
-                        motor control...
-                      </>
-                    ) : waitingForMovements ? (
-                      <>
-                        <Box component="span" sx={{ fontWeight: 700 }}>
-                          Waiting
-                        </Box>{' '}
-                        for robot response...
-                      </>
-                    ) : currentPart ? (
-                      <>
-                        Scanning{' '}
-                        <Box component="span" sx={{ fontWeight: 700 }}>
-                          {currentPart.part}
-                        </Box>
-                      </>
-                    ) : (
-                      'Initializing scan...'
-                    )}
-                  </Typography>
-
-                  {/* ✅ Progressive message based on elapsed time */}
-                  {(waitingForDaemon || waitingForMovements) && getProgressiveMessage() && (
-                    <Typography
-                      sx={{
-                        fontSize: 12,
-                        fontWeight: 400,
-                        color:
-                          elapsedSeconds >= MESSAGE_THRESHOLDS.VERY_LONG
-                            ? darkMode
-                              ? '#f59e0b'
-                              : '#d97706' // Warning color after 45s
-                            : darkMode
-                              ? '#888'
-                              : '#666',
-                        mt: 0.5,
-                        opacity: 1,
-                        transition: 'all 0.3s ease-in-out',
-                      }}
-                    >
-                      {getProgressiveMessage().text}{' '}
-                      <Box component="span" sx={{ fontWeight: 600 }}>
-                        {getProgressiveMessage().bold}
-                      </Box>
-                      {getProgressiveMessage().suffix}
-                    </Typography>
-                  )}
-                </Box>
-              </>
-            )}
+              )}
           </Box>
         )}
       </Box>
@@ -1059,7 +968,7 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
             width: 'calc(100% - 32px)',
             maxWidth: '420px',
             zIndex: 1000,
-            opacity: 0.5, // Semi-transparent by default
+            opacity: 0.2, // Very subtle by default
             transition: 'opacity 0.3s ease-in-out',
             '&:hover': {
               opacity: 1, // Full opacity on hover
@@ -1072,7 +981,7 @@ function HardwareScanView({ startupError, onScanComplete: onScanCompleteCallback
             includeStoreLogs={true}
             compact={true}
             showTimestamp={false}
-            lines={4}
+            lines={3}
             sx={{
               bgcolor: darkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)',
               border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,

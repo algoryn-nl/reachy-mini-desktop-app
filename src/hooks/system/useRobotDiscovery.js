@@ -21,7 +21,7 @@ const WIFI_HOSTS_TO_CHECK = [
   '192.168.1.18', // Common static IP for Reachy
   // Add more IPs here if needed
 ];
-const WIFI_CHECK_TIMEOUT = 2000; // 2s timeout per host
+const WIFI_CHECK_TIMEOUT = 10000; // 10s timeout per host (needs to be long after WiFi inactivity: mDNS cache expiry + Pi WiFi wake)
 
 // Track last logged WiFi host to avoid repetitive logs
 let lastLoggedWifiHost = null;
@@ -147,6 +147,7 @@ export function useRobotDiscovery() {
   // Refs for interval management
   const scanIntervalRef = useRef(null);
   const isMountedRef = useRef(true);
+  const isScanningRef = useRef(false); // Prevent overlapping scans
 
   // Cleanup expired blacklist entries periodically
   useEffect(() => {
@@ -161,31 +162,41 @@ export function useRobotDiscovery() {
    * Perform a single discovery scan (USB + WiFi in parallel)
    */
   const performScan = useCallback(async () => {
-    const startTime = Date.now();
-
-    // Scan USB and WiFi in parallel
-    const [usbResult, wifiResult] = await Promise.all([
-      checkUsbRobot(),
-      checkWifiRobot(isRobotBlacklisted),
-    ]);
-
-    // Ensure minimum delay on first check for smooth UX
-    if (isFirstCheck) {
-      const elapsed = Date.now() - startTime;
-      const minDelay = DAEMON_CONFIG.MIN_DISPLAY_TIMES.USB_CHECK_FIRST;
-
-      if (elapsed < minDelay) {
-        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
-      }
-
-      setIsFirstCheck(false);
+    // Skip if already scanning (prevents callback accumulation)
+    if (isScanningRef.current) {
+      return;
     }
 
-    // Only update state if still mounted
-    if (isMountedRef.current) {
-      setUsbRobot(usbResult);
-      setWifiRobot(wifiResult);
-      setIsScanning(false);
+    isScanningRef.current = true;
+    const startTime = Date.now();
+
+    try {
+      // Scan USB and WiFi in parallel
+      const [usbResult, wifiResult] = await Promise.all([
+        checkUsbRobot(),
+        checkWifiRobot(isRobotBlacklisted),
+      ]);
+
+      // Ensure minimum delay on first check for smooth UX
+      if (isFirstCheck) {
+        const elapsed = Date.now() - startTime;
+        const minDelay = DAEMON_CONFIG.MIN_DISPLAY_TIMES.USB_CHECK_FIRST;
+
+        if (elapsed < minDelay) {
+          await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+        }
+
+        setIsFirstCheck(false);
+      }
+
+      // Only update state if still mounted
+      if (isMountedRef.current) {
+        setUsbRobot(usbResult);
+        setWifiRobot(wifiResult);
+        setIsScanning(false);
+      }
+    } finally {
+      isScanningRef.current = false;
     }
   }, [isFirstCheck, setIsFirstCheck, isRobotBlacklisted]);
 

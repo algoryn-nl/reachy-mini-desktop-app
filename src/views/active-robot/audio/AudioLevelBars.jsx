@@ -2,34 +2,25 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 
 /**
- * Robot Vital Signs Audio Visualizer - Frame-rate independent, smooth animation
- * Responsive dimensions based on container size
+ * Audio Waveform Visualizer - Real audio only (no simulation)
+ * Displays a scrolling waveform from real WebRTC audio data.
  *
  * @param {boolean} isActive - Whether the visualizer is active
  * @param {string} color - Color of the waveform
- * @param {number} barCount - Number of bars (legacy, not used in waveform mode)
- * @param {number} externalLevel - External audio level (0-1) from real audio source
+ * @param {number} externalLevel - Audio level (0-1) from real audio source (required)
  */
-export default function AudioLevelBars({
-  isActive,
-  color = '#FF9500',
-  barCount = 8,
-  externalLevel = null,
-}) {
+export default function AudioLevelBars({ isActive, color = '#FF9500', externalLevel }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const waveformRef = useRef([]);
   const isMountedRef = useRef(true);
-  const maxHistoryLength = 60;
   const lastUpdateTimeRef = useRef(0);
-  const updateInterval = 50; // Update every 50ms (20 Hz)
-  const instanceSeedRef = useRef(Math.random() * 1000000 + Date.now());
-  const variationParamsRef = useRef(null);
-  const seedRef = useRef(null);
-  const fastRandomRef = useRef(null);
   const ctxRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 191, height: 28 });
+
+  const maxHistoryLength = 60;
+  const updateInterval = 50; // Update every 50ms (20 Hz)
 
   // Update dimensions from container
   useEffect(() => {
@@ -74,44 +65,11 @@ export default function AudioLevelBars({
     }
   }, [dimensions]);
 
-  // ✅ Initialize variation parameters and random seed
+  // Initialize waveform history
   useEffect(() => {
-    if (!seedRef.current) {
-      seedRef.current = instanceSeedRef.current;
-    }
-
-    if (!fastRandomRef.current) {
-      fastRandomRef.current = () => {
-        seedRef.current = (seedRef.current * 9301 + 49297) % 233280;
-        return seedRef.current / 233280;
-      };
-    }
-
-    const fastRandom = fastRandomRef.current;
-
-    if (!variationParamsRef.current) {
-      variationParamsRef.current = {
-        amplitude: fastRandom() * 0.3 + 0.2, // 20-50% variation
-        speed: fastRandom() * 0.5 + 0.3, // Speed multiplier
-        baseLevel: fastRandom() * 0.2 + 0.3, // Base level 30-50%
-      };
-    }
-
-    // Initialize waveform history with varied initial values
     if (waveformRef.current.length === 0) {
-      const {
-        amplitude: variationAmplitude,
-        speed: variationSpeed,
-        baseLevel,
-      } = variationParamsRef.current;
-      waveformRef.current = Array(maxHistoryLength)
-        .fill(0)
-        .map((_, i) => {
-          const wavePhase = (i / maxHistoryLength) * Math.PI * 2 * variationSpeed;
-          return baseLevel + Math.sin(wavePhase) * variationAmplitude * fastRandom();
-        });
+      waveformRef.current = Array(maxHistoryLength).fill(0);
     }
-
     lastUpdateTimeRef.current = performance.now();
   }, []);
 
@@ -130,50 +88,16 @@ export default function AudioLevelBars({
 
       ctx.clearRect(0, 0, dimensions.width, dimensions.height);
 
-      if (isActive) {
-        // ✅ Frame-rate independent: Update based on elapsed time, not frames
+      if (isActive && externalLevel !== null && typeof externalLevel === 'number') {
+        // Frame-rate independent: Update based on elapsed time
         const elapsed = currentTime - lastUpdateTimeRef.current;
 
         if (elapsed >= updateInterval) {
-          let newValue;
-
-          // Use external audio level if provided, otherwise simulate
-          if (externalLevel !== null && typeof externalLevel === 'number') {
-            // Real audio level from WebRTC stream
-            // Add slight smoothing and minimum threshold for visibility
-            const smoothedLevel = Math.max(0.05, externalLevel);
-            // Add subtle variation to make it more dynamic
-            const fastRandom = fastRandomRef.current;
-            const microVariation = (fastRandom() - 0.5) * 0.05;
-            newValue = Math.max(0.05, Math.min(0.95, smoothedLevel + microVariation));
-          } else {
-            // Fallback: Generate simulated values when no real audio
-            const {
-              amplitude: variationAmplitude,
-              speed: variationSpeed,
-              baseLevel,
-            } = variationParamsRef.current;
-            const fastRandom = fastRandomRef.current;
-
-            const random1 = fastRandom();
-            const random2 = fastRandom();
-            const random3 = fastRandom();
-
-            const baseValue = random1 * 0.4 + random2 * 0.3 + random3 * 0.3;
-            const timePhase = currentTime * 0.001 * variationSpeed;
-            const frequencyVariation = Math.sin(timePhase) * 0.15 + Math.cos(timePhase * 1.7) * 0.1;
-
-            newValue = Math.max(
-              0.1,
-              Math.min(
-                0.95,
-                baseLevel + baseValue * variationAmplitude + frequencyVariation * fastRandom()
-              )
-            );
-          }
+          // Use real audio level with slight smoothing
+          const smoothedLevel = Math.max(0.05, Math.min(0.95, externalLevel));
 
           // Add to history (shift array)
-          waveformRef.current.push(newValue);
+          waveformRef.current.push(smoothedLevel);
           if (waveformRef.current.length > maxHistoryLength) {
             waveformRef.current.shift();
           }
@@ -181,10 +105,9 @@ export default function AudioLevelBars({
           lastUpdateTimeRef.current = currentTime;
         }
 
-        // Draw waveform line
-        const padding = 0;
-        const usableWidth = dimensions.width - padding * 2;
-        const usableHeight = dimensions.height - padding * 2;
+        // Draw waveform
+        const usableWidth = dimensions.width;
+        const usableHeight = dimensions.height;
         const waveformLength = waveformRef.current.length;
 
         if (waveformLength > 0 && usableWidth > 0 && usableHeight > 0) {
@@ -192,21 +115,21 @@ export default function AudioLevelBars({
           const heightMultiplier = usableHeight * 0.8;
           const heightOffset = usableHeight * 0.1;
 
-          // ✅ Set context properties once
+          // Set context properties
           ctx.strokeStyle = color;
           ctx.lineWidth = 1.5;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
           ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high'; // ✅ High quality rendering
+          ctx.imageSmoothingQuality = 'high';
 
-          // ✅ Draw waveform path and collect Y positions for gradient
+          // Draw waveform path
           const waveformPath = new Path2D();
           const yPositions = [];
           for (let index = 0; index < waveformLength; index++) {
             const value = waveformRef.current[index];
-            const x = padding + index * stepX;
-            const y = padding + usableHeight - value * heightMultiplier - heightOffset;
+            const x = index * stepX;
+            const y = usableHeight - value * heightMultiplier - heightOffset;
             yPositions.push(y);
 
             if (index === 0) {
@@ -217,48 +140,40 @@ export default function AudioLevelBars({
           }
           ctx.stroke(waveformPath);
 
-          // ✅ Add gradient fill below the waveform line
-          // Use average Y position of waveform to start gradient (more visible)
+          // Add gradient fill below the waveform
           const avgY = yPositions.reduce((sum, y) => sum + y, 0) / yPositions.length;
-          const gradientStartY = avgY; // Start gradient from average line level
-          const gradientEndY = padding + usableHeight; // End at bottom
+          const gradient = ctx.createLinearGradient(0, avgY, 0, usableHeight);
 
-          // Create vertical gradient from waveform line to bottom
-          const gradient = ctx.createLinearGradient(0, gradientStartY, 0, gradientEndY);
-
-          // Extract RGB from color (handle rgba format)
+          // Extract RGB from color
           const colorMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
           if (colorMatch) {
-            const r = colorMatch[1];
-            const g = colorMatch[2];
-            const b = colorMatch[3];
-            // Gradient starts light at the line level, fades to transparent at bottom
-            gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.12)`); // Light at line (15% opacity)
-            gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.08)`); // Medium fade
-            gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.06)`); // Transparent at bottom
+            const [, r, g, b] = colorMatch;
+            gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.12)`);
+            gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.08)`);
+            gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.06)`);
           } else {
-            // Fallback for hex colors - convert to rgba
+            // Fallback for hex colors
             const hex = color.replace('#', '');
             const r = parseInt(hex.substring(0, 2), 16);
             const g = parseInt(hex.substring(2, 4), 16);
             const b = parseInt(hex.substring(4, 6), 16);
-            gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.12)`); // Light at line (15% opacity)
-            gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.08)`); // Medium fade
-            gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.06)`); // Transparent at bottom
+            gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.12)`);
+            gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.08)`);
+            gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.06)`);
           }
 
-          // Draw filled path below waveform
+          // Fill below waveform
           const fillPath = new Path2D(waveformPath);
-          fillPath.lineTo(padding + usableWidth, padding + usableHeight);
-          fillPath.lineTo(padding, padding + usableHeight);
+          fillPath.lineTo(usableWidth, usableHeight);
+          fillPath.lineTo(0, usableHeight);
           fillPath.closePath();
           ctx.fillStyle = gradient;
           ctx.fill(fillPath);
 
-          // ✅ Draw current level indicator (small dot at end)
+          // Draw current level indicator (dot at end)
           const currentValue = waveformRef.current[waveformLength - 1];
-          const currentX = padding + usableWidth;
-          const currentY = padding + usableHeight - currentValue * heightMultiplier - heightOffset;
+          const currentX = usableWidth;
+          const currentY = usableHeight - currentValue * heightMultiplier - heightOffset;
 
           ctx.fillStyle = color;
           ctx.beginPath();
@@ -266,7 +181,7 @@ export default function AudioLevelBars({
           ctx.fill();
         }
       } else {
-        // Reset waveform when inactive
+        // Reset waveform when inactive or no data
         waveformRef.current = Array(maxHistoryLength).fill(0);
         lastUpdateTimeRef.current = performance.now();
       }

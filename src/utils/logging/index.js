@@ -45,3 +45,6 @@ export {
 
 // Constants
 export { LOG_LEVELS, LOG_SOURCES, LOG_EMOJIS, LOG_PREFIXES } from './constants';
+
+// Log filtering (single source of truth)
+export { FILTERED_PATTERNS, shouldFilterLog, filterLogs } from './logFilters';

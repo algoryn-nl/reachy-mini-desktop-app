@@ -1,11 +1,4 @@
-import React, {
-  useState,
-  useCallback,
-  useRef,
-  useMemo,
-  cloneElement,
-  useLayoutEffect,
-} from 'react';
+import React, { useState, useCallback, useRef, useMemo, useLayoutEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Box, IconButton } from '@mui/material';
 
@@ -16,11 +9,30 @@ import { Box, IconButton } from '@mui/material';
  *
  * Architecture:
  * - Two DOM containers: mainViewport and smallViewport
- * - Components are rendered only once
+ * - Components are rendered only once (stable keys prevent remounts)
  * - Portals "teleport" them to the correct container based on swapped state
- * - ✅ OPTIMIZED: Memoized cloned views to avoid re-creation on every render
+ * - ✅ FIX: Components have stable keys to prevent WebGL context recreation
  * - ✅ OPTIMIZED: Small 3D view uses frameloop="demand" to stop rendering loop
  */
+
+/**
+ * Wrapper component to render view with stable identity
+ * Using memo with stable key ensures the component doesn't remount
+ */
+const StableView = memo(function StableView({ children, viewKey }) {
+  return (
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        display: 'block',
+      }}
+    >
+      {children}
+    </Box>
+  );
+});
+
 export default function ViewportSwapper({
   view3D, // ReactNode: the 3D component (Viewer3D)
   viewCamera, // ReactNode: the camera component (CameraFeed)
@@ -31,6 +43,20 @@ export default function ViewportSwapper({
   const [isMounted, setIsMounted] = useState(false);
   const mainViewportRef = useRef(null);
   const smallViewportRef = useRef(null);
+
+  // ✅ Store stable references to prevent remounting on parent re-renders
+  // Using refs means the components persist across renders without recreation
+  const view3DRef = useRef(view3D);
+  const viewCameraRef = useRef(viewCamera);
+
+  // ✅ Update refs when props change (but don't trigger remount)
+  // React will update the existing component instances with new props
+  if (view3D !== view3DRef.current) {
+    view3DRef.current = view3D;
+  }
+  if (viewCamera !== viewCameraRef.current) {
+    viewCameraRef.current = viewCamera;
+  }
 
   // ✅ Force re-render after mount to ensure refs are available for portals
   useLayoutEffect(() => {
@@ -51,38 +77,46 @@ export default function ViewportSwapper({
     });
   }, [onSwap]);
 
-  // ✅ OPTIMIZED: Memoize cloned views to avoid re-creation on every render
-  const view3DSmallProps = useMemo(
-    () => ({
+  // ✅ Create small view versions with additional props
+  // These are rendered conditionally based on swap state
+  const view3DSmall = useMemo(() => {
+    if (!view3D) return null;
+    return React.cloneElement(view3D, {
       hideControls: true,
       showStatusTag: false,
       hideEffects: true, // ✅ This enables frameloop="demand" in Viewer3D
-    }),
-    []
-  );
+      key: 'viewer3d-small', // ✅ Stable key prevents remount
+    });
+  }, [view3D]);
 
-  const viewCameraSmallProps = useMemo(
-    () => ({
+  const viewCameraSmall = useMemo(() => {
+    if (!viewCamera) return null;
+    return React.cloneElement(viewCamera, {
       isLarge: false,
       width: 140,
       height: 105,
-    }),
-    []
-  );
+      key: 'camera-small', // ✅ Stable key prevents remount
+    });
+  }, [viewCamera]);
 
-  // ✅ OPTIMIZED: Memoize cloned components to prevent unnecessary remounts
-  const view3DMain = useMemo(() => view3D, [view3D]);
-  const view3DSmall = useMemo(
-    () => cloneElement(view3D, view3DSmallProps),
-    [view3D, view3DSmallProps]
-  );
-  const viewCameraMain = useMemo(() => viewCamera, [viewCamera]);
-  const viewCameraSmall = useMemo(
-    () => cloneElement(viewCamera, viewCameraSmallProps),
-    [viewCamera, viewCameraSmallProps]
-  );
+  // ✅ Add stable keys to main views too
+  const view3DMain = useMemo(() => {
+    if (!view3D) return null;
+    return React.cloneElement(view3D, {
+      key: 'viewer3d-main', // ✅ Stable key prevents remount
+    });
+  }, [view3D]);
+
+  const viewCameraMain = useMemo(() => {
+    if (!viewCamera) return null;
+    return React.cloneElement(viewCamera, {
+      key: 'camera-main', // ✅ Stable key prevents remount
+    });
+  }, [viewCamera]);
 
   // The two views to display (decided based on swapped state)
+  // ✅ CRITICAL: We only render ONE version of each component at a time
+  // This prevents having 2 WebGL contexts for the 3D viewer
   const mainView = isSwapped ? viewCameraMain : view3DMain;
   const smallView = isSwapped ? view3DSmall : viewCameraSmall;
 
@@ -166,37 +200,17 @@ export default function ViewportSwapper({
       </Box>
 
       {/* Portals: teleport views to containers */}
-      {/* ✅ OPTIMIZED: Both views are rendered but small 3D view uses frameloop="demand" */}
-      {/* ✅ FIX: Only render portals after mount to ensure refs are available */}
+      {/* ✅ FIX: Only ONE 3D view is rendered at a time (no duplicate WebGL contexts) */}
+      {/* When swapped, main shows camera (no WebGL), small shows 3D (1 WebGL) */}
+      {/* When not swapped, main shows 3D (1 WebGL), small shows camera (no WebGL) */}
       {isMounted &&
         mainViewportRef.current &&
-        createPortal(
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              display: 'block',
-            }}
-          >
-            {mainView}
-          </Box>,
-          mainViewportRef.current
-        )}
+        createPortal(<StableView viewKey="main">{mainView}</StableView>, mainViewportRef.current)}
 
       {isMounted &&
         smallViewportRef.current &&
         createPortal(
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              // ✅ Small view is always rendered but 3D view uses frameloop="demand" when hideEffects=true
-              // This stops the rendering loop while keeping the Canvas mounted (avoids remount cost)
-            }}
-          >
-            {smallView}
-          </Box>,
+          <StableView viewKey="small">{smallView}</StableView>,
           smallViewportRef.current
         )}
     </Box>

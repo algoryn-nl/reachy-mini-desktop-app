@@ -3,12 +3,10 @@ import { useActiveRobotContext } from '../context';
 
 /**
  * Hook to extract robot power state from centralized robotStateFull
- * Uses REAL API fields: control_mode, head_joints, body_yaw, etc.
+ * Uses API fields: control_mode, body_yaw, antennas_position
  *
- * ⚠️ Now consumes robotStateFull from context instead of making its own API calls
- * ⚠️ Does NOT handle crash detection (delegated to useRobotState polling)
- *
- * Uses ActiveRobotContext for decoupling from global stores
+ * Consumes robotStateFull from context (streamed via WebSocket at 20Hz)
+ * Does NOT handle crash detection (that's useDaemonHealthCheck's job)
  */
 export function useRobotPowerState(isActive) {
   const { robotState: contextRobotState, api } = useActiveRobotContext();

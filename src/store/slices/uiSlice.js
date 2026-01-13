@@ -33,6 +33,12 @@ export const uiInitialState = {
   rightPanelView: null, // null | 'controller' | 'expressions'
   showFirstTimeWifiSetup: false, // true when showing first time WiFi setup view
   showBluetoothSupportView: false, // true when showing Bluetooth support/reset view
+  // 🍞 Global toast notification state
+  toast: {
+    open: false,
+    message: '',
+    severity: 'info', // 'success' | 'error' | 'warning' | 'info'
+  },
 };
 
 /**
@@ -90,6 +96,17 @@ export const createUISlice = (set, get) => ({
     const systemPreference = getSystemPreference();
     set({ darkMode: systemPreference });
   },
+
+  // 🍞 Global toast actions
+  showToast: (message, severity = 'info') =>
+    set({
+      toast: { open: true, message, severity },
+    }),
+
+  hideToast: () =>
+    set(state => ({
+      toast: { ...state.toast, open: false },
+    })),
 });
 
 /**
