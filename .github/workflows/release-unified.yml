@@ -88,7 +88,21 @@ jobs:
       - name: Ensure Rust target is installed
         # rust-cache doesn't cache toolchain components, so we need to ensure
         # the cross-compilation target is installed after cache restore
-        run: rustup target add ${{ matrix.target }}
+        shell: bash
+        run: |
+          echo "🔧 Installing Rust target: ${{ matrix.target }}"
+          rustup target add ${{ matrix.target }}
+          
+          echo "🔍 Verifying target is installed..."
+          INSTALLED_TARGETS=$(rustup target list --installed)
+          echo "Installed targets:"
+          echo "$INSTALLED_TARGETS"
+          
+          if ! echo "$INSTALLED_TARGETS" | grep -q "${{ matrix.target }}"; then
+            echo "❌ Target ${{ matrix.target }} is NOT installed!"
+            exit 1
+          fi
+          echo "✅ Target ${{ matrix.target }} is installed"
 
       - name: Install dependencies
         run: yarn install
@@ -550,6 +564,24 @@ jobs:
           echo "APPLE_API_KEY=$CLEANED_API_KEY" >> $GITHUB_ENV
           echo "✅ API key configured for manual notarization"
           echo "   APPLE_API_ISSUER: ${CLEANED_ISSUER:0:8}... (valid UUID)"
+
+      - name: Verify Rust target before build (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          echo "🔍 Pre-build verification of Rust target: ${{ matrix.target }}"
+          echo "Current toolchain:"
+          rustup show
+          echo ""
+          echo "Installed targets:"
+          rustup target list --installed
+          echo ""
+          if ! rustup target list --installed | grep -q "${{ matrix.target }}"; then
+            echo "❌ Target ${{ matrix.target }} is NOT installed before build!"
+            echo "🔧 Attempting to install..."
+            rustup target add ${{ matrix.target }}
+          fi
+          echo "✅ Target ${{ matrix.target }} verified"
 
       - name: Build Tauri app (macOS)
         if: matrix.os == 'macos-latest'
