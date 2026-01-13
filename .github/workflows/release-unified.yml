@@ -85,6 +85,11 @@ jobs:
           cache-on-failure: true
           shared-key: ${{ matrix.target }}-v2
 
+      - name: Ensure Rust target is installed
+        # rust-cache doesn't cache toolchain components, so we need to ensure
+        # the cross-compilation target is installed after cache restore
+        run: rustup target add ${{ matrix.target }}
+
       - name: Install dependencies
         run: yarn install
 
