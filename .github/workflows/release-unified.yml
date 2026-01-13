@@ -27,7 +27,10 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             platform: darwin-aarch64
-          - os: macos-latest
+          # Use macos-15-intel for native Intel build (no cross-compilation needed)
+          # macos-latest is now ARM64 only, cross-compilation to x86_64 is unreliable
+          # macos-15-intel available until August 2027
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             platform: darwin-x86_64
           - os: windows-latest
