@@ -3,16 +3,16 @@
  */
 
 import { logApiCall, logPermission, logTimeout, logError, logSuccess } from '../utils/logging';
-import { useRobotStore } from '../store/useRobotStore';
+import { useStore } from '../store';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
 export const DAEMON_CONFIG = {
   // API timeouts (in milliseconds)
   TIMEOUTS: {
     HEALTHCHECK: 1333, // Ping every ~1.33s to detect crash in 4s (3 timeouts)
-    STATE_FULL: 5000, // Read full state with all motors
+    STATE_FULL: 10000, // Read full state with all motors (10s for WiFi)
     COMMAND: 10000, // Movement commands (can be long)
-    STARTUP_CHECK: 2000, // Per startup attempt
+    STARTUP_CHECK: 10000, // Per startup attempt (10s for WiFi after idle)
     VERSION: 3000, // Daemon info (lightweight endpoint)
     EMOTIONS_CHECK: 3000, // Emotions library check
     APPS_LIST: 5000, // Available apps list
@@ -25,13 +25,12 @@ export const DAEMON_CONFIG = {
   },
 
   // Polling intervals (in milliseconds)
+  // Note: Robot state is now streamed via WebSocket (useRobotStateWebSocket) at 20Hz
   INTERVALS: {
-    // ✅ STATUS_CHECK removed - useRobotState handles status checking via polling (every 500ms)
-    HEALTHCHECK_POLLING: 2500, // ✅ Health check polling every 2.5s (MUST be > HEALTHCHECK timeout to avoid accumulation)
+    HEALTHCHECK_POLLING: 2500, // Health check every 2.5s (crash detection)
     LOGS_FETCH: 1000, // Logs every 1s
-    USB_CHECK: 1000, // USB every 1s
+    USB_CHECK: 1000, // USB every 1s (only when not connected)
     VERSION_FETCH: 10000, // Version every 10s
-    ROBOT_STATE: 500, // ✅ OPTIMIZED: Robot state (position, motors) every 500ms (was 300ms) to reduce re-renders
     APP_STATUS: 2000, // Current app status every 2s
     JOB_POLLING: 500, // Poll job install/remove every 500ms
     CURRENT_APP_REFRESH: 300, // Delay before refresh after stop app
@@ -113,9 +112,12 @@ export const DAEMON_CONFIG = {
     // Polling configuration
     CHECK_INTERVAL: 500, // Check every 500ms
 
-    // Timeouts (in attempts, multiply by CHECK_INTERVAL for ms)
-    DAEMON_MAX_ATTEMPTS: 240, // 240 × 500ms = 120s max wait for daemon
-    MOVEMENT_MAX_ATTEMPTS: 60, // 60 × 500ms = 30s max wait for movements
+    // Timeouts (in seconds, not attempts - more reliable with request guards)
+    DAEMON_TIMEOUT_SECONDS: 30, // 30s max wait for daemon
+    MOVEMENT_TIMEOUT_SECONDS: 15, // 15s max wait for movements
+    // Legacy (kept for compatibility but prefer time-based)
+    DAEMON_MAX_ATTEMPTS: 240,
+    MOVEMENT_MAX_ATTEMPTS: 60,
 
     // Progress bar distribution (percentages)
     PROGRESS: {
@@ -154,10 +156,10 @@ export const DAEMON_CONFIG = {
     MICROPHONE_SET: '/api/volume/microphone/set',
   },
 
-  // Endpoints to NOT log (frequent polling)
+  // Endpoints to NOT log (frequent calls)
   SILENT_ENDPOINTS: [
-    '/api/state/full', // Poll every 3s
-    '/api/daemon/status', // Poll every 10s
+    '/api/state/full', // Used during startup (HardwareScanView)
+    '/api/daemon/status', // Health check every 2.5s
     '/api/apps/list-available/installed', // Called frequently when fetching apps
   ],
 };
@@ -362,7 +364,7 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs, logOptions 
  * - USB/Simulation: uses localhost
  */
 export function getBaseUrl() {
-  const { connectionMode, remoteHost } = useRobotStore.getState();
+  const { connectionMode, remoteHost } = useStore.getState();
 
   if (connectionMode === 'wifi' && remoteHost) {
     // Ensure proper URL format
@@ -387,7 +389,7 @@ export function getWsBaseUrl() {
  * @returns {boolean} True if connected via WiFi
  */
 export function isWiFiMode() {
-  const { connectionMode } = useRobotStore.getState();
+  const { connectionMode } = useStore.getState();
   return connectionMode === 'wifi';
 }
 
@@ -405,7 +407,7 @@ export function buildApiUrl(endpoint) {
  * @returns {string} Hostname like 'localhost', 'reachy-mini.home', or '192.168.1.18'
  */
 export function getDaemonHostname() {
-  const { connectionMode, remoteHost } = useRobotStore.getState();
+  const { connectionMode, remoteHost } = useStore.getState();
 
   if (connectionMode === 'wifi' && remoteHost) {
     // Strip protocol if present

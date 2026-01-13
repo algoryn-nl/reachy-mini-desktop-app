@@ -2,8 +2,12 @@
  * Logs Slice - Manages all types of logs (daemon, frontend, app)
  *
  * Note: We don't import DAEMON_CONFIG here to avoid circular dependencies
- * (daemon.js imports useRobotStore which imports useStore which imports slices)
+ * (daemon.js imports useStore which imports slices)
+ *
+ * Filtering is handled by the centralized logFilters utility.
  */
+
+import { filterLogs } from '../../utils/logging/logFilters';
 
 // Default max logs (same as DAEMON_CONFIG.LOGS values)
 const MAX_FRONTEND_LOGS = 500;
@@ -27,20 +31,23 @@ export const logsInitialState = {
 export const createLogsSlice = (set, get) => ({
   ...logsInitialState,
 
-  // Set daemon logs - merge intelligently to avoid unnecessary re-renders
+  // Set daemon logs - filter confusing messages and merge intelligently
   setLogs: newLogs =>
     set(state => {
+      // Filter out confusing internal logs using centralized filter
+      const filteredLogs = filterLogs(newLogs);
+
       if (
-        state.logs === newLogs ||
+        state.logs === filteredLogs ||
         (Array.isArray(state.logs) &&
-          Array.isArray(newLogs) &&
-          state.logs.length === newLogs.length &&
+          Array.isArray(filteredLogs) &&
+          state.logs.length === filteredLogs.length &&
           state.logs.length > 0 &&
-          state.logs[state.logs.length - 1] === newLogs[newLogs.length - 1])
+          state.logs[state.logs.length - 1] === filteredLogs[filteredLogs.length - 1])
       ) {
         return state;
       }
-      return { logs: newLogs };
+      return { logs: filteredLogs };
     }),
 
   // Add frontend log

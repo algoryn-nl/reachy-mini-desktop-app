@@ -16,7 +16,7 @@ export { useConnection, ConnectionMode } from './useConnection';
 export { useDaemon } from './daemon';
 
 // Robot (core - used globally)
-export { useRobotCommands, useRobotState } from './robot';
+export { useRobotCommands, useRobotStateWebSocket, useActiveMoves } from './robot';
 
 // System (global utilities)
 export { useLogs, useUpdater, useUsbDetection, useWindowResize } from './system';

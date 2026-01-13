@@ -43,15 +43,21 @@ export const selectIsDaemonCrashed = state => state.robotStatus === 'crashed';
 
 /**
  * @param {Object} state - Store state
- * @returns {boolean} True if robot is busy or sleeping (cannot accept new commands)
+ * @returns {boolean} True if robot is busy (cannot accept new interactions)
+ *
+ * Note: sleeping with safeToShutdown=true is NOT busy (allows Settings access for shutdown)
  */
-export const selectIsBusy = state =>
-  state.robotStatus === 'sleeping' ||
-  state.robotStatus === 'busy' ||
-  state.isCommandRunning ||
-  state.isAppRunning ||
-  state.isInstalling ||
-  state.isStoppingApp;
+export const selectIsBusy = state => {
+  return (
+    (state.robotStatus === 'sleeping' && !state.safeToShutdown) ||
+    state.robotStatus === 'busy' ||
+    state.isCommandRunning ||
+    state.isAppRunning ||
+    state.isInstalling ||
+    state.isStoppingApp ||
+    state.isWakeSleepTransitioning
+  );
+};
 
 /**
  * @param {Object} state - Store state
@@ -112,12 +118,17 @@ export const robotInitialState = {
   connectionMode: null,
   remoteHost: null,
 
-  // 🎯 Centralized robot state (polled by useRobotState)
+  // 🚀 Centralized robot state (streamed by useRobotStateWebSocket at 20Hz)
+  // Contains: head_pose, head_joints, body_yaw, antennas_position, passive_joints, control_mode, doa
   robotStateFull: {
     data: null,
     lastUpdate: null,
     error: null,
   },
+
+  // 🎯 Flag to start WebSocket streaming early (during HardwareScanView)
+  // Set to true when daemon is ready and movements detected, before transitioning to ActiveRobotView
+  shouldStreamRobotState: false,
 
   // 🎯 Centralized active moves
   activeMoves: [],
@@ -450,6 +461,7 @@ export const createRobotSlice = (set, get) => ({
       isFirstCheck: true,
       daemonVersion: null,
       robotStateFull: { data: null, lastUpdate: null, error: null },
+      shouldStreamRobotState: false, // 🎯 Reset WebSocket streaming flag
       activeMoves: [],
       consecutiveTimeouts: 0,
     });
@@ -476,6 +488,7 @@ export const createRobotSlice = (set, get) => ({
       startupError: null,
       consecutiveTimeouts: 0,
       robotStateFull: { data: null, lastUpdate: null, error: null },
+      shouldStreamRobotState: false, // 🎯 Reset WebSocket streaming flag
       activeMoves: [],
       daemonVersion: null,
       isCommandRunning: false,
@@ -498,6 +511,9 @@ export const createRobotSlice = (set, get) => ({
     }),
 
   setActiveMoves: value => set({ activeMoves: value }),
+
+  // 🎯 Start WebSocket streaming early (called by HardwareScanView when daemon is ready)
+  setShouldStreamRobotState: value => set({ shouldStreamRobotState: value }),
 
   setIsCommandRunning: value => {
     const state = get();

@@ -1,96 +1,76 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { buildApiUrl, fetchWithTimeout, DAEMON_CONFIG } from '../../config/daemon';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import useAppStore from '../../store/useAppStore';
 
 /**
- * Hook to fetch Direction of Arrival (DoA) from the robot's microphone array.
+ * 🚀 REFACTORED: Now reads DoA from centralized store (WebSocket)
+ *
+ * Previously polled /api/state/doa at 10Hz (HTTP).
+ * Now reads from robotStateFull which is streamed via WebSocket at 20Hz.
+ *
+ * Benefits:
+ * - No additional HTTP requests (was 10 req/sec!)
+ * - Real-time updates at 20Hz
+ * - Single source of truth
+ * - Debounced isTalking to prevent flickering
  *
  * The DoA indicates the direction of detected sound:
  * - 0 rad = left
  * - π/2 rad (~1.57) = front/back
  * - π rad (~3.14) = right
  *
- * @param {boolean} isActive - Whether to poll the DoA
- * @param {number} pollInterval - Polling interval in ms (default: 100ms = 10Hz)
+ * @param {boolean} isActive - Whether DoA should be active (for API compatibility)
  * @returns {{ angle: number | null, isTalking: boolean, isAvailable: boolean }}
  */
-export function useDoA(isActive, pollInterval = 100) {
-  const [doaState, setDoaState] = useState({
-    angle: null, // Angle in radians (0 = left, π/2 = front, π = right)
-    isTalking: false, // Speech detected
-    isAvailable: false, // DoA sensor available
-  });
+export function useDoA(isActive) {
+  // Read DoA from centralized store (selective subscription)
+  const doa = useAppStore(state => state.robotStateFull?.data?.doa);
 
-  const intervalRef = useRef(null);
-  const isMountedRef = useRef(true);
+  // Debounced isTalking state (instant ON, delayed OFF to prevent flickering)
+  const [debouncedTalking, setDebouncedTalking] = useState(false);
+  const timeoutRef = useRef(null);
 
-  const fetchDoA = useCallback(async () => {
-    if (!isMountedRef.current) return;
-
-    try {
-      const response = await fetchWithTimeout(
-        buildApiUrl('/api/state/doa'),
-        {},
-        DAEMON_CONFIG.TIMEOUTS.STATE_FULL,
-        { silent: true }
-      );
-
-      if (!isMountedRef.current) return;
-
-      if (response.ok) {
-        const data = await response.json();
-
-        if (data === null) {
-          // DoA not available (no audio device)
-          setDoaState({
-            angle: null,
-            isTalking: false,
-            isAvailable: false,
-          });
-        } else {
-          setDoaState({
-            angle: data.angle,
-            isTalking: data.speech_detected,
-            isAvailable: true,
-          });
-        }
-      } else {
-        // Route not found (404) or other error - graceful degradation
-        setDoaState(prev => ({ ...prev, isAvailable: false }));
-      }
-    } catch {
-      // Silent error - don't spam logs for polling
-      if (isMountedRef.current) {
-        setDoaState(prev => ({ ...prev, isAvailable: false }));
-      }
-    }
-  }, []);
+  const rawTalking = isActive && doa?.speech_detected;
 
   useEffect(() => {
-    isMountedRef.current = true;
+    // Clear any pending timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
 
-    if (isActive) {
-      // Initial fetch
-      fetchDoA();
-
-      // Start polling
-      intervalRef.current = setInterval(fetchDoA, pollInterval);
+    if (rawTalking) {
+      // Instant ON - respond immediately to speech
+      setDebouncedTalking(true);
     } else {
-      // Reset state when inactive
-      setDoaState({
-        angle: null,
-        isTalking: false,
-        isAvailable: false,
-      });
+      // Delayed OFF - wait 200ms before hiding to prevent flickering
+      timeoutRef.current = setTimeout(() => {
+        setDebouncedTalking(false);
+      }, 200);
     }
 
     return () => {
-      isMountedRef.current = false;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
-  }, [isActive, pollInterval, fetchDoA]);
+  }, [rawTalking]);
+
+  // Build DoA state from store data
+  const doaState = useMemo(() => {
+    if (!isActive || !doa) {
+      return {
+        angle: null,
+        isTalking: false,
+        isAvailable: false,
+      };
+    }
+
+    return {
+      angle: doa.angle,
+      isTalking: debouncedTalking,
+      isAvailable: true,
+    };
+  }, [isActive, doa, debouncedTalking]);
 
   return doaState;
 }

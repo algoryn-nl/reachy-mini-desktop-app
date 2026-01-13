@@ -21,7 +21,7 @@ const WIFI_HOSTS_TO_CHECK = [
   '192.168.1.18', // Common static IP for Reachy
   // Add more IPs here if needed
 ];
-const WIFI_CHECK_TIMEOUT = 2000; // 2s timeout per host
+const WIFI_CHECK_TIMEOUT = 10000; // 10s timeout per host (needs to be long after WiFi inactivity: mDNS cache expiry + Pi WiFi wake)
 
 // Track last logged WiFi host to avoid repetitive logs
 let lastLoggedWifiHost = null;

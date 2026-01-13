@@ -198,16 +198,21 @@ function ActiveRobotView({
   const hasLoadedOnceRef = useRef(false);
 
   // ✅ Check if robot has received its first position data
-  // robotStateFull is pre-populated in HardwareScanView, so this should be true immediately
+  // robotStateFull is pre-populated in HardwareScanView (including passive_joints via WASM)
+  // so this should be true immediately on mount
   const robotPositionReady = useMemo(() => {
     return (
       robotStateFull?.data?.head_joints &&
       Array.isArray(robotStateFull.data.head_joints) &&
-      robotStateFull.data.head_joints.length === 7
+      robotStateFull.data.head_joints.length === 7 &&
+      // 🎯 Also require passive_joints (calculated via WASM in HardwareScanView)
+      robotStateFull?.data?.passive_joints &&
+      Array.isArray(robotStateFull.data.passive_joints) &&
+      robotStateFull.data.passive_joints.length === 21
     );
   }, [robotStateFull]);
 
-  // ✅ Combined ready state: apps loaded AND robot position ready
+  // ✅ Combined ready state: apps loaded AND robot position ready (including passive_joints)
   const isFullyReady = !appsLoading && robotPositionReady;
 
   // ✅ Callback to receive apps loading state from RightPanel
@@ -499,27 +504,24 @@ function ActiveRobotView({
               }}
             >
               {/* ViewportSwapper: handles swap between 3D and Camera with Portals */}
-              {/* ✅ OPTIMIZED: Memoize Viewer3D props to avoid re-renders when parent re-renders */}
-              {useMemo(
-                () => (
-                  <ViewportSwapper
-                    view3D={
-                      <Viewer3D
-                        isActive={isActive}
-                        forceLoad={true}
-                        showStatusTag={true}
-                        isOn={isOn}
-                        isMoving={isMoving}
-                        robotStatus={robotStatus}
-                        busyReason={busyReason}
-                        hideCameraFeed={true}
-                      />
-                    }
-                    viewCamera={<CameraFeed width={640} height={480} isLarge={true} />}
+              {/* ✅ FIX: Don't use useMemo here - it causes complete remounts on prop changes */}
+              {/* Instead, let React handle prop updates on the existing component instances */}
+              {/* This prevents WebGL context accumulation from repeated Canvas remounts */}
+              <ViewportSwapper
+                view3D={
+                  <Viewer3D
+                    isActive={isActive}
+                    forceLoad={true}
+                    showStatusTag={true}
+                    isOn={isOn}
+                    isMoving={isMoving}
+                    robotStatus={robotStatus}
+                    busyReason={busyReason}
+                    hideCameraFeed={true}
                   />
-                ),
-                [isActive, isOn, isMoving, robotStatus, busyReason]
-              )}
+                }
+                viewCamera={<CameraFeed width={640} height={480} isLarge={true} />}
+              />
 
               {/* Power Button - top left corner (only enabled when sleeping AND safe to shutdown AND not transitioning) */}
               <PowerButton
@@ -554,6 +556,7 @@ function ActiveRobotView({
                 onMicrophoneMute={handleMicrophoneMute}
                 darkMode={darkMode}
                 disabled={isBusyState}
+                isSleeping={robotStatus === 'sleeping'}
               />
             </Box>
 

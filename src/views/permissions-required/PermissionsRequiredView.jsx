@@ -389,7 +389,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
           width: 'calc(100% - 32px)',
           maxWidth: '420px',
           zIndex: 1000,
-          opacity: 0.5, // Semi-transparent by default
+          opacity: 0.2, // Very subtle by default
           transition: 'opacity 0.3s ease-in-out',
           '&:hover': {
             opacity: 1, // Full opacity on hover
@@ -402,7 +402,7 @@ export default function PermissionsRequiredView({ isRestarting: externalIsRestar
           includeStoreLogs={true}
           compact={true}
           showTimestamp={false}
-          lines={4}
+          lines={3}
           sx={{
             bgcolor: darkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)',
             border: `1px solid ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)'}`,

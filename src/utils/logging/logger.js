@@ -1,5 +1,4 @@
-import { useLogsStore } from '../../store/useLogsStore';
-import useAppStore from '../../store/useAppStore';
+import { useStore } from '../../store';
 import { LOG_LEVELS, LOG_EMOJIS, LOG_PREFIXES } from './constants';
 
 /**
@@ -7,7 +6,7 @@ import { LOG_LEVELS, LOG_EMOJIS, LOG_PREFIXES } from './constants';
  */
 const getLogsStore = () => {
   try {
-    return useLogsStore.getState();
+    return useStore.getState();
   } catch (e) {
     // Fallback for cases where store might not be initialized
     if (process.env.NODE_ENV === 'development') {
@@ -118,7 +117,7 @@ export const logDaemon = (message, level = LOG_LEVELS.INFO) => {
  * Log an app message (uses addAppLog)
  */
 export const logApp = (appName, message, level = LOG_LEVELS.INFO) => {
-  const appStore = useAppStore.getState();
+  const appStore = useStore.getState();
   if (appStore?.addAppLog) {
     appStore.addAppLog(message, appName, level);
   }

@@ -305,7 +305,6 @@ function Scene({
       {!hideGrid && scene.showGrid && <primitive object={gridHelper} position={[0, 0, 0]} />}
 
       <URDFRobot
-        headPose={headPose}
         headJoints={headJoints}
         passiveJoints={passiveJoints}
         yawBody={yawBody}

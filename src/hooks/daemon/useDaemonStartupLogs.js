@@ -1,44 +1,31 @@
 import { useEffect, useState, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import useAppStore from '../../store/useAppStore';
+import { shouldFilterLog } from '../../utils/logging/logFilters';
 
 /**
  * Hook to listen to sidecar logs during daemon startup
  * Provides real-time feedback to the user about what's happening
  *
+ * Filtering is handled by the centralized logFilters utility.
+ *
  * @param {boolean} isStarting - Whether daemon is currently starting
  * @returns {object} { logs, hasError, lastMessage }
  */
 export function useDaemonStartupLogs(isStarting) {
-  // Removed addFrontendLog - we don't add daemon logs to frontendLogs to avoid duplicates
   const [startupLogs, setStartupLogs] = useState([]);
   const [hasError, setHasError] = useState(false);
-  const [lastMessage, setLastMessage] = useState(null);
+  const [lastMessage, setLastMessage] = useState('');
+
+  // Use ref to accumulate logs during startup
+  const logsRef = useRef([]);
+
+  // Track listeners
   const unlistenStdoutRef = useRef(null);
   const unlistenStderrRef = useRef(null);
-  const logsRef = useRef([]); // Keep ref for stable access in listeners
-  // Track error timestamps to filter duplicates at source
-  const errorTimestampsRef = useRef(new Map()); // Map<errorMessage, lastTimestamp>
 
   useEffect(() => {
-    // Clear logs when starting a new daemon
-    if (isStarting) {
-      setStartupLogs([]);
-      setHasError(false);
-      setLastMessage(null);
-      logsRef.current = [];
-      errorTimestampsRef.current.clear(); // Clear error tracking
-    }
-  }, [isStarting]);
-
-  useEffect(() => {
-    // ✅ Keep listeners active even when not starting if there's a hardware error
-    // This ensures logs continue to be captured during error state
-    const currentState = useAppStore.getState();
-    const shouldKeepListening = isStarting || currentState.hardwareError;
-
-    if (!shouldKeepListening) {
-      // Cleanup listeners when not starting and no error
+    if (!isStarting) {
+      // Clean up listeners when not starting
       if (unlistenStdoutRef.current) {
         unlistenStdoutRef.current();
         unlistenStdoutRef.current = null;
@@ -49,6 +36,11 @@ export function useDaemonStartupLogs(isStarting) {
       }
       return;
     }
+
+    // Clear logs when starting new daemon
+    logsRef.current = [];
+    setStartupLogs([]);
+    setHasError(false);
 
     let isMounted = true;
 
@@ -64,15 +56,8 @@ export function useDaemonStartupLogs(isStarting) {
           // Clean up prefix if present
           const cleanLine = logLine.replace(/^Sidecar stdout:\s*/, '').trim();
 
-          // Filter out noise (HTTP logs, WebSocket, etc.)
-          if (
-            !cleanLine ||
-            cleanLine.includes('GET /api/') ||
-            cleanLine.includes('INFO:     127.0.0.1') ||
-            cleanLine.includes('WebSocket') ||
-            cleanLine.includes('connection open') ||
-            cleanLine.includes('connection closed')
-          ) {
+          // Skip empty lines or filtered logs (use centralized filter)
+          if (!cleanLine || shouldFilterLog(cleanLine)) {
             return;
           }
 
@@ -86,19 +71,16 @@ export function useDaemonStartupLogs(isStarting) {
           logsRef.current = [...logsRef.current, newLog].slice(-50); // Keep last 50
           setStartupLogs([...logsRef.current]);
           setLastMessage(cleanLine);
-
-          // Don't add to frontendLogs - these logs are already in startupLogs for the scan view
-          // and will be in backend logs array, avoiding duplicates
         });
 
         if (isMounted) {
           unlistenStdoutRef.current = unlistenStdout;
         } else {
           unlistenStdout();
-          return; // Don't setup stderr listener if already unmounted
+          return;
         }
 
-        // Listen to stderr (errors and warnings)
+        // Listen to stderr (warnings/errors)
         const unlistenStderr = await listen('sidecar-stderr', event => {
           if (!isMounted) return;
 
@@ -108,36 +90,23 @@ export function useDaemonStartupLogs(isStarting) {
           // Clean up prefix if present
           const cleanLine = logLine.replace(/^Sidecar stderr:\s*/, '').trim();
 
-          // Filter out noise
-          if (
-            !cleanLine ||
-            cleanLine.includes('GET /api/') ||
-            cleanLine.includes('INFO:     127.0.0.1')
-          ) {
+          // Skip empty lines or filtered logs (use centralized filter)
+          if (!cleanLine || shouldFilterLog(cleanLine)) {
             return;
           }
 
-          // Check if it's an error (not just a warning)
+          // Check for actual errors (not just stderr noise)
           const isError =
-            cleanLine.toLowerCase().includes('error') ||
-            cleanLine.toLowerCase().includes('failed') ||
-            cleanLine.toLowerCase().includes('exception') ||
-            cleanLine.toLowerCase().includes('traceback');
+            cleanLine.includes('ERROR') ||
+            cleanLine.includes('error:') ||
+            cleanLine.includes('Exception') ||
+            cleanLine.includes('Traceback');
 
-          // Filter duplicate errors at source (same error within 10 seconds = skip)
           if (isError) {
-            const now = Date.now();
-            const lastSeen = errorTimestampsRef.current.get(cleanLine);
-
-            // If we've seen this exact error within the last 10 seconds, skip it
-            if (lastSeen && now - lastSeen < 10000) {
-              return; // Skip duplicate error
-            }
-
-            // Update timestamp for this error
-            errorTimestampsRef.current.set(cleanLine, now);
+            setHasError(true);
           }
 
+          // Add to logs
           const newLog = {
             message: cleanLine,
             level: isError ? 'error' : 'warning',
@@ -147,14 +116,6 @@ export function useDaemonStartupLogs(isStarting) {
           logsRef.current = [...logsRef.current, newLog].slice(-50);
           setStartupLogs([...logsRef.current]);
           setLastMessage(cleanLine);
-
-          if (isError) {
-            setHasError(true);
-          }
-
-          // Don't add to frontendLogs - these logs are already in startupLogs for the scan view
-          // and will be in backend logs array, avoiding duplicates
-          // Errors are already filtered at source to prevent spam
         });
 
         if (isMounted) {

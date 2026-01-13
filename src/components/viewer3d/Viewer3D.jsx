@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo, useRef, memo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useEffect, useState, useMemo, useRef, memo, useCallback } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { IconButton, Switch, Tooltip, Box, Typography } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
@@ -10,9 +10,47 @@ import * as THREE from 'three';
 import Scene from './Scene';
 import { useRobotWebSocket } from './hooks';
 import useAppStore from '../../store/useAppStore';
+import { selectIsBusy } from '../../store/slices';
 import { arraysEqual } from '../../utils/arraysEqual';
 import SettingsOverlay from './SettingsOverlay';
 import { FPSMeter } from '../FPSMeter';
+
+/**
+ * WebGL Context Cleanup Component
+ * Ensures WebGL resources are properly disposed when Canvas unmounts
+ */
+function WebGLCleanup() {
+  const { gl, scene } = useThree();
+
+  useEffect(() => {
+    return () => {
+      // Dispose all geometries and materials in scene
+      scene?.traverse(object => {
+        if (object.geometry) {
+          object.geometry.dispose();
+        }
+        if (object.material) {
+          if (Array.isArray(object.material)) {
+            object.material.forEach(material => material.dispose());
+          } else {
+            object.material.dispose();
+          }
+        }
+      });
+
+      // Dispose renderer resources
+      gl?.dispose();
+
+      // Force WebGL context loss to free GPU memory
+      const loseContext = gl?.getContext()?.getExtension('WEBGL_lose_context');
+      if (loseContext) {
+        loseContext.loseContext();
+      }
+    };
+  }, [gl, scene]);
+
+  return null;
+}
 
 /**
  * Main 3D viewer component
@@ -95,6 +133,17 @@ export default function RobotViewer3D({
   const prevYawBodyRef = useRef(null);
   const prevPassiveJointsRef = useRef(null);
 
+  // 🔄 Reset refs when disconnecting (robot switch cleanup)
+  useEffect(() => {
+    if (!shouldConnectWebSocket) {
+      prevAntennasRef.current = null;
+      prevHeadPoseRef.current = null;
+      prevHeadJointsRef.current = null;
+      prevYawBodyRef.current = null;
+      prevPassiveJointsRef.current = null;
+    }
+  }, [shouldConnectWebSocket]);
+
   // ✅ OPTIMIZED: Only recalculate if values actually changed (not just reference)
   const finalAntennas = useMemo(() => {
     const value =
@@ -168,10 +217,9 @@ export default function RobotViewer3D({
   const [isTransparent, setIsTransparent] = useState(initialMode === 'xray');
   const [showSettingsOverlay, setShowSettingsOverlay] = useState(false);
 
-  // ✅ Get darkMode from store
+  // ✅ Get state from store
   const darkMode = useAppStore(state => state.darkMode);
-  const safeToShutdown = useAppStore(state => state.safeToShutdown);
-  const isWakeSleepTransitioning = useAppStore(state => state.isWakeSleepTransitioning);
+  const isBusy = useAppStore(selectIsBusy);
 
   // ✅ Adapt backgroundColor based on darkMode if not explicitly provided
   // If transparent, keep transparent. Otherwise adapt default color to darkMode
@@ -309,6 +357,8 @@ export default function RobotViewer3D({
           transformOrigin: 'center center',
         }}
       >
+        {/* ✅ WebGL cleanup on unmount to prevent context accumulation */}
+        <WebGLCleanup />
         {effectiveBackgroundColor !== 'transparent' && (
           <color attach="background" args={[effectiveBackgroundColor]} />
         )}
@@ -353,37 +403,21 @@ export default function RobotViewer3D({
             zIndex: 10,
           }}
         >
-          {/* Settings Button - Disabled when robot is busy/transitioning or during sleep transition */}
-          <Tooltip
-            title={
-              busyReason
-                ? 'Settings (unavailable while busy)'
-                : isWakeSleepTransitioning
-                  ? 'Settings (wait for transition...)'
-                  : robotStatus === 'sleeping' && !safeToShutdown
-                    ? 'Settings (wait for sleep transition...)'
-                    : 'Settings'
-            }
-            placement="top"
-            arrow
-          >
+          {/* Settings Button - Disabled when robot is busy */}
+          <Tooltip title="Settings" placement="top" arrow>
             <span>
               <IconButton
                 onClick={() => setShowSettingsOverlay(true)}
                 size="small"
-                disabled={
-                  !!busyReason ||
-                  isWakeSleepTransitioning ||
-                  (robotStatus === 'sleeping' && !safeToShutdown)
-                }
+                disabled={isBusy}
                 sx={{
                   width: 36,
                   height: 36,
                   transition: 'all 0.2s ease',
-                  color: busyReason ? (darkMode ? '#666' : '#999') : '#FF9500',
+                  color: isBusy ? (darkMode ? '#666' : '#999') : '#FF9500',
                   bgcolor: darkMode ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                   border: '1px solid',
-                  borderColor: busyReason
+                  borderColor: isBusy
                     ? darkMode
                       ? 'rgba(255, 255, 255, 0.1)'
                       : 'rgba(0, 0, 0, 0.1)'
@@ -394,14 +428,14 @@ export default function RobotViewer3D({
                   boxShadow: darkMode
                     ? '0 2px 8px rgba(0, 0, 0, 0.3)'
                     : '0 2px 8px rgba(0, 0, 0, 0.08)',
-                  opacity: busyReason ? 0.4 : 1,
+                  opacity: isBusy ? 0.4 : 1,
                   '&:hover': {
                     bgcolor: darkMode ? 'rgba(255, 149, 0, 0.15)' : 'rgba(255, 149, 0, 0.1)',
                     borderColor: '#FF9500',
-                    transform: busyReason ? 'none' : 'scale(1.05)',
+                    transform: isBusy ? 'none' : 'scale(1.05)',
                   },
                   '&:active': {
-                    transform: busyReason ? 'none' : 'scale(0.95)',
+                    transform: isBusy ? 'none' : 'scale(0.95)',
                   },
                   '&.Mui-disabled': {
                     bgcolor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.6)',

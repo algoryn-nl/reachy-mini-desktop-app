@@ -12,7 +12,7 @@ import {
   useDeepLink,
 } from '../hooks/system';
 import { useViewRouter, ViewRouterWrapper } from '../hooks/system/useViewRouter';
-import { useRobotCommands, useRobotState, useActiveMoves } from '../hooks/robot';
+import { useRobotCommands, useRobotStateWebSocket, useActiveMoves } from '../hooks/robot';
 import { DAEMON_CONFIG, setAppStoreInstance } from '../config/daemon';
 import { isDevMode } from '../utils/devMode';
 import useAppStore from '../store/useAppStore';
@@ -39,6 +39,7 @@ function App() {
     isCommandRunning,
     darkMode,
     setPendingDeepLinkInstall,
+    shouldStreamRobotState, // 🎯 Flag to start WebSocket early (during HardwareScanView)
   } = useAppStore();
   const {
     isActive,
@@ -195,24 +196,72 @@ function App() {
   // 🕐 USB check timing - manages when to start USB check after update view
   const { shouldShowUsbCheck } = useUsbCheckTiming(shouldShowUpdateView);
 
-  // 🎯 Centralized daemon health check (POST /health-check every 1.33s)
+  // 🎯 Daemon health check (POST /health-check every 2.5s)
   // Handles crash detection via timeout counting (3 consecutive timeouts = crash)
-  // This is separate from useRobotState to avoid polling heavy data for health checks
   useDaemonHealthCheck(isActive);
 
-  // 🎯 Centralized robot state polling (GET /api/state/full every 500ms for UI data)
-  // Does NOT handle crash detection anymore (that's useDaemonHealthCheck's job)
-  useRobotState(isActive);
+  // 🚀 Unified WebSocket for ALL robot state
+  // Streams at 20Hz: head_pose, head_joints, body_yaw, antennas, passive_joints, control_mode, doa
+  // 🎯 Start early when shouldStreamRobotState=true (HardwareScanView sets this when daemon is ready)
+  useRobotStateWebSocket(isActive || shouldStreamRobotState);
 
   // 🎯 Real-time active moves tracking (WebSocket /api/move/ws/updates)
   // Replaces the old polling of GET /api/move/running every 500ms
   useActiveMoves(isActive);
 
-  // ⚡ Cleanup is handled on Rust side in lib.rs:
-  // - Signal handler (SIGTERM/SIGINT) → cleanup_system_daemons()
-  // - on_window_event(CloseRequested) → kill_daemon()
-  // - on_window_event(Destroyed) → cleanup_system_daemons()
-  // → No need for JS handler (avoids redundancy)
+  // ⚡ Cleanup for USB/Simulation: handled on Rust side in lib.rs
+  // ⚡ Cleanup for WiFi: must be done in JS because daemon is on remote Pi
+  // Uses Tauri window close event (more reliable than beforeunload in WebView)
+  useEffect(() => {
+    // Only setup WiFi cleanup if connected via WiFi
+    if (connectionMode !== 'wifi') return;
+
+    let unlisten = null;
+
+    const setupCloseListener = async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
+        const currentWindow = getCurrentWindow();
+
+        unlisten = await currentWindow.onCloseRequested(async () => {
+          console.log('[App] Window close requested - cleaning up WiFi daemon');
+
+          try {
+            const remoteHost = useAppStore.getState().remoteHost;
+            if (remoteHost) {
+              const host = remoteHost.includes('://') ? remoteHost : `http://${remoteHost}`;
+              const baseUrl = host.endsWith(':8000') ? host : `${host}:8000`;
+              const url = `${baseUrl}/api/daemon/stop?goto_sleep=false`;
+
+              // Use tauriFetch (bypasses CORS) with a short timeout
+              await tauriFetch(url, {
+                method: 'POST',
+                connectTimeout: 2000,
+              }).catch(() => {});
+
+              console.log('[App] WiFi daemon stop sent');
+            }
+          } catch (e) {
+            // Ignore errors during cleanup
+            console.warn('[App] WiFi cleanup error:', e.message);
+          }
+
+          // Don't prevent close - let it proceed
+        });
+      } catch (e) {
+        console.warn('[App] Failed to setup close listener:', e.message);
+      }
+    };
+
+    setupCloseListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [connectionMode]);
 
   // Determine current view for automatic resize
   const currentView = useMemo(() => {
@@ -264,11 +313,10 @@ function App() {
     };
   }, [fetchLogs, checkUsbRobot, fetchDaemonVersion, shouldShowUpdateView, connectionMode]);
 
-  // ✅ USB disconnection detection is now handled by:
-  // 1. useRobotState health check (daemon stops responding → crash detection)
+  // ✅ USB disconnection detection is handled by:
+  // 1. Daemon health check (daemon stops responding → crash detection)
   // 2. USB polling only runs when !connectionMode (searching for robot)
   // 3. startConnection() sets isUsbConnected atomically, no race condition
-  // 4. hardwareError is reset in startConnection(), no need for separate useEffect
 
   // Determine which view to display based on app state
   const viewConfig = useViewRouter({

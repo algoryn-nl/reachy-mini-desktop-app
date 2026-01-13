@@ -1,49 +1,29 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { useController } from '../context/ControllerContext';
 import { getInputManager } from '@utils/InputManager';
 import {
   ROBOT_POSITION_RANGES,
-  TIMING,
   EXTENDED_ROBOT_RANGES,
   INPUT_SMOOTHING_FACTORS,
   INPUT_MAPPING_FACTORS,
   INPUT_THRESHOLDS,
+  TIMING,
 } from '@utils/inputConstants';
 import { hasActiveInput, clamp } from '@utils/inputHelpers';
 import { smoothInputs, getDeltaTime } from '@utils/inputSmoothing';
 import { mapInputToRobot } from '@utils/inputMappings';
-import { generateGamepadInputLog } from '../utils';
+
+// Body yaw range
+const BODY_YAW_RANGE = { min: (-160 * Math.PI) / 180, max: (160 * Math.PI) / 180 };
 
 /**
- * Hook to handle gamepad/keyboard input processing
- * Extracts input handling logic from useRobotPosition for better separation of concerns
- *
- * @param {Object} params - Hook parameters
- * @param {boolean} params.isActive - Whether the robot is active
- * @param {React.MutableRefObject} params.localValuesRef - Ref to current local values
- * @param {React.MutableRefObject} params.isDraggingRef - Ref to dragging state
- * @param {React.MutableRefObject} params.lastDragEndTimeRef - Ref to last drag end time
- * @param {React.MutableRefObject} params.isUsingGamepadKeyboardRef - Ref to gamepad/keyboard usage state
- * @param {React.MutableRefObject} params.lastGamepadKeyboardReleaseRef - Ref to last gamepad release time
- * @param {React.MutableRefObject} params.targetSmoothingRef - Ref to target smoothing manager
- * @param {React.MutableRefObject} params.antennasRef - Ref to current antennas values
- * @param {Function} params.setLocalValues - Setter for local values
- * @param {Function} params.setIsDragging - Setter for dragging state
- * @param {Function} params.safeAddFrontendLog - Safe logging function
+ * Hook for gamepad/keyboard input processing
+ * Integrates with the new ControllerContext architecture
  */
-export function useInputProcessing({
-  isActive,
-  localValuesRef,
-  isDraggingRef,
-  lastDragEndTimeRef,
-  isUsingGamepadKeyboardRef,
-  lastGamepadKeyboardReleaseRef,
-  targetSmoothingRef,
-  antennasRef,
-  setLocalValues,
-  setIsDragging,
-  safeAddFrontendLog,
-}) {
-  // Smoothing state for inputs (middleware layer for fluid movement)
+export function useControllerInput() {
+  const { state, actions, smoother, isDragging, isActive } = useController();
+
+  // Smoothing state for inputs (middleware layer)
   const smoothedInputsRef = useRef({
     moveForward: 0,
     moveRight: 0,
@@ -55,18 +35,22 @@ export function useInputProcessing({
     antennaLeft: 0,
     antennaRight: 0,
   });
-  const lastFrameTimeRef = useRef(performance.now());
-  const lastGamepadInputsRef = useRef(null);
-  const lastGamepadLogTimeRef = useRef(0);
 
-  // Process raw inputs from gamepad/keyboard
+  const lastFrameTimeRef = useRef(performance.now());
+  const wasActiveRef = useRef(false);
+
+  /**
+   * Process raw inputs from gamepad/keyboard
+   */
   const processInputs = useCallback(
     rawInputs => {
+      if (!isActive) return;
+
       // Calculate delta time for frame-rate independent smoothing
       const { currentTime } = getDeltaTime(lastFrameTimeRef.current);
       lastFrameTimeRef.current = currentTime;
 
-      // Apply exponential smoothing to inputs for fluid movement
+      // Apply exponential smoothing to inputs
       smoothedInputsRef.current = smoothInputs(smoothedInputsRef.current, rawInputs, {
         moveForward: INPUT_SMOOTHING_FACTORS.POSITION,
         moveRight: INPUT_SMOOTHING_FACTORS.POSITION,
@@ -80,55 +64,50 @@ export function useInputProcessing({
       });
 
       const inputs = smoothedInputsRef.current;
-      const currentValues = localValuesRef.current;
-      const currentHeadPose = currentValues.headPose;
-      const currentBodyYaw = currentValues.bodyYaw;
 
-      // Check if an input is active
+      // Check if any input is active
       const hasInput = hasActiveInput(inputs, INPUT_THRESHOLDS.ACTIVE_INPUT);
 
       if (!hasInput) {
-        isUsingGamepadKeyboardRef.current = false;
-        lastGamepadKeyboardReleaseRef.current = Date.now();
-
-        if (lastGamepadInputsRef.current) {
-          lastGamepadInputsRef.current = null;
-        }
-
-        if (isDraggingRef.current) {
-          setIsDragging(false);
-          isDraggingRef.current = false;
-          lastDragEndTimeRef.current = Date.now();
+        // No active input - end gamepad interaction if it was active
+        if (wasActiveRef.current) {
+          wasActiveRef.current = false;
+          actions.endInteraction();
         }
         return;
       }
 
-      isUsingGamepadKeyboardRef.current = true;
-
-      // Skip if recent mouse drag
-      const timeSinceDragEnd = Date.now() - lastDragEndTimeRef.current;
-      if (isDraggingRef.current && timeSinceDragEnd < TIMING.MOUSE_DRAG_COOLDOWN) {
-        return;
+      // Input is active
+      if (!wasActiveRef.current) {
+        wasActiveRef.current = true;
+        actions.startGamepadInput();
       }
+
+      // Get current values from state
+      const currentHeadPose = state.headPose;
+      const currentBodyYaw = state.bodyYaw;
 
       // Calculate new positions
       const POSITION_SENSITIVITY = INPUT_MAPPING_FACTORS.POSITION;
       const ROTATION_SENSITIVITY = INPUT_MAPPING_FACTORS.ROTATION;
       const BODY_YAW_SENSITIVITY = INPUT_MAPPING_FACTORS.BODY_YAW;
 
+      // Position X/Y (absolute mapping from stick position)
       const newX = inputs.moveForward * EXTENDED_ROBOT_RANGES.POSITION.max * POSITION_SENSITIVITY;
       const newY = inputs.moveRight * EXTENDED_ROBOT_RANGES.POSITION.max * POSITION_SENSITIVITY;
+
+      // Position Z (incremental)
       const zIncrement = inputs.moveUp * ROBOT_POSITION_RANGES.POSITION.max * POSITION_SENSITIVITY;
       const newZ = currentHeadPose.z + zIncrement;
 
+      // Rotation (with mapping)
       const mappedPitch = mapInputToRobot(inputs.lookVertical, 'pitch');
       const mappedYaw = mapInputToRobot(inputs.lookHorizontal, 'yaw');
       const newPitch = mappedPitch * EXTENDED_ROBOT_RANGES.PITCH.max * ROTATION_SENSITIVITY;
       const newYaw = mappedYaw * EXTENDED_ROBOT_RANGES.YAW.max * ROTATION_SENSITIVITY;
       const newRoll = inputs.roll * ROBOT_POSITION_RANGES.ROLL.max * ROTATION_SENSITIVITY;
 
-      // Body yaw increment
-      const BODY_YAW_RANGE = { min: (-160 * Math.PI) / 180, max: (160 * Math.PI) / 180 };
+      // Body yaw (incremental)
       const bodyYawRange = BODY_YAW_RANGE.max - BODY_YAW_RANGE.min;
       const bodyYawIncrement = inputs.bodyYaw * bodyYawRange * BODY_YAW_SENSITIVITY;
       const newBodyYaw = clamp(
@@ -137,7 +116,7 @@ export function useInputProcessing({
         BODY_YAW_RANGE.max
       );
 
-      // Antennas
+      // Antennas (absolute mapping)
       const antennaRange = ROBOT_POSITION_RANGES.ANTENNA.max - ROBOT_POSITION_RANGES.ANTENNA.min;
       const newAntennaLeft = clamp(
         ROBOT_POSITION_RANGES.ANTENNA.min + inputs.antennaLeft * antennaRange,
@@ -149,7 +128,6 @@ export function useInputProcessing({
         ROBOT_POSITION_RANGES.ANTENNA.min,
         ROBOT_POSITION_RANGES.ANTENNA.max
       );
-      const newAntennas = [newAntennaLeft, newAntennaRight];
 
       // Clamp all values
       const targetHeadPose = {
@@ -161,49 +139,23 @@ export function useInputProcessing({
         roll: clamp(newRoll, ROBOT_POSITION_RANGES.ROLL.min, ROBOT_POSITION_RANGES.ROLL.max),
       };
 
-      // Update state
-      setLocalValues(prev => ({
-        ...prev,
-        headPose: targetHeadPose,
-        bodyYaw: newBodyYaw,
-        antennas: newAntennas,
-      }));
+      const targetAntennas = [newAntennaLeft, newAntennaRight];
 
-      // Set smoothing targets
-      targetSmoothingRef.current.setTargets({
+      // Update context state
+      actions.updateAll({
         headPose: targetHeadPose,
-        antennas: newAntennas,
         bodyYaw: newBodyYaw,
+        antennas: targetAntennas,
       });
 
-      antennasRef.current = newAntennas;
-
-      // Intelligent logging (throttled)
-      const now = Date.now();
-      if (now - lastGamepadLogTimeRef.current > 500) {
-        const gamepadLog = generateGamepadInputLog(inputs, lastGamepadInputsRef.current);
-        if (gamepadLog) {
-          safeAddFrontendLog(gamepadLog);
-        }
-        lastGamepadInputsRef.current = { ...inputs };
-        lastGamepadLogTimeRef.current = now;
-      }
-
-      setIsDragging(true);
-      isDraggingRef.current = true;
+      // Update smoothing targets
+      smoother.setTargets({
+        headPose: targetHeadPose,
+        antennas: targetAntennas,
+        bodyYaw: newBodyYaw,
+      });
     },
-    [
-      localValuesRef,
-      isDraggingRef,
-      lastDragEndTimeRef,
-      isUsingGamepadKeyboardRef,
-      lastGamepadKeyboardReleaseRef,
-      targetSmoothingRef,
-      antennasRef,
-      setLocalValues,
-      setIsDragging,
-      safeAddFrontendLog,
-    ]
+    [isActive, state.headPose, state.bodyYaw, actions, smoother]
   );
 
   // Subscribe to input manager
@@ -215,8 +167,13 @@ export function useInputProcessing({
 
     return () => {
       unsubscribe();
+      // Reset on cleanup
+      if (wasActiveRef.current) {
+        wasActiveRef.current = false;
+        actions.endInteraction();
+      }
     };
-  }, [isActive, processInputs]);
+  }, [isActive, processInputs, actions]);
 
   return { processInputs };
 }
