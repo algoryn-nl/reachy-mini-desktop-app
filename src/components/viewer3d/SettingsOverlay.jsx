@@ -15,7 +15,7 @@ import { useToast } from '../../hooks/useToast';
 import {
   SettingsUpdateCard,
   SettingsWifiCard,
-  SettingsAppearanceCard,
+  SettingsPreferencesCard,
   SettingsCacheCard,
   ChangeWifiOverlay,
 } from './settings';
@@ -661,8 +661,8 @@ export default function SettingsOverlay({ open, onClose, darkMode }) {
             />
           )}
 
-          {/* Row 2: Appearance + Cache (WiFi) or just Appearance (Lite) */}
-          <SettingsAppearanceCard darkMode={darkMode} cardStyle={cardStyle} />
+          {/* Row 2: Preferences (Appearance + Privacy) + Cache (WiFi only) */}
+          <SettingsPreferencesCard darkMode={darkMode} cardStyle={cardStyle} />
 
           {isWifiMode && (
             <SettingsCacheCard

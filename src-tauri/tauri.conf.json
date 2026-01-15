@@ -23,7 +23,8 @@
         "transparent": false,
         "hiddenTitle": true,
         "titleBarStyle": "Transparent",
-        "devtools": true
+        "devtools": true,
+        "backgroundThrottling": "disabled"
       }
     ],
     "security": {
@@ -43,6 +44,9 @@
     ],
     "externalBin": [
       "binaries/uv-trampoline"
+    ],
+    "resources": [
+      "../scripts/avast_ssl_fix.py"
     ]
   },
   "plugins": {
