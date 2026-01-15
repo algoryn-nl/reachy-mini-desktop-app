@@ -72,10 +72,21 @@ export const createAppsSlice = (set, get) => ({
   setCurrentApp: app => {
     const prevApp = get().currentApp;
     // Log app transitions
+    // Extract app name from status object structure: { info: { name }, state, error? }
+    const getAppName = a => a?.info?.name || a?.name || a;
+    const prevAppName = getAppName(prevApp);
+    const currentAppName = getAppName(app);
+
     if (app && !prevApp) {
-      logAppStart(app.name || app);
+      // App starts (no previous app)
+      logAppStart(currentAppName);
     } else if (!app && prevApp) {
-      logAppStop(prevApp.name || prevApp);
+      // App stops (had a previous app)
+      logAppStop(prevAppName);
+    } else if (app && prevApp && currentAppName !== prevAppName) {
+      // App changes directly (app1 → app2)
+      logAppStop(prevAppName);
+      logAppStart(currentAppName);
     }
     set({ currentApp: app });
   },
