@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 import { useDaemon, useDaemonHealthCheck } from '../hooks/daemon';
-import { telemetry } from '../utils/telemetry';
+import { telemetry, updateTelemetryContext } from '../utils/telemetry';
 import {
   useUsbDetection,
   useLogs,
@@ -29,24 +29,6 @@ function App() {
     setAppStoreInstance(useAppStore);
   }, []);
 
-  // 📊 Telemetry: Track app lifecycle
-  useEffect(() => {
-    // Track app started (runs once on mount)
-    // eslint-disable-next-line no-undef
-    telemetry.appStarted({ version: __APP_VERSION__ });
-
-    // Track app closed on unmount/window close
-    const handleBeforeUnload = () => {
-      telemetry.appClosed();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      telemetry.appClosed();
-    };
-  }, []);
   const {
     daemonVersion,
     hardwareError,
@@ -76,6 +58,32 @@ function App() {
 
   // 🍞 Global toast for deep link feedback
   const { toast, toastProgress, showToast, handleCloseToast } = useToast();
+
+  // 📊 Telemetry: Track app lifecycle
+  useEffect(() => {
+    // Track app started (runs once on mount)
+    // eslint-disable-next-line no-undef
+    telemetry.appStarted({ version: __APP_VERSION__ });
+
+    // Track app closed on unmount/window close
+    const handleBeforeUnload = () => {
+      telemetry.appClosed();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      telemetry.appClosed();
+    };
+  }, []);
+
+  // 📊 Telemetry: Update context when daemon version is available
+  useEffect(() => {
+    if (daemonVersion && daemonVersion !== 'unknown') {
+      updateTelemetryContext({ daemon_version: daemonVersion });
+    }
+  }, [daemonVersion]);
 
   // 🔗 Deep link handler - at root level for global access
   // Note: Toast is shown in ActiveRobotView when processing completes (with accurate status)

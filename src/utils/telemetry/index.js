@@ -25,6 +25,103 @@ import {
 export { EVENTS } from './events';
 
 // ============================================================================
+// TELEMETRY CONSENT MANAGEMENT
+// ============================================================================
+
+const TELEMETRY_CONSENT_KEY = 'telemetry_enabled';
+
+/**
+ * Check if telemetry is enabled (opt-out approach)
+ * Default: enabled (user can disable in settings)
+ * @returns {boolean}
+ */
+export const isTelemetryEnabled = () => {
+  try {
+    const stored = localStorage.getItem(TELEMETRY_CONSENT_KEY);
+    // Default to true (enabled) if not set - opt-out approach
+    return stored === null ? true : JSON.parse(stored);
+  } catch {
+    return true; // Default to enabled
+  }
+};
+
+/**
+ * Set telemetry enabled/disabled state
+ * @param {boolean} enabled
+ */
+export const setTelemetryEnabled = enabled => {
+  try {
+    localStorage.setItem(TELEMETRY_CONSENT_KEY, JSON.stringify(enabled));
+    if (import.meta.env.DEV) {
+      console.log(`[Telemetry] ${enabled ? 'Enabled' : 'Disabled'}`);
+    }
+  } catch (error) {
+    console.warn('[Telemetry] Failed to save preference:', error);
+  }
+};
+
+// ============================================================================
+// CONTEXT PROPERTIES (sent with every event)
+// ============================================================================
+
+/**
+ * Get OS type (macOS, Windows, Linux)
+ */
+const getOSType = () => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (userAgent.includes('mac')) return 'macOS';
+  if (userAgent.includes('win')) return 'Windows';
+  if (userAgent.includes('linux')) return 'Linux';
+  return 'Unknown';
+};
+
+/**
+ * Initialize telemetry context with app metadata
+ * Should be called once at app startup
+ * @param {{ appVersion: string, daemonVersion?: string }} context
+ */
+export const initTelemetry = async context => {
+  try {
+    const os = getOSType();
+
+    // Set super properties (sent with every event)
+    // Note: PostHog Tauri plugin auto-captures these as event properties
+    // We'll add them manually to each event for now
+    if (import.meta.env.DEV) {
+      console.log('[Telemetry] Context initialized:', {
+        os,
+        app_version: context.appVersion,
+        daemon_version: context.daemonVersion || 'unknown',
+      });
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[Telemetry] Failed to initialize context:', error);
+    }
+  }
+};
+
+/**
+ * Global context to include in events
+ */
+let globalContext = {
+  os: getOSType(),
+  app_version: 'unknown',
+  daemon_version: 'unknown',
+};
+
+/**
+ * Update global context (e.g., when daemon version is available)
+ * @param {Object} updates - Context updates
+ */
+export const updateTelemetryContext = updates => {
+  globalContext = { ...globalContext, ...updates };
+  if (import.meta.env.DEV) {
+    console.log('[Telemetry] Context updated:', globalContext);
+  }
+};
+
+// ============================================================================
 // TELEMETRY SINGLETON
 // ============================================================================
 
@@ -50,14 +147,29 @@ const appStartTimes = new Map();
 
 /**
  * Track an event safely (catches errors to avoid breaking the app)
+ * Respects user's telemetry consent preference
  * @param {string} event - Event name
  * @param {Object} props - Event properties (strings and numbers only)
  */
 const track = async (event, props = {}) => {
+  // Respect user's telemetry preference
+  if (!isTelemetryEnabled()) {
+    if (import.meta.env.DEV) {
+      console.log(`[Telemetry] Skipped (disabled): ${event}`);
+    }
+    return;
+  }
+
   try {
+    // Merge global context with event properties
+    const propsWithContext = {
+      ...globalContext,
+      ...props,
+    };
+
     // Filter out undefined/null values
     const cleanProps = Object.fromEntries(
-      Object.entries(props).filter(([_, v]) => v !== undefined && v !== null)
+      Object.entries(propsWithContext).filter(([_, v]) => v !== undefined && v !== null)
     );
 
     await PostHog.capture(event, cleanProps);
@@ -89,6 +201,12 @@ export const telemetry = {
    */
   appStarted: (props = {}) => {
     sessionStartTime = Date.now();
+
+    // Update global context with app version
+    if (props.version) {
+      updateTelemetryContext({ app_version: props.version });
+    }
+
     track(EVENTS.APP_STARTED, {
       version: props.version,
     });
