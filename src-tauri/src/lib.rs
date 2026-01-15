@@ -117,6 +117,11 @@ pub fn run() {
             logs: std::sync::Mutex::new(std::collections::VecDeque::new()),
         })
         .setup(|app| {
+            // 🔌 Start USB device monitor (Windows: event-driven, no polling, no terminal flicker)
+            if let Err(e) = usb::start_monitor() {
+                eprintln!("⚠️ Failed to start USB monitor: {}", e);
+            }
+            
             #[cfg(target_os = "macos")]
             {
                 let window = app.get_webview_window("main").unwrap();
