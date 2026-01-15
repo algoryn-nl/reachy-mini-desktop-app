@@ -29,7 +29,7 @@ export const DAEMON_CONFIG = {
   INTERVALS: {
     HEALTHCHECK_POLLING: 2500, // Health check every 2.5s (crash detection)
     LOGS_FETCH: 1000, // Logs every 1s
-    USB_CHECK: 1000, // USB every 1s (only when not connected)
+    USB_CHECK: 3000, // USB every 3s (reduced to prevent terminal flicker on Windows)
     VERSION_FETCH: 10000, // Version every 10s
     APP_STATUS: 2000, // Current app status every 2s
     JOB_POLLING: 500, // Poll job install/remove every 500ms
