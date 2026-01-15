@@ -26,11 +26,18 @@ fi
 REACHY_MINI_SOURCE="${REACHY_MINI_SOURCE:-pypi}"
 
 # Only check if reachy_mini repository exists when using local path
-# (not needed for PyPI or GitHub branch installs)
-if [ "$REACHY_MINI_SOURCE" != "pypi" ] && [[ "$REACHY_MINI_SOURCE" =~ ^[./] ]] && [ ! -d "$REACHY_MINI_SOURCE" ]; then
-    echo "❌ reachy_mini repository not found at $REACHY_MINI_SOURCE"
-    echo "   Please ensure the reachy_mini repository is cloned at the expected location"
-    exit 1
+# Skip check for:
+# - "pypi" (install from PyPI)
+# - branch names like "develop", "main", etc. (install from GitHub)
+if [ "$REACHY_MINI_SOURCE" != "pypi" ]; then
+    # If it looks like a path (contains /, ./, or ../), verify it exists
+    if [[ "$REACHY_MINI_SOURCE" == */* ]] || [[ "$REACHY_MINI_SOURCE" == .* ]]; then
+        if [ ! -d "$REACHY_MINI_SOURCE" ]; then
+            echo "❌ reachy_mini repository not found at $REACHY_MINI_SOURCE"
+            echo "   Please ensure the reachy_mini repository is cloned at the expected location"
+            exit 1
+        fi
+    fi
 fi
 
 # Create a temporary Python virtual environment for building
