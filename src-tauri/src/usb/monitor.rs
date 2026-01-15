@@ -4,7 +4,6 @@
 /// This completely eliminates the need for polling, preventing terminal flicker issues on Windows.
 
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 
 #[cfg(target_os = "windows")]
 use windows::{
@@ -12,7 +11,6 @@ use windows::{
     Win32::Foundation::*,
     Win32::System::LibraryLoader::GetModuleHandleW,
     Win32::UI::WindowsAndMessaging::*,
-    Win32::Devices::DeviceAndDriverInstallation::*,
 };
 
 /// Shared state for USB device monitoring
@@ -107,21 +105,15 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
         WM_DEVICECHANGE => {
             const DBT_DEVICEARRIVAL: u32 = 0x8000;
             const DBT_DEVICEREMOVECOMPLETE: u32 = 0x8004;
-            const DBT_DEVTYP_PORT: u32 = 0x00000003;
             
             let event = wparam.0 as u32;
             
             // Update port list on device arrival or removal
             if event == DBT_DEVICEARRIVAL || event == DBT_DEVICEREMOVECOMPLETE {
-                // Only update if it's a port device
-                if lparam.0 != 0 {
-                    let hdr = unsafe { &*(lparam.0 as *const DEV_BROADCAST_HDR) };
-                    if hdr.dbch_devicetype == DBT_DEVTYP_PORT {
-                        // Device change detected - update port list
-                        if let Ok(mut state) = USB_MONITOR.lock() {
-                            state.update();
-                        }
-                    }
+                // Device change detected - update port list
+                // We update on all device changes since serial port events may not always have detailed type info
+                if let Ok(mut state) = USB_MONITOR.lock() {
+                    state.update();
                 }
             }
             
@@ -138,10 +130,10 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
 #[cfg(target_os = "windows")]
 /// Start the USB device monitor in a background thread
 /// This creates a hidden message-only window to receive WM_DEVICECHANGE messages
-pub fn start_monitor() -> Result<(), String> {
+pub fn start_monitor() -> std::result::Result<(), String> {
     std::thread::spawn(|| {
         unsafe {
-            let result: Result<(), Error> = (|| {
+            let result: windows::core::Result<()> = (|| {
                 // Get module handle
                 let h_instance = GetModuleHandleW(None).map_err(|e| {
                     eprintln!("[USB Monitor] Failed to get module handle: {}", e);
@@ -150,14 +142,15 @@ pub fn start_monitor() -> Result<(), String> {
 
                 // Register window class
                 let class_name = w!("ReachyUsbMonitorWindow");
-                let wnd_class = WNDCLASSW {
+                let wnd_class = WNDCLASSEXW {
+                    cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
                     lpfnWndProc: Some(wnd_proc),
                     hInstance: h_instance.into(),
                     lpszClassName: class_name,
                     ..Default::default()
                 };
 
-                let atom = RegisterClassW(&wnd_class);
+                let atom = RegisterClassExW(&wnd_class);
                 if atom == 0 {
                     return Err(Error::from_win32());
                 }
@@ -192,11 +185,7 @@ pub fn start_monitor() -> Result<(), String> {
                     HANDLE(hwnd.0),
                     &mut filter as *mut _ as *mut _,
                     DEVICE_NOTIFY_WINDOW_HANDLE,
-                );
-
-                if hdevnotify.is_invalid() {
-                    return Err(Error::from_win32());
-                }
+                )?;
 
                 println!("[USB Monitor] Event-driven monitor started successfully");
 
@@ -216,7 +205,7 @@ pub fn start_monitor() -> Result<(), String> {
                 }
 
                 // Cleanup
-                UnregisterDeviceNotification(hdevnotify);
+                let _ = UnregisterDeviceNotification(hdevnotify);
 
                 Ok(())
             })();

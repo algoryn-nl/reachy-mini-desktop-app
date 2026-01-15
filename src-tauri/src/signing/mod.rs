@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 /// Re-sign Python binaries (.so, .dylib) in .venv after pip install
 /// This fixes the Team ID mismatch issue on macOS where pip-installed binaries
 /// are not signed with the same Team ID as the app bundle

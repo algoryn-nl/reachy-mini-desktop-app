@@ -140,7 +140,12 @@ pub fn run() {
             logs: std::sync::Mutex::new(std::collections::VecDeque::new()),
         })
         .manage(local_proxy_state)
-        .setup(move |app| {
+        .setup(move |
+            #[cfg(target_os = "macos")]
+            app,
+            #[cfg(not(target_os = "macos"))]
+            _app
+        | {
             // 🔌 Start USB device monitor (Windows: event-driven, no polling, no terminal flicker)
             if let Err(e) = usb::start_monitor() {
                 eprintln!("⚠️ Failed to start USB monitor: {}", e);

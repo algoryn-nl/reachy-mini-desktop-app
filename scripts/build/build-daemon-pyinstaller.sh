@@ -22,9 +22,13 @@ else
     echo "🔍 Detected target triplet: $TRIPLET"
 fi
 
-# Check if reachy_mini repository exists
-if [ ! -d "$REACHY_MINI_PATH" ]; then
-    echo "❌ reachy_mini repository not found at $REACHY_MINI_PATH"
+# Use REACHY_MINI_SOURCE env var if set, default to 'pypi'
+REACHY_MINI_SOURCE="${REACHY_MINI_SOURCE:-pypi}"
+
+# Only check if reachy_mini repository exists when using local path
+# (not needed for PyPI or GitHub branch installs)
+if [ "$REACHY_MINI_SOURCE" != "pypi" ] && [[ "$REACHY_MINI_SOURCE" =~ ^[./] ]] && [ ! -d "$REACHY_MINI_SOURCE" ]; then
+    echo "❌ reachy_mini repository not found at $REACHY_MINI_SOURCE"
     echo "   Please ensure the reachy_mini repository is cloned at the expected location"
     exit 1
 fi
@@ -40,9 +44,6 @@ echo "📥 Installing PyInstaller..."
 pip install --quiet pyinstaller
 
 echo "📥 Installing reachy-mini..."
-# Use REACHY_MINI_SOURCE env var if set, default to local path
-REACHY_MINI_SOURCE="${REACHY_MINI_SOURCE:-$REACHY_MINI_PATH}"
-
 if [ "$REACHY_MINI_SOURCE" = "pypi" ]; then
     echo "   Installing from PyPI..."
     pip install reachy-mini
