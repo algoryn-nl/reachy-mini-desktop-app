@@ -8,6 +8,7 @@
 pub async fn sign_python_binaries() -> Result<String, String> {
     use std::process::Command;
     use std::env;
+    use std::path::PathBuf;
     
     // Run the signing work in a blocking thread to avoid blocking the async runtime
     let result = tauri::async_runtime::spawn_blocking(move || {
