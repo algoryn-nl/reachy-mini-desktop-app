@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import useAppStore from '../store/useAppStore';
 import { useDaemon } from './daemon/useDaemon';
 import {
@@ -91,6 +92,13 @@ export function useConnection() {
             console.error('WiFi mode requires host option');
             return false;
           }
+          // Set local proxy target for WiFi mode (bypasses browser PNA restrictions)
+          try {
+            await invoke('set_local_proxy_target', { host: options.host });
+            console.log(`[Local Proxy] Target set to: ${options.host}`);
+          } catch (e) {
+            console.warn('[Local Proxy] Failed to set target:', e);
+          }
           startConnection('wifi', { remoteHost: options.host });
           break;
 
@@ -132,6 +140,13 @@ export function useConnection() {
     }
 
     try {
+      // Clear local proxy target
+      try {
+        await invoke('clear_local_proxy_target');
+        console.log('[Local Proxy] Target cleared');
+      } catch (e) {
+        console.warn('[Local Proxy] Failed to clear target:', e);
+      }
       await stopDaemon();
       return true;
     } catch (e) {

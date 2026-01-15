@@ -8,9 +8,12 @@ mod update;
 mod usb;
 mod wifi;
 mod window;
+mod local_proxy;
 
+use std::sync::Arc;
 use tauri::{State, Manager};
 use daemon::{DaemonState, add_log, kill_daemon, cleanup_system_daemons, spawn_and_monitor_sidecar};
+use local_proxy::LocalProxyState;
 
 #[cfg(not(windows))]
 use signal_hook::{consts::TERM_SIGNALS, iterator::Signals};
@@ -69,6 +72,22 @@ fn get_logs(state: State<DaemonState>) -> Vec<String> {
 }
 
 // ============================================================================
+// LOCAL PROXY COMMANDS
+// ============================================================================
+
+#[tauri::command]
+async fn set_local_proxy_target(state: State<'_, Arc<LocalProxyState>>, host: String) -> Result<(), String> {
+    local_proxy::set_target_host(&state, host).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn clear_local_proxy_target(state: State<'_, Arc<LocalProxyState>>) -> Result<(), String> {
+    local_proxy::clear_target_host(&state).await;
+    Ok(())
+}
+
+// ============================================================================
 // ENTRY POINT
 // ============================================================================
 
@@ -111,12 +130,17 @@ pub fn run() {
     } else {
         builder
     };
+
+    // Create shared local proxy state (proxy starts on-demand when WiFi target is set)
+    let local_proxy_state = Arc::new(LocalProxyState::new());
+
     builder
         .manage(DaemonState {
             process: std::sync::Mutex::new(None),
             logs: std::sync::Mutex::new(std::collections::VecDeque::new()),
         })
-        .setup(|app| {
+        .manage(local_proxy_state)
+        .setup(move |app| {
             #[cfg(target_os = "macos")]
             {
                 let window = app.get_webview_window("main").unwrap();
@@ -157,7 +181,9 @@ pub fn run() {
             wifi::scan_local_wifi_networks,
             wifi::get_current_wifi_ssid,
             update::check_daemon_update,
-            update::update_daemon
+            update::update_daemon,
+            set_local_proxy_target,
+            clear_local_proxy_target
         ])
         .on_window_event(|window, event| {
             match event {
