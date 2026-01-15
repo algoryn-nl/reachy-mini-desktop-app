@@ -1,3 +1,6 @@
+#[cfg(target_os = "macos")]
+use std::path::PathBuf;
+
 /// Re-sign Python binaries (.so, .dylib) in .venv after pip install
 /// This fixes the Team ID mismatch issue on macOS where pip-installed binaries
 /// are not signed with the same Team ID as the app bundle
@@ -8,7 +11,6 @@
 pub async fn sign_python_binaries() -> Result<String, String> {
     use std::process::Command;
     use std::env;
-    use std::path::PathBuf;
     
     // Run the signing work in a blocking thread to avoid blocking the async runtime
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -257,7 +259,7 @@ pub async fn sign_python_binaries() -> Result<String, String> {
         }
         // Apply entitlements to all libpython*.dylib files
         let use_entitlements = dylib_file.file_name()
-            .map(|n| n.to_string_lossy().starts_with("libpython"))
+            .and_then(|n: &std::ffi::OsStr| Some(n.to_string_lossy().starts_with("libpython")))
             .unwrap_or(false);
         
         if use_entitlements {
