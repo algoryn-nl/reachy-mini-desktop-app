@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 import { useDaemon, useDaemonHealthCheck } from '../hooks/daemon';
-import { telemetry, updateTelemetryContext } from '../utils/telemetry';
+import { telemetry, initTelemetry, updateTelemetryContext } from '../utils/telemetry';
 import {
   useUsbDetection,
   useLogs,
@@ -59,11 +59,20 @@ function App() {
   // 🍞 Global toast for deep link feedback
   const { toast, toastProgress, showToast, handleCloseToast } = useToast();
 
-  // 📊 Telemetry: Track app lifecycle
+  // 📊 Telemetry: Initialize and track app lifecycle
   useEffect(() => {
-    // Track app started (runs once on mount)
-    // eslint-disable-next-line no-undef
-    telemetry.appStarted({ version: __APP_VERSION__ });
+    const init = async () => {
+      // eslint-disable-next-line no-undef
+      const appVersion = __APP_VERSION__;
+
+      // Initialize telemetry with super properties (OS, versions)
+      await initTelemetry({ appVersion });
+
+      // Track app started
+      telemetry.appStarted({ version: appVersion });
+    };
+
+    init();
 
     // Track app closed on unmount/window close
     const handleBeforeUnload = () => {

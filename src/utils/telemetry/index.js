@@ -78,46 +78,49 @@ const getOSType = () => {
 /**
  * Initialize telemetry context with app metadata
  * Should be called once at app startup
+ * Uses PostHog.register() to set super properties sent with ALL events
  * @param {{ appVersion: string, daemonVersion?: string }} context
  */
 export const initTelemetry = async context => {
   try {
     const os = getOSType();
 
-    // Set super properties (sent with every event)
-    // Note: PostHog Tauri plugin auto-captures these as event properties
-    // We'll add them manually to each event for now
+    // Register super properties (automatically included in ALL events)
+    const superProps = {
+      os,
+      app_version: context.appVersion || 'unknown',
+      daemon_version: context.daemonVersion || 'unknown',
+    };
+
+    await PostHog.register(superProps);
+
     if (import.meta.env.DEV) {
-      console.log('[Telemetry] Context initialized:', {
-        os,
-        app_version: context.appVersion,
-        daemon_version: context.daemonVersion || 'unknown',
-      });
+      console.log('[Telemetry] Super properties registered:', superProps);
     }
   } catch (error) {
     if (import.meta.env.DEV) {
-      console.warn('[Telemetry] Failed to initialize context:', error);
+      console.warn('[Telemetry] Failed to register super properties:', error);
     }
   }
 };
 
 /**
- * Global context to include in events
+ * Update telemetry context (e.g., when daemon version becomes available)
+ * Uses PostHog.register() to update super properties
+ * @param {Object} updates - Context updates (e.g., { daemon_version: '1.2.8' })
  */
-let globalContext = {
-  os: getOSType(),
-  app_version: 'unknown',
-  daemon_version: 'unknown',
-};
+export const updateTelemetryContext = async updates => {
+  try {
+    // Update super properties (will merge with existing)
+    await PostHog.register(updates);
 
-/**
- * Update global context (e.g., when daemon version is available)
- * @param {Object} updates - Context updates
- */
-export const updateTelemetryContext = updates => {
-  globalContext = { ...globalContext, ...updates };
-  if (import.meta.env.DEV) {
-    console.log('[Telemetry] Context updated:', globalContext);
+    if (import.meta.env.DEV) {
+      console.log('[Telemetry] Super properties updated:', updates);
+    }
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[Telemetry] Failed to update super properties:', error);
+    }
   }
 };
 
@@ -161,15 +164,11 @@ const track = async (event, props = {}) => {
   }
 
   try {
-    // Merge global context with event properties
-    const propsWithContext = {
-      ...globalContext,
-      ...props,
-    };
-
     // Filter out undefined/null values
+    // Note: Super properties (os, app_version, daemon_version) are automatically
+    // added to every event by PostHog.register() - no need to merge manually
     const cleanProps = Object.fromEntries(
-      Object.entries(propsWithContext).filter(([_, v]) => v !== undefined && v !== null)
+      Object.entries(props).filter(([_, v]) => v !== undefined && v !== null)
     );
 
     await PostHog.capture(event, cleanProps);
@@ -199,12 +198,12 @@ export const telemetry = {
    * Track app started
    * @param {{ version?: string }} props
    */
-  appStarted: (props = {}) => {
+  appStarted: async (props = {}) => {
     sessionStartTime = Date.now();
 
-    // Update global context with app version
+    // Update super properties with app version
     if (props.version) {
-      updateTelemetryContext({ app_version: props.version });
+      await updateTelemetryContext({ app_version: props.version });
     }
 
     track(EVENTS.APP_STARTED, {
