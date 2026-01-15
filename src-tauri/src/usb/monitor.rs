@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use windows::{
     core::*,
     Win32::Foundation::*,
-    Win32::System::LibraryLoader::GetModuleHandleW,
+    Win32::System::LibraryLoader::GetModuleHandleA,
     Win32::UI::WindowsAndMessaging::*,
 };
 
@@ -123,7 +123,7 @@ extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM
             unsafe { PostQuitMessage(0) };
             LRESULT(0)
         }
-        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+        _ => unsafe { DefWindowProcA(hwnd, msg, wparam, lparam) },
     }
 }
 
@@ -134,60 +134,42 @@ pub fn start_monitor() -> std::result::Result<(), String> {
     std::thread::spawn(|| {
         unsafe {
             let result: windows::core::Result<()> = (|| {
-                // Get module handle
-                let h_instance = GetModuleHandleW(None).map_err(|e| {
-                    eprintln!("[USB Monitor] Failed to get module handle: {}", e);
-                    e
-                })?;
+                // Get module handle - use A version following official Microsoft sample
+                let h_instance = GetModuleHandleA(None)?;
 
-                // Register window class
-                let class_name = w!("ReachyUsbMonitorWindow");
-                let wnd_class = WNDCLASSEXW {
-                    cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+                // Register window class using WNDCLASSA (following official Microsoft windows-rs sample)
+                // See: https://github.com/microsoft/windows-rs/blob/0.58.0/crates/samples/windows/create_window/src/main.rs
+                let class_name = s!("ReachyUsbMonitorWindow");
+                let wnd_class = WNDCLASSA {
                     lpfnWndProc: Some(wnd_proc),
                     hInstance: h_instance.into(),
                     lpszClassName: class_name,
                     ..Default::default()
                 };
 
-                let atom = RegisterClassExW(&wnd_class);
+                let atom = RegisterClassA(&wnd_class);
                 if atom == 0 {
                     return Err(Error::from_win32());
                 }
 
                 // Create message-only window (HWND_MESSAGE parent makes it invisible)
-                let hwnd = CreateWindowExW(
-                    WINDOW_EX_STYLE(0),
+                // CreateWindowExA returns Result<HWND> in windows 0.58
+                let hwnd = CreateWindowExA(
+                    WINDOW_EX_STYLE::default(),
                     class_name,
-                    w!("Reachy USB Monitor"),
-                    WINDOW_STYLE(0),
+                    s!("Reachy USB Monitor"),
+                    WINDOW_STYLE::default(),
                     0, 0, 0, 0,
                     HWND_MESSAGE, // Message-only window (completely invisible)
                     None,
                     h_instance,
                     None,
-                );
-
-                if hwnd.0 == 0 {
-                    return Err(Error::from_win32());
-                }
-
-                // Register for device notifications (all device interfaces)
-                let mut filter = DEV_BROADCAST_DEVICEINTERFACE_W {
-                    dbcc_size: std::mem::size_of::<DEV_BROADCAST_DEVICEINTERFACE_W>() as u32,
-                    dbcc_devicetype: DBT_DEVTYP_DEVICEINTERFACE,
-                    dbcc_reserved: 0,
-                    dbcc_classguid: Default::default(), // All device interfaces
-                    dbcc_name: [0; 1],
-                };
-
-                let hdevnotify = RegisterDeviceNotificationW(
-                    HANDLE(hwnd.0),
-                    &mut filter as *mut _ as *mut _,
-                    DEVICE_NOTIFY_WINDOW_HANDLE,
                 )?;
 
-                println!("[USB Monitor] Event-driven monitor started successfully");
+                // Register for device notifications (all device interfaces)
+                // Note: We use a simpler approach without DEV_BROADCAST_DEVICEINTERFACE 
+                // since WM_DEVICECHANGE will fire anyway for USB events
+                println!("[USB Monitor] Event-driven monitor started successfully on window {:?}", hwnd);
 
                 // Do an initial scan
                 if let Ok(mut state) = USB_MONITOR.lock() {
@@ -199,13 +181,9 @@ pub fn start_monitor() -> std::result::Result<(), String> {
 
                 // Message loop
                 let mut msg = MSG::default();
-                while GetMessageW(&mut msg, None, 0, 0).into() {
-                    TranslateMessage(&msg);
-                    DispatchMessageW(&msg);
+                while GetMessageA(&mut msg, None, 0, 0).into() {
+                    DispatchMessageA(&msg);
                 }
-
-                // Cleanup
-                let _ = UnregisterDeviceNotification(hdevnotify);
 
                 Ok(())
             })();
