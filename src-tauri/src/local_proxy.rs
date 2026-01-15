@@ -254,11 +254,17 @@ async fn handle_http(
     let mut remote_stream = match TcpStream::connect(&remote_addr).await {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("[proxy] ❌ HTTP failed to connect to {}: {}", remote_addr, e);
+            // Friendly error message - service may still be starting up
+            let (status, message) = if e.kind() == std::io::ErrorKind::ConnectionRefused {
+                ("503 Service Unavailable", "No content yet - service starting up")
+            } else {
+                ("502 Bad Gateway", "Remote service unavailable")
+            };
             let response = format!(
-                "HTTP/1.1 502 Bad Gateway\r\nContent-Length: {}\r\n\r\n{}",
-                e.to_string().len(),
-                e
+                "HTTP/1.1 {}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}",
+                status,
+                message.len(),
+                message
             );
             local_stream.write_all(response.as_bytes()).await?;
             return Ok(());
