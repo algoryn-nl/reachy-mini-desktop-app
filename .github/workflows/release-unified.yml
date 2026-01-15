@@ -131,8 +131,8 @@ jobs:
             libportaudio2 \
             portaudio19-dev
           
-          # Run PyInstaller build script
-          TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-daemon-pyinstaller.sh
+          # Run PyInstaller build script (install from PyPI)
+          REACHY_MINI_SOURCE=pypi TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-daemon-pyinstaller.sh
           
           # Verify the binary was created
           DAEMON_BIN="src-tauri/binaries/reachy-mini-daemon-${{ matrix.target }}"
