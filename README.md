@@ -51,6 +51,7 @@ This desktop application provides a unified interface to manage your Reachy Mini
   - If using `nvm`: `nvm install --lts && nvm use --lts`
 - Rust (latest stable)
 - System dependencies for Tauri ([see Tauri docs](https://v2.tauri.app/start/prerequisites/))
+  - **Linux users**: See [Linux Setup Guide](./docs/LINUX_SETUP.md) for detailed installation instructions
 
 ### Installation
 
@@ -117,6 +118,8 @@ REACHY_MINI_SOURCE=feature/my-feature bash ./scripts/build/build-sidecar-unix.sh
 
 ## 📖 Documentation
 
+- [Linux Setup Guide](./docs/LINUX_SETUP.md) - Linux installation and configuration
+- [Linux Packaging Strategy](./docs/LINUX_PACKAGING_STRATEGY.md) - Linux distribution strategy and solutions
 - [Scripts Directory](./scripts/README.md) - Organization and usage of build scripts
 - [Code Signing](./docs/CODE_SIGNING_REPORT.md) - macOS and Windows code signing documentation
 - [Update System](./docs/README.md) - Auto-updater and GitHub Pages deployment

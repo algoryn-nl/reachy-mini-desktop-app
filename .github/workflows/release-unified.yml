@@ -36,11 +36,12 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             platform: windows-x86_64
-          # Linux disabled temporarily - AppImage bundling fails due to Python venv native deps
+          # Linux re-enabled with PyInstaller (solves AppImage bundling issue)
+          # PyInstaller creates a standalone binary instead of bundling the venv
           # See: https://github.com/pollen-robotics/reachy-mini-desktop-app/issues/35
-          # - os: ubuntu-22.04
-          #   target: x86_64-unknown-linux-gnu
-          #   platform: linux-x86_64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
 
     runs-on: ${{ matrix.os }}
 
@@ -110,11 +111,38 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-      - name: Build sidecar (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Build sidecar (macOS)
+        if: startsWith(matrix.os, 'macos')
         shell: bash
         run: |
-          TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-sidecar-unix.sh || echo "Sidecar build skipped"
+          TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-sidecar-unix.sh
+
+      - name: Build daemon with PyInstaller (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          echo "🐍 Building reachy-mini daemon with PyInstaller for Linux..."
+          
+          # Install system dependencies for PyInstaller
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-dev \
+            python3-pip \
+            libportaudio2 \
+            portaudio19-dev
+          
+          # Run PyInstaller build script
+          TARGET_TRIPLET=${{ matrix.target }} bash ./scripts/build/build-daemon-pyinstaller.sh
+          
+          # Verify the binary was created
+          DAEMON_BIN="src-tauri/binaries/reachy-mini-daemon-${{ matrix.target }}"
+          if [ ! -f "$DAEMON_BIN" ]; then
+            echo "❌ Daemon binary not found: $DAEMON_BIN"
+            exit 1
+          fi
+          
+          echo "✅ PyInstaller build complete"
+          ls -lh "$DAEMON_BIN"
 
       - name: Update macOS resources config with cpython folder name
         if: startsWith(matrix.os, 'macos')
@@ -144,30 +172,19 @@ jobs:
           echo "📦 Contents of src-tauri/binaries/:"
           ls -la src-tauri/binaries/
 
-      - name: Update Linux resources config with cpython folder name
+      - name: Use PyInstaller config for Linux
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: |
-          # Find the actual cpython folder name created by uv-bundle
-          CPYTHON_FOLDER=$(ls -d src-tauri/binaries/cpython-* 2>/dev/null | head -1 | xargs basename || echo "")
+          echo "🔧 Using PyInstaller configuration for Linux build..."
           
-          if [ -z "$CPYTHON_FOLDER" ]; then
-            echo "⚠️  No cpython folder found in src-tauri/binaries/, skipping config update"
-            exit 0
-          fi
+          # Use the simplified PyInstaller config (single binary, no venv)
+          cp src-tauri/tauri.linux.pyinstaller.conf.json src-tauri/tauri.linux.conf.json
           
-          echo "🔧 Found cpython folder: $CPYTHON_FOLDER"
-          echo "   Updating tauri.linux.conf.json..."
-          
-          # Update the tauri.linux.conf.json with the exact cpython folder name
-          # Replace glob patterns with the actual folder name using sed
-          sed -i "s|cpython-3.12\*-linux-x86_64\*|$CPYTHON_FOLDER|g" src-tauri/tauri.linux.conf.json
-          sed -i "s|cpython-3.12-linux-x86_64|$CPYTHON_FOLDER|g" src-tauri/tauri.linux.conf.json
-          
-          echo "✅ Updated tauri.linux.conf.json:"
+          echo "✅ PyInstaller configuration active:"
           cat src-tauri/tauri.linux.conf.json
           
-          # Verify the binaries directory contents
+          # Verify the daemon binary exists
           echo ""
           echo "📦 Contents of src-tauri/binaries/:"
           ls -la src-tauri/binaries/
