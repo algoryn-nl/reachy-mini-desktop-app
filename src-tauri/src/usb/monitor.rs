@@ -3,8 +3,6 @@
 /// This module provides event-driven USB device detection using Windows WM_DEVICECHANGE messages.
 /// This completely eliminates the need for polling, preventing terminal flicker issues on Windows.
 
-use std::sync::{Arc, Mutex};
-
 #[cfg(target_os = "windows")]
 use windows::{
     core::*,
