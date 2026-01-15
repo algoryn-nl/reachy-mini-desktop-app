@@ -1,20 +1,23 @@
 {
-  "version": "0.7.27",
-  "notes": "Update for version 0.7.27",
-  "pub_date": "2025-12-17T13:59:12Z",
+  "version": "0.9.10",
+  "notes": "Update for version 0.9.10",
+  "pub_date": "2026-01-15T16:56:30Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTVlUFh2Z25YcHgzQm5xcjA2WW96NHNYVXpMbnRpMWVyLzFlb24xSHJwTDFCVjFRRGdZMTVvUk1IcWR3b1dKQU9hOWMrM2FuVWpqNTlWVnk1anlkVVFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1OTgwNTkxCWZpbGU6UmVhY2h5IE1pbmkgQ29udHJvbF8wLjcuMjdfeDY0X2VuLVVTLm1zaS56aXAKRkczaEF4dmJ0R213M0VobytpYkhMdzlxZ29BQm5jMVl6aFFubXdWd05Rd1lZditnSFhoMFNYQTI3VUJLVElPOG0yVHV1bU9nRnhUdDRWaVprd1hXRHc9PQo=",
-      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.7.27/Reachy.Mini.Control_0.7.27_x64_en-US.msi.zip"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTRWTXd0aG9WMFZnVVNILzVqWkp0ejhUSGlKNFVnci9QanhnN1IySFVUR0RuL0E2QmZ3Y2hYbmJ4b0F4YTJ1dWwwVEU4dm9tejA3L3FpVmE0RG1mM3c0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4NDk2MTg5CWZpbGU6UmVhY2h5IE1pbmkgQ29udHJvbF8wLjkuMTBfeDY0X2VuLVVTLm1zaS56aXAKSUxrSUVDTUZwc2dxU29yVHF4aEdnZ3NzM2YyNm8xbGw2TTJhZDdraXIvZGRDdzBRUVUwbnI2Q3pnSkZad2F4ZGZLSjFwYXU5VGJkMmxiTmZKcW1iQ3c9PQo=",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.9.10/Reachy.Mini.Control_0.9.10_x64_en-US.msi.zip"
     },
     "darwin-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTdTNzVKQ3F3dCs2bDZnWlptczRmcGhOYkFSSXFLc3BUTk80bkhQZE82K3ZpdTFXZVJ2MjVCZ1Q1clRLMXlYRWtEKy8wVjZjdXJKQ2dZN0l6UzJsUHdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1OTgyMTA3CWZpbGU6cmVhY2h5LW1pbmktY29udHJvbF8wLjcuMjdfZGFyd2luLXg4Nl82NC5hcHAudGFyLmd6ClM3QUFPeGpnbm82VW4rL05sVnp1K2JwODRhOEdZbmxmOFRIM21udXROaEdVRGxiZDJIS2w4b05aSmhkTU5LZExTV1VWQXBPVnpKMU9SWHhqNWV3OUFnPT0K",
-      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.7.27/reachy-mini-control_0.7.27_darwin-x86_64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTJQb0NUSkpyQkY2dy9KdXRkTjM0TFZvY09yMUcvWWpvdFRZK3dIbFhKNEUxUnZySjd4SUJFT1lkY2hWcTVpZFZVNURVYmNoQ2JKdk0ydFZBYWd0NHdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4NDk4NDIwCWZpbGU6cmVhY2h5LW1pbmktY29udHJvbF8wLjkuMTBfZGFyd2luLXg4Nl82NC5hcHAudGFyLmd6CndmSmJXcklEKzZBeWRmQmNpaWgwT25PQnYrazhxS3dXMjhySXhscVdzdWNYU3NySTVRTVc0OWhCTlJ3TlBkb3IwQVEySUhJZWtUdnpxSVgrdnVyOEJBPT0K",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.9.10/reachy-mini-control_0.9.10_darwin-x86_64.app.tar.gz"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQStjWTFtUjY4VThkemtGd3BKYmFySVJIWXZPK3ZTZWZTdjAzZHRRNzRaSWRaZ051eVJrM1ZBdkd6WWRKclNTb0IvMXdOQkE2UnluUVA1blprMDlVRGdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4NDk1ODAwCWZpbGU6UmVhY2h5IE1pbmkgQ29udHJvbF8wLjkuMTBfYW1kNjQuQXBwSW1hZ2UudGFyLmd6Ckczd0E4NitTYWhWWjRVanpZRjdnV0lIcXRndkNORld4S296K0JHY2x3U0krb2NsNEtod3lWUmtNNnpESHh3NmZpTE9IbjVSSG5uZThlclp6OWNvaUN3PT0K",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.9.10/Reachy.Mini.Control_0.9.10_amd64.AppImage.tar.gz"
     },
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQTlLU1BZaDNqdXZTNk5MMFlDK3VtZzFMK3NUTmpadm5zWis5eUU3M2xWeUNUT01laWxVbzZWS2twQmdGbnBFL3FNSmlsSU1ZTjdvL0p5NEQ1OE1WWXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1OTgyNDg1CWZpbGU6cmVhY2h5LW1pbmktY29udHJvbF8wLjcuMjdfZGFyd2luLWFhcmNoNjQuYXBwLnRhci5negp2ejc0TlBWT2NHQjFIcmlRL3ptMlVGT0dOM0xTdnZNb3lJbDVJTkN6Q1BuWGFXOUlpWlhENjhUelhzcFVSNHhJaWM2TVB4RmFLTjBJUGNZRzd1b1ZCQT09Cg==",
-      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.7.27/reachy-mini-control_0.7.27_darwin-aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSbGxxdjdxaHFrQXk1cWx3dnl2bnlyYnJtQ3lneTZWeW5ReHE1Rk9nN1BHZmdlMW1HcWdHZXlUT0pUczdycmVpWWpMUTR4aURRS0hrM2NlUk16V05MMjR3SzlQNHB3OUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY4NDk3NDE5CWZpbGU6cmVhY2h5LW1pbmktY29udHJvbF8wLjkuMTBfZGFyd2luLWFhcmNoNjQuYXBwLnRhci5negorR1dEcnZQMDVSWjhjR09QeXBkNnBXNk9VckRlb09tdEVVWHIvdVZMQUQ5V05XMFZXWlZaTy9kRDZQYkZRU3lyQ0NwZGVmRnRTYTZpUUxDTTYxaEFDUT09Cg==",
+      "url": "https://github.com/pollen-robotics/reachy-mini-desktop-app/releases/download/v0.9.10/reachy-mini-control_0.9.10_darwin-aarch64.app.tar.gz"
     }
   }
 }
-
